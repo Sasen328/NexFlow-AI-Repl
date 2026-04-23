@@ -1,7 +1,7 @@
 import { useContacts } from "@/hooks/useApi";
-import { Search, Plus, Phone, Mail, Star, TrendingUp, Filter } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 import { useState } from "react";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -32,6 +32,7 @@ function ScoreBadge({ score }: { score: number }) {
 export default function ContactsPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [, navigate] = useLocation();
   const { data, isLoading } = useContacts(
     search || status ? { ...(search ? { search } : {}), ...(status ? { status } : {}) } : undefined
   );
@@ -83,26 +84,31 @@ export default function ContactsPage() {
               <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">Score</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Status</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground hidden xl:table-cell">Tags</th>
+              <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               Array(6).fill(0).map((_, i) => (
                 <tr key={i} className="border-b border-border/20">
-                  <td colSpan={6} className="px-5 py-3.5">
+                  <td colSpan={7} className="px-5 py-3.5">
                     <div className="h-8 bg-muted/60 rounded animate-pulse" />
                   </td>
                 </tr>
               ))
             ) : contacts.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground text-sm">
+                <td colSpan={7} className="px-5 py-10 text-center text-muted-foreground text-sm">
                   No contacts found
                 </td>
               </tr>
             ) : (
               contacts.map((c: any) => (
-                <tr key={c.id} className="border-b border-border/20 hover:bg-muted/20 transition-colors cursor-pointer group">
+                <tr
+                  key={c.id}
+                  className="border-b border-border/20 hover:bg-muted/20 transition-colors cursor-pointer group"
+                  onClick={() => navigate(`/contacts/${c.id}`)}
+                >
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full nf-chameleon-bg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
@@ -122,11 +128,13 @@ export default function ContactsPage() {
                   <td className="px-4 py-3.5 hidden lg:table-cell">
                     <span className="text-sm text-muted-foreground">{c.title ?? "—"}</span>
                   </td>
-                  <td className="px-4 py-3.5 flex justify-center">
-                    <ScoreBadge score={c.lead_score ?? 0} />
+                  <td className="px-4 py-3.5">
+                    <div className="flex justify-center">
+                      <ScoreBadge score={c.lead_score ?? 0} />
+                    </div>
                   </td>
                   <td className="px-4 py-3.5">
-                    <span className={cn("text-xs px-2 py-1 rounded-full font-medium", STATUS_COLORS[c.status] ?? "bg-muted text-muted-foreground")}>
+                    <span className={cn("text-xs px-2 py-1 rounded-full font-medium capitalize", STATUS_COLORS[c.status] ?? "bg-muted text-muted-foreground")}>
                       {c.status}
                     </span>
                   </td>
@@ -136,6 +144,11 @@ export default function ContactsPage() {
                         <span key={t} className="text-xs px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground">{t}</span>
                       ))}
                     </div>
+                  </td>
+                  <td className="px-4 py-3.5 text-right">
+                    <span className="text-[10px] text-[#B8A0C8] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                      View profile →
+                    </span>
                   </td>
                 </tr>
               ))
