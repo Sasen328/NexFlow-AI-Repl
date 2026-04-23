@@ -1,6 +1,7 @@
 import { useCompanies } from "@/hooks/useApi";
-import { Search, Plus, Building2, Globe, Users2, TrendingUp } from "lucide-react";
+import { Search, Plus, Building2, Globe, Users2, TrendingUp, Sparkles } from "lucide-react";
 import { useState } from "react";
+import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 
 const INDUSTRY_COLORS: Record<string, string> = {
@@ -45,7 +46,11 @@ export default function CompaniesPage() {
             <div key={i} className="glass-card rounded-2xl p-5 h-40 animate-pulse bg-muted/30" />
           ))
         ) : companies.map((c: any) => (
-          <div key={c.id} className="glass-card rounded-2xl p-5 hover:shadow-md transition-all cursor-pointer group">
+          <Link key={c.id} href={`/companies/${c.id}`}>
+          <div className="glass-card rounded-2xl p-5 hover:shadow-md transition-all cursor-pointer group h-full">
+            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Sparkles className="w-3.5 h-3.5 text-[#B8A0C8]" />
+            </div>
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl nf-chameleon-bg flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
@@ -88,6 +93,7 @@ export default function CompaniesPage() {
               </div>
             )}
           </div>
+          </Link>
         ))}
       </div>
     </div>
