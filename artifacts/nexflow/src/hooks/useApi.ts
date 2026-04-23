@@ -47,12 +47,24 @@ export function useDeal(id: string) {
 
 export function useActivities(params?: Record<string, string>) {
   const qs = params ? "?" + new URLSearchParams(params).toString() : "";
-  return useQuery({ queryKey: ["activities", params], queryFn: () => apiFetch(`/activities${qs}`) });
+  return useQuery({
+    queryKey: ["activities", params],
+    queryFn: async () => {
+      const r = await apiFetch(`/activities${qs}`);
+      return Array.isArray(r) ? { activities: r } : r;
+    },
+  });
 }
 
 export function useSignals(params?: Record<string, string>) {
   const qs = params ? "?" + new URLSearchParams(params).toString() : "";
-  return useQuery({ queryKey: ["signals", params], queryFn: () => apiFetch(`/signals${qs}`) });
+  return useQuery({
+    queryKey: ["signals", params],
+    queryFn: async () => {
+      const r = await apiFetch(`/signals${qs}`);
+      return Array.isArray(r) ? { signals: r } : r;
+    },
+  });
 }
 
 export function useSegments() {
@@ -61,7 +73,13 @@ export function useSegments() {
 
 export function useCalls(params?: Record<string, string>) {
   const qs = params ? "?" + new URLSearchParams(params).toString() : "";
-  return useQuery({ queryKey: ["calls", params], queryFn: () => apiFetch(`/calls${qs}`) });
+  return useQuery({
+    queryKey: ["calls", params],
+    queryFn: async () => {
+      const r = await apiFetch(`/calls${qs}`);
+      return Array.isArray(r) ? { calls: r } : r;
+    },
+  });
 }
 
 export function useScripts(params?: Record<string, string>) {
