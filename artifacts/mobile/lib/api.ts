@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 function apiBase() {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
@@ -15,10 +15,12 @@ export async function apiFetch<T = any>(path: string, opts?: RequestInit): Promi
   const url = `${apiBase()}${path}`;
   const method = (opts?.method || "GET").toUpperCase();
   const hasBody = opts?.body != null;
-  // Avoid CORS preflight for simple GET requests by NOT sending Content-Type.
-  // Only set Content-Type when there's actually a JSON body to send.
+  // CORS workaround for the workspace proxy (which strips Access-Control-Allow-Origin
+  // from OPTIONS preflight responses): keep all requests as "simple" CORS requests.
+  // GETs send no Content-Type. POSTs send `text/plain` (a CORS-safe content type)
+  // and the API server is configured to JSON-parse text/plain bodies.
   const baseHeaders: Record<string, string> = hasBody
-    ? { "Content-Type": "application/json" }
+    ? { "Content-Type": "text/plain;charset=UTF-8" }
     : {};
   const res = await fetch(url, {
     method,
@@ -31,6 +33,10 @@ export async function apiFetch<T = any>(path: string, opts?: RequestInit): Promi
   }
   if (res.status === 204) return null as T;
   return res.json() as Promise<T>;
+}
+
+export async function apiPost<T = any>(path: string, body: any): Promise<T> {
+  return apiFetch<T>(path, { method: "POST", body: JSON.stringify(body ?? {}) });
 }
 
 // ---------- Types (loose) ----------
@@ -184,6 +190,27 @@ export function useSignalSummary() {
     queryKey: ["dashboard", "signal-summary"],
     queryFn: () => apiFetch<SignalSummary>(`/dashboard/signal-summary`),
     staleTime: 30_000,
+  });
+}
+
+export function useLogCall() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      contact_id: string;
+      outcome: "connected" | "no_answer" | "voicemail" | "wrong_number";
+      notes?: string;
+      duration_seconds?: number;
+      run_orchestrator?: boolean;
+    }) =>
+      apiPost<{ call: any; orchestration: { plan?: any; activities_created?: number } | null }>(
+        "/calls/log",
+        { ...input, run_orchestrator: input.run_orchestrator ?? true },
+      ),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["contact", vars.contact_id, "activities"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
   });
 }
 

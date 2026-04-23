@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, router, Stack } from "expo-router";
@@ -8,7 +8,7 @@ import { useColors } from "@/hooks/useColors";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { formatCurrency } from "@/data/mockData";
-import { dealHealth, initials, stageLabel, useContact, useContactActivities, useDeals } from "@/lib/api";
+import { dealHealth, initials, stageLabel, useContact, useContactActivities, useDeals, useLogCall } from "@/lib/api";
 
 const TABS = ["Overview", "Activity", "Deals"] as const;
 
@@ -33,6 +33,8 @@ export default function ContactDetail() {
   const contactQ = useContact(id);
   const activitiesQ = useContactActivities(id);
   const dealsQ = useDeals();
+  const logCall = useLogCall();
+  const [logOpen, setLogOpen] = useState(false);
   const contact = contactQ.data;
   const activities = activitiesQ.data ?? [];
   const myDeals = (dealsQ.data?.deals ?? []).filter((d) => d.contact_id === id);
@@ -139,6 +141,7 @@ export default function ContactDetail() {
           ].map((a) => (
             <Pressable
               key={a.label}
+              onPress={a.label === "Call" ? () => setLogOpen(true) : undefined}
               style={({ pressed }) => [
                 styles.actionBtn,
                 {
@@ -319,9 +322,243 @@ export default function ContactDetail() {
           )}
         </View>
       </ScrollView>
+
+      <QuickLogSheet
+        visible={logOpen}
+        onClose={() => setLogOpen(false)}
+        contactName={`${contact.first_name} ${contact.last_name}`.trim()}
+        submitting={logCall.isPending}
+        error={logCall.error ? (logCall.error as Error).message : null}
+        onSubmit={async (payload) => {
+          try {
+            const result = await logCall.mutateAsync({ contact_id: id!, ...payload });
+            setLogOpen(false);
+            setActiveTab("Activity");
+            // The mutation onSuccess already invalidates; ensure fresh fetch:
+            activitiesQ.refetch();
+            return result;
+          } catch {
+            // error is surfaced via logCall.error
+            return null;
+          }
+        }}
+      />
     </>
   );
 }
+
+type QuickLogPayload = {
+  outcome: "connected" | "no_answer" | "voicemail" | "wrong_number";
+  notes: string;
+  duration_seconds: number;
+};
+
+function QuickLogSheet({
+  visible,
+  onClose,
+  contactName,
+  submitting,
+  error,
+  onSubmit,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  contactName: string;
+  submitting: boolean;
+  error: string | null;
+  onSubmit: (p: QuickLogPayload) => Promise<any>;
+}) {
+  const colors = useColors();
+  const [outcome, setOutcome] = useState<QuickLogPayload["outcome"]>("connected");
+  const [notes, setNotes] = useState("");
+  const [duration, setDuration] = useState(180);
+
+  const outcomes: { key: QuickLogPayload["outcome"]; label: string; color: string }[] = [
+    { key: "connected", label: "Connected", color: "#7FB069" },
+    { key: "voicemail", label: "Voicemail", color: "#C8A880" },
+    { key: "no_answer", label: "No Answer", color: "#B8A0C8" },
+    { key: "wrong_number", label: "Wrong #", color: "#D88A8A" },
+  ];
+  const durations = [60, 180, 300, 600];
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable
+        onPress={onClose}
+        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: colors.card,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 20,
+              paddingBottom: 32,
+              gap: 14,
+            }}
+          >
+            <View style={{ alignItems: "center" }}>
+              <View style={{ width: 44, height: 4, borderRadius: 2, backgroundColor: colors.border }} />
+            </View>
+            <View>
+              <Text style={[sheetStyles.kicker, { color: "#88B8B0" }]}>LOG A CALL</Text>
+              <Text style={[sheetStyles.title, { color: colors.foreground }]} numberOfLines={1}>
+                {contactName || "Contact"}
+              </Text>
+              <Text style={[sheetStyles.sub, { color: colors.mutedForeground }]}>
+                AI will polish your notes and queue next-best actions.
+              </Text>
+            </View>
+
+            <View>
+              <Text style={[sheetStyles.fieldLabel, { color: colors.mutedForeground }]}>OUTCOME</Text>
+              <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                {outcomes.map((o) => {
+                  const active = outcome === o.key;
+                  return (
+                    <Pressable
+                      key={o.key}
+                      onPress={() => setOutcome(o.key)}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        borderRadius: 999,
+                        backgroundColor: active ? o.color : colors.muted,
+                        borderWidth: 1,
+                        borderColor: active ? o.color : colors.border,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: "Inter_600SemiBold",
+                          fontSize: 12,
+                          color: active ? "#fff" : colors.foreground,
+                        }}
+                      >
+                        {o.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View>
+              <Text style={[sheetStyles.fieldLabel, { color: colors.mutedForeground }]}>DURATION</Text>
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+                {durations.map((d) => {
+                  const active = duration === d;
+                  const label = d < 60 ? `${d}s` : d < 3600 ? `${Math.round(d / 60)}m` : `${Math.round(d / 3600)}h`;
+                  return (
+                    <Pressable
+                      key={d}
+                      onPress={() => setDuration(d)}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 10,
+                        borderRadius: 12,
+                        alignItems: "center",
+                        backgroundColor: active ? "#88B8B0" : colors.muted,
+                        borderWidth: 1,
+                        borderColor: active ? "#88B8B0" : colors.border,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: "Inter_600SemiBold",
+                          fontSize: 12,
+                          color: active ? "#fff" : colors.foreground,
+                        }}
+                      >
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View>
+              <Text style={[sheetStyles.fieldLabel, { color: colors.mutedForeground }]}>NOTES</Text>
+              <TextInput
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="Quick brain-dump — AI will structure it..."
+                placeholderTextColor={colors.mutedForeground}
+                multiline
+                style={{
+                  marginTop: 8,
+                  minHeight: 90,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  padding: 12,
+                  color: colors.foreground,
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 13,
+                  textAlignVertical: "top",
+                }}
+              />
+            </View>
+
+            {error ? (
+              <Text style={{ color: "#D88A8A", fontFamily: "Inter_500Medium", fontSize: 12 }}>{error}</Text>
+            ) : null}
+
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
+              <Pressable
+                onPress={onClose}
+                disabled={submitting}
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                  alignItems: "center",
+                  backgroundColor: colors.muted,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.foreground }}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                disabled={submitting}
+                onPress={() => onSubmit({ outcome, notes, duration_seconds: duration })}
+                style={{
+                  flex: 2,
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                  alignItems: "center",
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  gap: 8,
+                  backgroundColor: "#88B8B0",
+                  opacity: submitting ? 0.7 : 1,
+                }}
+              >
+                {submitting ? <ActivityIndicator color="#fff" size="small" /> : (
+                  <Feather name="zap" size={14} color="#fff" />
+                )}
+                <Text style={{ fontFamily: "Inter_700Bold", color: "#fff" }}>
+                  {submitting ? "Saving…" : "Save with AI"}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const sheetStyles = StyleSheet.create({
+  kicker: { fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 1 },
+  title: { fontFamily: "Inter_700Bold", fontSize: 20, marginTop: 2 },
+  sub: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 4 },
+  fieldLabel: { fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 1 },
+});
 
 function Row({ icon, label, colors }: { icon: keyof typeof Feather.glyphMap; label: string; colors: any }) {
   return (

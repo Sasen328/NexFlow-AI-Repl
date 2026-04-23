@@ -121,3 +121,11 @@ Rich sample data pre-seeded: 8 contacts (GCC-focused), 6 companies (Saudi/UAE), 
 - All four tabs (Briefing, Pipeline, Contacts, Agents) + Contact Detail now consume live API instead of mockData
 - CORS workaround: `apiFetch` omits `Content-Type` on GETs to keep them as "simple" requests and skip preflight (the workspace proxy strips `Access-Control-Allow-Origin` from OPTIONS responses)
 - `artifacts/api-server/src/app.ts` updated to `cors({ origin: true })` so the GET response reflects the request origin
+
+### Phase G — Mobile Mutations + AI Quick Log
+- First mobile→API write loop: tapping "Call" on a contact opens a Quick Log bottom sheet (`QuickLogSheet` in `app/contact/[id].tsx`) with outcome chips, duration presets, and a notes field
+- New `useLogCall` mutation hook in `lib/api.ts` posts to `/api/calls/log`; on success it switches the active tab to "Activity" and invalidates the activities query
+- `apiPost` helper sends bodies as `text/plain;charset=UTF-8` — a CORS-safe content type — so POSTs stay "simple" requests and bypass the workspace proxy's broken OPTIONS preflight
+- `app.use(express.json({ type: ["application/json", "text/plain"] }))` lets the API server parse those bodies as JSON
+- `/api/calls/log` now: (1) inserts the call row, (2) calls AI to polish raw notes into a concise activity title + body, (3) inserts an `activities` row of type `call`, (4) when `run_orchestrator: true`, asks AI to generate next-best actions and inserts each as a pending `activities` row (whatsapp/task/email/meeting). All AI calls have safe fallbacks.
+- Result: rep types brain-dump notes on mobile → AI produces a polished activity entry + 2-3 follow-up tasks, all visible in the contact timeline immediately
