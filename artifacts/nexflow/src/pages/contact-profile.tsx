@@ -1,11 +1,11 @@
-import { useContact, useActivities, useCalls, useDeals, useSignals } from "@/hooks/useApi";
+import { useContact, useActivities, useCalls, useDeals, useSignals, useContactLists, usePropertyValues, useProperties, useUpsertPropertyValue } from "@/hooks/useApi";
 import { Link } from "wouter";
 import {
   ArrowLeft, Mail, Phone, Linkedin, Globe, MapPin, Building2, Star,
   Brain, Zap, TrendingUp, MessageSquare, Activity, Edit, Send, MoreHorizontal,
   CheckCircle2, AlertCircle, RefreshCw, ExternalLink, Tag, Users, Award,
   Briefcase, GraduationCap, Languages, Calendar, Code2, DollarSign,
-  Sparkles, ChevronRight, FileText, Database, Bot
+  Sparkles, ChevronRight, FileText, Database, Bot, ListChecks, Settings2, Check
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -230,6 +230,12 @@ export default function ContactProfilePage({ params }: Props) {
                 ))}
               </div>
             </div>
+
+            {/* List memberships */}
+            <ContactListsCard contactId={id} />
+
+            {/* Custom properties */}
+            <CustomPropertiesCard entityId={id} objectType="contact" />
 
             {/* Mutual Connections */}
             <div className="glass-card rounded-2xl p-5">
@@ -505,6 +511,118 @@ export default function ContactProfilePage({ params }: Props) {
               Run Full Re-Enrichment
             </button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ContactListsCard({ contactId }: { contactId: string }) {
+  const { data, isLoading } = useContactLists(contactId);
+  const lists = data?.lists ?? [];
+  return (
+    <div className="glass-card rounded-2xl p-5">
+      <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+        <ListChecks className="w-3 h-3 text-[#88B8B0]" />
+        List Memberships
+      </h3>
+      {isLoading ? (
+        <div className="h-8 bg-muted/40 rounded animate-pulse" />
+      ) : lists.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Not in any list yet. Add from the contacts page.</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {lists.map((l: any) => (
+            <Link key={l.id} href={`/lists/${l.id}`}>
+              <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-full bg-muted/60 hover:bg-muted text-foreground cursor-pointer transition-colors">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: l.color ?? "#B8A0C8" }} />
+                {l.name}
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomPropertiesCard({ entityId, objectType }: { entityId: string; objectType: string }) {
+  const { data: propsData } = useProperties(objectType);
+  const { data: valuesData } = usePropertyValues(entityId);
+  const upsert = useUpsertPropertyValue();
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState<string>("");
+
+  const props = propsData?.properties ?? [];
+  const values = valuesData?.values ?? [];
+  const valueMap = new Map<string, any>(values.map((v: any) => [v.property_id, v.value]));
+
+  function startEdit(propId: string, current: any) {
+    setEditing(propId);
+    setDraft(current == null ? "" : typeof current === "string" ? current : JSON.stringify(current));
+  }
+  async function save(propId: string, type: string) {
+    let parsed: any = draft;
+    if (type === "number") parsed = draft === "" ? null : Number(draft);
+    if (type === "boolean") parsed = draft === "true";
+    if (type === "multiselect") parsed = draft.split(",").map(s => s.trim()).filter(Boolean);
+    await upsert.mutateAsync({ property_id: propId, entity_id: entityId, value: parsed });
+    setEditing(null);
+  }
+
+  return (
+    <div className="glass-card rounded-2xl p-5">
+      <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+        <Settings2 className="w-3 h-3 text-[#C8A880]" />
+        Custom Properties
+      </h3>
+      {props.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          No custom properties defined. <Link href="/properties"><span className="text-[#B8A0C8] cursor-pointer">Create one →</span></Link>
+        </p>
+      ) : (
+        <div className="space-y-2.5">
+          {props.map((p: any) => {
+            const v = valueMap.get(p.id);
+            const isEditing = editing === p.id;
+            return (
+              <div key={p.id} className="text-xs">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">{p.label}</div>
+                {isEditing ? (
+                  <div className="flex items-center gap-1">
+                    {p.type === "select" ? (
+                      <select autoFocus className="flex-1 px-2 py-1 rounded bg-muted/60 border border-border/40 text-xs outline-none" value={draft} onChange={e => setDraft(e.target.value)}>
+                        <option value="">—</option>
+                        {(p.options ?? []).map((o: string) => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    ) : p.type === "boolean" ? (
+                      <select autoFocus className="flex-1 px-2 py-1 rounded bg-muted/60 border border-border/40 text-xs outline-none" value={draft} onChange={e => setDraft(e.target.value)}>
+                        <option value="">—</option>
+                        <option value="true">Yes</option>
+                        <option value="false">No</option>
+                      </select>
+                    ) : (
+                      <input
+                        autoFocus
+                        type={p.type === "number" ? "number" : p.type === "date" ? "date" : "text"}
+                        className="flex-1 px-2 py-1 rounded bg-muted/60 border border-border/40 text-xs outline-none text-foreground"
+                        value={draft}
+                        onChange={e => setDraft(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") save(p.id, p.type); if (e.key === "Escape") setEditing(null); }}
+                      />
+                    )}
+                    <button onClick={() => save(p.id, p.type)} disabled={upsert.isPending} className="p-1 rounded text-[#88B8B0] hover:bg-muted/40">
+                      <Check className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => startEdit(p.id, v)} className="text-left text-foreground hover:text-[#B8A0C8] transition-colors w-full truncate">
+                    {v == null || v === "" ? <span className="text-muted-foreground italic">+ set value</span> : Array.isArray(v) ? v.join(", ") : String(v)}
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

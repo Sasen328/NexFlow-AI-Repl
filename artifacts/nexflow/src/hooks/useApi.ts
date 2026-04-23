@@ -265,6 +265,43 @@ export function useRunCustomAgent() {
     onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["agents", vars.id] }),
   });
 }
+export function useContactLists(id: string) {
+  return useQuery({ queryKey: ["contacts", id, "lists"], queryFn: () => apiFetch(`/contacts/${id}/lists`), enabled: !!id });
+}
+export function usePropertyValues(entityId: string) {
+  return useQuery({ queryKey: ["property-values", entityId], queryFn: () => apiFetch(`/properties/values/${entityId}`), enabled: !!entityId });
+}
+export function useUpsertPropertyValue() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { property_id: string; entity_id: string; value: any }) =>
+      apiFetch(`/properties/values`, { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["property-values", vars.entity_id] }),
+  });
+}
+export function useBulkAddToLists() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { list_ids: string[]; entity_ids: string[] }) =>
+      apiFetch(`/lists/bulk-add`, { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lists"] }); qc.invalidateQueries({ queryKey: ["contacts"] }); },
+  });
+}
+export function useSaveView() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; object_type: string; filters: any }) =>
+      apiFetch(`/views`, { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["views"] }),
+  });
+}
+export function useDeleteView() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch(`/views/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["views"] }),
+  });
+}
 export function usePostCallOrchestrate() {
   return useMutation({
     mutationFn: ({ callId, outcome }: { callId: string; outcome: string }) =>

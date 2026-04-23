@@ -70,6 +70,21 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+// Bulk add a contact/company to multiple lists at once
+router.post("/bulk-add", async (req, res) => {
+  try {
+    const { list_ids, entity_ids } = req.body as { list_ids: string[]; entity_ids: string[] };
+    if (!Array.isArray(list_ids) || !Array.isArray(entity_ids)) return res.status(400).json({ error: "list_ids and entity_ids required" });
+    const rows: any[] = [];
+    for (const lid of list_ids) for (const eid of entity_ids) rows.push({ list_id: lid, entity_id: eid });
+    if (!rows.length) return res.json({ added: 0 });
+    await db.insert(static_list_members).values(rows).onConflictDoNothing();
+    res.status(201).json({ added: rows.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
 router.post("/:id/members", async (req, res) => {
   try {
     const { entity_ids } = req.body as { entity_ids: string[] };

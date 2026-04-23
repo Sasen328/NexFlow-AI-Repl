@@ -1,17 +1,30 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { contacts, companies, activities } from "@workspace/db";
-import { eq, ilike, or, desc } from "drizzle-orm";
+import { contacts, companies, activities, static_list_members, static_lists, users } from "@workspace/db";
+import { and, eq, ilike, or, desc, inArray, sql } from "drizzle-orm";
 
 const router = Router();
 
 router.get("/", async (req, res) => {
   try {
-    const { search, limit = "50", offset = "0" } = req.query as Record<string, string>;
+    const { search, status, list_id, owner_id, limit = "50", offset = "0" } = req.query as Record<string, string>;
     const lim = Math.min(parseInt(limit), 200);
     const off = parseInt(offset);
 
-    let query = db
+    const wheres: any[] = [];
+    if (search) wheres.push(or(ilike(contacts.first_name, `%${search}%`), ilike(contacts.last_name, `%${search}%`), ilike(contacts.email, `%${search}%`)));
+    if (status) wheres.push(eq(contacts.status, status as any));
+    if (owner_id) wheres.push(eq(contacts.owner_id, owner_id));
+    if (list_id) {
+      const memberRows = await db.select({ id: static_list_members.entity_id }).from(static_list_members).where(eq(static_list_members.list_id, list_id));
+      const ids = memberRows.map(r => r.id);
+      if (!ids.length) return res.json({ contacts: [], total: 0 });
+      wheres.push(inArray(contacts.id, ids));
+    }
+
+    const whereClause = wheres.length ? and(...wheres) : undefined;
+
+    const results = await db
       .select({
         id: contacts.id,
         org_id: contacts.org_id,
@@ -28,17 +41,22 @@ router.get("/", async (req, res) => {
         linkedin_url: contacts.linkedin_url,
         notes: contacts.notes,
         tags: contacts.tags,
+        owner_id: contacts.owner_id,
+        owner_name: users.name,
+        best_call_time: contacts.best_call_time,
+        last_engaged_at: contacts.last_engaged_at,
         created_at: contacts.created_at,
         updated_at: contacts.updated_at,
       })
       .from(contacts)
       .leftJoin(companies, eq(contacts.company_id, companies.id))
+      .leftJoin(users, eq(contacts.owner_id, users.id))
+      .where(whereClause as any)
       .orderBy(desc(contacts.created_at))
       .limit(lim)
       .offset(off);
 
-    const results = await query;
-    const total = await db.$count(contacts);
+    const total = whereClause ? results.length : await db.$count(contacts);
 
     res.json({ contacts: results, total });
   } catch (err) {
@@ -129,6 +147,25 @@ router.delete("/:id", async (req, res) => {
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "Failed to delete contact" });
+  }
+});
+
+router.get("/:id/lists", async (req, res) => {
+  try {
+    const rows = await db
+      .select({
+        id: static_lists.id,
+        name: static_lists.name,
+        color: static_lists.color,
+        added_at: static_list_members.added_at,
+      })
+      .from(static_list_members)
+      .innerJoin(static_lists, eq(static_lists.id, static_list_members.list_id))
+      .where(eq(static_list_members.entity_id, req.params.id))
+      .orderBy(desc(static_list_members.added_at));
+    res.json({ lists: rows });
+  } catch (err) {
+    res.status(500).json({ error: "Failed" });
   }
 });
 
