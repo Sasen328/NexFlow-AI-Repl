@@ -329,6 +329,90 @@ router.get("/funnel", async (_req, res) => {
   }
 });
 
+// ── Funnel: deals in a specific stage with time-in-stage ───────────────────
+router.get("/funnel/stage/:stage", async (req, res) => {
+  try {
+    const stage = req.params.stage;
+    const r = await db.execute(sql`
+      select
+        d.id, d.title as name, d.value, d.stage, d.stage_changed_at, d.created_at,
+        d.contact_id,
+        c.first_name || ' ' || c.last_name as contact_name,
+        co.name as company_name,
+        u.name as owner_name,
+        extract(day from now() - coalesce(d.stage_changed_at, d.created_at))::int as days_in_stage
+      from deals d
+      left join contacts c on c.id = d.contact_id
+      left join companies co on co.id = d.company_id
+      left join users u on u.id = d.owner_id
+      where d.stage = ${stage}::deal_stage
+      order by d.value desc nulls last
+      limit 100
+    `);
+    const rows = (r as any).rows ?? r;
+    const stuck = rows.filter((d: any) => (d.days_in_stage ?? 0) > 30);
+    const totalValue = rows.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
+    res.json({ stage, deals: rows, stuck_count: stuck.length, total_value: totalValue, count: rows.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// ── Funnel: AI explains why deals stall in a stage ─────────────────────────
+router.get("/funnel/stage/:stage/insights", async (req, res) => {
+  try {
+    const stage = req.params.stage;
+    const r = await db.execute(sql`
+      select count(*)::int as total,
+        avg(extract(day from now() - coalesce(stage_changed_at, created_at)))::int as avg_days,
+        sum(case when extract(day from now() - coalesce(stage_changed_at, created_at)) > 30 then 1 else 0 end)::int as stuck,
+        coalesce(sum(value),0)::int as total_value
+      from deals where stage = ${stage}::deal_stage
+    `);
+    const stats = ((r as any).rows ?? r)[0] ?? {};
+    const { aiJson } = await import("../lib/ai.js");
+    const result = await aiJson({
+      system: "You are a sales operations analyst. Output strict JSON.",
+      user: `Stage "${stage}" has ${stats.total ?? 0} deals worth $${stats.total_value ?? 0}, average ${stats.avg_days ?? 0} days in stage, ${stats.stuck ?? 0} stuck >30 days. Diagnose likely root causes and prescribe 3 next-best actions.
+
+Return JSON: { "diagnosis": string (2 sentences), "actions": [{ "title": string, "why": string }] }`,
+    }).catch(() => ({
+      diagnosis: `${stats.stuck ?? 0} of ${stats.total ?? 0} deals at this stage have aged past 30 days.`,
+      actions: [
+        { title: "Schedule re-engagement call", why: "Reset expectations and surface blockers." },
+        { title: "Trigger AI post-call orchestrator", why: "Generate next-best actions automatically." },
+        { title: "Move stalled deals to nurture campaign", why: "Free up rep capacity." },
+      ],
+    }));
+    res.json({ stage, stats, ...result });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// ── Funnel: deals stuck across the whole pipeline ──────────────────────────
+router.get("/funnel/stuck", async (_req, res) => {
+  try {
+    const r = await db.execute(sql`
+      select
+        d.id, d.title as name, d.value, d.stage,
+        extract(day from now() - coalesce(d.stage_changed_at, d.created_at))::int as days_in_stage,
+        co.name as company_name,
+        u.name as owner_name
+      from deals d
+      left join companies co on co.id = d.company_id
+      left join users u on u.id = d.owner_id
+      where d.stage not in ('closed_won'::deal_stage, 'closed_lost'::deal_stage)
+        and extract(day from now() - coalesce(d.stage_changed_at, d.created_at)) > 30
+      order by days_in_stage desc
+      limit 25
+    `);
+    res.json({ stuck: (r as any).rows ?? r });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
 // ── Deal Stage Auto-advance ─────────────────────────────────────────────────
 router.post("/auto-advance-stages", async (_req, res) => {
   try {
