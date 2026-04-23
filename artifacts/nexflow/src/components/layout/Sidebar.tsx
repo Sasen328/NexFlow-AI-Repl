@@ -2,22 +2,19 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, Building2, TrendingUp, Zap, Activity,
-  Phone, FileText, Bell, BarChart3, Brain, Target,
-  ChevronLeft, ChevronRight, Search, Moon, Sun,
-  MessageSquare, Star, Settings, Mail, Sparkles, UserSquare2,
-  Calendar, Bot
+  Phone, FileText, Bell, BarChart3, Target,
+  ChevronLeft, ChevronRight, ChevronDown, Search, Moon, Sun,
+  MessageSquare, Star, Settings, Mail, Sparkles, UserSquare2, Bot
 } from "lucide-react";
 import { NexFlowLogo, NexFlowWordmark } from "./NexFlowLogo";
 import { useNotifications } from "@/hooks/useApi";
+import { useState, useEffect } from "react";
+
+const SOLO_ITEM = { icon: LayoutDashboard, label: "Dashboard", href: "/" };
 
 const NAV_GROUPS = [
   {
-    label: "OVERVIEW",
-    items: [
-      { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-    ],
-  },
-  {
+    key: "crm",
     label: "CRM",
     items: [
       { icon: Users, label: "Contacts", href: "/contacts" },
@@ -26,7 +23,8 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: "INTELLIGENCE",
+    key: "intel",
+    label: "Intelligence",
     items: [
       { icon: Star, label: "Lead Intelligence", href: "/intelligence" },
       { icon: Zap, label: "Signals", href: "/signals" },
@@ -35,9 +33,10 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: "COMMUNICATION",
+    key: "comms",
+    label: "Communication",
     items: [
-      { icon: Phone, label: "Call Monitoring", href: "/calls" },
+      { icon: Phone, label: "Calls", href: "/calls" },
       { icon: MessageSquare, label: "WhatsApp", href: "/whatsapp" },
       { icon: Mail, label: "Email", href: "/email" },
       { icon: Activity, label: "Activities", href: "/activities" },
@@ -45,14 +44,16 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: "TEAM & OPS",
+    key: "ops",
+    label: "Team & Ops",
     items: [
       { icon: UserSquare2, label: "Team Performance", href: "/team" },
       { icon: Zap, label: "Automation", href: "/automation" },
     ],
   },
   {
-    label: "AI & ALERTS",
+    key: "ai",
+    label: "AI & Alerts",
     items: [
       { icon: Bot, label: "AI Agents", href: "/ai" },
       { icon: Sparkles, label: "AI Assistant", href: "/assistant" },
@@ -68,10 +69,43 @@ interface SidebarProps {
   onDark: (v: boolean) => void;
 }
 
+const STORAGE_KEY = "nf-sidebar-open-section";
+
 export function Sidebar({ collapsed, onCollapse, dark, onDark }: SidebarProps) {
   const [location] = useLocation();
   const { data: notifData } = useNotifications();
   const unreadCount = (notifData?.notifications ?? []).filter((n: any) => !n.read).length;
+
+  // Find which group the current location belongs to
+  const activeGroup = NAV_GROUPS.find((g) =>
+    g.items.some((i) => location === i.href || location.startsWith(i.href + "/"))
+  );
+
+  const [openSection, setOpenSection] = useState<string | null>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return stored ?? activeGroup?.key ?? "crm";
+    } catch {
+      return activeGroup?.key ?? "crm";
+    }
+  });
+
+  // Auto-expand the section containing the current route
+  useEffect(() => {
+    if (activeGroup && openSection !== activeGroup.key) {
+      setOpenSection(activeGroup.key);
+      try { localStorage.setItem(STORAGE_KEY, activeGroup.key); } catch {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location]);
+
+  function toggleSection(key: string) {
+    const next = openSection === key ? null : key;
+    setOpenSection(next);
+    try { localStorage.setItem(STORAGE_KEY, next ?? ""); } catch {}
+  }
+
+  const dashboardActive = location === "/";
 
   return (
     <aside
@@ -104,62 +138,136 @@ export function Sidebar({ collapsed, onCollapse, dark, onDark }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-2 scrollbar-thin">
-        {NAV_GROUPS.map((group) => (
-          <div key={group.label} className="mb-1">
-            {!collapsed && (
-              <div className="px-4 pt-3 pb-1">
-                <span className="text-[10px] font-bold text-muted-foreground/50 tracking-widest uppercase">
-                  {group.label}
-                </span>
-              </div>
-            )}
-            {collapsed && <div className="mx-2 my-2 h-px bg-border/20" />}
-            <div className="px-2 space-y-0.5">
-              {group.items.map(({ icon: Icon, label, href, badge }) => {
-                const active = href === "/"
-                  ? location === "/"
-                  : location === href || location.startsWith(href + "/") || location.startsWith(href + "?");
-                const showBadge = badge && unreadCount > 0;
-                return (
-                  <Link key={href} href={href}>
-                    <div
-                      className={cn(
-                        "flex items-center rounded-lg text-sm font-medium cursor-pointer transition-all duration-150 group relative",
-                        collapsed ? "justify-center p-2.5" : "gap-2.5 px-2.5 py-2",
-                        active
-                          ? "nf-chameleon-bg text-white shadow-sm"
-                          : "text-foreground/65 hover:text-foreground hover:bg-muted/50"
-                      )}
-                      title={collapsed ? label : undefined}
-                    >
-                      <Icon className={cn(
-                        "flex-shrink-0",
-                        collapsed ? "w-[18px] h-[18px]" : "w-4 h-4",
-                        active ? "text-white" : "text-foreground/50 group-hover:text-foreground"
-                      )} />
-                      {!collapsed && (
-                        <>
-                          <span className="flex-1">{label}</span>
-                          {showBadge && (
-                            <span className="w-4 h-4 rounded-full bg-white/90 text-[#B8A0C8] text-[9px] font-black flex items-center justify-center">
-                              {unreadCount > 9 ? "9+" : unreadCount}
-                            </span>
-                          )}
-                          {active && !showBadge && (
-                            <div className="w-1.5 h-1.5 rounded-full bg-white/70" />
-                          )}
-                        </>
-                      )}
-                      {collapsed && showBadge && (
-                        <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#B8A0C8]" />
-                      )}
-                    </div>
-                  </Link>
-                );
-              })}
+        {/* Solo Dashboard */}
+        <div className="px-2 mb-2">
+          <Link href={SOLO_ITEM.href}>
+            <div
+              className={cn(
+                "flex items-center rounded-lg text-sm font-medium cursor-pointer transition-all duration-150 group",
+                collapsed ? "justify-center p-2.5" : "gap-2.5 px-2.5 py-2",
+                dashboardActive
+                  ? "nf-chameleon-bg text-white shadow-sm"
+                  : "text-foreground/65 hover:text-foreground hover:bg-muted/50"
+              )}
+              title={collapsed ? SOLO_ITEM.label : undefined}
+            >
+              <SOLO_ITEM.icon className={cn(
+                "flex-shrink-0",
+                collapsed ? "w-[18px] h-[18px]" : "w-4 h-4",
+                dashboardActive ? "text-white" : "text-foreground/50 group-hover:text-foreground"
+              )} />
+              {!collapsed && <span className="flex-1">{SOLO_ITEM.label}</span>}
+              {!collapsed && dashboardActive && <div className="w-1.5 h-1.5 rounded-full bg-white/70" />}
             </div>
+          </Link>
+        </div>
+
+        {/* When collapsed, just show all items as icons (no section headers) */}
+        {collapsed ? (
+          <div className="px-2 space-y-0.5">
+            {NAV_GROUPS.flatMap((g) => g.items).map(({ icon: Icon, label, href, badge }: any) => {
+              const active = location === href || location.startsWith(href + "/");
+              const showBadge = badge && unreadCount > 0;
+              return (
+                <Link key={href} href={href}>
+                  <div
+                    className={cn(
+                      "flex items-center justify-center p-2.5 rounded-lg cursor-pointer transition-all duration-150 group relative",
+                      active
+                        ? "nf-chameleon-bg text-white shadow-sm"
+                        : "text-foreground/65 hover:text-foreground hover:bg-muted/50"
+                    )}
+                    title={label}
+                  >
+                    <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", active ? "text-white" : "text-foreground/50 group-hover:text-foreground")} />
+                    {showBadge && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#B8A0C8]" />}
+                  </div>
+                </Link>
+              );
+            })}
           </div>
-        ))}
+        ) : (
+          // Expanded: collapsible sections
+          <div className="px-2 space-y-0.5">
+            {NAV_GROUPS.map((group) => {
+              const isOpen = openSection === group.key;
+              const containsActive = group.items.some((i) =>
+                location === i.href || location.startsWith(i.href + "/")
+              );
+              const groupBadgeCount = group.items.some((i: any) => i.badge) ? unreadCount : 0;
+
+              return (
+                <div key={group.key}>
+                  <button
+                    onClick={() => toggleSection(group.key)}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-bold tracking-wide uppercase transition-all",
+                      containsActive
+                        ? "text-foreground/70"
+                        : "text-muted-foreground/50 hover:text-foreground/60"
+                    )}
+                  >
+                    <ChevronDown
+                      className={cn(
+                        "w-3 h-3 transition-transform flex-shrink-0",
+                        isOpen ? "rotate-0" : "-rotate-90"
+                      )}
+                    />
+                    <span className="flex-1 text-left">{group.label}</span>
+                    {!isOpen && groupBadgeCount > 0 && (
+                      <span className="w-4 h-4 rounded-full nf-chameleon-bg text-white text-[9px] font-black flex items-center justify-center">
+                        {groupBadgeCount > 9 ? "9+" : groupBadgeCount}
+                      </span>
+                    )}
+                    {!isOpen && containsActive && (
+                      <div className="w-1.5 h-1.5 rounded-full nf-chameleon-bg" />
+                    )}
+                  </button>
+
+                  <div
+                    className={cn(
+                      "overflow-hidden transition-all duration-200",
+                      isOpen ? "max-h-96 opacity-100 mt-0.5 mb-1.5" : "max-h-0 opacity-0"
+                    )}
+                  >
+                    <div className="space-y-0.5">
+                      {group.items.map(({ icon: Icon, label, href, badge }: any) => {
+                        const active = location === href || location.startsWith(href + "/");
+                        const showBadge = badge && unreadCount > 0;
+                        return (
+                          <Link key={href} href={href}>
+                            <div
+                              className={cn(
+                                "flex items-center gap-2.5 px-2.5 py-1.5 ml-4 rounded-lg text-sm font-medium cursor-pointer transition-all duration-150 group",
+                                active
+                                  ? "nf-chameleon-bg text-white shadow-sm"
+                                  : "text-foreground/65 hover:text-foreground hover:bg-muted/50"
+                              )}
+                            >
+                              <Icon className={cn(
+                                "w-4 h-4 flex-shrink-0",
+                                active ? "text-white" : "text-foreground/50 group-hover:text-foreground"
+                              )} />
+                              <span className="flex-1">{label}</span>
+                              {showBadge && (
+                                <span className="w-4 h-4 rounded-full bg-white/90 text-[#B8A0C8] text-[9px] font-black flex items-center justify-center">
+                                  {unreadCount > 9 ? "9+" : unreadCount}
+                                </span>
+                              )}
+                              {active && !showBadge && (
+                                <div className="w-1.5 h-1.5 rounded-full bg-white/70" />
+                              )}
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       {/* Footer */}
