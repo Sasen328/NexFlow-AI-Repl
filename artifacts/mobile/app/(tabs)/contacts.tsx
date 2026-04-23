@@ -1,18 +1,18 @@
 import React, { useMemo, useState } from "react";
-import { FlatList, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
-import { CONTACTS, formatCurrency } from "@/data/mockData";
+import { initials, useContacts, type ApiContact } from "@/lib/api";
 
 const FILTERS = [
   { key: "all", label: "All" },
-  { key: "buying-now", label: "Buying" },
-  { key: "warm", label: "Warm" },
-  { key: "cold", label: "Cold" },
+  { key: "qualified", label: "Qualified" },
+  { key: "lead", label: "Lead" },
+  { key: "customer", label: "Customer" },
 ];
 
 export default function ContactsScreen() {
@@ -21,16 +21,29 @@ export default function ContactsScreen() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
 
-  const filtered = useMemo(() => {
-    return CONTACTS.filter((c) => {
-      if (filter !== "all" && c.stage !== filter) return false;
-      if (search && !`${c.firstName} ${c.lastName} ${c.company}`.toLowerCase().includes(search.toLowerCase())) return false;
+  const { data, isPending, isError, refetch, isRefetching } = useContacts({ limit: 100 });
+
+  const filtered = useMemo<ApiContact[]>(() => {
+    const all = data?.contacts ?? [];
+    return all.filter((c) => {
+      if (filter !== "all" && (c.status || "").toLowerCase() !== filter) return false;
+      if (
+        search &&
+        !`${c.first_name} ${c.last_name} ${c.company_name || ""}`.toLowerCase().includes(search.toLowerCase())
+      )
+        return false;
       return true;
     });
-  }, [search, filter]);
+  }, [data, search, filter]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top + (Platform.OS === "web" ? 67 : 12) }}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: colors.background,
+        paddingTop: insets.top + (Platform.OS === "web" ? 67 : 12),
+      }}
+    >
       <View style={{ paddingHorizontal: 16, gap: 12 }}>
         <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
           <View>
@@ -82,57 +95,76 @@ export default function ContactsScreen() {
         />
       </View>
 
-      <FlatList
-        data={filtered}
-        keyExtractor={(c) => c.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 10 }}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Feather name="users" size={28} color={colors.mutedForeground} />
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No contacts match.</Text>
-          </View>
-        }
-        renderItem={({ item: c }) => (
-          <Pressable
-            onPress={() => router.push(`/contact/${c.id}` as any)}
-            style={({ pressed }) => [
-              styles.contactCard,
-              { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
-            ]}
-          >
-            <Avatar initials={c.initials} size={48} />
-            <View style={{ flex: 1, gap: 4 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Text style={[styles.cName, { color: colors.foreground }]}>
-                  {c.firstName} {c.lastName}
-                </Text>
-                {c.stage === "buying-now" && <Badge label="BUYING" tone="violet" small />}
-                {c.stage === "champion" && <Badge label="CHAMPION" tone="success" small />}
-              </View>
-              <Text style={[styles.cSub, { color: colors.mutedForeground }]} numberOfLines={1}>
-                {c.title} · {c.company}
+      {isPending ? (
+        <View style={styles.empty}>
+          <ActivityIndicator color={colors.mutedForeground} />
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(c) => c.id}
+          contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 10 }}
+          showsVerticalScrollIndicator={false}
+          refreshing={isRefetching}
+          onRefresh={refetch}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Feather name={isError ? "wifi-off" : "users"} size={28} color={colors.mutedForeground} />
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                {isError ? "Couldn't load contacts." : "No contacts match."}
               </Text>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 2 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <Feather name="map-pin" size={10} color={colors.mutedForeground} />
-                  <Text style={[styles.cMeta, { color: colors.mutedForeground }]}>{c.location.split(",")[0]}</Text>
+            </View>
+          }
+          renderItem={({ item: c }) => (
+            <Pressable
+              onPress={() => router.push(`/contact/${c.id}` as any)}
+              style={({ pressed }) => [
+                styles.contactCard,
+                { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+              ]}
+            >
+              <Avatar initials={initials(c.first_name, c.last_name)} size={48} />
+              <View style={{ flex: 1, gap: 4 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={[styles.cName, { color: colors.foreground }]}>
+                    {c.first_name} {c.last_name}
+                  </Text>
+                  {c.status === "qualified" && <Badge label="QUALIFIED" tone="violet" small />}
+                  {c.status === "customer" && <Badge label="CUSTOMER" tone="success" small />}
                 </View>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <Feather name="clock" size={10} color={colors.mutedForeground} />
-                  <Text style={[styles.cMeta, { color: colors.mutedForeground }]}>{c.lastContactDays}d ago</Text>
+                <Text style={[styles.cSub, { color: colors.mutedForeground }]} numberOfLines={1}>
+                  {(c.title || "—") + (c.company_name ? ` · ${c.company_name}` : "")}
+                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 2 }}>
+                  {c.phone ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Feather name="phone" size={10} color={colors.mutedForeground} />
+                      <Text style={[styles.cMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
+                        {c.phone}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {c.email ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flexShrink: 1 }}>
+                      <Feather name="mail" size={10} color={colors.mutedForeground} />
+                      <Text style={[styles.cMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
+                        {c.email}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
-            </View>
-            <View style={{ alignItems: "flex-end", gap: 6 }}>
-              <Text style={[styles.cValue, { color: "#88B8B0" }]}>{formatCurrency(c.pipelineValue)}</Text>
-              <View style={[styles.scoreCircle, { borderColor: "#B8A0C8" }]}>
-                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: "#8C6FA8" }}>{c.leadScore}</Text>
+              <View style={{ alignItems: "flex-end", gap: 6 }}>
+                <View style={[styles.scoreCircle, { borderColor: "#B8A0C8" }]}>
+                  <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: "#8C6FA8" }}>
+                    {c.lead_score ?? 0}
+                  </Text>
+                </View>
               </View>
-            </View>
-          </Pressable>
-        )}
-      />
+            </Pressable>
+          )}
+        />
+      )}
     </View>
   );
 }
@@ -141,7 +173,15 @@ const styles = StyleSheet.create({
   kicker: { fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 1.2 },
   title: { fontFamily: "Inter_700Bold", fontSize: 28, marginTop: 2 },
   fab: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
-  searchWrap: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, borderWidth: 1 },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
   searchInput: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 14, paddingVertical: 0 },
   chip: { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1 },
   chipText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
@@ -149,8 +189,14 @@ const styles = StyleSheet.create({
   cName: { fontFamily: "Inter_700Bold", fontSize: 15 },
   cSub: { fontFamily: "Inter_400Regular", fontSize: 12 },
   cMeta: { fontFamily: "Inter_500Medium", fontSize: 11 },
-  cValue: { fontFamily: "Inter_700Bold", fontSize: 13 },
-  scoreCircle: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", borderWidth: 2 },
+  scoreCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+  },
   empty: { alignItems: "center", paddingVertical: 60, gap: 8 },
   emptyText: { fontFamily: "Inter_500Medium", fontSize: 14 },
 });

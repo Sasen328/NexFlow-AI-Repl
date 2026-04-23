@@ -1,32 +1,45 @@
 import React, { useMemo, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { DEALS, formatCurrency } from "@/data/mockData";
+import { formatCurrency } from "@/data/mockData";
+import { dealHealth, stageLabel, useDeals, type ApiDeal } from "@/lib/api";
 
-const STAGES = ["Discovery", "Qualified", "Proposal", "Negotiation", "Closed Won"] as const;
+const STAGES = ["lead", "qualified", "proposal", "negotiation", "closed_won"] as const;
 
 export default function PipelineScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [activeStage, setActiveStage] = useState<string>("Negotiation");
+  const [activeStage, setActiveStage] = useState<string>("proposal");
+
+  const { data, isPending, isError, refetch, isRefetching } = useDeals();
+  const deals = data?.deals ?? [];
 
   const grouped = useMemo(() => {
-    const map: Record<string, typeof DEALS> = {};
+    const map: Record<string, ApiDeal[]> = {};
     STAGES.forEach((s) => (map[s] = []));
-    DEALS.forEach((d) => map[d.stage]?.push(d));
+    deals.forEach((d) => {
+      if (!map[d.stage]) map[d.stage] = [];
+      map[d.stage].push(d);
+    });
     return map;
-  }, []);
+  }, [deals]);
 
-  const totalValue = DEALS.reduce((s, d) => s + d.value, 0);
-  const weighted = DEALS.reduce((s, d) => s + (d.value * d.probability) / 100, 0);
+  const totalValue = deals.reduce((s, d) => s + (d.value || 0), 0);
+  const weighted = deals.reduce((s, d) => s + ((d.value || 0) * (d.probability || 0)) / 100, 0);
   const stageDeals = grouped[activeStage] ?? [];
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top + (Platform.OS === "web" ? 67 : 12) }}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: colors.background,
+        paddingTop: insets.top + (Platform.OS === "web" ? 67 : 12),
+      }}
+    >
       <View style={{ paddingHorizontal: 16, gap: 16 }}>
         <View>
           <Text style={[styles.kicker, { color: colors.mutedForeground }]}>PIPELINE</Text>
@@ -47,7 +60,7 @@ export default function PipelineScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
           {STAGES.map((s) => {
             const active = s === activeStage;
-            const count = grouped[s].length;
+            const count = (grouped[s] || []).length;
             return (
               <Pressable
                 key={s}
@@ -61,9 +74,16 @@ export default function PipelineScreen() {
                   },
                 ]}
               >
-                <Text style={[styles.tabText, { color: active ? "#fff" : colors.foreground }]}>{s}</Text>
-                <View style={[styles.tabCount, { backgroundColor: active ? "rgba(255,255,255,0.25)" : colors.muted }]}>
-                  <Text style={[styles.tabCountText, { color: active ? "#fff" : colors.mutedForeground }]}>{count}</Text>
+                <Text style={[styles.tabText, { color: active ? "#fff" : colors.foreground }]}>{stageLabel(s)}</Text>
+                <View
+                  style={[
+                    styles.tabCount,
+                    { backgroundColor: active ? "rgba(255,255,255,0.25)" : colors.muted },
+                  ]}
+                >
+                  <Text style={[styles.tabCountText, { color: active ? "#fff" : colors.mutedForeground }]}>
+                    {count}
+                  </Text>
                 </View>
               </Pressable>
             );
@@ -71,39 +91,71 @@ export default function PipelineScreen() {
         </ScrollView>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 12 }} showsVerticalScrollIndicator={false}>
-        {stageDeals.length === 0 ? (
+      <ScrollView
+        contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 12 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={undefined}
+      >
+        {isPending ? (
+          <View style={styles.empty}>
+            <ActivityIndicator color={colors.mutedForeground} />
+          </View>
+        ) : isError ? (
+          <View style={styles.empty}>
+            <Feather name="wifi-off" size={28} color={colors.mutedForeground} />
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>Couldn't load deals.</Text>
+            <Pressable
+              onPress={() => refetch()}
+              style={{ marginTop: 8, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: colors.card, borderRadius: 999, borderWidth: 1, borderColor: colors.border }}
+            >
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+                {isRefetching ? "Retrying…" : "Retry"}
+              </Text>
+            </Pressable>
+          </View>
+        ) : stageDeals.length === 0 ? (
           <View style={styles.empty}>
             <Feather name="inbox" size={28} color={colors.mutedForeground} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No deals in this stage</Text>
           </View>
         ) : (
           stageDeals.map((d) => {
-            const tone = d.health === "hot" ? "success" : d.health === "warm" ? "gold" : "danger";
+            const health = dealHealth(d);
+            const tone = health === "hot" ? "success" : health === "warm" ? "gold" : "danger";
+            const closeLabel = d.expected_close_date
+              ? new Date(d.expected_close_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+              : "No date";
             return (
               <Card key={d.id} style={{ gap: 12 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={[styles.dealName, { color: colors.foreground }]}>{d.name}</Text>
+                    <Text style={[styles.dealName, { color: colors.foreground }]}>{d.title}</Text>
                     <Text style={[styles.dealCompany, { color: colors.mutedForeground }]}>
-                      {d.contact} · {d.company}
+                      {d.contact_name || "—"}
+                      {d.company_name ? ` · ${d.company_name}` : ""}
                     </Text>
                   </View>
                   <Text style={[styles.dealValue, { color: "#88B8B0" }]}>{formatCurrency(d.value)}</Text>
                 </View>
 
                 <View style={{ height: 6, backgroundColor: colors.muted, borderRadius: 3, overflow: "hidden" }}>
-                  <View style={{ height: "100%", width: `${d.probability}%`, backgroundColor: "#B8A0C8" }} />
+                  <View
+                    style={{
+                      height: "100%",
+                      width: `${Math.max(0, Math.min(100, d.probability))}%`,
+                      backgroundColor: "#B8A0C8",
+                    }}
+                  />
                 </View>
 
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                   <View style={{ flexDirection: "row", gap: 6 }}>
                     <Badge label={`${d.probability}%`} tone="violet" small />
-                    <Badge label={d.health.toUpperCase()} tone={tone as any} small />
+                    <Badge label={health.toUpperCase()} tone={tone as any} small />
                   </View>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                     <Feather name="calendar" size={11} color={colors.mutedForeground} />
-                    <Text style={[styles.dealDate, { color: colors.mutedForeground }]}>{d.closeDate}</Text>
+                    <Text style={[styles.dealDate, { color: colors.mutedForeground }]}>{closeLabel}</Text>
                   </View>
                 </View>
               </Card>
@@ -119,7 +171,15 @@ const styles = StyleSheet.create({
   kicker: { fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 1.2 },
   title: { fontFamily: "Inter_700Bold", fontSize: 28, marginTop: 2 },
   bigValue: { fontFamily: "Inter_700Bold", fontSize: 22 },
-  tab: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1 },
+  tab: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
   tabText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
   tabCount: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999, minWidth: 20, alignItems: "center" },
   tabCountText: { fontFamily: "Inter_700Bold", fontSize: 11 },

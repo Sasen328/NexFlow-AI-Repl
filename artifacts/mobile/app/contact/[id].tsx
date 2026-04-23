@@ -1,16 +1,28 @@
 import React, { useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, router, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { CONTACTS, formatCurrency } from "@/data/mockData";
+import { formatCurrency } from "@/data/mockData";
+import { dealHealth, initials, stageLabel, useContact, useContactActivities, useDeals } from "@/lib/api";
 
-const TABS = ["Overview", "Activity", "Deals", "Enrich"] as const;
+const TABS = ["Overview", "Activity", "Deals"] as const;
+
+function timeAgo(iso: string | null | undefined) {
+  if (!iso) return "—";
+  const ms = Date.now() - new Date(iso).getTime();
+  const min = Math.round(ms / 60000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const d = Math.round(hr / 24);
+  return `${d}d ago`;
+}
 
 export default function ContactDetail() {
   const colors = useColors();
@@ -18,12 +30,51 @@ export default function ContactDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("Overview");
 
-  const contact = CONTACTS.find((c) => c.id === id);
+  const contactQ = useContact(id);
+  const activitiesQ = useContactActivities(id);
+  const dealsQ = useDeals();
+  const contact = contactQ.data;
+  const activities = activitiesQ.data ?? [];
+  const myDeals = (dealsQ.data?.deals ?? []).filter((d) => d.contact_id === id);
+  const myPipeline = myDeals.reduce((s, d) => s + (d.value || 0), 0);
+  const isBuying = (contact?.lead_score ?? 0) >= 80;
+
+  if (contactQ.isPending) {
+    return (
+      <View
+        style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }}
+      >
+        <ActivityIndicator color={colors.mutedForeground} />
+      </View>
+    );
+  }
+
+  if (contactQ.isError) {
+    return (
+      <View
+        style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center", gap: 12, padding: 24 }}
+      >
+        <Feather name="wifi-off" size={28} color={colors.mutedForeground} />
+        <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold" }}>Couldn't reach the server</Text>
+        <Pressable onPress={() => contactQ.refetch()}>
+          <Text style={{ color: "#88B8B0", fontFamily: "Inter_600SemiBold" }}>Retry</Text>
+        </Pressable>
+        <Pressable onPress={() => router.back()}>
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12 }}>Go back</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   if (!contact) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }}>
+      <View
+        style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center", gap: 12 }}
+      >
         <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold" }}>Contact not found</Text>
+        <Pressable onPress={() => router.back()}>
+          <Text style={{ color: "#88B8B0", fontFamily: "Inter_600SemiBold" }}>Go back</Text>
+        </Pressable>
       </View>
     );
   }
@@ -55,22 +106,24 @@ export default function ContactDetail() {
 
           <View style={{ flexDirection: "row", alignItems: "center", gap: 16, marginTop: 10 }}>
             <View style={styles.heroAvatar}>
-              <Text style={styles.heroAvatarText}>{contact.initials}</Text>
+              <Text style={styles.heroAvatarText}>{initials(contact.first_name, contact.last_name)}</Text>
             </View>
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <Text style={styles.heroName}>{contact.firstName} {contact.lastName}</Text>
-                {contact.stage === "buying-now" && (
+                <Text style={styles.heroName}>
+                  {contact.first_name} {contact.last_name}
+                </Text>
+                {isBuying && (
                   <View style={styles.heroBadge}>
-                    <Text style={styles.heroBadgeText}>BUYING NOW</Text>
+                    <Text style={styles.heroBadgeText}>HIGH INTENT</Text>
                   </View>
                 )}
               </View>
-              <Text style={styles.heroTitle}>{contact.title}</Text>
-              <Text style={styles.heroCompany}>{contact.company}</Text>
+              {contact.title ? <Text style={styles.heroTitle}>{contact.title}</Text> : null}
+              {contact.company_name ? <Text style={styles.heroCompany}>{contact.company_name}</Text> : null}
             </View>
             <View style={{ alignItems: "flex-end" }}>
-              <Text style={styles.heroScore}>{contact.leadScore}</Text>
+              <Text style={styles.heroScore}>{contact.lead_score ?? 0}</Text>
               <Text style={styles.heroScoreLabel}>SCORE</Text>
             </View>
           </View>
@@ -96,14 +149,7 @@ export default function ContactDetail() {
               ]}
             >
               <Feather name={a.icon} size={18} color={a.primary ? "#fff" : a.color} />
-              <Text
-                style={[
-                  styles.actionLabel,
-                  { color: a.primary ? "#fff" : colors.foreground },
-                ]}
-              >
-                {a.label}
-              </Text>
+              <Text style={[styles.actionLabel, { color: a.primary ? "#fff" : colors.foreground }]}>{a.label}</Text>
             </Pressable>
           ))}
         </View>
@@ -117,7 +163,11 @@ export default function ContactDetail() {
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={[styles.nextActionLabel, { color: "#8C6FA8" }]}>AI-RECOMMENDED NEXT ACTION</Text>
               <Text style={[styles.nextActionText, { color: colors.foreground }]}>
-                Call within next 24h — {contact.signals[0] ?? "high intent signal active"}
+                {isBuying
+                  ? "Call within next 24h — high lead score signals strong intent"
+                  : myDeals.length > 0
+                    ? `Follow up on ${myDeals[0].title}`
+                    : "Send intro email to open the conversation"}
               </Text>
             </View>
             <Pressable style={[styles.executeBtn, { backgroundColor: "#B8A0C8" }]}>
@@ -144,99 +194,127 @@ export default function ContactDetail() {
             <>
               <Card style={{ gap: 14 }}>
                 <Text style={[styles.cardKicker, { color: colors.mutedForeground }]}>CONTACT</Text>
-                <Row icon="mail" label={contact.email} colors={colors} />
-                <Row icon="phone" label={contact.phone} colors={colors} />
-                <Row icon="map-pin" label={contact.location} colors={colors} />
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
-                  {contact.tags.map((t) => (
-                    <Badge key={t} label={`#${t}`} tone="neutral" small />
-                  ))}
-                </View>
+                {contact.email ? <Row icon="mail" label={contact.email} colors={colors} /> : null}
+                {contact.phone ? <Row icon="phone" label={contact.phone} colors={colors} /> : null}
+                {contact.company_name ? <Row icon="briefcase" label={contact.company_name} colors={colors} /> : null}
+                {contact.tags && contact.tags.length > 0 ? (
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                    {contact.tags.map((t) => (
+                      <Badge key={t} label={`#${t}`} tone="neutral" small />
+                    ))}
+                  </View>
+                ) : null}
               </Card>
 
               <View style={{ flexDirection: "row", gap: 10 }}>
                 <Card style={{ flex: 1, gap: 4 }}>
                   <Text style={[styles.cardKicker, { color: colors.mutedForeground }]}>PIPELINE</Text>
-                  <Text style={[styles.cardBigValue, { color: "#88B8B0" }]}>{formatCurrency(contact.pipelineValue)}</Text>
+                  <Text style={[styles.cardBigValue, { color: "#88B8B0" }]}>{formatCurrency(myPipeline)}</Text>
                 </Card>
                 <Card style={{ flex: 1, gap: 4 }}>
-                  <Text style={[styles.cardKicker, { color: colors.mutedForeground }]}>LAST CONTACT</Text>
-                  <Text style={[styles.cardBigValue, { color: colors.foreground }]}>{contact.lastContactDays}d</Text>
+                  <Text style={[styles.cardKicker, { color: colors.mutedForeground }]}>OPEN DEALS</Text>
+                  <Text style={[styles.cardBigValue, { color: colors.foreground }]}>{myDeals.length}</Text>
                 </Card>
               </View>
 
-              <Card style={{ gap: 10 }}>
-                <Text style={[styles.cardKicker, { color: colors.mutedForeground }]}>BUYING SIGNALS · 30D</Text>
-                {contact.signals.map((s, i) => (
-                  <View key={i} style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
-                    <Feather name="trending-up" size={14} color="#C8A880" style={{ marginTop: 2 }} />
-                    <Text style={[styles.signalLine, { color: colors.foreground }]}>{s}</Text>
-                  </View>
-                ))}
-              </Card>
-
-              <Card style={{ gap: 8 }}>
-                <Text style={[styles.cardKicker, { color: colors.mutedForeground }]}>NOTES</Text>
-                <Text style={[styles.notesText, { color: colors.foreground }]}>{contact.notes}</Text>
-              </Card>
+              {contact.notes ? (
+                <Card style={{ gap: 8 }}>
+                  <Text style={[styles.cardKicker, { color: colors.mutedForeground }]}>NOTES</Text>
+                  <Text style={[styles.notesText, { color: colors.foreground }]}>{contact.notes}</Text>
+                </Card>
+              ) : null}
             </>
           )}
 
           {activeTab === "Activity" && (
             <Card style={{ gap: 12 }}>
-              {[
-                { icon: "phone" as const, text: "Discovery call · 18 min", time: `${contact.lastContactDays}d ago`, color: "#88B8B0" },
-                { icon: "mail" as const, text: "Proposal sent", time: "5d ago", color: "#B8A0C8" },
-                { icon: "message-circle" as const, text: "WhatsApp · pricing question", time: "8d ago", color: "#7FB069" },
-                { icon: "user-plus" as const, text: "Imported from Lusha", time: "21d ago", color: "#C8A880" },
-              ].map((e, i) => (
-                <View key={i} style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-                  <View style={[styles.timelineIcon, { backgroundColor: e.color + "22" }]}>
-                    <Feather name={e.icon} size={14} color={e.color} />
-                  </View>
-                  <Text style={[styles.timelineText, { color: colors.foreground, flex: 1 }]}>{e.text}</Text>
-                  <Text style={[styles.timelineTime, { color: colors.mutedForeground }]}>{e.time}</Text>
-                </View>
-              ))}
+              {activitiesQ.isPending ? (
+                <ActivityIndicator color={colors.mutedForeground} />
+              ) : activities.length === 0 ? (
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", textAlign: "center" }}>
+                  No activity yet.
+                </Text>
+              ) : (
+                activities.slice(0, 12).map((e, i) => {
+                  const iconMap: Record<string, keyof typeof Feather.glyphMap> = {
+                    call: "phone",
+                    email: "mail",
+                    note: "edit-3",
+                    meeting: "calendar",
+                    sms: "message-circle",
+                    whatsapp: "message-circle",
+                  };
+                  const colorMap: Record<string, string> = {
+                    call: "#88B8B0",
+                    email: "#B8A0C8",
+                    note: "#C8A880",
+                    meeting: "#7FB069",
+                    sms: "#B8A0C8",
+                    whatsapp: "#7FB069",
+                  };
+                  const ico = iconMap[e.type] || "activity";
+                  const col = colorMap[e.type] || "#88B8B0";
+                  return (
+                    <View key={e.id || i} style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                      <View style={[styles.timelineIcon, { backgroundColor: col + "22" }]}>
+                        <Feather name={ico} size={14} color={col} />
+                      </View>
+                      <Text
+                        style={[styles.timelineText, { color: colors.foreground, flex: 1 }]}
+                        numberOfLines={2}
+                      >
+                        {e.title || e.body || e.type}
+                      </Text>
+                      <Text style={[styles.timelineTime, { color: colors.mutedForeground }]}>
+                        {timeAgo(e.completed_at || e.created_at)}
+                      </Text>
+                    </View>
+                  );
+                })
+              )}
             </Card>
           )}
 
           {activeTab === "Deals" && (
-            <Card style={{ gap: 12 }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={[styles.dealName, { color: colors.foreground }]}>{contact.company} Expansion</Text>
-                <Text style={[styles.dealValue, { color: "#88B8B0" }]}>{formatCurrency(contact.pipelineValue)}</Text>
-              </View>
-              <View style={{ height: 6, backgroundColor: colors.muted, borderRadius: 3, overflow: "hidden" }}>
-                <View style={{ height: "100%", width: "78%", backgroundColor: "#B8A0C8" }} />
-              </View>
-              <View style={{ flexDirection: "row", gap: 6 }}>
-                <Badge label="NEGOTIATION" tone="violet" small />
-                <Badge label="78% PROBABILITY" tone="teal" small />
-                <Badge label="CLOSE MAY 12" tone="gold" small />
-              </View>
-            </Card>
-          )}
-
-          {activeTab === "Enrich" && (
             <View style={{ gap: 10 }}>
-              {[
-                { source: "Lusha", confidence: 96, cost: "$0.18", color: "#88B8B0" },
-                { source: "Crunchbase", confidence: 92, cost: "$0.06", color: "#C8A880" },
-                { source: "LinkedIn", confidence: 88, cost: "free", color: "#B8A0C8" },
-                { source: "Clay Waterfall", confidence: 94, cost: "$0.22", color: "#7FB069" },
-              ].map((s) => (
-                <Card key={s.source} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                  <View style={[styles.sourceDot, { backgroundColor: s.color }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.sourceName, { color: colors.foreground }]}>{s.source}</Text>
-                    <Text style={[styles.sourceMeta, { color: colors.mutedForeground }]}>
-                      {s.confidence}% confidence · {s.cost}
-                    </Text>
-                  </View>
-                  <Feather name="check-circle" size={16} color={s.color} />
+              {dealsQ.isPending ? (
+                <ActivityIndicator color={colors.mutedForeground} />
+              ) : myDeals.length === 0 ? (
+                <Card style={{ alignItems: "center", paddingVertical: 24 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium" }}>
+                    No deals for this contact.
+                  </Text>
                 </Card>
-              ))}
+              ) : (
+                myDeals.map((d) => {
+                  const health = dealHealth(d);
+                  const tone = health === "hot" ? "success" : health === "warm" ? "gold" : "danger";
+                  return (
+                    <Card key={d.id} style={{ gap: 12 }}>
+                      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                        <Text style={[styles.dealName, { color: colors.foreground, flex: 1 }]} numberOfLines={1}>
+                          {d.title}
+                        </Text>
+                        <Text style={[styles.dealValue, { color: "#88B8B0" }]}>{formatCurrency(d.value)}</Text>
+                      </View>
+                      <View style={{ height: 6, backgroundColor: colors.muted, borderRadius: 3, overflow: "hidden" }}>
+                        <View
+                          style={{
+                            height: "100%",
+                            width: `${Math.max(0, Math.min(100, d.probability))}%`,
+                            backgroundColor: "#B8A0C8",
+                          }}
+                        />
+                      </View>
+                      <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                        <Badge label={stageLabel(d.stage).toUpperCase()} tone="violet" small />
+                        <Badge label={`${d.probability}%`} tone="teal" small />
+                        <Badge label={health.toUpperCase()} tone={tone as any} small />
+                      </View>
+                    </Card>
+                  );
+                })
+              )}
             </View>
           )}
         </View>
@@ -249,7 +327,12 @@ function Row({ icon, label, colors }: { icon: keyof typeof Feather.glyphMap; lab
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
       <Feather name={icon} size={14} color={colors.mutedForeground} />
-      <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.foreground, flex: 1 }}>{label}</Text>
+      <Text
+        style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.foreground, flex: 1 }}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
     </View>
   );
 }
@@ -257,11 +340,32 @@ function Row({ icon, label, colors }: { icon: keyof typeof Feather.glyphMap; lab
 const styles = StyleSheet.create({
   hero: { paddingHorizontal: 16, paddingBottom: 36, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
   heroTop: { flexDirection: "row", alignItems: "center" },
-  heroIconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.18)" },
-  heroAvatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "rgba(255,255,255,0.4)" },
+  heroIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.18)",
+  },
+  heroAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.4)",
+  },
   heroAvatarText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 22 },
   heroName: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 22 },
-  heroBadge: { backgroundColor: "rgba(255,255,255,0.25)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  heroBadge: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
   heroBadgeText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 0.8 },
   heroTitle: { color: "rgba(255,255,255,0.92)", fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 2 },
   heroCompany: { color: "rgba(255,255,255,0.78)", fontFamily: "Inter_400Regular", fontSize: 12 },
@@ -270,7 +374,14 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16 },
   actionBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, borderWidth: 1, alignItems: "center", gap: 4 },
   actionLabel: { fontFamily: "Inter_600SemiBold", fontSize: 11 },
-  nextAction: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 16, borderWidth: 1 },
+  nextAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
   nextActionIcon: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   nextActionLabel: { fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 0.8 },
   nextActionText: { fontFamily: "Inter_600SemiBold", fontSize: 13, lineHeight: 18 },
@@ -281,14 +392,10 @@ const styles = StyleSheet.create({
   tabUnderline: { position: "absolute", bottom: -1, left: 16, right: 16, height: 2, backgroundColor: "#88B8B0", borderRadius: 1 },
   cardKicker: { fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 1 },
   cardBigValue: { fontFamily: "Inter_700Bold", fontSize: 20 },
-  signalLine: { fontFamily: "Inter_500Medium", fontSize: 13, flex: 1 },
   notesText: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19 },
   timelineIcon: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   timelineText: { fontFamily: "Inter_500Medium", fontSize: 13 },
   timelineTime: { fontFamily: "Inter_400Regular", fontSize: 11 },
   dealName: { fontFamily: "Inter_700Bold", fontSize: 15 },
   dealValue: { fontFamily: "Inter_700Bold", fontSize: 15 },
-  sourceDot: { width: 10, height: 10, borderRadius: 5 },
-  sourceName: { fontFamily: "Inter_700Bold", fontSize: 14 },
-  sourceMeta: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
 });

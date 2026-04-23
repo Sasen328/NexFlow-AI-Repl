@@ -25,7 +25,16 @@ app.use(
     },
   }),
 );
-app.use(cors());
+app.use(
+  cors({
+    origin: true,
+    credentials: false,
+    methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    optionsSuccessStatus: 204,
+  }),
+);
+app.options(/.*/, cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
