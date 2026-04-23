@@ -68,7 +68,13 @@ export function useSignals(params?: Record<string, string>) {
 }
 
 export function useSegments() {
-  return useQuery({ queryKey: ["segments"], queryFn: () => apiFetch("/segments") });
+  return useQuery({
+    queryKey: ["segments"],
+    queryFn: async () => {
+      const r = await apiFetch("/segments");
+      return Array.isArray(r) ? { segments: r } : r;
+    },
+  });
 }
 
 export function useCalls(params?: Record<string, string>) {
@@ -84,11 +90,24 @@ export function useCalls(params?: Record<string, string>) {
 
 export function useScripts(params?: Record<string, string>) {
   const qs = params ? "?" + new URLSearchParams(params).toString() : "";
-  return useQuery({ queryKey: ["scripts", params], queryFn: () => apiFetch(`/scripts${qs}`) });
+  return useQuery({
+    queryKey: ["scripts", params],
+    queryFn: async () => {
+      const r = await apiFetch(`/scripts${qs}`);
+      return Array.isArray(r) ? { scripts: r } : r;
+    },
+  });
 }
 
 export function useNotifications() {
-  return useQuery({ queryKey: ["notifications"], queryFn: () => apiFetch("/notifications"), refetchInterval: 30000 });
+  return useQuery({
+    queryKey: ["notifications"],
+    queryFn: async () => {
+      const r = await apiFetch("/notifications");
+      return Array.isArray(r) ? { notifications: r } : r;
+    },
+    refetchInterval: 30000,
+  });
 }
 
 export function useDashboard() {

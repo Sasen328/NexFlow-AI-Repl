@@ -4,7 +4,8 @@ import {
   LayoutDashboard, Users, Building2, TrendingUp, Zap, Activity,
   Phone, FileText, Bell, BarChart3, Brain, Target,
   ChevronLeft, ChevronRight, Search, Moon, Sun,
-  MessageSquare, Star, Settings, Sparkles
+  MessageSquare, Star, Settings, Mail, Sparkles, UserSquare2,
+  Calendar, Bot
 } from "lucide-react";
 import { NexFlowLogo, NexFlowWordmark } from "./NexFlowLogo";
 import { useNotifications } from "@/hooks/useApi";
@@ -38,14 +39,23 @@ const NAV_GROUPS = [
     items: [
       { icon: Phone, label: "Call Monitoring", href: "/calls" },
       { icon: MessageSquare, label: "WhatsApp", href: "/whatsapp" },
+      { icon: Mail, label: "Email", href: "/email" },
       { icon: Activity, label: "Activities", href: "/activities" },
       { icon: FileText, label: "Scripts", href: "/scripts" },
     ],
   },
   {
+    label: "TEAM & OPS",
+    items: [
+      { icon: UserSquare2, label: "Team Performance", href: "/team" },
+      { icon: Zap, label: "Automation", href: "/automation" },
+    ],
+  },
+  {
     label: "AI & ALERTS",
     items: [
-      { icon: Brain, label: "AI Agents", href: "/ai" },
+      { icon: Bot, label: "AI Agents", href: "/ai" },
+      { icon: Sparkles, label: "AI Assistant", href: "/assistant" },
       { icon: Bell, label: "Notifications", href: "/notifications", badge: true },
     ],
   },
