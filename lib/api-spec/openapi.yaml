@@ -1,22 +1,32 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: NexFlow CRM API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: contacts
+  - name: companies
+  - name: deals
+  - name: activities
+  - name: signals
+  - name: segments
+  - name: calls
+  - name: scripts
+  - name: notifications
+  - name: analytics
+  - name: ai
+  - name: dashboard
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +34,925 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Contacts ──
+  /contacts:
+    get:
+      operationId: listContacts
+      tags: [contacts]
+      summary: List contacts
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: segment_id
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of contacts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactListResponse"
+    post:
+      operationId: createContact
+      tags: [contacts]
+      summary: Create contact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContactBody"
+      responses:
+        "201":
+          description: Created contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+
+  /contacts/{id}:
+    get:
+      operationId: getContact
+      tags: [contacts]
+      summary: Get contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+    patch:
+      operationId: updateContact
+      tags: [contacts]
+      summary: Update contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateContactBody"
+      responses:
+        "200":
+          description: Updated contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+    delete:
+      operationId: deleteContact
+      tags: [contacts]
+      summary: Delete contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /contacts/{id}/activities:
+    get:
+      operationId: getContactActivities
+      tags: [contacts]
+      summary: Get contact activity timeline
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Activities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Activity"
+
+  # ── Companies ──
+  /companies:
+    get:
+      operationId: listCompanies
+      tags: [companies]
+      summary: List companies
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of companies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyListResponse"
+    post:
+      operationId: createCompany
+      tags: [companies]
+      summary: Create company
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCompanyBody"
+      responses:
+        "201":
+          description: Created company
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+
+  /companies/{id}:
+    get:
+      operationId: getCompany
+      tags: [companies]
+      summary: Get company
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Company
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+    patch:
+      operationId: updateCompany
+      tags: [companies]
+      summary: Update company
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCompanyBody"
+      responses:
+        "200":
+          description: Updated company
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+    delete:
+      operationId: deleteCompany
+      tags: [companies]
+      summary: Delete company
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Deals / Pipeline ──
+  /deals:
+    get:
+      operationId: listDeals
+      tags: [deals]
+      summary: List deals
+      parameters:
+        - name: stage
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of deals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DealListResponse"
+    post:
+      operationId: createDeal
+      tags: [deals]
+      summary: Create deal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDealBody"
+      responses:
+        "201":
+          description: Created deal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deal"
+
+  /deals/{id}:
+    get:
+      operationId: getDeal
+      tags: [deals]
+      summary: Get deal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deal"
+    patch:
+      operationId: updateDeal
+      tags: [deals]
+      summary: Update deal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDealBody"
+      responses:
+        "200":
+          description: Updated deal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deal"
+    delete:
+      operationId: deleteDeal
+      tags: [deals]
+      summary: Delete deal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Activities ──
+  /activities:
+    get:
+      operationId: listActivities
+      tags: [activities]
+      summary: List activities
+      parameters:
+        - name: contact_id
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of activities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Activity"
+    post:
+      operationId: createActivity
+      tags: [activities]
+      summary: Create activity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActivityBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+
+  # ── Signals ──
+  /signals:
+    get:
+      operationId: listSignals
+      tags: [signals]
+      summary: List signals
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of signals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Signal"
+    post:
+      operationId: createSignal
+      tags: [signals]
+      summary: Create signal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSignalBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Signal"
+
+  /signals/{id}/dismiss:
+    post:
+      operationId: dismissSignal
+      tags: [signals]
+      summary: Dismiss a signal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Signal dismissed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Signal"
+
+  # ── Segments ──
+  /segments:
+    get:
+      operationId: listSegments
+      tags: [segments]
+      summary: List segments
+      responses:
+        "200":
+          description: Segments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Segment"
+    post:
+      operationId: createSegment
+      tags: [segments]
+      summary: Create segment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSegmentBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Segment"
+
+  /segments/{id}:
+    get:
+      operationId: getSegment
+      tags: [segments]
+      summary: Get segment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Segment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Segment"
+    delete:
+      operationId: deleteSegment
+      tags: [segments]
+      summary: Delete segment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Calls ──
+  /calls:
+    get:
+      operationId: listCalls
+      tags: [calls]
+      summary: List calls
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of calls
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Call"
+    post:
+      operationId: createCall
+      tags: [calls]
+      summary: Initiate call
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCallBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Call"
+
+  /calls/{id}:
+    get:
+      operationId: getCall
+      tags: [calls]
+      summary: Get call
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Call
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Call"
+
+  # ── Scripts ──
+  /scripts:
+    get:
+      operationId: listScripts
+      tags: [scripts]
+      summary: List scripts
+      responses:
+        "200":
+          description: Scripts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Script"
+    post:
+      operationId: createScript
+      tags: [scripts]
+      summary: Create script
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScriptBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Script"
+
+  /scripts/{id}:
+    get:
+      operationId: getScript
+      tags: [scripts]
+      summary: Get script
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Script
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Script"
+    patch:
+      operationId: updateScript
+      tags: [scripts]
+      summary: Update script
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScriptBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Script"
+    delete:
+      operationId: deleteScript
+      tags: [scripts]
+      summary: Delete script
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Notifications ──
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List notifications
+      parameters:
+        - name: unread_only
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
+  /notifications/{id}/read:
+    post:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Notification marked read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          description: All marked read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated:
+                    type: integer
+                required:
+                  - updated
+
+  # ── Dashboard ──
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard KPI summary
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent activity feed
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Activity"
+
+  /dashboard/pipeline-by-stage:
+    get:
+      operationId: getPipelineByStage
+      tags: [dashboard]
+      summary: Get pipeline grouped by stage
+      responses:
+        "200":
+          description: Pipeline stages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PipelineStage"
+
+  /dashboard/signal-summary:
+    get:
+      operationId: getSignalSummary
+      tags: [dashboard]
+      summary: Get signal intelligence summary
+      responses:
+        "200":
+          description: Signal summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignalSummary"
+
+  /dashboard/top-contacts:
+    get:
+      operationId: getTopContacts
+      tags: [dashboard]
+      summary: Get top contacts by score
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        "200":
+          description: Top contacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Contact"
+
+  # ── Analytics ──
+  /analytics/revenue-trend:
+    get:
+      operationId: getRevenueTrend
+      tags: [analytics]
+      summary: Revenue trend over time
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [7d, 30d, 90d, 1y]
+            default: 30d
+      responses:
+        "200":
+          description: Revenue trend
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TrendPoint"
+
+  /analytics/call-stats:
+    get:
+      operationId: getCallStats
+      tags: [analytics]
+      summary: Call statistics
+      responses:
+        "200":
+          description: Call stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CallStats"
+
+  /analytics/forecast:
+    get:
+      operationId: getForecast
+      tags: [analytics]
+      summary: Revenue forecast
+      responses:
+        "200":
+          description: Forecast
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Forecast"
+
+  # ── AI ──
+  /ai/assistant:
+    post:
+      operationId: aiAssistantChat
+      tags: [ai]
+      summary: AI assistant chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiChatBody"
+      responses:
+        "200":
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiChatResponse"
+
+  /ai/score-contact/{id}:
+    post:
+      operationId: scoreContact
+      tags: [ai]
+      summary: AI lead scoring for a contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Score result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoreResult"
+
+  /ai/daily-briefing:
+    get:
+      operationId: getDailyBriefing
+      tags: [ai]
+      summary: Get today's AI-generated daily briefing
+      responses:
+        "200":
+          description: Daily briefing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyBriefing"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +963,853 @@ components:
       required:
         - status
 
+    Contact:
+      type: object
+      properties:
+        id:
+          type: string
+        org_id:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        title:
+          type: string
+        company_id:
+          type: string
+        company_name:
+          type: string
+        lead_score:
+          type: number
+        status:
+          type: string
+          enum: [new, active, qualified, unqualified, customer]
+        avatar_url:
+          type: string
+        linkedin_url:
+          type: string
+        notes:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+        updated_at:
+          type: string
+      required:
+        - id
+        - first_name
+        - last_name
+        - status
+        - created_at
+
+    ContactListResponse:
+      type: object
+      properties:
+        contacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Contact"
+        total:
+          type: integer
+      required:
+        - contacts
+        - total
+
+    CreateContactBody:
+      type: object
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        title:
+          type: string
+        company_id:
+          type: string
+        status:
+          type: string
+          enum: [new, active, qualified, unqualified, customer]
+        notes:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+      required:
+        - first_name
+        - last_name
+
+    UpdateContactBody:
+      type: object
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        title:
+          type: string
+        company_id:
+          type: string
+        status:
+          type: string
+          enum: [new, active, qualified, unqualified, customer]
+        notes:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        lead_score:
+          type: number
+
+    Company:
+      type: object
+      properties:
+        id:
+          type: string
+        org_id:
+          type: string
+        name:
+          type: string
+        domain:
+          type: string
+        industry:
+          type: string
+        size:
+          type: string
+          enum: [1-10, 11-50, 51-200, 201-500, 501-1000, 1000+]
+        country:
+          type: string
+        revenue:
+          type: integer
+          description: Revenue in smallest currency unit
+        logo_url:
+          type: string
+        linkedin_url:
+          type: string
+        website:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        contact_count:
+          type: integer
+        deal_count:
+          type: integer
+        created_at:
+          type: string
+        updated_at:
+          type: string
+      required:
+        - id
+        - name
+        - created_at
+
+    CompanyListResponse:
+      type: object
+      properties:
+        companies:
+          type: array
+          items:
+            $ref: "#/components/schemas/Company"
+        total:
+          type: integer
+      required:
+        - companies
+        - total
+
+    CreateCompanyBody:
+      type: object
+      properties:
+        name:
+          type: string
+        domain:
+          type: string
+        industry:
+          type: string
+        size:
+          type: string
+          enum: [1-10, 11-50, 51-200, 201-500, 501-1000, 1000+]
+        country:
+          type: string
+        revenue:
+          type: integer
+        website:
+          type: string
+        description:
+          type: string
+      required:
+        - name
+
+    UpdateCompanyBody:
+      type: object
+      properties:
+        name:
+          type: string
+        domain:
+          type: string
+        industry:
+          type: string
+        size:
+          type: string
+          enum: [1-10, 11-50, 51-200, 201-500, 501-1000, 1000+]
+        country:
+          type: string
+        revenue:
+          type: integer
+        website:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    Deal:
+      type: object
+      properties:
+        id:
+          type: string
+        org_id:
+          type: string
+        title:
+          type: string
+        contact_id:
+          type: string
+        contact_name:
+          type: string
+        company_id:
+          type: string
+        company_name:
+          type: string
+        stage:
+          type: string
+          enum: [lead, qualified, proposal, negotiation, closed_won, closed_lost]
+        value:
+          type: integer
+          description: Deal value in smallest currency unit
+        currency:
+          type: string
+          default: USD
+        probability:
+          type: number
+          minimum: 0
+          maximum: 100
+        expected_close_date:
+          type: string
+        notes:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+        updated_at:
+          type: string
+      required:
+        - id
+        - title
+        - stage
+        - created_at
+
+    DealListResponse:
+      type: object
+      properties:
+        deals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Deal"
+        total:
+          type: integer
+        total_value:
+          type: integer
+      required:
+        - deals
+        - total
+        - total_value
+
+    CreateDealBody:
+      type: object
+      properties:
+        title:
+          type: string
+        contact_id:
+          type: string
+        company_id:
+          type: string
+        stage:
+          type: string
+          enum: [lead, qualified, proposal, negotiation, closed_won, closed_lost]
+        value:
+          type: integer
+        currency:
+          type: string
+        probability:
+          type: number
+        expected_close_date:
+          type: string
+        notes:
+          type: string
+      required:
+        - title
+        - stage
+
+    UpdateDealBody:
+      type: object
+      properties:
+        title:
+          type: string
+        contact_id:
+          type: string
+        company_id:
+          type: string
+        stage:
+          type: string
+          enum: [lead, qualified, proposal, negotiation, closed_won, closed_lost]
+        value:
+          type: integer
+        currency:
+          type: string
+        probability:
+          type: number
+        expected_close_date:
+          type: string
+        notes:
+          type: string
+
+    Activity:
+      type: object
+      properties:
+        id:
+          type: string
+        org_id:
+          type: string
+        contact_id:
+          type: string
+        contact_name:
+          type: string
+        deal_id:
+          type: string
+        type:
+          type: string
+          enum: [call, email, whatsapp, meeting, note, task]
+        title:
+          type: string
+        body:
+          type: string
+        status:
+          type: string
+          enum: [pending, completed, cancelled]
+        scheduled_at:
+          type: string
+        completed_at:
+          type: string
+        created_at:
+          type: string
+      required:
+        - id
+        - type
+        - title
+        - status
+        - created_at
+
+    CreateActivityBody:
+      type: object
+      properties:
+        contact_id:
+          type: string
+        deal_id:
+          type: string
+        type:
+          type: string
+          enum: [call, email, whatsapp, meeting, note, task]
+        title:
+          type: string
+        body:
+          type: string
+        status:
+          type: string
+          enum: [pending, completed, cancelled]
+        scheduled_at:
+          type: string
+      required:
+        - type
+        - title
+
+    Signal:
+      type: object
+      properties:
+        id:
+          type: string
+        org_id:
+          type: string
+        contact_id:
+          type: string
+        contact_name:
+          type: string
+        company_id:
+          type: string
+        company_name:
+          type: string
+        type:
+          type: string
+          enum: [funding_round, exec_move, expansion, hiring, product_launch, news, social]
+        title:
+          type: string
+        body:
+          type: string
+        score:
+          type: number
+        status:
+          type: string
+          enum: [new, viewed, actioned, dismissed]
+        source_url:
+          type: string
+        created_at:
+          type: string
+      required:
+        - id
+        - type
+        - title
+        - score
+        - status
+        - created_at
+
+    CreateSignalBody:
+      type: object
+      properties:
+        contact_id:
+          type: string
+        company_id:
+          type: string
+        type:
+          type: string
+          enum: [funding_round, exec_move, expansion, hiring, product_launch, news, social]
+        title:
+          type: string
+        body:
+          type: string
+        source_url:
+          type: string
+      required:
+        - type
+        - title
+
+    Segment:
+      type: object
+      properties:
+        id:
+          type: string
+        org_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        filter_query:
+          type: string
+        contact_count:
+          type: integer
+        created_at:
+          type: string
+        updated_at:
+          type: string
+      required:
+        - id
+        - name
+        - created_at
+
+    CreateSegmentBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        filter_query:
+          type: string
+      required:
+        - name
+
+    Call:
+      type: object
+      properties:
+        id:
+          type: string
+        org_id:
+          type: string
+        contact_id:
+          type: string
+        contact_name:
+          type: string
+        direction:
+          type: string
+          enum: [inbound, outbound]
+        status:
+          type: string
+          enum: [scheduled, in_progress, completed, missed, failed]
+        duration_seconds:
+          type: integer
+        recording_url:
+          type: string
+        transcript:
+          type: string
+        sentiment_score:
+          type: number
+        call_score:
+          type: number
+        coaching_notes:
+          type: string
+        started_at:
+          type: string
+        ended_at:
+          type: string
+        created_at:
+          type: string
+      required:
+        - id
+        - status
+        - created_at
+
+    CreateCallBody:
+      type: object
+      properties:
+        contact_id:
+          type: string
+        direction:
+          type: string
+          enum: [inbound, outbound]
+        scheduled_at:
+          type: string
+      required:
+        - contact_id
+
+    Script:
+      type: object
+      properties:
+        id:
+          type: string
+        org_id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [cold_call, follow_up, demo, objection_handling, closing]
+        content:
+          type: string
+        language:
+          type: string
+          enum: [en, ar, both]
+        tags:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+        updated_at:
+          type: string
+      required:
+        - id
+        - name
+        - type
+        - content
+        - created_at
+
+    CreateScriptBody:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [cold_call, follow_up, demo, objection_handling, closing]
+        content:
+          type: string
+        language:
+          type: string
+          enum: [en, ar, both]
+        tags:
+          type: array
+          items:
+            type: string
+      required:
+        - name
+        - type
+        - content
+
+    UpdateScriptBody:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [cold_call, follow_up, demo, objection_handling, closing]
+        content:
+          type: string
+        language:
+          type: string
+          enum: [en, ar, both]
+        tags:
+          type: array
+          items:
+            type: string
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        org_id:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        type:
+          type: string
+          enum: [signal, deal, call, task, system, ai]
+        read:
+          type: boolean
+        entity_id:
+          type: string
+        entity_type:
+          type: string
+        created_at:
+          type: string
+      required:
+        - id
+        - title
+        - type
+        - read
+        - created_at
+
+    DashboardSummary:
+      type: object
+      properties:
+        total_contacts:
+          type: integer
+        new_contacts_this_week:
+          type: integer
+        total_companies:
+          type: integer
+        open_deals:
+          type: integer
+        pipeline_value:
+          type: integer
+        deals_closed_this_month:
+          type: integer
+        revenue_this_month:
+          type: integer
+        calls_today:
+          type: integer
+        active_signals:
+          type: integer
+        unread_notifications:
+          type: integer
+        win_rate:
+          type: number
+        avg_deal_size:
+          type: integer
+      required:
+        - total_contacts
+        - new_contacts_this_week
+        - total_companies
+        - open_deals
+        - pipeline_value
+        - deals_closed_this_month
+        - revenue_this_month
+        - calls_today
+        - active_signals
+        - unread_notifications
+        - win_rate
+        - avg_deal_size
+
+    PipelineStage:
+      type: object
+      properties:
+        stage:
+          type: string
+        count:
+          type: integer
+        total_value:
+          type: integer
+      required:
+        - stage
+        - count
+        - total_value
+
+    SignalSummary:
+      type: object
+      properties:
+        total:
+          type: integer
+        new:
+          type: integer
+        by_type:
+          type: object
+          additionalProperties:
+            type: integer
+        top_signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Signal"
+      required:
+        - total
+        - new
+        - by_type
+        - top_signals
+
+    TrendPoint:
+      type: object
+      properties:
+        date:
+          type: string
+        value:
+          type: integer
+        label:
+          type: string
+      required:
+        - date
+        - value
+
+    CallStats:
+      type: object
+      properties:
+        total_calls:
+          type: integer
+        avg_duration_seconds:
+          type: integer
+        avg_call_score:
+          type: number
+        avg_sentiment:
+          type: number
+        calls_by_day:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrendPoint"
+      required:
+        - total_calls
+        - avg_duration_seconds
+        - avg_call_score
+        - avg_sentiment
+        - calls_by_day
+
+    Forecast:
+      type: object
+      properties:
+        current_quarter_target:
+          type: integer
+        current_quarter_likely:
+          type: integer
+        current_quarter_best_case:
+          type: integer
+        current_quarter_worst_case:
+          type: integer
+        confidence:
+          type: number
+        monthly_projections:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrendPoint"
+      required:
+        - current_quarter_target
+        - current_quarter_likely
+        - current_quarter_best_case
+        - current_quarter_worst_case
+        - confidence
+        - monthly_projections
+
+    AiChatBody:
+      type: object
+      properties:
+        message:
+          type: string
+        context:
+          type: string
+      required:
+        - message
+
+    AiChatResponse:
+      type: object
+      properties:
+        reply:
+          type: string
+        suggestions:
+          type: array
+          items:
+            type: string
+      required:
+        - reply
+
+    ScoreResult:
+      type: object
+      properties:
+        contact_id:
+          type: string
+        score:
+          type: number
+        reasoning:
+          type: string
+        recommendations:
+          type: array
+          items:
+            type: string
+      required:
+        - contact_id
+        - score
+        - reasoning
+
+    DailyBriefing:
+      type: object
+      properties:
+        date:
+          type: string
+        summary:
+          type: string
+        priority_contacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Contact"
+        top_signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Signal"
+        scheduled_calls:
+          type: integer
+        deals_to_close:
+          type: integer
+        action_items:
+          type: array
+          items:
+            type: string
+      required:
+        - date
+        - summary
+        - priority_contacts
+        - top_signals
+        - scheduled_calls
+        - deals_to_close
+        - action_items

@@ -1,0 +1,154 @@
+# NexFlow Motion Logo Kit
+
+Full Blend design system — drop-in files for your app.
+Framework-agnostic: works in React, Next.js, Vue, WordPress, static HTML, anywhere.
+
+============================================================
+FILES IN THIS KIT
+============================================================
+
+1. nexflow.css               → The ONLY file you truly need. Contains
+                                the whole design system (palette,
+                                animations, logo, buttons, cards, mesh).
+
+2. splash.html               → Full-screen splash/loading screen.
+                                Auto-hides after 3.5 seconds.
+
+3. login.html                → Login/landing page with the glassmorphism
+                                card, mesh background, and sign-in form.
+
+4. navbar.html               → Compact navbar variant (40px logo).
+
+5. nexflow_logo_mark.svg.html → Just the SVG of the logo mark — copy and
+                                paste it anywhere you need only the symbol.
+
+6. nexflow_motion_logo.html  → Original all-in-one file (standalone,
+                                no external CSS needed).
+
+
+============================================================
+HOW TO USE (STEP BY STEP)
+============================================================
+
+STEP 1 — Add nexflow.css to your project
+----------------------------------------
+
+Copy nexflow.css into your project. Common locations:
+
+  • React / Next.js   →  public/nexflow.css
+  • Vue / Nuxt        →  public/nexflow.css  (or  assets/css/nexflow.css)
+  • Plain HTML        →  same folder as your index.html
+  • WordPress         →  your theme folder
+
+Then reference it once (usually in your main HTML or layout file):
+
+  <link rel="stylesheet" href="/nexflow.css" />
+
+
+STEP 2 — Pick where to use the logo
+-----------------------------------
+
+A) SPLASH / LOADING SCREEN
+   Copy the entire <div id="nfSplash"> block from splash.html into your
+   main layout. The auto-hide script at the bottom will fade it out after
+   3.5 seconds. For React, call:
+       document.getElementById('nfSplash').classList.add('hidden');
+   whenever your app finishes loading.
+
+B) NAVBAR / HEADER
+   Copy the <nav class="nf-navbar"> block from navbar.html. Replace the
+   demo links with your own menu items.
+
+C) LOGIN / LANDING PAGE
+   Use login.html directly, or copy the <div class="nf-login-card"> into
+   an existing page. Hook the form's onsubmit to your actual auth flow.
+
+D) JUST THE LOGO MARK (anywhere)
+   Open nexflow_logo_mark.svg.html and copy the entire <svg> block into
+   any page. Change the class to control size:
+       nf-mark-sm   → 40px  (navbar)
+       nf-mark-md   → 80px  (cards, login)
+       nf-mark-lg   → 220px (splash, hero)
+
+
+STEP 3 — If using React/Next.js
+-------------------------------
+
+Framework-agnostic means it just works, but here's the cleanest pattern:
+
+  // components/NexFlowLogo.jsx
+  export default function NexFlowLogo({ size = 'md' }) {
+    return (
+      <svg className={`nf-mark nf-mark-${size}`} viewBox="0 0 220 220">
+        {/* paste the SVG contents from nexflow_logo_mark.svg.html */}
+      </svg>
+    );
+  }
+
+  // Usage
+  <NexFlowLogo size="sm" />   // navbar
+  <NexFlowLogo size="lg" />   // splash
+
+Make sure nexflow.css is imported in your root layout (_app.jsx,
+layout.tsx, or main.jsx).
+
+
+============================================================
+QUICK REFERENCE — CSS CLASSES
+============================================================
+
+LOGO MARK:
+  .nf-mark .nf-mark-sm   →  40px (use in navbar)
+  .nf-mark .nf-mark-md   →  80px (use in cards)
+  .nf-mark .nf-mark-lg   →  220px (use in splash)
+
+WORDMARK (animated gradient text):
+  .nf-wordmark .nf-wordmark-sm   →  20px
+  .nf-wordmark .nf-wordmark-md   →  36px
+  .nf-wordmark .nf-wordmark-lg   →  64px
+
+TAGLINE:
+  .nf-tagline            →  "Orchestrating Supreme Market Clarity" styling
+
+BUTTONS:
+  .nf-button             →  Chameleon-border glass button with pulse
+
+CARDS:
+  .nf-card               →  Glassmorphism card (blur + 1.5px border)
+
+BACKGROUND:
+  .nf-mesh               →  Container for 10 mesh nodes
+  .nf-mesh-node.n1...n10 →  Each node (all 10 recommended)
+
+ENTRY ANIMATIONS:
+  .nf-animate-in         →  Add to parent for staggered fade-in
+
+PALETTE (use via var()):
+  --nf-base, --nf-primary, --nf-growth, --nf-wealth,
+  --nf-secondary, --nf-interface, --nf-highlight
+
+ANIMATION TIMING (override if needed):
+  --nf-logo-loop      = 6s   (high energy)
+  --nf-button-loop    = 8s   (interactive)
+  --nf-ambient-loop   = 10s  (subtle)
+
+
+============================================================
+TROUBLESHOOTING
+============================================================
+
+Problem: The gradient text shows as plain color.
+Fix: Your build tool stripped the -webkit prefixes. Check that your
+     CSS minifier preserves vendor prefixes for background-clip.
+
+Problem: The mesh nodes look blocky instead of blurred.
+Fix: Some older browsers don't support filter: blur() well. Fall back
+     to a static gradient background.
+
+Problem: Animations run too hot on mobile.
+Fix: The CSS respects prefers-reduced-motion automatically. You can
+     also reduce mesh nodes from 10 to 5 for lower-end devices.
+
+Problem: Need a dark-mode version.
+Fix: Ask Claude to generate it — just change --nf-base to a dark value
+     and adjust opacity on mesh nodes.

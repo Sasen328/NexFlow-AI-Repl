@@ -1,0 +1,17 @@
+Build NexFlow — an AI-native sales operating system that replaces the fragmented 7-tool stack (CRM + enrichment + voice + messaging + call intel + compliance + workflow) with one brain.
+
+WHAT IT IS: The AI sales OS where every part works as one system. Paste a URL → get a full prospect dossier + approach strategy. AI voice agents call, qualify, and book meetings in Arabic + English. Live call coaching whispers the next best move while the rep is on the line; when the call ends, the CRM is already updated. Signal intelligence spots buying moments (funding rounds, exec moves, expansions) and drafts the outreach. Compliance screening runs in the background on every contact. The rep just talks and sells — AI does the research, the writing, the updating, the forecasting.
+
+WHO IT'S FOR: B2B sales teams anywhere in the world. Universal by design — SaaS, real estate, financial services, manufacturing, consulting. Gulf is the first market (bilingual Arabic/English native, CMA/SAMA/SIMAH compliance as optional plugins) but the product is region-agnostic and vertical-agnostic.
+
+STACK: Next.js 15 (App Router) + Hono API + PostgreSQL 16 + Drizzle ORM + Redis 7 + BullMQ + Clerk + Anthropic Claude + OpenAI Whisper/TTS + Twilio. Monorepo via pnpm + Turborepo: apps/web, apps/api, packages/db, packages/ai, packages/ui, packages/shared.
+
+ARCHITECTURE: 4 systems × 17 modules × 10 AI agents × 16 Postgres tables. Every table has uuid PK + org_id + row-level security + timestamptz. Money is bigint in smallest currency unit. compliance_screenings is append-only (Postgres trigger blocks UPDATE/DELETE). All AI calls route through a gateway with cost tracking and model routing (Haiku for fast, Sonnet for default, Opus for deep). Anthropic responses always filter content blocks by type === "text". max_tokens ≥ 8000 for research.
+
+MODULES (17): Home, Dashboard, Contacts, Companies, Signals, Harvest, Segments, Calls (with live coaching), Voice Studio (AI agent configs), WhatsApp, Scripts, Pipeline, AI Assistant, Notifications, Forecast, Best-Time Calendar, Analytics, Admin.
+
+AI AGENTS (10): signal-scorer, lead-scorer, compliance-screener, call-coach (live), call-scorer (post-call), segment-generator (natural language → filter), deal-forecaster, daily-briefing, ai-assistant (global chat), contact-enricher (waterfall across 50+ sources).
+
+BRAND — non-negotiable: NexFlow Full Blend design system. 6-color Chameleon DNA palette (#B8A0C8 lavender, #C0A0B8 rose-mauve, #88B8B0 seafoam, #C8A880 sand, #90B8B8 mist, #B8B880 olive) on #F5F2F6 base with #3E2F4A ink. Four rules: (1) Chameleon — logo/wordmark/primary buttons/active tabs cycle the palette on 6–10s loops, (2) Living Mesh — 10 animated radial-gradient nodes drifting on unique paths as the universal background, (3) Pulse — logo and AI orb breathe at 2.4s, (4) Flow — logo diamond strokes draw in on load. Fonts: DM Serif Display (headings), Inter/DM Sans (body), DM Mono (numbers), IBM Plex Sans Arabic (RTL). Glass panels (rgba white 0.78 + 18px blur). NEVER default shadcn dark theme — this is a light, airy, gradient-alive product.
+
+I will paste a complete 3,800-line build pack next (sections 3 through 20), then Section 14b for the full brand identity. Follow it exactly — no invented fields, no feature drift, no default theming. Confirm you understand, then wait for me to paste Section 3.

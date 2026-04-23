@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NexFlow — Motion Logo</title>
+<style>
+  /* =======================================================
+     NexFlow Full Blend — Motion Logo
+     Chameleon Palette + Living Mesh + Pulse + Flow Rules
+     ======================================================= */
+
+  :root {
+    --base:        #F5F2F6;
+    --c-primary:   #B8A0C8;  /* Soft Muted Lavender */
+    --c-growth:    #88B8B0;  /* Desaturated Seafoam */
+    --c-wealth:    #C8A880;  /* Muted Sand / Amber */
+    --c-secondary: #C0A0B8;  /* Warm Rose-Mauve */
+    --c-interface: #90B8B8;  /* Mist Green-Blue */
+    --c-highlight: #B8B880;  /* Muted Olive-Lemon */
+
+    --logo-loop:    6s;      /* Logo chameleon timing (High energy) */
+    --tagline-loop: 10s;     /* Ambient subtlety */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: var(--base);
+    overflow: hidden;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  /* -------------------------------------------------------
+     LIVING MESH — 10 radial gradient nodes, each with unique
+     path, never repeating the same pattern in a session
+     ------------------------------------------------------- */
+  .mesh {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .node {
+    position: absolute;
+    width: 55vmax;
+    height: 55vmax;
+    border-radius: 50%;
+    filter: blur(60px);
+    mix-blend-mode: normal;
+    will-change: transform, opacity;
+  }
+  .n1  { background: radial-gradient(circle, var(--c-primary)   0%, transparent 70%); top:-20%; left:-15%;  opacity:.32; animation: f1 22s ease-in-out infinite; }
+  .n2  { background: radial-gradient(circle, var(--c-growth)    0%, transparent 70%); top:10%;  right:-20%; opacity:.28; animation: f2 26s ease-in-out infinite; }
+  .n3  { background: radial-gradient(circle, var(--c-wealth)    0%, transparent 70%); bottom:-25%; left:10%; opacity:.24; animation: f3 30s ease-in-out infinite; }
+  .n4  { background: radial-gradient(circle, var(--c-secondary) 0%, transparent 70%); top:30%;  left:40%;  opacity:.20; animation: f4 24s ease-in-out infinite; }
+  .n5  { background: radial-gradient(circle, var(--c-interface) 0%, transparent 70%); bottom:5%; right:5%;  opacity:.30; animation: f5 28s ease-in-out infinite; }
+  .n6  { background: radial-gradient(circle, var(--c-highlight) 0%, transparent 70%); top:50%;  left:-10%; opacity:.22; animation: f6 32s ease-in-out infinite; }
+  .n7  { background: radial-gradient(circle, var(--c-primary)   0%, transparent 70%); top:-10%; right:20%; opacity:.18; animation: f7 34s ease-in-out infinite; }
+  .n8  { background: radial-gradient(circle, var(--c-growth)    0%, transparent 70%); bottom:15%; left:35%; opacity:.26; animation: f8 27s ease-in-out infinite; }
+  .n9  { background: radial-gradient(circle, var(--c-wealth)    0%, transparent 70%); top:60%;  right:30%; opacity:.14; animation: f9 31s ease-in-out infinite; }
+  .n10 { background: radial-gradient(circle, var(--c-secondary) 0%, transparent 70%); bottom:-10%; right:40%; opacity:.36; animation: f10 25s ease-in-out infinite; }
+
+  @keyframes f1  { 0%,100%{transform:translate(0,0) scale(1)}     50%{transform:translate(8vw,6vh) scale(1.15)} }
+  @keyframes f2  { 0%,100%{transform:translate(0,0) scale(1)}     50%{transform:translate(-6vw,10vh) scale(1.1)} }
+  @keyframes f3  { 0%,100%{transform:translate(0,0) scale(1)}     50%{transform:translate(10vw,-8vh) scale(1.2)} }
+  @keyframes f4  { 0%,100%{transform:translate(0,0) scale(1)}     50%{transform:translate(-12vw,-5vh) scale(1.08)} }
+  @keyframes f5  { 0%,100%{transform:translate(0,0) scale(1)}     50%{transform:translate(-8vw,-10vh) scale(1.18)} }
+  @keyframes f6  { 0%,100%{transform:translate(0,0) scale(1)}     50%{transform:translate(9vw,7vh) scale(1.12)} }
+  @keyframes f7  { 0%,100%{transform:translate(0,0) scale(1)}     50%{transform:translate(-7vw,9vh) scale(1.06)} }
+  @keyframes f8  { 0%,100%{transform:translate(0,0) scale(1)}     50%{transform:translate(5vw,-7vh) scale(1.22)} }
+  @keyframes f9  { 0%,100%{transform:translate(0,0) scale(1)}     50%{transform:translate(-10vw,4vh) scale(1.1)} }
+  @keyframes f10 { 0%,100%{transform:translate(0,0) scale(1)}     50%{transform:translate(6vw,-9vh) scale(1.16)} }
+
+  /* -------------------------------------------------------
+     STAGE — logo is centered, z-above mesh
+     ------------------------------------------------------- */
+  .stage {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+  }
+
+  /* -------------------------------------------------------
+     LOGO MARK — concentric diamonds + central dot
+     Pulse Rule: subtle heartbeat scale 1.0 → 1.05
+     Flow Rule: strokes are "drawn" via stroke-dashoffset
+     ------------------------------------------------------- */
+  .mark {
+    width: 220px;
+    height: 220px;
+    animation: pulse 2.4s ease-in-out infinite;
+    filter: drop-shadow(0 8px 24px rgba(184, 160, 200, 0.18));
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1.00); }
+    50%      { transform: scale(1.05); }
+  }
+
+  .diamond {
+    fill: none;
+    stroke-width: 3.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    stroke-dasharray: 400;
+    stroke-dashoffset: 400;
+    animation:
+      draw 2.2s ease-out forwards,
+      chameleon-stroke var(--logo-loop) ease-in-out infinite;
+  }
+  .diamond.outer  { animation-delay: 0.00s, 2.2s; stroke: url(#gradOuter);  }
+  .diamond.middle { animation-delay: 0.25s, 2.4s; stroke: url(#gradMiddle); }
+  .diamond.inner  { animation-delay: 0.50s, 2.6s; stroke: url(#gradInner);  }
+
+  @keyframes draw {
+    to { stroke-dashoffset: 0; }
+  }
+
+  /* Chameleon stroke gradient stops animate via SVG animate tags below.
+     Here we gently breathe the stroke width for an organic feel. */
+  @keyframes chameleon-stroke {
+    0%, 100% { stroke-width: 3.5; }
+    50%      { stroke-width: 4.2; }
+  }
+
+  .core {
+    transform-origin: 110px 110px;
+    animation:
+      core-fade 1.4s ease-out 0.9s both,
+      core-orbit 8s linear infinite 2.3s;
+  }
+  @keyframes core-fade {
+    from { opacity: 0; transform: scale(0.4); }
+    to   { opacity: 1; transform: scale(1);   }
+  }
+  @keyframes core-orbit {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* -------------------------------------------------------
+     WORDMARK — "NexFlow" with Chameleon text gradient
+     Gradient width: 400%, timing: 6s (logo)
+     ------------------------------------------------------- */
+  .wordmark {
+    font-size: 64px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    opacity: 0;
+    animation: word-in 1.2s ease-out 1.1s forwards;
+
+    background: linear-gradient(
+      90deg,
+      var(--c-primary) 0%,
+      var(--c-secondary) 18%,
+      var(--c-growth) 36%,
+      var(--c-interface) 54%,
+      var(--c-highlight) 72%,
+      var(--c-wealth) 90%,
+      var(--c-primary) 100%
+    );
+    background-size: 400% 100%;
+    -webkit-background-clip: text;
+            background-clip: text;
+    -webkit-text-fill-color: transparent;
+            color: transparent;
+    animation:
+      word-in 1.2s ease-out 1.1s forwards,
+      chameleon-text var(--logo-loop) linear infinite 1.1s;
+  }
+
+  @keyframes word-in {
+    0%   { opacity: 0; transform: translateY(12px); }
+    100% { opacity: 1; transform: translateY(0);    }
+  }
+
+  @keyframes chameleon-text {
+    0%   { background-position:   0% 50%; }
+    100% { background-position: 400% 50%; }
+  }
+
+  /* -------------------------------------------------------
+     TAGLINE — ambient chameleon flow at 10s loop
+     ------------------------------------------------------- */
+  .tagline {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.38em;
+    text-transform: uppercase;
+    text-align: center;
+    opacity: 0;
+    animation: tag-in 1.4s ease-out 1.6s forwards;
+
+    background: linear-gradient(
+      90deg,
+      var(--c-interface) 0%,
+      var(--c-growth) 25%,
+      var(--c-wealth) 50%,
+      var(--c-secondary) 75%,
+      var(--c-interface) 100%
+    );
+    background-size: 400% 100%;
+    -webkit-background-clip: text;
+            background-clip: text;
+    -webkit-text-fill-color: transparent;
+            color: transparent;
+    animation:
+      tag-in 1.4s ease-out 1.6s forwards,
+      chameleon-text var(--tagline-loop) linear infinite 1.6s;
+  }
+
+  @keyframes tag-in {
+    0%   { opacity: 0; letter-spacing: 0.28em; }
+    100% { opacity: 0.85; letter-spacing: 0.38em; }
+  }
+
+  /* Reduced motion respect */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Living Mesh background -->
+  <div class="mesh" aria-hidden="true">
+    <div class="node n1"></div>
+    <div class="node n2"></div>
+    <div class="node n3"></div>
+    <div class="node n4"></div>
+    <div class="node n5"></div>
+    <div class="node n6"></div>
+    <div class="node n7"></div>
+    <div class="node n8"></div>
+    <div class="node n9"></div>
+    <div class="node n10"></div>
+  </div>
+
+  <!-- Stage -->
+  <div class="stage">
+
+    <!-- LOGO MARK -->
+    <svg class="mark" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" aria-label="NexFlow logo">
+      <defs>
+        <!-- Outer diamond: Lavender → Rose-Mauve → Sand, animating -->
+        <linearGradient id="gradOuter" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#B8A0C8">
+            <animate attributeName="stop-color"
+                     values="#B8A0C8;#C0A0B8;#C8A880;#B8A0C8"
+                     dur="6s" repeatCount="indefinite"/>
+          </stop>
+          <stop offset="50%" stop-color="#C0A0B8">
+            <animate attributeName="stop-color"
+                     values="#C0A0B8;#88B8B0;#90B8B8;#C0A0B8"
+                     dur="6s" repeatCount="indefinite"/>
+          </stop>
+          <stop offset="100%" stop-color="#C8A880">
+            <animate attributeName="stop-color"
+                     values="#C8A880;#B8B880;#B8A0C8;#C8A880"
+                     dur="6s" repeatCount="indefinite"/>
+          </stop>
+        </linearGradient>
+
+        <!-- Middle diamond -->
+        <linearGradient id="gradMiddle" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#88B8B0">
+            <animate attributeName="stop-color"
+                     values="#88B8B0;#90B8B8;#B8B880;#88B8B0"
+                     dur="6s" repeatCount="indefinite"/>
+          </stop>
+          <stop offset="100%" stop-color="#C0A0B8">
+            <animate attributeName="stop-color"
+                     values="#C0A0B8;#B8A0C8;#C8A880;#C0A0B8"
+                     dur="6s" repeatCount="indefinite"/>
+          </stop>
+        </linearGradient>
+
+        <!-- Inner diamond -->
+        <linearGradient id="gradInner" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0%" stop-color="#B8B880">
+            <animate attributeName="stop-color"
+                     values="#B8B880;#C8A880;#C0A0B8;#B8B880"
+                     dur="6s" repeatCount="indefinite"/>
+          </stop>
+          <stop offset="100%" stop-color="#90B8B8">
+            <animate attributeName="stop-color"
+                     values="#90B8B8;#88B8B0;#B8A0C8;#90B8B8"
+                     dur="6s" repeatCount="indefinite"/>
+          </stop>
+        </linearGradient>
+
+        <!-- Core dot gradient -->
+        <radialGradient id="gradCore" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#B8A0C8" stop-opacity="0.95"/>
+          <stop offset="100%" stop-color="#C0A0B8" stop-opacity="0.75"/>
+        </radialGradient>
+      </defs>
+
+      <!-- Concentric diamonds (rotated squares) -->
+      <rect class="diamond outer"
+            x="25" y="25" width="170" height="170"
+            transform="rotate(45 110 110)" rx="6"/>
+      <rect class="diamond middle"
+            x="55" y="55" width="110" height="110"
+            transform="rotate(45 110 110)" rx="5"/>
+      <rect class="diamond inner"
+            x="80" y="80" width="60" height="60"
+            transform="rotate(45 110 110)" rx="4"/>
+
+      <!-- Core dot with gentle orbit offset -->
+      <g class="core">
+        <circle cx="110" cy="110" r="10" fill="url(#gradCore)"/>
+        <circle cx="110" cy="110" r="10" fill="none"
+                stroke="#B8A0C8" stroke-width="1" stroke-opacity="0.4">
+          <animate attributeName="r"
+                   values="10;14;10"
+                   dur="2.4s" repeatCount="indefinite"/>
+          <animate attributeName="stroke-opacity"
+                   values="0.4;0;0.4"
+                   dur="2.4s" repeatCount="indefinite"/>
+        </circle>
+      </g>
+    </svg>
+
+    <!-- WORDMARK -->
+    <div class="wordmark">NexFlow</div>
+
+    <!-- TAGLINE -->
+    <div class="tagline">Orchestrating Supreme Market Clarity</div>
+
+  </div>
+
+</body>
+</html>

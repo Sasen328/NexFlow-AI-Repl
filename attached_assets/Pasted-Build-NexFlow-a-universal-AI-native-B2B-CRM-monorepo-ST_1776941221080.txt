@@ -1,0 +1,11 @@
+Build NexFlow — a universal AI-native B2B CRM monorepo.
+
+STACK: Next.js 15 (App Router) + Hono API + PostgreSQL 16 + Drizzle ORM + Redis 7 + BullMQ + Clerk auth + Anthropic Claude + OpenAI Whisper/TTS + Twilio. Monorepo via pnpm workspaces + Turborepo: apps/web, apps/api, packages/db, packages/ai, packages/ui, packages/shared.
+
+PRODUCT: Universal B2B sales OS — 4 systems (Intelligent CRM Core, Enrichment & Intelligence, Engagement & Communication, Compliance & Operations) across 17 modules (Home, Dashboard, Contacts, Companies, Signals, Harvest, Segments, Calls, Voice Studio, WhatsApp, Scripts, Pipeline, Assistant, Notifications, Forecast, Calendar, Analytics, Admin). 10 AI agents: signal-scorer, lead-scorer, compliance-screener, call-coach, call-scorer, segment-generator, deal-forecaster, daily-briefing, ai-assistant, contact-enricher.
+
+DATA: 16 Postgres tables — organizations, users, companies, contacts, signals, deals, activities, calls, compliance_screenings (APPEND-ONLY trigger), segments, scripts, voice_agents, messaging_flows, ai_conversations, notifications, integrations. Every table: uuid PK + org_id + RLS + timestamptz. Money is bigint in smallest currency unit.
+
+BRAND — non-negotiable: NexFlow Full Blend design system. 6-color Chameleon DNA palette (#B8A0C8 lavender, #C0A0B8 rose-mauve, #88B8B0 seafoam, #C8A880 sand, #90B8B8 mist, #B8B880 olive) on #F5F2F6 base with #3E2F4A ink. Four rules: (1) Chameleon — logo/wordmark/primary buttons/active tabs cycle the palette on 6–10s loops, (2) Living Mesh — 10 animated radial-gradient background nodes drifting on unique paths, (3) Pulse — logo and AI orb breathe at 2.4s, (4) Flow — logo diamond strokes draw in on load. Fonts: DM Serif Display (headings) + Inter/DM Sans (body) + DM Mono (numbers) + IBM Plex Sans Arabic (RTL). Glass panels (rgba white 0.78 + 18px blur) — never flat shadcn dark theme.
+
+I will paste a full build pack next (sections 3–20). Follow it exactly — no invented fields, no feature drift, no default theming. Confirm you understand, then wait for Section 3.
