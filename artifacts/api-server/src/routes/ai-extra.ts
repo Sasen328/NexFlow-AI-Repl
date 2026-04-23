@@ -286,6 +286,82 @@ router.get("/insights", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
 
+// ── Insights: regenerate today (clears cache for today and re-runs) ──────────
+router.post("/insights/regenerate", async (_req, res) => {
+  try {
+    const today = new Date(); today.setHours(0,0,0,0);
+    await db.delete(ai_insights).where(gte(ai_insights.generated_at, today));
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// ── Insights: 14-day trend by category ──────────────────────────────────────
+router.get("/insights/trend", async (_req, res) => {
+  try {
+    const r = await db.execute(sql`
+      select date_trunc('day', generated_at)::date as day,
+        category,
+        count(*)::int as count
+      from ai_insights
+      where generated_at > now() - interval '14 days'
+      group by 1, 2 order by 1
+    `);
+    res.json({ trend: (r as any).rows ?? r });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// ── AI Dashboard Builder: build full dashboard (name + widgets) from prompt ─
+router.post("/dashboard-builder", async (req, res) => {
+  try {
+    const { prompt } = req.body as { prompt: string };
+    if (!prompt) return res.status(400).json({ error: "prompt required" });
+    const { aiJson } = await import("../lib/ai.js");
+    const spec = await aiJson<any>({
+      system: `You design CRM dashboards. Output strict JSON.
+Available widget types: metric, funnel, deal_stages, leaderboard, activity_timeline, stage_conversion, time_series.
+Available metrics: deals_open, pipeline_value, won_value, contacts_total, calls_completed, signals_new.
+Time-series metrics: deals_won, calls_completed, contacts_added.`,
+      user: `User prompt: "${prompt}". Design a dashboard with 4 to 6 complementary widgets that tell a coherent story.
+Output: { "name": "...", "description": "1 sentence", "widgets": [{ "type": "...", "title": "...", "config": { ... }, "width": "sm|md|lg|full" }] }`,
+    }).catch(() => ({
+      name: "Pipeline Pulse",
+      description: "Auto-generated default dashboard.",
+      widgets: [
+        { type: "metric", title: "Open Deals", config: { metric: "deals_open" }, width: "sm" },
+        { type: "metric", title: "Pipeline Value", config: { metric: "pipeline_value", format: "currency" }, width: "sm" },
+        { type: "funnel", title: "Pipeline Funnel", config: {}, width: "lg" },
+        { type: "leaderboard", title: "Top Reps", config: {}, width: "md" },
+      ],
+    }));
+    res.json(spec);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// ── AI: summarize a dashboard's current state ───────────────────────────────
+router.post("/dashboard-summary", async (req, res) => {
+  try {
+    const { widgets } = req.body as { widgets: any[] };
+    const { aiJson } = await import("../lib/ai.js");
+    const summary = await aiJson<any>({
+      system: "You are a sales operations analyst. Output strict JSON.",
+      user: `Here are dashboard widget snapshots: ${JSON.stringify(widgets).slice(0, 4000)}.
+Return: { "headline": "1 sentence top-line takeaway", "callouts": [{ "text": "...", "tone": "good|neutral|warn" }] } (3 callouts max)`,
+    }).catch(() => ({
+      headline: "Dashboard data captured — refresh widgets for a fresh AI read.",
+      callouts: [],
+    }));
+    res.json(summary);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
 // ── AI Report Builder (Breeze-style) ────────────────────────────────────────
 router.post("/report-builder", async (req, res) => {
   try {

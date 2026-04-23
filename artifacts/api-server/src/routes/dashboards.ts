@@ -57,11 +57,53 @@ router.post("/:id/widgets", async (req, res) => {
   }
 });
 
+router.patch("/widgets/:widgetId", async (req, res) => {
+  try {
+    const { title, config, position, width } = req.body ?? {};
+    const patch: any = {};
+    if (title !== undefined) patch.title = title;
+    if (config !== undefined) patch.config = config;
+    if (position !== undefined) patch.position = position;
+    if (width !== undefined) patch.width = width;
+    const [w] = await db.update(dashboard_widgets).set(patch).where(eq(dashboard_widgets.id, req.params.widgetId)).returning();
+    res.json(w);
+  } catch (err: any) { res.status(500).json({ error: err?.message ?? "Failed" }); }
+});
+
 router.delete("/widgets/:widgetId", async (req, res) => {
   try {
     await db.delete(dashboard_widgets).where(eq(dashboard_widgets.id, req.params.widgetId));
     res.status(204).send();
   } catch (err) { res.status(500).json({ error: "Failed" }); }
+});
+
+// Duplicate a dashboard with all its widgets
+router.post("/:id/duplicate", async (req, res) => {
+  try {
+    const [src] = await db.select().from(dashboards).where(eq(dashboards.id, req.params.id));
+    if (!src) return res.status(404).json({ error: "Not found" });
+    const [copy] = await db.insert(dashboards).values({
+      org_id: src.org_id,
+      name: `${src.name} (copy)`,
+      description: src.description,
+      layout: src.layout as any,
+      filters: src.filters as any,
+      owner_id: src.owner_id,
+      is_shared: false,
+    }).returning();
+    const widgets = await db.select().from(dashboard_widgets).where(eq(dashboard_widgets.dashboard_id, src.id));
+    if (widgets.length) {
+      await db.insert(dashboard_widgets).values(widgets.map((w) => ({
+        dashboard_id: copy.id,
+        type: w.type,
+        title: w.title,
+        config: w.config as any,
+        position: w.position ?? 0,
+        width: w.width ?? "md",
+      })));
+    }
+    res.status(201).json(copy);
+  } catch (err: any) { res.status(500).json({ error: err?.message ?? "Failed" }); }
 });
 
 // Live data for widgets — single endpoint that returns aggregated data based on widget config
@@ -124,6 +166,39 @@ router.post("/widget-data", async (req, res) => {
         group by 1, 2 order by 1
       `);
       return res.json({ data: (r as any).rows ?? r });
+    }
+
+    if (type === "time_series") {
+      const metric = config.metric ?? "deals_won";
+      const weeks = Math.min(parseInt(config.weeks ?? "12"), 52);
+      let r: any;
+      if (metric === "deals_won") {
+        r = await db.execute(sql`
+          select date_trunc('week', updated_at)::date as week,
+            count(*)::int as count,
+            coalesce(sum(value),0)::int as value
+          from deals where stage = 'closed_won'::deal_stage
+            and updated_at > now() - (${weeks}::int || ' weeks')::interval
+          group by 1 order by 1
+        `);
+      } else if (metric === "calls_completed") {
+        r = await db.execute(sql`
+          select date_trunc('week', created_at)::date as week,
+            count(*)::int as count
+          from calls where status = 'completed'
+            and created_at > now() - (${weeks}::int || ' weeks')::interval
+          group by 1 order by 1
+        `);
+      } else {
+        r = await db.execute(sql`
+          select date_trunc('week', created_at)::date as week,
+            count(*)::int as count
+          from contacts
+            where created_at > now() - (${weeks}::int || ' weeks')::interval
+          group by 1 order by 1
+        `);
+      }
+      return res.json({ data: (r as any).rows ?? r, metric });
     }
 
     if (type === "stage_conversion") {
