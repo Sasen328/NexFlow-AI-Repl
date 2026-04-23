@@ -193,6 +193,27 @@ export function useSignalSummary() {
   });
 }
 
+export function useAdvanceDeal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { deal_id: string; to_stage?: string }) =>
+      apiPost<{ deal: ApiDeal; from: string; to: string; probability: number }>(
+        `/deals/${input.deal_id}/advance`,
+        input.to_stage ? { to_stage: input.to_stage } : {},
+      ),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["deals"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["pipeline-by-stage"] });
+      const contactId = (data as any)?.deal?.contact_id;
+      if (contactId) {
+        qc.invalidateQueries({ queryKey: ["contact", contactId, "activities"] });
+        qc.invalidateQueries({ queryKey: ["contact", contactId] });
+      }
+    },
+  });
+}
+
 export function useLogCall() {
   const qc = useQueryClient();
   return useMutation({
