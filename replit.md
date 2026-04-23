@@ -114,3 +114,10 @@ Rich sample data pre-seeded: 8 contacts (GCC-focused), 6 companies (Saudi/UAE), 
 - All new tables use uuid PKs (`gen_random_uuid()`) matching existing schema
 - All AI calls degrade gracefully — fallbacks ensure routes never crash if a provider is unavailable
 - New nav groups in sidebar: Records (Lists/Properties), Engage (Campaigns/Today's Calls), AI Workforce (Agent Builder/Daily Insights), Insights & Ops (Dashboards)
+
+### Phase F — Mobile Live Data
+- `artifacts/mobile/lib/api.ts` provides `apiFetch` + TanStack Query hooks (useContacts, useContact, useDeals, useAgents, useDashboardSummary, useTopContacts, usePipelineByStage, useSignalSummary, useContactActivities)
+- API base URL derived from `EXPO_PUBLIC_DOMAIN` → `https://${domain}/api-server/api`
+- All four tabs (Briefing, Pipeline, Contacts, Agents) + Contact Detail now consume live API instead of mockData
+- CORS workaround: `apiFetch` omits `Content-Type` on GETs to keep them as "simple" requests and skip preflight (the workspace proxy strips `Access-Control-Allow-Origin` from OPTIONS responses)
+- `artifacts/api-server/src/app.ts` updated to `cors({ origin: true })` so the GET response reflects the request origin

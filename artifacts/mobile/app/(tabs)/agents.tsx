@@ -1,32 +1,34 @@
-import React, { useEffect, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React from "react";
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
-import { AGENTS, LIVE_CALLS } from "@/data/mockData";
+import { useAgents, type ApiAgent } from "@/lib/api";
 
-function formatDuration(sec: number) {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
+function timeAgo(iso: string | null) {
+  if (!iso) return "Never run";
+  const ms = Date.now() - new Date(iso).getTime();
+  const min = Math.round(ms / 60000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const d = Math.round(hr / 24);
+  return `${d}d ago`;
 }
 
 export default function AgentsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [tick, setTick] = useState(0);
+  const { data, isPending, isError, refetch, isRefetching } = useAgents();
+  const agents: ApiAgent[] = data?.agents ?? [];
 
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const liveAgents = AGENTS.filter((a) => a.status === "live").length;
-  const totalCalls = AGENTS.reduce((s, a) => s + a.callsToday, 0);
-  const concurrentNow = AGENTS.reduce((s, a) => s + a.concurrent, 0);
+  const enabledCount = agents.filter((a) => a.enabled).length;
+  const totalRuns = agents.reduce((s, a) => s + (a.run_count || 0), 0);
+  const scheduled = agents.filter((a) => a.trigger_type === "schedule").length;
 
   return (
     <ScrollView
@@ -38,121 +40,109 @@ export default function AgentsScreen() {
         gap: 16,
       }}
       showsVerticalScrollIndicator={false}
+      refreshControl={undefined}
     >
       <View>
         <Text style={[styles.kicker, { color: colors.mutedForeground }]}>AI WORKFORCE</Text>
-        <Text style={[styles.title, { color: colors.foreground }]}>Voice Agents</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>Agents</Text>
       </View>
 
       <View style={{ flexDirection: "row", gap: 10 }}>
         <Card style={{ flex: 1, gap: 4 }}>
-          <Text style={[styles.kicker, { color: colors.mutedForeground }]}>LIVE NOW</Text>
+          <Text style={[styles.kicker, { color: colors.mutedForeground }]}>ENABLED</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <View style={[styles.livePulse, { backgroundColor: "#7FB069" }]} />
-            <Text style={[styles.bigValue, { color: colors.foreground }]}>{liveAgents}</Text>
+            <Text style={[styles.bigValue, { color: colors.foreground }]}>{enabledCount}</Text>
           </View>
         </Card>
         <Card style={{ flex: 1, gap: 4 }}>
-          <Text style={[styles.kicker, { color: colors.mutedForeground }]}>CALLS TODAY</Text>
-          <Text style={[styles.bigValue, { color: "#B8A0C8" }]}>{totalCalls}</Text>
+          <Text style={[styles.kicker, { color: colors.mutedForeground }]}>TOTAL RUNS</Text>
+          <Text style={[styles.bigValue, { color: "#B8A0C8" }]}>{totalRuns}</Text>
         </Card>
         <Card style={{ flex: 1, gap: 4 }}>
-          <Text style={[styles.kicker, { color: colors.mutedForeground }]}>CONCURRENT</Text>
-          <Text style={[styles.bigValue, { color: "#88B8B0" }]}>{concurrentNow}</Text>
+          <Text style={[styles.kicker, { color: colors.mutedForeground }]}>SCHEDULED</Text>
+          <Text style={[styles.bigValue, { color: "#88B8B0" }]}>{scheduled}</Text>
         </Card>
       </View>
-
-      <View style={styles.sectionHeader}>
-        <View style={styles.sectionTitleRow}>
-          <View style={[styles.livePulse, { backgroundColor: "#E07474" }]} />
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Live Calls · {LIVE_CALLS.length}</Text>
-        </View>
-      </View>
-
-      {LIVE_CALLS.map((c) => {
-        const liveDur = c.durationSec + tick;
-        const sentColor = c.sentiment === "positive" ? "#7FB069" : c.sentiment === "neutral" ? "#C8A880" : "#E07474";
-        return (
-          <Card key={c.id} style={{ gap: 12 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <View style={[styles.livePulse, { backgroundColor: "#E07474" }]} />
-              <Text style={[styles.callContact, { color: colors.foreground }]}>{c.contact}</Text>
-              <Text style={[styles.callCompany, { color: colors.mutedForeground }]}>· {c.company}</Text>
-              <View style={{ flex: 1 }} />
-              <Text style={[styles.callDur, { color: colors.foreground }]}>{formatDuration(liveDur)}</Text>
-            </View>
-
-            <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
-              <Badge label={`Agent: ${c.agent}`} tone="violet" small />
-              <Badge label={c.phase.toUpperCase()} tone="teal" small />
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: sentColor }} />
-                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: sentColor }}>{c.sentiment}</Text>
-              </View>
-            </View>
-
-            <View style={[styles.transcript, { backgroundColor: colors.muted }]}>
-              <Feather name="mic" size={12} color={colors.mutedForeground} />
-              <Text style={[styles.transcriptText, { color: colors.foreground }]} numberOfLines={2}>
-                {c.lastUtterance}
-              </Text>
-            </View>
-
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <Pressable style={[styles.callBtn, { backgroundColor: colors.muted }]}>
-                <Feather name="headphones" size={14} color={colors.foreground} />
-                <Text style={[styles.callBtnText, { color: colors.foreground }]}>Listen</Text>
-              </Pressable>
-              <Pressable style={[styles.callBtn, { backgroundColor: "#88B8B0" }]}>
-                <Feather name="phone-forwarded" size={14} color="#fff" />
-                <Text style={[styles.callBtnText, { color: "#fff" }]}>Take over</Text>
-              </Pressable>
-            </View>
-          </Card>
-        );
-      })}
 
       <View style={styles.sectionHeader}>
         <View style={styles.sectionTitleRow}>
           <Feather name="cpu" size={16} color={colors.mutedForeground} />
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>All Agents</Text>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>All Agents · {agents.length}</Text>
         </View>
+        <Pressable onPress={() => refetch()}>
+          <Feather
+            name="refresh-cw"
+            size={14}
+            color={colors.mutedForeground}
+            style={{ opacity: isRefetching ? 0.4 : 1 }}
+          />
+        </Pressable>
       </View>
 
-      {AGENTS.map((a) => {
-        const statusColor =
-          a.status === "live" ? "#7FB069" : a.status === "idle" ? "#C8A880" : "#B8A0C8";
-        return (
-          <Card key={a.id} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <Avatar initials={a.avatar} size={48} />
-            <View style={{ flex: 1, gap: 4 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Text style={[styles.agentName, { color: colors.foreground }]}>{a.name}</Text>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusColor }} />
-                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: statusColor }}>
-                  {a.status.toUpperCase()}
-                </Text>
-              </View>
-              <Text style={[styles.agentSub, { color: colors.mutedForeground }]} numberOfLines={1}>
-                {a.voice} · {a.model}
-              </Text>
-              <View style={{ flexDirection: "row", gap: 12, marginTop: 4 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <Feather name="phone" size={10} color={colors.mutedForeground} />
-                  <Text style={[styles.agentMeta, { color: colors.mutedForeground }]}>{a.callsToday} today</Text>
+      {isPending ? (
+        <View style={{ paddingVertical: 40, alignItems: "center" }}>
+          <ActivityIndicator color={colors.mutedForeground} />
+        </View>
+      ) : isError ? (
+        <Card style={{ alignItems: "center", gap: 8 }}>
+          <Feather name="wifi-off" size={24} color={colors.mutedForeground} />
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium" }}>
+            Couldn't load agents.
+          </Text>
+        </Card>
+      ) : agents.length === 0 ? (
+        <Card style={{ alignItems: "center", gap: 8 }}>
+          <Feather name="cpu" size={24} color={colors.mutedForeground} />
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium" }}>
+            No agents configured yet.
+          </Text>
+        </Card>
+      ) : (
+        agents.map((a) => {
+          const enabled = a.enabled;
+          const statusColor = enabled ? "#7FB069" : "#C8A880";
+          const initials = (a.name || "?")
+            .split(" ")
+            .map((w) => w[0])
+            .filter(Boolean)
+            .slice(0, 2)
+            .join("")
+            .toUpperCase();
+          return (
+            <Card key={a.id} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <Avatar initials={initials} size={48} />
+              <View style={{ flex: 1, gap: 4 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <Text style={[styles.agentName, { color: colors.foreground }]} numberOfLines={1}>
+                    {a.name}
+                  </Text>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusColor }} />
+                  <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: statusColor }}>
+                    {enabled ? "ENABLED" : "PAUSED"}
+                  </Text>
                 </View>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <Feather name="check-circle" size={10} color={colors.mutedForeground} />
-                  <Text style={[styles.agentMeta, { color: colors.mutedForeground }]}>{a.qualRate}% qual</Text>
+                {a.description ? (
+                  <Text style={[styles.agentSub, { color: colors.mutedForeground }]} numberOfLines={2}>
+                    {a.description}
+                  </Text>
+                ) : null}
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 4, alignItems: "center", flexWrap: "wrap" }}>
+                  <Badge label={a.trigger_type.toUpperCase()} tone="violet" small />
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Feather name="zap" size={10} color={colors.mutedForeground} />
+                    <Text style={[styles.agentMeta, { color: colors.mutedForeground }]}>{a.run_count} runs</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Feather name="clock" size={10} color={colors.mutedForeground} />
+                    <Text style={[styles.agentMeta, { color: colors.mutedForeground }]}>{timeAgo(a.last_run_at)}</Text>
+                  </View>
                 </View>
               </View>
-            </View>
-            <Pressable style={[styles.iconBtn, { backgroundColor: colors.muted }]}>
-              <Feather name="settings" size={14} color={colors.foreground} />
-            </Pressable>
-          </Card>
-        );
-      })}
+            </Card>
+          );
+        })
+      )}
     </ScrollView>
   );
 }
@@ -165,15 +155,7 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
   sectionTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   sectionTitle: { fontFamily: "Inter_700Bold", fontSize: 16 },
-  callContact: { fontFamily: "Inter_700Bold", fontSize: 14 },
-  callCompany: { fontFamily: "Inter_400Regular", fontSize: 12 },
-  callDur: { fontFamily: "Inter_700Bold", fontSize: 14 },
-  transcript: { flexDirection: "row", gap: 8, padding: 10, borderRadius: 12, alignItems: "flex-start" },
-  transcriptText: { flex: 1, fontFamily: "Inter_400Regular", fontSize: 12, fontStyle: "italic", lineHeight: 17 },
-  callBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 12 },
-  callBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
-  agentName: { fontFamily: "Inter_700Bold", fontSize: 15 },
-  agentSub: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  agentName: { fontFamily: "Inter_700Bold", fontSize: 15, flexShrink: 1 },
+  agentSub: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 17 },
   agentMeta: { fontFamily: "Inter_500Medium", fontSize: 11 },
-  iconBtn: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
 });
