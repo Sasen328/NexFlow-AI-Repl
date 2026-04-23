@@ -6,6 +6,7 @@ import { LivingMesh } from "@/components/layout/LivingMesh";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useState, useEffect } from "react";
 
+import Briefing from "@/pages/briefing";
 import Dashboard from "@/pages/dashboard";
 import ContactsPage from "@/pages/contacts";
 import ContactProfilePage from "@/pages/contact-profile";
@@ -25,6 +26,8 @@ import AutomationPage from "@/pages/automation";
 import AssistantPage from "@/pages/assistant";
 import TeamPage from "@/pages/team";
 import EmailPage from "@/pages/email";
+import SourcingPage from "@/pages/sourcing";
+import VoiceAgentsPage from "@/pages/voice-agents";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -50,7 +53,10 @@ function AppLayout() {
       <Sidebar collapsed={collapsed} onCollapse={setCollapsed} dark={dark} onDark={setDark} />
       <main className="flex-1 min-w-0 p-6 overflow-y-auto relative z-10">
         <Switch>
-          <Route path="/" component={Dashboard} />
+          <Route path="/" component={Briefing} />
+          <Route path="/dashboard" component={Dashboard} />
+          <Route path="/sourcing" component={SourcingPage} />
+          <Route path="/voice-agents" component={VoiceAgentsPage} />
           <Route path="/contacts" component={ContactsPage} />
           <Route path="/contacts/:id" component={ContactProfilePage} />
           <Route path="/companies" component={CompaniesPage} />

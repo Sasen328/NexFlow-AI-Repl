@@ -1,21 +1,22 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard, Users, Building2, TrendingUp, Zap, Activity,
-  Phone, FileText, Bell, BarChart3, Target,
+  Sparkles, Users, Building2, TrendingUp, Zap, Activity,
+  Phone, FileText, Bell, BarChart3, Target, Database, Bot,
   ChevronLeft, ChevronRight, ChevronDown, Search, Moon, Sun,
-  MessageSquare, Star, Settings, Mail, Sparkles, UserSquare2, Bot
+  MessageSquare, Star, Settings, Mail, UserSquare2, FlaskConical
 } from "lucide-react";
 import { NexFlowLogo, NexFlowWordmark } from "./NexFlowLogo";
 import { useNotifications } from "@/hooks/useApi";
 import { useState, useEffect } from "react";
 
-const SOLO_ITEM = { icon: LayoutDashboard, label: "Dashboard", href: "/" };
+const SOLO_TOP = { icon: Sparkles, label: "Briefing", href: "/" };
+const SOLO_BOTTOM = { icon: Bell, label: "Notifications", href: "/notifications", badge: true };
 
 const NAV_GROUPS = [
   {
-    key: "crm",
-    label: "CRM",
+    key: "pipeline",
+    label: "Pipeline",
     items: [
       { icon: Users, label: "Contacts", href: "/contacts" },
       { icon: Building2, label: "Companies", href: "/companies" },
@@ -23,20 +24,20 @@ const NAV_GROUPS = [
     ],
   },
   {
-    key: "intel",
-    label: "Intelligence",
+    key: "sourcing",
+    label: "Sourcing",
     items: [
+      { icon: Database, label: "Enrichment", href: "/sourcing" },
       { icon: Star, label: "Lead Intelligence", href: "/intelligence" },
-      { icon: Zap, label: "Signals", href: "/signals" },
       { icon: Target, label: "Segments", href: "/segments" },
-      { icon: BarChart3, label: "Analytics", href: "/analytics" },
     ],
   },
   {
-    key: "comms",
-    label: "Communication",
+    key: "engage",
+    label: "Engage",
     items: [
       { icon: Phone, label: "Calls", href: "/calls" },
+      { icon: Bot, label: "Voice Agents", href: "/voice-agents" },
       { icon: MessageSquare, label: "WhatsApp", href: "/whatsapp" },
       { icon: Mail, label: "Email", href: "/email" },
       { icon: Activity, label: "Activities", href: "/activities" },
@@ -44,20 +45,21 @@ const NAV_GROUPS = [
     ],
   },
   {
-    key: "ops",
-    label: "Team & Ops",
+    key: "ai",
+    label: "AI Workforce",
     items: [
-      { icon: UserSquare2, label: "Team Performance", href: "/team" },
+      { icon: Sparkles, label: "AI Assistant", href: "/assistant" },
+      { icon: Bot, label: "AI Agents", href: "/ai" },
       { icon: Zap, label: "Automation", href: "/automation" },
     ],
   },
   {
-    key: "ai",
-    label: "AI & Alerts",
+    key: "ops",
+    label: "Insights & Ops",
     items: [
-      { icon: Bot, label: "AI Agents", href: "/ai" },
-      { icon: Sparkles, label: "AI Assistant", href: "/assistant" },
-      { icon: Bell, label: "Notifications", href: "/notifications", badge: true },
+      { icon: Zap, label: "Signals", href: "/signals" },
+      { icon: BarChart3, label: "Analytics", href: "/analytics" },
+      { icon: UserSquare2, label: "Team", href: "/team" },
     ],
   },
 ];
@@ -76,7 +78,6 @@ export function Sidebar({ collapsed, onCollapse, dark, onDark }: SidebarProps) {
   const { data: notifData } = useNotifications();
   const unreadCount = (notifData?.notifications ?? []).filter((n: any) => !n.read).length;
 
-  // Find which group the current location belongs to
   const activeGroup = NAV_GROUPS.find((g) =>
     g.items.some((i) => location === i.href || location.startsWith(i.href + "/"))
   );
@@ -84,13 +85,12 @@ export function Sidebar({ collapsed, onCollapse, dark, onDark }: SidebarProps) {
   const [openSection, setOpenSection] = useState<string | null>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ?? activeGroup?.key ?? "crm";
+      return stored ?? activeGroup?.key ?? "pipeline";
     } catch {
-      return activeGroup?.key ?? "crm";
+      return activeGroup?.key ?? "pipeline";
     }
   });
 
-  // Auto-expand the section containing the current route
   useEffect(() => {
     if (activeGroup && openSection !== activeGroup.key) {
       setOpenSection(activeGroup.key);
@@ -105,7 +105,46 @@ export function Sidebar({ collapsed, onCollapse, dark, onDark }: SidebarProps) {
     try { localStorage.setItem(STORAGE_KEY, next ?? ""); } catch {}
   }
 
-  const dashboardActive = location === "/";
+  function isActive(href: string) {
+    return href === "/" ? location === "/" : (location === href || location.startsWith(href + "/"));
+  }
+
+  function renderSoloItem(item: any) {
+    const active = isActive(item.href);
+    const showBadge = item.badge && unreadCount > 0;
+    return (
+      <Link href={item.href}>
+        <div
+          className={cn(
+            "flex items-center rounded-lg text-sm font-medium cursor-pointer transition-all duration-150 group relative",
+            collapsed ? "justify-center p-2.5" : "gap-2.5 px-2.5 py-2",
+            active
+              ? "nf-chameleon-bg text-white shadow-sm"
+              : "text-foreground/65 hover:text-foreground hover:bg-muted/50"
+          )}
+          title={collapsed ? item.label : undefined}
+        >
+          <item.icon className={cn("flex-shrink-0", collapsed ? "w-[18px] h-[18px]" : "w-4 h-4",
+            active ? "text-white" : "text-foreground/50 group-hover:text-foreground")} />
+          {!collapsed && (
+            <>
+              <span className="flex-1">{item.label}</span>
+              {showBadge && (
+                <span className={cn("w-4 h-4 rounded-full text-[9px] font-black flex items-center justify-center",
+                  active ? "bg-white/90 text-[#B8A0C8]" : "nf-chameleon-bg text-white")}>
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+              {active && !showBadge && <div className="w-1.5 h-1.5 rounded-full bg-white/70" />}
+            </>
+          )}
+          {collapsed && showBadge && (
+            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#B8A0C8]" />
+          )}
+        </div>
+      </Link>
+    );
+  }
 
   return (
     <aside
@@ -114,18 +153,14 @@ export function Sidebar({ collapsed, onCollapse, dark, onDark }: SidebarProps) {
         collapsed ? "w-[60px]" : "w-[220px]"
       )}
     >
-      {/* Logo */}
-      <div className={cn(
-        "flex items-center border-b border-border/30 flex-shrink-0",
-        collapsed ? "justify-center px-0 py-4" : "gap-2.5 px-4 py-4"
-      )}>
+      <div className={cn("flex items-center border-b border-border/30 flex-shrink-0",
+        collapsed ? "justify-center px-0 py-4" : "gap-2.5 px-4 py-4")}>
         <div className="nf-logo-mark flex-shrink-0">
           <NexFlowLogo size={collapsed ? 30 : 32} />
         </div>
         {!collapsed && <NexFlowWordmark className="text-[17px]" />}
       </div>
 
-      {/* Search */}
       {!collapsed && (
         <div className="px-3 py-2.5 border-b border-border/20 flex-shrink-0">
           <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/50 text-muted-foreground text-xs cursor-pointer hover:bg-muted/70 transition-colors">
@@ -136,65 +171,34 @@ export function Sidebar({ collapsed, onCollapse, dark, onDark }: SidebarProps) {
         </div>
       )}
 
-      {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-2 scrollbar-thin">
-        {/* Solo Dashboard */}
-        <div className="px-2 mb-2">
-          <Link href={SOLO_ITEM.href}>
-            <div
-              className={cn(
-                "flex items-center rounded-lg text-sm font-medium cursor-pointer transition-all duration-150 group",
-                collapsed ? "justify-center p-2.5" : "gap-2.5 px-2.5 py-2",
-                dashboardActive
-                  ? "nf-chameleon-bg text-white shadow-sm"
-                  : "text-foreground/65 hover:text-foreground hover:bg-muted/50"
-              )}
-              title={collapsed ? SOLO_ITEM.label : undefined}
-            >
-              <SOLO_ITEM.icon className={cn(
-                "flex-shrink-0",
-                collapsed ? "w-[18px] h-[18px]" : "w-4 h-4",
-                dashboardActive ? "text-white" : "text-foreground/50 group-hover:text-foreground"
-              )} />
-              {!collapsed && <span className="flex-1">{SOLO_ITEM.label}</span>}
-              {!collapsed && dashboardActive && <div className="w-1.5 h-1.5 rounded-full bg-white/70" />}
-            </div>
-          </Link>
-        </div>
+        <div className="px-2 mb-2">{renderSoloItem(SOLO_TOP)}</div>
 
-        {/* When collapsed, just show all items as icons (no section headers) */}
         {collapsed ? (
           <div className="px-2 space-y-0.5">
-            {NAV_GROUPS.flatMap((g) => g.items).map(({ icon: Icon, label, href, badge }: any) => {
-              const active = location === href || location.startsWith(href + "/");
-              const showBadge = badge && unreadCount > 0;
+            {NAV_GROUPS.flatMap((g) => g.items).map(({ icon: Icon, label, href }: any) => {
+              const active = isActive(href);
               return (
                 <Link key={href} href={href}>
                   <div
                     className={cn(
-                      "flex items-center justify-center p-2.5 rounded-lg cursor-pointer transition-all duration-150 group relative",
-                      active
-                        ? "nf-chameleon-bg text-white shadow-sm"
-                        : "text-foreground/65 hover:text-foreground hover:bg-muted/50"
+                      "flex items-center justify-center p-2.5 rounded-lg cursor-pointer transition-all duration-150 group",
+                      active ? "nf-chameleon-bg text-white shadow-sm" : "text-foreground/65 hover:text-foreground hover:bg-muted/50"
                     )}
                     title={label}
                   >
                     <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", active ? "text-white" : "text-foreground/50 group-hover:text-foreground")} />
-                    {showBadge && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#B8A0C8]" />}
                   </div>
                 </Link>
               );
             })}
+            <div className="pt-2 mt-2 border-t border-border/20">{renderSoloItem(SOLO_BOTTOM)}</div>
           </div>
         ) : (
-          // Expanded: collapsible sections
           <div className="px-2 space-y-0.5">
             {NAV_GROUPS.map((group) => {
               const isOpen = openSection === group.key;
-              const containsActive = group.items.some((i) =>
-                location === i.href || location.startsWith(i.href + "/")
-              );
-              const groupBadgeCount = group.items.some((i: any) => i.badge) ? unreadCount : 0;
+              const containsActive = group.items.some((i) => isActive(i.href));
 
               return (
                 <div key={group.key}>
@@ -202,61 +206,28 @@ export function Sidebar({ collapsed, onCollapse, dark, onDark }: SidebarProps) {
                     onClick={() => toggleSection(group.key)}
                     className={cn(
                       "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-bold tracking-wide uppercase transition-all",
-                      containsActive
-                        ? "text-foreground/70"
-                        : "text-muted-foreground/50 hover:text-foreground/60"
+                      containsActive ? "text-foreground/70" : "text-muted-foreground/50 hover:text-foreground/60"
                     )}
                   >
-                    <ChevronDown
-                      className={cn(
-                        "w-3 h-3 transition-transform flex-shrink-0",
-                        isOpen ? "rotate-0" : "-rotate-90"
-                      )}
-                    />
+                    <ChevronDown className={cn("w-3 h-3 transition-transform flex-shrink-0", isOpen ? "rotate-0" : "-rotate-90")} />
                     <span className="flex-1 text-left">{group.label}</span>
-                    {!isOpen && groupBadgeCount > 0 && (
-                      <span className="w-4 h-4 rounded-full nf-chameleon-bg text-white text-[9px] font-black flex items-center justify-center">
-                        {groupBadgeCount > 9 ? "9+" : groupBadgeCount}
-                      </span>
-                    )}
-                    {!isOpen && containsActive && (
-                      <div className="w-1.5 h-1.5 rounded-full nf-chameleon-bg" />
-                    )}
+                    {!isOpen && containsActive && <div className="w-1.5 h-1.5 rounded-full nf-chameleon-bg" />}
                   </button>
 
-                  <div
-                    className={cn(
-                      "overflow-hidden transition-all duration-200",
-                      isOpen ? "max-h-96 opacity-100 mt-0.5 mb-1.5" : "max-h-0 opacity-0"
-                    )}
-                  >
+                  <div className={cn("overflow-hidden transition-all duration-200",
+                    isOpen ? "max-h-96 opacity-100 mt-0.5 mb-1.5" : "max-h-0 opacity-0")}>
                     <div className="space-y-0.5">
-                      {group.items.map(({ icon: Icon, label, href, badge }: any) => {
-                        const active = location === href || location.startsWith(href + "/");
-                        const showBadge = badge && unreadCount > 0;
+                      {group.items.map(({ icon: Icon, label, href }: any) => {
+                        const active = isActive(href);
                         return (
                           <Link key={href} href={href}>
-                            <div
-                              className={cn(
-                                "flex items-center gap-2.5 px-2.5 py-1.5 ml-4 rounded-lg text-sm font-medium cursor-pointer transition-all duration-150 group",
-                                active
-                                  ? "nf-chameleon-bg text-white shadow-sm"
-                                  : "text-foreground/65 hover:text-foreground hover:bg-muted/50"
-                              )}
-                            >
-                              <Icon className={cn(
-                                "w-4 h-4 flex-shrink-0",
-                                active ? "text-white" : "text-foreground/50 group-hover:text-foreground"
-                              )} />
+                            <div className={cn(
+                              "flex items-center gap-2.5 px-2.5 py-1.5 ml-4 rounded-lg text-sm font-medium cursor-pointer transition-all duration-150 group",
+                              active ? "nf-chameleon-bg text-white shadow-sm" : "text-foreground/65 hover:text-foreground hover:bg-muted/50"
+                            )}>
+                              <Icon className={cn("w-4 h-4 flex-shrink-0", active ? "text-white" : "text-foreground/50 group-hover:text-foreground")} />
                               <span className="flex-1">{label}</span>
-                              {showBadge && (
-                                <span className="w-4 h-4 rounded-full bg-white/90 text-[#B8A0C8] text-[9px] font-black flex items-center justify-center">
-                                  {unreadCount > 9 ? "9+" : unreadCount}
-                                </span>
-                              )}
-                              {active && !showBadge && (
-                                <div className="w-1.5 h-1.5 rounded-full bg-white/70" />
-                              )}
+                              {active && <div className="w-1.5 h-1.5 rounded-full bg-white/70" />}
                             </div>
                           </Link>
                         );
@@ -266,11 +237,24 @@ export function Sidebar({ collapsed, onCollapse, dark, onDark }: SidebarProps) {
                 </div>
               );
             })}
+            <div className="pt-2 mt-2 border-t border-border/20">{renderSoloItem(SOLO_BOTTOM)}</div>
           </div>
         )}
       </nav>
 
-      {/* Footer */}
+      {/* Demo Mode Pill */}
+      {!collapsed && (
+        <div className="px-3 pb-2 flex-shrink-0">
+          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[#C8A880]/10 border border-[#C8A880]/25" title="All page UIs are wired to a Drizzle/PostgreSQL backend with mock seed data. Connect production APIs (Lusha, Retell, Twilio, Infobip, etc.) any time without UI changes.">
+            <FlaskConical className="w-3 h-3 text-[#C8A880] flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] font-bold text-[#C8A880] leading-tight">DEMO MODE</div>
+              <div className="text-[9px] text-muted-foreground leading-tight">APIs ready for prod</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="border-t border-border/20 flex-shrink-0">
         {!collapsed && (
           <div className="flex items-center gap-2.5 px-3 py-2.5">
@@ -283,19 +267,11 @@ export function Sidebar({ collapsed, onCollapse, dark, onDark }: SidebarProps) {
           </div>
         )}
         <div className={cn("flex px-2 pb-2 gap-1", collapsed ? "flex-col items-center" : "")}>
-          <button
-            onClick={() => onDark(!dark)}
-            className="flex items-center justify-center gap-2 px-2 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all flex-1"
-            title={collapsed ? (dark ? "Light" : "Dark") : undefined}
-          >
+          <button onClick={() => onDark(!dark)} className="flex items-center justify-center gap-2 px-2 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all flex-1" title={collapsed ? (dark ? "Light" : "Dark") : undefined}>
             {dark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
             {!collapsed && <span className="text-xs">{dark ? "Light" : "Dark"}</span>}
           </button>
-          <button
-            onClick={() => onCollapse(!collapsed)}
-            className="flex items-center justify-center px-2 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
-            title={collapsed ? "Expand" : "Collapse"}
-          >
+          <button onClick={() => onCollapse(!collapsed)} className="flex items-center justify-center px-2 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all" title={collapsed ? "Expand" : "Collapse"}>
             {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
           </button>
         </div>
