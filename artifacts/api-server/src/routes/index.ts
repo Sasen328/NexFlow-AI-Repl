@@ -12,6 +12,17 @@ import notificationsRouter from "./notifications";
 import dashboardRouter from "./dashboard";
 import analyticsRouter from "./analytics";
 import aiRouter from "./ai";
+import aiExtraRouter from "./ai-extra";
+import usersRouter from "./users";
+import propertiesRouter from "./properties";
+import listsRouter from "./lists";
+import viewsRouter from "./views";
+import dashboardsRouter from "./dashboards";
+import automationsRouter from "./automations";
+import campaignsRouter from "./campaigns";
+import agentsRouter from "./agents";
+import trackingRouter from "./tracking";
+import seedExtraRouter from "./seed-extra";
 
 const router: IRouter = Router();
 
@@ -28,5 +39,16 @@ router.use("/notifications", notificationsRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/analytics", analyticsRouter);
 router.use("/ai", aiRouter);
+router.use("/ai", aiExtraRouter);
+router.use("/users", usersRouter);
+router.use("/properties", propertiesRouter);
+router.use("/lists", listsRouter);
+router.use("/views", viewsRouter);
+router.use("/dashboards", dashboardsRouter);
+router.use("/automations", automationsRouter);
+router.use("/campaigns", campaignsRouter);
+router.use("/agents", agentsRouter);
+router.use("/tracking", trackingRouter);
+router.use("/admin", seedExtraRouter);
 
 export default router;

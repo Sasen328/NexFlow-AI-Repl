@@ -76,3 +76,41 @@ Signal Scanner, Lead Scorer, Call Coach, Script Writer, Prospect Researcher, Dea
 ## Seed Data
 
 Rich sample data pre-seeded: 8 contacts (GCC-focused), 6 companies (Saudi/UAE), 7 deals ($9.5M+ pipeline), 6 signals, 8 activities, 4 calls, 4 scripts (including Arabic), 6 notifications, 4 segments.
+
+## HubSpot-class Upgrade (April 2026)
+
+### Phase A — AI Foundation
+- `users` table with `owner_id` FK on contacts/companies/deals
+- Companies are clickable → `/companies/:id` showing **AI Company Intelligence** (summary, news, buying signals, key people, tech stack, competitors, outreach angles, risks). Cached 24h with concurrent-request dedupe.
+- AI plumbing: `lib/ai.ts` routes via OpenRouter → OpenAI fallback; `lib/email.ts` uses Resend (org-managed connector).
+
+### Phase B — Records & Filters
+- `custom_properties` + `custom_property_values` tables; `/properties` UI with type-aware editor (text/number/date/select/multiselect/etc.)
+- `static_lists` + `static_list_members`; `/lists` and `/lists/:id` with member add/remove
+- `saved_views` + `/views` API for re-usable filtered views
+- `/api/ai/contacts/bulk-enrich` capped at 50 per request
+
+### Phase C — Pipeline Intelligence
+- `/funnel` with stage-by-stage conversion + value (`/api/ai/funnel`)
+- `/api/ai/auto-advance-stages` moves qualified→proposal when a meeting completes
+- `/call-list` page with AI-prioritized contacts categorized hot/warm/retry/cold using SQL: `lead_score * 0.5 + recency + signal velocity`
+
+### Phase D — Reporting
+- `dashboards` + `dashboard_widgets`; `/dashboards` and `/dashboards/:id` with widget renderer (metric, funnel, leaderboard)
+- `/api/dashboards/widget-data` aggregator backs every widget
+- AI report builder (`/api/ai/report-builder`) converts NL → widget spec
+- `/insights` page with `/api/ai/insights/daily` generating 5 cached daily AI briefings (categories: pipeline, conversion, engagement, market_context, risk)
+
+### Phase E — Engagement Engine
+- `campaigns` + `campaign_recipients`; `/campaigns` page with multi-channel support
+- `/api/campaigns/:id/generate-content` produces subject + HTML body via AI
+- `/api/campaigns/:id/send` delivers via Resend with tracking pixel injection
+- `/api/tracking/{pixel,visit,form-submit}` updates `last_engaged_at` and creates signals
+- `automation_rules` + `automation_runs`; `/api/automations/:id/run` executes
+- `/api/ai/post-call/:callId` orchestrator generates next-best-action activities (WhatsApp, retry tasks, follow-up emails)
+- `ai_agents` + `ai_agent_runs`; `/agents` Agent Builder lets users define custom system prompts and run them
+
+### Architecture notes
+- All new tables use uuid PKs (`gen_random_uuid()`) matching existing schema
+- All AI calls degrade gracefully — fallbacks ensure routes never crash if a provider is unavailable
+- New nav groups in sidebar: Records (Lists/Properties), Engage (Campaigns/Today's Calls), AI Workforce (Agent Builder/Daily Insights), Insights & Ops (Dashboards)

@@ -4,7 +4,8 @@ import {
   Sparkles, Users, Building2, TrendingUp, Zap, Activity,
   Phone, FileText, Bell, BarChart3, Target, Database, Bot,
   ChevronLeft, ChevronRight, ChevronDown, Search, Moon, Sun,
-  MessageSquare, Star, Settings, Mail, UserSquare2, FlaskConical
+  MessageSquare, Star, Settings, Mail, UserSquare2, FlaskConical,
+  ListIcon, LayoutDashboard, Filter, Megaphone, GitBranch, PhoneCall, Wand2
 } from "lucide-react";
 import { NexFlowLogo, NexFlowWordmark } from "./NexFlowLogo";
 import { useNotifications } from "@/hooks/useApi";
@@ -21,6 +22,16 @@ const NAV_GROUPS = [
       { icon: Users, label: "Contacts", href: "/contacts" },
       { icon: Building2, label: "Companies", href: "/companies" },
       { icon: TrendingUp, label: "Deals", href: "/deals" },
+      { icon: GitBranch, label: "Funnel", href: "/funnel" },
+    ],
+  },
+  {
+    key: "lists",
+    label: "Records",
+    items: [
+      { icon: ListIcon, label: "Lists", href: "/lists" },
+      { icon: Target, label: "Segments", href: "/segments" },
+      { icon: Filter, label: "Properties", href: "/properties" },
     ],
   },
   {
@@ -29,17 +40,18 @@ const NAV_GROUPS = [
     items: [
       { icon: Database, label: "Enrichment", href: "/sourcing" },
       { icon: Star, label: "Lead Intelligence", href: "/intelligence" },
-      { icon: Target, label: "Segments", href: "/segments" },
     ],
   },
   {
     key: "engage",
     label: "Engage",
     items: [
+      { icon: PhoneCall, label: "Today's Calls", href: "/call-list" },
       { icon: Phone, label: "Calls", href: "/calls" },
       { icon: Bot, label: "Voice Agents", href: "/voice-agents" },
       { icon: MessageSquare, label: "WhatsApp", href: "/whatsapp" },
       { icon: Mail, label: "Email", href: "/email" },
+      { icon: Megaphone, label: "Campaigns", href: "/campaigns" },
       { icon: Activity, label: "Activities", href: "/activities" },
       { icon: FileText, label: "Scripts", href: "/scripts" },
     ],
@@ -50,7 +62,9 @@ const NAV_GROUPS = [
     items: [
       { icon: Sparkles, label: "AI Assistant", href: "/assistant" },
       { icon: Bot, label: "AI Agents", href: "/ai" },
-      { icon: Zap, label: "Automation", href: "/automation" },
+      { icon: Wand2, label: "Agent Builder", href: "/agents" },
+      { icon: Zap, label: "Automations", href: "/automation" },
+      { icon: Sparkles, label: "Daily Insights", href: "/insights" },
     ],
   },
   {
@@ -58,6 +72,7 @@ const NAV_GROUPS = [
     label: "Insights & Ops",
     items: [
       { icon: Zap, label: "Signals", href: "/signals" },
+      { icon: LayoutDashboard, label: "Dashboards", href: "/dashboards" },
       { icon: BarChart3, label: "Analytics", href: "/analytics" },
       { icon: UserSquare2, label: "Team", href: "/team" },
     ],
