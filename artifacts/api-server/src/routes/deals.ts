@@ -1,9 +1,27 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { deals, contacts, companies } from "@workspace/db";
-import { eq, desc, sql } from "drizzle-orm";
+import { deals, contacts, companies, activities } from "@workspace/db";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 const router = Router();
+
+const STAGE_ORDER = ["lead", "qualified", "proposal", "negotiation", "closed_won"] as const;
+const STAGE_PROBABILITY: Record<string, number> = {
+  lead: 20,
+  qualified: 40,
+  proposal: 60,
+  negotiation: 80,
+  closed_won: 100,
+  closed_lost: 0,
+};
+const STAGE_LABEL: Record<string, string> = {
+  lead: "Lead",
+  qualified: "Qualified",
+  proposal: "Proposal",
+  negotiation: "Negotiation",
+  closed_won: "Closed Won",
+  closed_lost: "Closed Lost",
+};
 
 router.get("/", async (req, res) => {
   try {
@@ -105,6 +123,75 @@ router.patch("/:id", async (req, res) => {
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "Failed to update deal" });
+  }
+});
+
+// Advance a deal to the next stage (or to a specified stage like closed_lost).
+// Auto-sets probability and writes an activity row to the contact timeline.
+router.post("/:id/advance", async (req, res) => {
+  try {
+    const [deal] = await db.select().from(deals).where(eq(deals.id, req.params.id));
+    if (!deal) return res.status(404).json({ error: "Deal not found" });
+
+    const requested = (req.body?.to_stage as string | undefined)?.toLowerCase();
+    let toStage = requested;
+    if (!toStage) {
+      const idx = STAGE_ORDER.indexOf(deal.stage as typeof STAGE_ORDER[number]);
+      if (idx === -1 || idx >= STAGE_ORDER.length - 1) {
+        return res.status(400).json({ error: "Deal is already at terminal stage" });
+      }
+      toStage = STAGE_ORDER[idx + 1];
+    }
+    if (!(toStage in STAGE_PROBABILITY)) {
+      return res.status(400).json({ error: `Unknown stage: ${toStage}` });
+    }
+    if (toStage === deal.stage) {
+      return res.status(400).json({ error: "Already at that stage" });
+    }
+
+    const fromStage = deal.stage as string;
+    const probability = STAGE_PROBABILITY[toStage];
+
+    // Atomic conditional update guards against concurrent stage changes.
+    const updatedRows = await db
+      .update(deals)
+      .set({ stage: toStage as any, probability, updated_at: new Date() } as any)
+      .where(and(eq(deals.id, deal.id), eq(deals.stage, fromStage as any)))
+      .returning();
+    if (updatedRows.length === 0) {
+      return res.status(409).json({ error: "Deal stage changed concurrently. Please refresh." });
+    }
+    const updated = updatedRows[0];
+
+    if (deal.contact_id) {
+      const isWin = toStage === "closed_won";
+      const isLoss = toStage === "closed_lost";
+      const title = isWin
+        ? `Deal won: ${deal.title}`
+        : isLoss
+          ? `Deal lost: ${deal.title}`
+          : `Stage advanced: ${STAGE_LABEL[fromStage] ?? fromStage} → ${STAGE_LABEL[toStage] ?? toStage}`;
+      const body = `${deal.title} · ${deal.value ? `$${(deal.value / 1000).toFixed(0)}k` : ""}`.trim();
+      try {
+        await db.insert(activities).values({
+          type: "note" as any,
+          title,
+          body,
+          contact_id: deal.contact_id,
+          deal_id: deal.id,
+          status: "completed",
+          completed_at: new Date(),
+          metadata: { source: "deal_advance", from: fromStage, to: toStage },
+        } as any);
+      } catch (e: any) {
+        req.log.warn({ err: e?.message }, "failed to insert advance activity");
+      }
+    }
+
+    res.json({ deal: updated, from: fromStage, to: toStage, probability });
+  } catch (err: any) {
+    req.log.error(err);
+    res.status(500).json({ error: err?.message ?? "Failed to advance deal" });
   }
 });
 

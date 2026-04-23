@@ -1,14 +1,22 @@
 import React, { useMemo, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { formatCurrency } from "@/data/mockData";
-import { dealHealth, stageLabel, useDeals, type ApiDeal } from "@/lib/api";
+import { dealHealth, stageLabel, useAdvanceDeal, useDeals, type ApiDeal } from "@/lib/api";
 
 const STAGES = ["lead", "qualified", "proposal", "negotiation", "closed_won"] as const;
+const STAGE_NEXT: Record<string, string | null> = {
+  lead: "qualified",
+  qualified: "proposal",
+  proposal: "negotiation",
+  negotiation: "closed_won",
+  closed_won: null,
+  closed_lost: null,
+};
 
 export default function PipelineScreen() {
   const colors = useColors();
@@ -17,6 +25,8 @@ export default function PipelineScreen() {
 
   const { data, isPending, isError, refetch, isRefetching } = useDeals();
   const deals = data?.deals ?? [];
+  const advance = useAdvanceDeal();
+  const [sheetDeal, setSheetDeal] = useState<ApiDeal | null>(null);
 
   const grouped = useMemo(() => {
     const map: Record<string, ApiDeal[]> = {};
@@ -126,7 +136,12 @@ export default function PipelineScreen() {
               ? new Date(d.expected_close_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
               : "No date";
             return (
-              <Card key={d.id} style={{ gap: 12 }}>
+              <Pressable
+                key={d.id}
+                onPress={() => setSheetDeal(d)}
+                style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+              >
+                <Card style={{ gap: 12 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text style={[styles.dealName, { color: colors.foreground }]}>{d.title}</Text>
@@ -158,14 +173,178 @@ export default function PipelineScreen() {
                     <Text style={[styles.dealDate, { color: colors.mutedForeground }]}>{closeLabel}</Text>
                   </View>
                 </View>
-              </Card>
+                </Card>
+              </Pressable>
             );
           })
         )}
       </ScrollView>
+
+      <DealActionSheet
+        deal={sheetDeal}
+        onClose={() => {
+          setSheetDeal(null);
+          advance.reset();
+        }}
+        submitting={advance.isPending}
+        error={advance.error ? (advance.error as Error).message : null}
+        onAdvance={async (toStage) => {
+          if (!sheetDeal) return;
+          try {
+            await advance.mutateAsync({ deal_id: sheetDeal.id, to_stage: toStage });
+            setSheetDeal(null);
+            refetch();
+          } catch {
+            // surfaced via advance.error
+          }
+        }}
+      />
     </View>
   );
 }
+
+function DealActionSheet({
+  deal,
+  onClose,
+  submitting,
+  error,
+  onAdvance,
+}: {
+  deal: ApiDeal | null;
+  onClose: () => void;
+  submitting: boolean;
+  error: string | null;
+  onAdvance: (toStage?: string) => void;
+}) {
+  const colors = useColors();
+  const visible = deal !== null;
+  const next = deal ? STAGE_NEXT[deal.stage] : null;
+  const isTerminal = deal ? (deal.stage === "closed_won" || deal.stage === "closed_lost") : false;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable
+        onPress={onClose}
+        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}
+      >
+        <Pressable
+          onPress={(e) => e.stopPropagation()}
+          style={{
+            backgroundColor: colors.card,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            padding: 20,
+            paddingBottom: 32,
+            gap: 14,
+          }}
+        >
+          <View style={{ alignItems: "center" }}>
+            <View style={{ width: 44, height: 4, borderRadius: 2, backgroundColor: colors.border }} />
+          </View>
+
+          {deal ? (
+            <>
+              <View>
+                <Text style={[sheetStyles.kicker, { color: "#88B8B0" }]}>{stageLabel(deal.stage).toUpperCase()}</Text>
+                <Text style={[sheetStyles.title, { color: colors.foreground }]} numberOfLines={2}>
+                  {deal.title}
+                </Text>
+                <View style={{ flexDirection: "row", gap: 16, marginTop: 6 }}>
+                  <Text style={{ color: "#88B8B0", fontFamily: "Inter_700Bold", fontSize: 18 }}>
+                    {formatCurrency(deal.value)}
+                  </Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, alignSelf: "center" }}>
+                    {deal.probability}% probability
+                  </Text>
+                </View>
+                {deal.contact_name ? (
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 4 }}>
+                    {deal.contact_name}{deal.company_name ? ` · ${deal.company_name}` : ""}
+                  </Text>
+                ) : null}
+              </View>
+
+              {isTerminal ? (
+                <View style={{ alignItems: "center", paddingVertical: 12 }}>
+                  <Feather name="check-circle" size={28} color={colors.mutedForeground} />
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 8 }}>
+                    This deal is in a terminal stage.
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ gap: 10 }}>
+                  {next ? (
+                    <Pressable
+                      disabled={submitting}
+                      onPress={() => onAdvance(next)}
+                      style={{
+                        paddingVertical: 14,
+                        borderRadius: 14,
+                        backgroundColor: "#88B8B0",
+                        alignItems: "center",
+                        flexDirection: "row",
+                        justifyContent: "center",
+                        gap: 8,
+                        opacity: submitting ? 0.7 : 1,
+                      }}
+                    >
+                      {submitting ? <ActivityIndicator color="#fff" size="small" /> : (
+                        <Feather name="arrow-right-circle" size={16} color="#fff" />
+                      )}
+                      <Text style={{ color: "#fff", fontFamily: "Inter_700Bold" }}>
+                        {submitting ? "Advancing…" : `Advance to ${stageLabel(next)}`}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+
+                  <Pressable
+                    disabled={submitting}
+                    onPress={() => onAdvance("closed_lost")}
+                    style={{
+                      paddingVertical: 12,
+                      borderRadius: 14,
+                      backgroundColor: colors.muted,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      alignItems: "center",
+                      flexDirection: "row",
+                      justifyContent: "center",
+                      gap: 8,
+                      opacity: submitting ? 0.7 : 1,
+                    }}
+                  >
+                    <Feather name="x-circle" size={14} color="#D88A8A" />
+                    <Text style={{ color: "#D88A8A", fontFamily: "Inter_600SemiBold" }}>Mark Closed Lost</Text>
+                  </Pressable>
+                </View>
+              )}
+
+              {error ? (
+                <Text style={{ color: "#D88A8A", fontFamily: "Inter_500Medium", fontSize: 12 }}>{error}</Text>
+              ) : null}
+
+              <Pressable
+                onPress={onClose}
+                style={{
+                  paddingVertical: 12,
+                  borderRadius: 14,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium" }}>Cancel</Text>
+              </Pressable>
+            </>
+          ) : null}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const sheetStyles = StyleSheet.create({
+  kicker: { fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 1 },
+  title: { fontFamily: "Inter_700Bold", fontSize: 20, marginTop: 2 },
+});
 
 const styles = StyleSheet.create({
   kicker: { fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 1.2 },
