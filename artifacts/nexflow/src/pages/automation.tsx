@@ -1,72 +1,30 @@
 import { useState } from "react";
 import {
-  Zap, Mail, Phone, CalendarCheck, FileText, ArrowRight, Plus,
-  CheckCircle2, Clock, Brain, MessageSquare, Bell, TrendingUp,
-  ToggleLeft, ToggleRight, ChevronDown, ChevronUp, Trash2
+  Zap, Mail, Phone, ArrowRight, Plus, CheckCircle2, Brain, TrendingUp,
+  ToggleLeft, ToggleRight, ChevronDown, ChevronUp, Trash2, Play, History, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  useAutomations, useCreate, useUpdate, useDelete, useRunAutomation, useAutomationRuns,
+} from "@/hooks/useApi";
 
-interface Rule {
-  id: string;
-  name: string;
-  trigger: string;
-  actions: string[];
-  enabled: boolean;
-  runs: number;
-  category: string;
-}
-
-const DEFAULT_RULES: Rule[] = [
-  {
-    id: "r1", enabled: true, runs: 47, category: "calls",
-    name: "Post-Call Notes & Summary",
-    trigger: "Call ends (status = completed)",
-    actions: ["AI generates call summary", "Save to contact notes", "Create follow-up task", "Log to activity timeline"],
-  },
-  {
-    id: "r2", enabled: true, runs: 23, category: "calls",
-    name: "Meeting Auto-Notes",
-    trigger: "Meeting activity marked complete",
-    actions: ["AI drafts meeting notes", "Extract action items", "Assign tasks to owner", "Send recap via email"],
-  },
-  {
-    id: "r3", enabled: true, runs: 31, category: "email",
-    name: "Post-Call Follow-Up Email",
-    trigger: "Call score ≥ 70 AND sentiment = positive",
-    actions: ["AI writes personalized follow-up", "Insert proposal link", "Schedule send 2h after call", "Log in activities"],
-  },
-  {
-    id: "r4", enabled: false, runs: 8, category: "deals",
-    name: "Lead Stage Advancement",
-    trigger: "Lead score crosses 80 threshold",
-    actions: ["Move deal to Qualified stage", "Notify assigned rep", "Send intro email", "Create demo task"],
-  },
-  {
-    id: "r5", enabled: true, runs: 19, category: "deals",
-    name: "Deal Stall Alert",
-    trigger: "Deal not updated in 7 days",
-    actions: ["Create nudge notification", "Send rep reminder", "AI suggest next action", "Log stall event"],
-  },
-  {
-    id: "r6", enabled: true, runs: 12, category: "ai",
-    name: "Daily Briefing Generation",
-    trigger: "Every day at 7:00 AM (Riyadh time)",
-    actions: ["AI reviews pipeline changes", "Surface top 3 priorities", "Identify at-risk deals", "Send briefing notification"],
-  },
-  {
-    id: "r7", enabled: false, runs: 0, category: "email",
-    name: "Arabic Outreach Sequence",
-    trigger: "Contact tag = arabic AND status = new",
-    actions: ["Enroll in Arabic email sequence", "Send greeting in MSA Arabic", "Wait 2 days → follow-up", "Assign to Arabic-speaking rep"],
-  },
-  {
-    id: "r8", enabled: true, runs: 34, category: "ai",
-    name: "Signal Alert → WhatsApp",
-    trigger: "High-score signal detected (score > 80)",
-    actions: ["Identify relevant rep", "Draft WhatsApp message", "Queue for rep approval", "Send after approval"],
-  },
+const TRIGGER_OPTIONS = [
+  { value: "stage_change", label: "Stage change" },
+  { value: "activity_completed", label: "Activity completed" },
+  { value: "signal_received", label: "Signal received" },
+  { value: "no_answer", label: "No answer on call" },
+  { value: "form_submitted", label: "Form submitted" },
+  { value: "score_threshold", label: "Lead score threshold" },
+  { value: "schedule", label: "Schedule (cron)" },
+  { value: "campaign_open", label: "Campaign opened" },
 ];
 
+const TRIGGER_CATEGORY: Record<string, string> = {
+  activity_completed: "calls", no_answer: "calls",
+  stage_change: "deals", score_threshold: "deals",
+  campaign_open: "email", form_submitted: "email",
+  signal_received: "ai", schedule: "ai",
+};
 const CATEGORY_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   calls: { label: "Calls", color: "text-[#88B8B0]", bg: "bg-[#88B8B0]/15", icon: Phone },
   email: { label: "Email", color: "text-[#B8A0C8]", bg: "bg-[#B8A0C8]/15", icon: Mail },
@@ -74,47 +32,28 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string; bg: string
   ai: { label: "AI", color: "text-[#B8B880]", bg: "bg-[#B8B880]/15", icon: Brain },
 };
 
-const TRIGGER_TEMPLATES = [
-  "Call ends (status = completed)",
-  "Meeting activity marked complete",
-  "Lead score crosses 80",
-  "Deal stage changes",
-  "Signal detected (score > 70)",
-  "Contact status changes to qualified",
-  "Deal not updated in 7 days",
-  "Every day at 7:00 AM",
-  "WhatsApp message received",
+const ACTION_TEMPLATES = [
+  { type: "create_task", label: "Create follow-up task", target: "all_open_deals", title: "Follow up", body: "Automated check-in" },
+  { type: "advance_stage", label: "Advance stage qualified→proposal", from_stage: "qualified", to_stage: "proposal" },
+  { type: "log_note", label: "Log a note", message: "Triggered by automation rule" },
 ];
 
 export default function AutomationPage() {
-  const [rules, setRules] = useState<Rule[]>(DEFAULT_RULES);
+  const { data, isLoading } = useAutomations();
+  const create = useCreate("/automations", ["automations"]);
+  const update = useUpdate((id) => `/automations/${id}`, ["automations"]);
+  const del = useDelete((id) => `/automations/${id}`, ["automations"]);
+  const run = useRunAutomation();
+
   const [expanded, setExpanded] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
   const [showNew, setShowNew] = useState(false);
-  const [newRule, setNewRule] = useState({ name: "", trigger: "", category: "calls" });
+  const [runResult, setRunResult] = useState<any>(null);
 
-  const filtered = filter === "all" ? rules : rules.filter(r => r.category === filter);
+  const rules: any[] = data?.rules ?? [];
   const enabledCount = rules.filter(r => r.enabled).length;
-  const totalRuns = rules.reduce((a, r) => a + r.runs, 0);
-
-  function toggleRule(id: string) {
-    setRules(prev => prev.map(r => r.id === id ? { ...r, enabled: !r.enabled } : r));
-  }
-
-  function addRule() {
-    if (!newRule.name || !newRule.trigger) return;
-    const r: Rule = {
-      id: `r${Date.now()}`,
-      name: newRule.name,
-      trigger: newRule.trigger,
-      actions: ["AI processes trigger", "Send notification", "Log event"],
-      enabled: true, runs: 0,
-      category: newRule.category,
-    };
-    setRules(prev => [...prev, r]);
-    setNewRule({ name: "", trigger: "", category: "calls" });
-    setShowNew(false);
-  }
+  const totalRuns = rules.reduce((a, r) => a + (r.run_count ?? 0), 0);
+  const filtered = filter === "all" ? rules : rules.filter(r => (TRIGGER_CATEGORY[r.trigger] ?? "ai") === filter);
 
   return (
     <div className="space-y-6">
@@ -124,109 +63,62 @@ export default function AutomationPage() {
             <Zap className="w-6 h-6 text-[#B8B880]" />
             Automation Center
           </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Trigger-based workflows for calls, emails, tasks, and deal stages</p>
+          <p className="text-muted-foreground text-sm mt-0.5">Trigger-based workflows wired to live data — run, monitor, iterate.</p>
         </div>
-        <button
-          onClick={() => setShowNew(!showNew)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90 transition-opacity"
-        >
-          <Plus className="w-4 h-4" />
-          New Rule
+        <button onClick={() => setShowNew(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold">
+          <Plus className="w-4 h-4" /> New Rule
         </button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: "Active Rules", value: enabledCount, color: "#88B8B0", icon: CheckCircle2 },
           { label: "Total Runs", value: totalRuns, color: "#B8A0C8", icon: Zap },
-          { label: "Call Automations", value: rules.filter(r => r.category === "calls" && r.enabled).length, color: "#90B8B8", icon: Phone },
-          { label: "Email Automations", value: rules.filter(r => r.category === "email" && r.enabled).length, color: "#C8A880", icon: Mail },
+          { label: "Total Rules", value: rules.length, color: "#90B8B8", icon: Brain },
+          { label: "Last Run", value: rules.find(r => r.last_run_at)?.last_run_at ? new Date(rules.find((r: any) => r.last_run_at).last_run_at).toLocaleDateString() : "—", color: "#C8A880", icon: History },
         ].map(s => (
           <div key={s.label} className="glass-card rounded-2xl p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${s.color}20` }}>
               <s.icon className="w-5 h-5" style={{ color: s.color }} />
             </div>
             <div>
-              <div className="text-2xl font-bold text-foreground">{s.value}</div>
+              <div className="text-xl font-bold text-foreground">{s.value}</div>
               <div className="text-xs text-muted-foreground">{s.label}</div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* New Rule Form */}
-      {showNew && (
-        <div className="glass-card rounded-2xl p-5 nf-chameleon-border">
-          <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Create New Automation Rule
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Rule Name</label>
-              <input
-                className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm text-foreground outline-none focus:border-[#B8A0C8]"
-                placeholder="e.g. Post-Call Summary"
-                value={newRule.name}
-                onChange={e => setNewRule(p => ({ ...p, name: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Trigger</label>
-              <select
-                className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm text-foreground outline-none"
-                value={newRule.trigger}
-                onChange={e => setNewRule(p => ({ ...p, trigger: e.target.value }))}
-              >
-                <option value="">Select trigger...</option>
-                {TRIGGER_TEMPLATES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Category</label>
-              <select
-                className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm text-foreground outline-none"
-                value={newRule.category}
-                onChange={e => setNewRule(p => ({ ...p, category: e.target.value }))}
-              >
-                {Object.entries(CATEGORY_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={addRule} className="px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90 transition-opacity">
-              Create Rule
-            </button>
-            <button onClick={() => setShowNew(false)} className="px-4 py-2 rounded-xl bg-muted/60 text-muted-foreground text-sm hover:text-foreground transition-colors">
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Filter */}
       <div className="flex gap-2 flex-wrap">
-        {[{ key: "all", label: "All Rules" }, ...Object.entries(CATEGORY_CONFIG).map(([k, v]) => ({ key: k, label: v.label }))].map(f => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={cn(
-              "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-              filter === f.key ? "nf-chameleon-bg text-white" : "bg-muted/50 text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {f.label}
-          </button>
+        {[{ key: "all", label: "All" }, ...Object.entries(CATEGORY_CONFIG).map(([k, v]) => ({ key: k, label: v.label }))].map(f => (
+          <button key={f.key} onClick={() => setFilter(f.key)} className={cn(
+            "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+            filter === f.key ? "nf-chameleon-bg text-white" : "bg-muted/50 text-muted-foreground hover:text-foreground"
+          )}>{f.label}</button>
         ))}
       </div>
 
-      {/* Rules List */}
+      {runResult && (
+        <div className="glass-card rounded-xl p-4 border border-[#88B8B0]/30 bg-[#88B8B0]/5 flex items-start gap-3">
+          <CheckCircle2 className="w-5 h-5 text-[#88B8B0] mt-0.5" />
+          <div className="flex-1 text-sm">
+            <div className="font-semibold text-foreground">Rule executed</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{runResult.affected ?? 0} record(s) affected · {(runResult.actions ?? []).length} action(s) ran{runResult.errors?.length ? ` · ${runResult.errors.length} error(s)` : ""}</div>
+          </div>
+          <button onClick={() => setRunResult(null)} className="text-xs text-muted-foreground hover:text-foreground">dismiss</button>
+        </div>
+      )}
+
       <div className="space-y-3">
+        {isLoading && Array(3).fill(0).map((_, i) => <div key={i} className="h-20 glass-card rounded-2xl animate-pulse" />)}
+        {!isLoading && filtered.length === 0 && (
+          <div className="glass-card rounded-2xl p-10 text-center text-sm text-muted-foreground">No automation rules yet — create one to get started.</div>
+        )}
         {filtered.map(rule => {
-          const cat = CATEGORY_CONFIG[rule.category] ?? CATEGORY_CONFIG.ai;
+          const cat = CATEGORY_CONFIG[TRIGGER_CATEGORY[rule.trigger] ?? "ai"];
           const Icon = cat.icon;
           const isExp = expanded === rule.id;
+          const actions = (rule.actions as any[]) ?? [];
           return (
             <div key={rule.id} className={cn("glass-card rounded-2xl overflow-hidden transition-all", rule.enabled ? "" : "opacity-60")}>
               <div className="flex items-center gap-4 p-4">
@@ -236,49 +128,132 @@ export default function AutomationPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold text-foreground">{rule.name}</span>
-                    <span className={cn("text-xs px-1.5 py-0.5 rounded font-medium", cat.bg, cat.color)}>{cat.label}</span>
-                    {rule.enabled && <span className="text-xs px-1.5 py-0.5 rounded bg-[#88B8B0]/15 text-[#88B8B0] font-medium">Active</span>}
+                    <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium uppercase", cat.bg, cat.color)}>{cat.label}</span>
+                    {rule.enabled && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#88B8B0]/15 text-[#88B8B0] font-medium uppercase">Active</span>}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                     <Zap className="w-3 h-3" />
-                    {rule.trigger}
+                    {TRIGGER_OPTIONS.find(t => t.value === rule.trigger)?.label ?? rule.trigger}
+                    {rule.last_run_at && <span className="ml-2">· last ran {new Date(rule.last_run_at).toLocaleString()}</span>}
                   </div>
                 </div>
                 <div className="text-center flex-shrink-0 hidden md:block">
-                  <div className="text-sm font-bold text-foreground">{rule.runs}</div>
+                  <div className="text-sm font-bold text-foreground">{rule.run_count ?? 0}</div>
                   <div className="text-[10px] text-muted-foreground">runs</div>
                 </div>
-                <button onClick={() => toggleRule(rule.id)} className="flex-shrink-0 transition-all">
-                  {rule.enabled
-                    ? <ToggleRight className="w-8 h-8 text-[#88B8B0]" />
-                    : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
+                <button
+                  onClick={() => run.mutate(rule.id, { onSuccess: (r) => setRunResult(r) })}
+                  disabled={!rule.enabled || run.isPending}
+                  className="flex-shrink-0 px-2.5 py-1.5 rounded-lg bg-[#88B8B0]/15 text-[#88B8B0] text-xs font-semibold flex items-center gap-1 disabled:opacity-50 hover:bg-[#88B8B0]/25"
+                  title="Run now"
+                >
+                  {run.isPending && run.variables === rule.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />} Run
                 </button>
-                <button onClick={() => setExpanded(isExp ? null : rule.id)} className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors">
+                <button onClick={() => update.mutate({ id: rule.id, data: { enabled: !rule.enabled } })} className="flex-shrink-0">
+                  {rule.enabled ? <ToggleRight className="w-8 h-8 text-[#88B8B0]" /> : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
+                </button>
+                <button onClick={() => setExpanded(isExp ? null : rule.id)} className="flex-shrink-0 text-muted-foreground hover:text-foreground">
                   {isExp ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                <button onClick={() => { if (confirm(`Delete "${rule.name}"?`)) del.mutate(rule.id); }} className="flex-shrink-0 text-muted-foreground hover:text-[#C8A880]">
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
 
               {isExp && (
-                <div className="px-4 pb-4 border-t border-border/20">
+                <div className="px-4 pb-4 border-t border-border/20 space-y-4">
+                  {rule.description && <div className="text-xs text-muted-foreground mt-3 italic">{rule.description}</div>}
                   <div className="mt-3">
-                    <div className="text-xs font-semibold text-muted-foreground mb-2">ACTIONS ({rule.actions.length})</div>
+                    <div className="text-[10px] font-bold text-muted-foreground mb-2 uppercase tracking-wide">Actions ({actions.length})</div>
                     <div className="space-y-1.5">
-                      {rule.actions.map((action, i) => (
-                        <div key={i} className="flex items-center gap-2 text-xs text-foreground/70">
-                          <div className="w-5 h-5 rounded-full bg-[#B8A0C8]/20 flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-[#B8A0C8]">
-                            {i + 1}
-                          </div>
-                          <ArrowRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                          {action}
+                      {actions.map((a: any, i: number) => (
+                        <div key={i} className="flex items-center gap-2 text-xs text-foreground/80">
+                          <div className="w-5 h-5 rounded-full bg-[#B8A0C8]/20 flex items-center justify-center text-[10px] font-bold text-[#B8A0C8]">{i + 1}</div>
+                          <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                          <span className="font-mono">{a.type}</span>
+                          {a.title && <span className="text-muted-foreground">— {a.title}</span>}
+                          {a.from_stage && <span className="text-muted-foreground">{a.from_stage} → {a.to_stage}</span>}
+                          {a.message && <span className="text-muted-foreground italic">"{a.message}"</span>}
                         </div>
                       ))}
                     </div>
                   </div>
+                  <RunHistory ruleId={rule.id} />
                 </div>
               )}
             </div>
           );
         })}
+      </div>
+
+      {showNew && <NewRuleModal
+        onClose={() => setShowNew(false)}
+        onCreate={(d) => create.mutate(d, { onSuccess: () => setShowNew(false) })}
+      />}
+    </div>
+  );
+}
+
+function RunHistory({ ruleId }: { ruleId: string }) {
+  const { data, isLoading } = useAutomationRuns(ruleId);
+  const runs = data?.runs ?? [];
+  return (
+    <div>
+      <div className="text-[10px] font-bold text-muted-foreground mb-2 uppercase tracking-wide flex items-center gap-1.5"><History className="w-3 h-3" /> Recent runs</div>
+      {isLoading ? <div className="h-8 bg-muted/30 rounded animate-pulse" /> :
+        runs.length === 0 ? <div className="text-xs text-muted-foreground italic">No runs yet — click "Run" above to execute this rule.</div> :
+        <div className="space-y-1">
+          {runs.slice(0, 5).map((r: any) => (
+            <div key={r.id} className="flex items-center gap-2 text-xs px-2 py-1.5 rounded bg-muted/30">
+              <CheckCircle2 className="w-3 h-3 text-[#88B8B0]" />
+              <span className="text-muted-foreground">{new Date(r.ran_at).toLocaleString()}</span>
+              <span className="ml-auto text-foreground/70">
+                {(r.result?.actions ?? []).length} action{(r.result?.actions ?? []).length === 1 ? "" : "s"}
+                {r.result?.errors?.length ? <span className="text-[#C8A880] ml-1">· {r.result.errors.length} err</span> : null}
+              </span>
+            </div>
+          ))}
+        </div>
+      }
+    </div>
+  );
+}
+
+function NewRuleModal({ onClose, onCreate }: any) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [trigger, setTrigger] = useState("stage_change");
+  const [actionIdx, setActionIdx] = useState(0);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className="glass-card rounded-2xl p-6 w-full max-w-lg my-8" onClick={e => e.stopPropagation()}>
+        <h3 className="font-bold text-foreground mb-4">New Automation Rule</h3>
+        <div className="space-y-3">
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Rule name" className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none" />
+          <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="What does this rule do?" rows={2} className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none" />
+          <div>
+            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Trigger</label>
+            <select value={trigger} onChange={e => setTrigger(e.target.value)} className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none">
+              {TRIGGER_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Action</label>
+            <select value={actionIdx} onChange={e => setActionIdx(Number(e.target.value))} className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none">
+              {ACTION_TEMPLATES.map((a, i) => <option key={i} value={i}>{a.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="flex gap-2 mt-5">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm">Cancel</button>
+          <button
+            onClick={() => onCreate({ name, description, trigger, enabled: true, actions: [ACTION_TEMPLATES[actionIdx]] })}
+            disabled={!name}
+            className="flex-1 px-4 py-2 rounded-lg nf-chameleon-bg text-white text-sm font-semibold disabled:opacity-50">
+            Create rule
+          </button>
+        </div>
       </div>
     </div>
   );

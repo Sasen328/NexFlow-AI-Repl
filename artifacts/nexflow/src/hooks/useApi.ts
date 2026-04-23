@@ -262,7 +262,29 @@ export function useRunCustomAgent() {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input?: string }) =>
       apiFetch(`/agents/${id}/run`, { method: "POST", body: JSON.stringify({ input }) }),
-    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["agents", vars.id] }),
+    onSuccess: (_d, vars) => { qc.invalidateQueries({ queryKey: ["agents", vars.id] }); qc.invalidateQueries({ queryKey: ["agents"] }); qc.invalidateQueries({ queryKey: ["agent-runs", vars.id] }); },
+  });
+}
+export function useAutomationRuns(id: string, enabled = true) {
+  return useQuery({ queryKey: ["automation-runs", id], queryFn: () => apiFetch(`/automations/${id}/runs`), enabled: enabled && !!id });
+}
+export function useAgentRuns(id: string, enabled = true) {
+  return useQuery({ queryKey: ["agent-runs", id], queryFn: () => apiFetch(`/agents/${id}/runs`), enabled: enabled && !!id });
+}
+export function useCampaignRecipients(id: string, enabled = true) {
+  return useQuery({ queryKey: ["campaign-recipients", id], queryFn: () => apiFetch(`/campaigns/${id}/recipients`), enabled: enabled && !!id });
+}
+export function useDuplicateCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch(`/campaigns/${id}/duplicate`, { method: "POST", body: JSON.stringify({}) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["campaigns"] }),
+  });
+}
+export function useImproveAgentPrompt() {
+  return useMutation({
+    mutationFn: (data: { name: string; description: string; system_prompt: string }) =>
+      apiFetch(`/ai/agents/improve-prompt`, { method: "POST", body: JSON.stringify(data) }),
   });
 }
 export function useContactLists(id: string) {

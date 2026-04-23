@@ -512,4 +512,20 @@ router.post("/auto-advance-stages", async (_req, res) => {
   }
 });
 
+// ── AI Agent: Improve a system prompt ──────────────────────────────────────
+router.post("/agents/improve-prompt", async (req, res) => {
+  try {
+    const { name = "", description = "", system_prompt = "" } = req.body ?? {};
+    const { aiChat } = await import("../lib/ai.js");
+    const improved = await aiChat({
+      system: "You are a senior prompt engineer. Rewrite system prompts so they are crisp, role-anchored, list constraints, define output format, and forbid hallucination. Return ONLY the improved prompt — no preamble, no explanation, no markdown fences.",
+      user: `Agent name: ${name}\nDescription: ${description}\n\nCurrent system prompt:\n${system_prompt || "(empty — write one from scratch based on the description)"}`,
+      maxTokens: 600,
+    }).catch(() => null);
+    res.json({ improved: (improved || system_prompt).trim() });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
 export default router;
