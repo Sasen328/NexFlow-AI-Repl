@@ -302,6 +302,35 @@ export function useDeleteView() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["views"] }),
   });
 }
+export function useFunnelStage(stage: string) {
+  return useQuery({ queryKey: ["funnel", "stage", stage], queryFn: () => apiFetch(`/ai/funnel/stage/${stage}`), enabled: !!stage });
+}
+export function useFunnelStageInsights(stage: string, enabled = true) {
+  return useQuery({
+    queryKey: ["funnel", "stage", stage, "insights"],
+    queryFn: () => apiFetch(`/ai/funnel/stage/${stage}/insights`),
+    enabled: !!stage && enabled,
+    staleTime: 10 * 60_000,
+  });
+}
+export function useFunnelStuck() {
+  return useQuery({ queryKey: ["funnel", "stuck"], queryFn: () => apiFetch(`/ai/funnel/stuck`) });
+}
+export function useAutoAdvanceStages() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiFetch(`/ai/auto-advance-stages`, { method: "POST", body: JSON.stringify({}) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["funnel"] }); qc.invalidateQueries({ queryKey: ["deals"] }); },
+  });
+}
+export function useLogCall() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { contact_id: string; outcome: string; duration_seconds?: number; notes?: string; run_orchestrator?: boolean }) =>
+      apiFetch(`/calls/log`, { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["calls"] }); qc.invalidateQueries({ queryKey: ["call-list"] }); },
+  });
+}
 export function usePostCallOrchestrate() {
   return useMutation({
     mutationFn: ({ callId, outcome }: { callId: string; outcome: string }) =>

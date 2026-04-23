@@ -56,6 +56,39 @@ router.post("/", async (req, res) => {
   }
 });
 
+// Quick-log a completed call in one shot. Optionally chain to AI post-call orchestrator.
+router.post("/log", async (req, res) => {
+  try {
+    const { contact_id, outcome, duration_seconds, notes, run_orchestrator } = req.body ?? {};
+    if (!contact_id || !outcome) return res.status(400).json({ error: "contact_id and outcome required" });
+    const [call] = await db.insert(calls).values({
+      contact_id,
+      direction: "outbound",
+      status: "completed",
+      duration_seconds: duration_seconds ?? null,
+      outcome,
+      coaching_notes: notes ?? null,
+      started_at: new Date(),
+      ended_at: new Date(),
+      org_id: "default",
+    } as any).returning();
+    // Update contact engagement timestamp
+    await db.update(contacts).set({ last_engaged_at: new Date() } as any).where(eq(contacts.id, contact_id));
+
+    let orchestration: any = null;
+    if (run_orchestrator) {
+      try {
+        const { orchestratePostCall } = await import("../lib/post-call.js").catch(() => ({} as any));
+        if (orchestratePostCall) orchestration = await orchestratePostCall(call.id, outcome);
+      } catch {}
+    }
+    res.status(201).json({ call, orchestration });
+  } catch (err: any) {
+    req.log.error(err);
+    res.status(500).json({ error: err?.message ?? "Failed to log call" });
+  }
+});
+
 router.get("/:id", async (req, res) => {
   try {
     const [call] = await db
