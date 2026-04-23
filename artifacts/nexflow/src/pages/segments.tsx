@@ -36,7 +36,7 @@ export default function SegmentsPage() {
                   <h3 className="font-semibold text-sm text-foreground group-hover:opacity-80 transition-opacity">{s.name}</h3>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold" style={{ color }}>{s.contactCount ?? 0}</div>
+                  <div className="text-2xl font-bold" style={{ color }}>{s.contact_count ?? 0}</div>
                   <div className="text-xs text-muted-foreground">contacts</div>
                 </div>
               </div>
@@ -46,7 +46,7 @@ export default function SegmentsPage() {
                   <Code className="w-3 h-3 text-muted-foreground" />
                   <span className="text-xs font-semibold text-muted-foreground">Filter</span>
                 </div>
-                <code className="text-xs text-foreground/70 font-mono break-all">{s.filterQuery}</code>
+                <code className="text-xs text-foreground/70 font-mono break-all">{s.filter_query}</code>
               </div>
             </div>
           );

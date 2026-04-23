@@ -21,6 +21,10 @@ import AnalyticsPage from "@/pages/analytics";
 import AiPage from "@/pages/ai";
 import IntelligencePage from "@/pages/intelligence";
 import WhatsAppPage from "@/pages/whatsapp";
+import AutomationPage from "@/pages/automation";
+import AssistantPage from "@/pages/assistant";
+import TeamPage from "@/pages/team";
+import EmailPage from "@/pages/email";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -55,12 +59,16 @@ function AppLayout() {
           <Route path="/activities" component={ActivitiesPage} />
           <Route path="/calls" component={CallsPage} />
           <Route path="/whatsapp" component={WhatsAppPage} />
+          <Route path="/email" component={EmailPage} />
           <Route path="/scripts" component={ScriptsPage} />
           <Route path="/segments" component={SegmentsPage} />
           <Route path="/notifications" component={NotificationsPage} />
           <Route path="/analytics" component={AnalyticsPage} />
           <Route path="/ai" component={AiPage} />
           <Route path="/intelligence" component={IntelligencePage} />
+          <Route path="/automation" component={AutomationPage} />
+          <Route path="/assistant" component={AssistantPage} />
+          <Route path="/team" component={TeamPage} />
           <Route component={NotFound} />
         </Switch>
       </main>
