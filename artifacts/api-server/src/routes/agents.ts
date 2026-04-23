@@ -45,6 +45,13 @@ router.delete("/:id", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
 
+router.get("/:id/runs", async (req, res) => {
+  try {
+    const runs = await db.select().from(ai_agent_runs).where(eq(ai_agent_runs.agent_id, req.params.id)).orderBy(desc(ai_agent_runs.ran_at)).limit(20);
+    res.json({ runs });
+  } catch (err) { res.status(500).json({ error: "Failed" }); }
+});
+
 router.post("/:id/run", async (req, res) => {
   try {
     const [a] = await db.select().from(ai_agents).where(eq(ai_agents.id, req.params.id));
