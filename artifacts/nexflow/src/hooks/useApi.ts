@@ -323,6 +323,40 @@ export function useAutoAdvanceStages() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["funnel"] }); qc.invalidateQueries({ queryKey: ["deals"] }); },
   });
 }
+export function useDuplicateDashboard() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch(`/dashboards/${id}/duplicate`, { method: "POST", body: JSON.stringify({}) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["dashboards"] }),
+  });
+}
+export function useUpdateWidget(dashboardId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...patch }: any) => apiFetch(`/dashboards/widgets/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["dashboards", dashboardId] }),
+  });
+}
+export function useDashboardBuilder() {
+  return useMutation({
+    mutationFn: (prompt: string) => apiFetch(`/ai/dashboard-builder`, { method: "POST", body: JSON.stringify({ prompt }) }),
+  });
+}
+export function useDashboardSummary() {
+  return useMutation({
+    mutationFn: (widgets: any[]) => apiFetch(`/ai/dashboard-summary`, { method: "POST", body: JSON.stringify({ widgets }) }),
+  });
+}
+export function useRegenerateInsights() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiFetch(`/ai/insights/regenerate`, { method: "POST", body: JSON.stringify({}) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["insights"] }); qc.invalidateQueries({ queryKey: ["insights", "daily"] }); },
+  });
+}
+export function useInsightsTrend() {
+  return useQuery({ queryKey: ["insights", "trend"], queryFn: () => apiFetch(`/ai/insights/trend`) });
+}
 export function useLogCall() {
   const qc = useQueryClient();
   return useMutation({
