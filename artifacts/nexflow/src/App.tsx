@@ -39,6 +39,11 @@ import DashboardDetailPage from "@/pages/dashboard-detail";
 import InsightsPage from "@/pages/insights";
 import CampaignsPage from "@/pages/campaigns";
 import AgentBuilderPage from "@/pages/agent-builder";
+import MessagesPage from "@/pages/messages";
+import TemplatesPage from "@/pages/templates";
+import AudiencesPage from "@/pages/audiences";
+import ReportsPage from "@/pages/reports";
+import PredictivePage from "@/pages/predictive";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -89,6 +94,11 @@ function AppLayout() {
           <Route path="/automation" component={AutomationPage} />
           <Route path="/assistant" component={AssistantPage} />
           <Route path="/team" component={TeamPage} />
+          <Route path="/messages" component={MessagesPage} />
+          <Route path="/templates" component={TemplatesPage} />
+          <Route path="/audiences" component={AudiencesPage} />
+          <Route path="/reports" component={ReportsPage} />
+          <Route path="/predictive" component={PredictivePage} />
           <Route component={NotFound} />
         </Switch>
       </main>

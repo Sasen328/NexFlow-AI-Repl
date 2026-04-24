@@ -5,7 +5,7 @@ import {
   Phone, FileText, Bell, BarChart3, Target, Database, Bot,
   ChevronLeft, ChevronRight, ChevronDown, Search, Moon, Sun,
   MessageSquare, Star, Settings, Mail, UserSquare2, FlaskConical,
-  ListIcon, LayoutDashboard, Filter, Megaphone, GitBranch, PhoneCall, Wand2
+  ListIcon, LayoutDashboard, Filter, Megaphone, GitBranch, PhoneCall, Wand2, Layers
 } from "lucide-react";
 import { NexFlowLogo, NexFlowWordmark } from "./NexFlowLogo";
 import { useNotifications } from "@/hooks/useApi";
@@ -48,8 +48,7 @@ const NAV_GROUPS = [
       { icon: Phone, label: "Calls & Transcripts", href: "/calls" },
       { icon: Bot, label: "AI Agent", href: "/voice-agents" },
       { icon: FileText, label: "Knowledge Base", href: "/scripts" },
-      { icon: MessageSquare, label: "WhatsApp", href: "/whatsapp" },
-      { icon: Mail, label: "Email", href: "/email" },
+      { icon: MessageSquare, label: "Messages", href: "/messages" },
     ],
   },
   {
@@ -71,6 +70,8 @@ const NAV_GROUPS = [
     icon: Megaphone,
     items: [
       { icon: Megaphone, label: "Campaigns", href: "/campaigns" },
+      { icon: Layers, label: "Templates", href: "/templates" },
+      { icon: Target, label: "Audiences", href: "/audiences" },
     ],
   },
   {
@@ -81,6 +82,8 @@ const NAV_GROUPS = [
       { icon: LayoutDashboard, label: "Dashboards", href: "/dashboards" },
       { icon: BarChart3, label: "Analytics", href: "/analytics" },
       { icon: UserSquare2, label: "Team Performance", href: "/team" },
+      { icon: FileText, label: "Reports", href: "/reports" },
+      { icon: Sparkles, label: "Predictive", href: "/predictive" },
     ],
   },
 ];
@@ -175,11 +178,11 @@ export function Sidebar({ collapsed, onCollapse, dark, onDark }: SidebarProps) {
       )}
     >
       <div className={cn("flex items-center border-b border-border/30 flex-shrink-0",
-        collapsed ? "justify-center px-0 py-3" : "px-3 py-3")}>
+        collapsed ? "justify-center px-0 py-3" : "px-3 py-4")}>
         {collapsed ? (
           <NexFlowLogo size={36} />
         ) : (
-          <NexFlowWordmark className="h-12" />
+          <NexFlowWordmark />
         )}
       </div>
 

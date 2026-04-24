@@ -1,4 +1,4 @@
-import { useContacts, useViews, useLists, useUsers, useBulkEnrich, useBulkAddToLists, useSaveView, useDeleteView } from "@/hooks/useApi";
+import { useContacts, useViews, useLists, useUsers, useBulkEnrich, useBulkAddToLists, useSaveView, useDeleteView, useCreateContact } from "@/hooks/useApi";
 import { Search, Plus, Sparkles, FolderPlus, Bookmark, X, Loader2, Save } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
@@ -42,6 +42,7 @@ export default function ContactsPage() {
   const [filters, setFilters] = useState<Filters>(EMPTY);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showAddContact, setShowAddContact] = useState(false);
   const [showAddToList, setShowAddToList] = useState(false);
   const [showSaveView, setShowSaveView] = useState(false);
   const [viewName, setViewName] = useState("");
@@ -60,6 +61,7 @@ export default function ContactsPage() {
   const { data: viewsData } = useViews("contact");
   const { data: listsData } = useLists();
   const { data: usersData } = useUsers();
+  const createContact = useCreateContact();
   const bulkEnrich = useBulkEnrich();
   const bulkAddToLists = useBulkAddToLists();
   const saveView = useSaveView();
@@ -115,7 +117,10 @@ export default function ContactsPage() {
           <h1 className="text-2xl font-bold text-foreground">Contacts</h1>
           <p className="text-muted-foreground text-sm mt-0.5">{data?.total ?? 0} contacts {hasActiveFilters && "match filters"}</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity">
+        <button
+          onClick={() => setShowAddContact(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity"
+        >
           <Plus className="w-4 h-4" />
           Add Contact
         </button>
@@ -369,6 +374,89 @@ export default function ContactsPage() {
           count={selected.size}
         />
       )}
+
+      {showAddContact && (
+        <AddContactModal
+          users={users}
+          onClose={() => setShowAddContact(false)}
+          onCreate={async (data) => {
+            await createContact.mutateAsync(data);
+            setShowAddContact(false);
+          }}
+          submitting={createContact.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+function AddContactModal({ users, onClose, onCreate, submitting }: any) {
+  const [form, setForm] = useState({ first_name: "", last_name: "", email: "", phone: "", title: "", status: "new", owner_id: "" });
+  const update = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+  const canSubmit = form.first_name.trim() && form.last_name.trim();
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="glass-card rounded-2xl p-6 w-full max-w-md bg-background" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-base font-bold text-foreground">Add Contact</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">First Name *</label>
+              <input autoFocus className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/60 border border-border/40 text-sm outline-none text-foreground focus:border-[#B8A0C8]" value={form.first_name} onChange={e => update("first_name", e.target.value)} placeholder="Sara" />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">Last Name *</label>
+              <input className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/60 border border-border/40 text-sm outline-none text-foreground focus:border-[#B8A0C8]" value={form.last_name} onChange={e => update("last_name", e.target.value)} placeholder="Al-Mansouri" />
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">Email</label>
+            <input type="email" className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/60 border border-border/40 text-sm outline-none text-foreground focus:border-[#B8A0C8]" value={form.email} onChange={e => update("email", e.target.value)} placeholder="sara@company.com" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">Phone</label>
+              <input className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/60 border border-border/40 text-sm outline-none text-foreground focus:border-[#B8A0C8]" value={form.phone} onChange={e => update("phone", e.target.value)} placeholder="+966 50..." />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">Job Title</label>
+              <input className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/60 border border-border/40 text-sm outline-none text-foreground focus:border-[#B8A0C8]" value={form.title} onChange={e => update("title", e.target.value)} placeholder="VP Sales" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">Status</label>
+              <select className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/60 border border-border/40 text-sm outline-none text-foreground" value={form.status} onChange={e => update("status", e.target.value)}>
+                <option value="new">New</option>
+                <option value="active">Active</option>
+                <option value="qualified">Qualified</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">Owner</label>
+              <select className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/60 border border-border/40 text-sm outline-none text-foreground" value={form.owner_id} onChange={e => update("owner_id", e.target.value)}>
+                <option value="">Unassigned</option>
+                {users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 mt-5">
+          <button onClick={onClose} className="px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground">Cancel</button>
+          <button
+            onClick={() => onCreate(form)}
+            disabled={!canSubmit || submitting}
+            className="px-4 py-2 rounded-lg text-sm font-semibold nf-chameleon-bg text-white disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            Add Contact
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
