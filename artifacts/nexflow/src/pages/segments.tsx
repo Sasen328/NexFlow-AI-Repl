@@ -86,21 +86,62 @@ export default function SegmentsPage() {
   );
 }
 
+const STATUS_OPTS = ["new", "active", "qualified", "unqualified", "customer"];
+const SOURCE_OPTS = ["linkedin", "referral", "inbound", "outbound", "event", "partner", "import"];
+const SENIORITY_OPTS = ["c-level", "vp", "director", "manager", "ic"];
+const SCORE_BANDS = [
+  { label: "Hot (80+)", value: "80+" },
+  { label: "Warm (60-79)", value: "60-79" },
+  { label: "Cool (40-59)", value: "40-59" },
+  { label: "Cold (<40)", value: "<40" },
+];
+const SILENT_OPTS = [
+  { label: "any time", value: "" },
+  { label: "silent 7+ days", value: "7" },
+  { label: "silent 14+ days", value: "14" },
+  { label: "silent 30+ days", value: "30" },
+  { label: "silent 60+ days", value: "60" },
+];
+
 function NewSegmentModal({ onClose }: { onClose: () => void }) {
   const [prompt, setPrompt] = useState("");
   const [error, setError] = useState("");
   const gen = useAiGenerateSegment();
 
-  const examples = [
-    "VPs and Directors at companies in finance with lead score above 70",
-    "Contacts tagged 'enterprise' that haven't been engaged in 30 days",
-    "Qualified contacts at tech companies sourced from LinkedIn",
-  ];
+  // structured filters
+  const [statuses, setStatuses] = useState<string[]>([]);
+  const [scoreBand, setScoreBand] = useState("");
+  const [seniority, setSeniority] = useState<string[]>([]);
+  const [source, setSource] = useState("");
+  const [silent, setSilent] = useState("");
+  const [titleContains, setTitleContains] = useState("");
+  const [tag, setTag] = useState("");
+  const [extra, setExtra] = useState("");
+
+  function toggle(arr: string[], setArr: (v: string[]) => void, v: string) {
+    setArr(arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]);
+  }
+
+  function buildPrompt(): string {
+    const parts: string[] = [];
+    if (statuses.length) parts.push(`status is one of ${statuses.join(", ")}`);
+    if (scoreBand) parts.push(`lead score ${scoreBand}`);
+    if (seniority.length) parts.push(`seniority is ${seniority.join(" or ")}`);
+    if (source) parts.push(`source is ${source}`);
+    if (silent) parts.push(`not engaged in the last ${silent} days`);
+    if (titleContains) parts.push(`title contains "${titleContains}"`);
+    if (tag) parts.push(`tagged "${tag}"`);
+    if (extra.trim()) parts.push(extra.trim());
+    return parts.length ? `Contacts where ${parts.join(", and ")}.` : extra.trim();
+  }
+
+  const finalPrompt = prompt.trim() || buildPrompt();
 
   const submit = async () => {
     setError("");
+    if (!finalPrompt.trim()) { setError("Pick at least one filter or describe the audience."); return; }
     try {
-      await gen.mutateAsync({ prompt });
+      await gen.mutateAsync({ prompt: finalPrompt });
       onClose();
     } catch (e: any) {
       setError(e?.message ?? "Failed");
@@ -108,35 +149,93 @@ function NewSegmentModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="glass-card rounded-2xl p-6 w-full max-w-lg" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className="glass-card rounded-2xl p-6 w-full max-w-2xl my-8" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[#B8A0C8]" /> AI Segment Builder
           </h3>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
-        <p className="text-xs text-muted-foreground mb-3">Describe the audience in plain English. AI will translate to a SQL filter, run it, and create the segment.</p>
-        <textarea
-          value={prompt}
-          onChange={e => setPrompt(e.target.value)}
-          rows={4}
-          placeholder="e.g. Senior decision-makers at Saudi tech companies with high lead scores"
-          className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none focus:border-[#B8A0C8]"
-        />
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {examples.map(ex => (
-            <button key={ex} onClick={() => setPrompt(ex)} className="text-[11px] px-2 py-1 rounded-full bg-muted/40 text-muted-foreground hover:bg-muted">
-              {ex.slice(0, 40)}…
-            </button>
-          ))}
+        <p className="text-xs text-muted-foreground mb-4">Pick filters from the dropdowns — they auto-compose into the AI prompt. Or write your own description below.</p>
+
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div>
+            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Status</label>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {STATUS_OPTS.map(s => (
+                <button key={s} onClick={() => toggle(statuses, setStatuses, s)}
+                  className={cn("text-[11px] px-2 py-1 rounded-full border", statuses.includes(s) ? "nf-chameleon-bg text-white border-transparent" : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted")}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Lead Score</label>
+            <select value={scoreBand} onChange={e => setScoreBand(e.target.value)} className="w-full mt-1 px-2 py-1.5 rounded-lg bg-muted/50 border border-border/40 text-xs outline-none">
+              <option value="">any</option>
+              {SCORE_BANDS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Seniority</label>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {SENIORITY_OPTS.map(s => (
+                <button key={s} onClick={() => toggle(seniority, setSeniority, s)}
+                  className={cn("text-[11px] px-2 py-1 rounded-full border", seniority.includes(s) ? "nf-chameleon-bg text-white border-transparent" : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted")}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Source</label>
+            <select value={source} onChange={e => setSource(e.target.value)} className="w-full mt-1 px-2 py-1.5 rounded-lg bg-muted/50 border border-border/40 text-xs outline-none">
+              <option value="">any source</option>
+              {SOURCE_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Engagement</label>
+            <select value={silent} onChange={e => setSilent(e.target.value)} className="w-full mt-1 px-2 py-1.5 rounded-lg bg-muted/50 border border-border/40 text-xs outline-none">
+              {SILENT_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Title contains</label>
+            <input value={titleContains} onChange={e => setTitleContains(e.target.value)} placeholder="e.g. CEO, Head of" className="w-full mt-1 px-2 py-1.5 rounded-lg bg-muted/50 border border-border/40 text-xs outline-none" />
+          </div>
+          <div className="col-span-2">
+            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Tag</label>
+            <input value={tag} onChange={e => setTag(e.target.value)} placeholder="e.g. enterprise, gulf, vc-backed" className="w-full mt-1 px-2 py-1.5 rounded-lg bg-muted/50 border border-border/40 text-xs outline-none" />
+          </div>
         </div>
-        {error && <div className="mt-3 text-xs text-destructive p-2 rounded bg-destructive/10">{error}</div>}
-        <div className="flex gap-2 mt-5">
+
+        <div className="mb-3">
+          <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Extra context for AI (optional)</label>
+          <textarea value={extra} onChange={e => setExtra(e.target.value)} rows={2} placeholder="e.g. specifically in Saudi Arabia, only those who visited pricing page"
+            className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none focus:border-[#B8A0C8]" />
+        </div>
+
+        <details className="mb-3">
+          <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground">Or override with a free-form prompt</summary>
+          <textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={2}
+            placeholder="e.g. VPs and Directors at finance companies with lead score above 70"
+            className="w-full mt-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none focus:border-[#B8A0C8]" />
+        </details>
+
+        <div className="p-3 rounded-xl bg-muted/30 border border-border/30 mb-4">
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">AI will receive:</div>
+          <div className="text-xs text-foreground/80 italic">{finalPrompt || "Pick filters above…"}</div>
+        </div>
+
+        {error && <div className="mb-3 text-xs text-destructive p-2 rounded bg-destructive/10">{error}</div>}
+        <div className="flex gap-2">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted">Cancel</button>
           <button
             onClick={submit}
-            disabled={!prompt.trim() || gen.isPending}
+            disabled={!finalPrompt.trim() || gen.isPending}
             className="flex-1 px-4 py-2 rounded-lg nf-chameleon-bg text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {gen.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
