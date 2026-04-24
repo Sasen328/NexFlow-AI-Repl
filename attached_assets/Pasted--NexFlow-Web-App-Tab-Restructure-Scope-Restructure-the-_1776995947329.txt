@@ -1,0 +1,325 @@
+# NexFlow — Web App Tab Restructure
+
+**Scope:** Restructure the current NexFlow web app navigation. Consolidate scattered tabs, fix broken features, redefine weak ones.
+**Language:** English only (for this phase)
+**Output:** Developer-ready spec for Replit build.
+
+---
+
+## 1. Target Navigation — 6 Primary Tabs
+
+Everything in the app collapses into these six tabs. Everything else is a sub-tab.
+
+| # | Primary Tab | Sub-Tabs |
+|---|---|---|
+| 1 | **Home** | Daily Briefing · Performance · To-Do · Daily Insights · AI Assistant *(persistent panel)* |
+| 2 | **Leads** | Pipeline & Deals · Lists · Research · Forgotten Leads |
+| 3 | **Call Center** | Dashboard · Calls & Transcripts · AI Agent · Knowledge Base · Messages *(WhatsApp + Email)* |
+| 4 | **Data Hub** | Segments · Enrichment · AI Workforce · Signals |
+| 5 | **Marketing** | Campaigns · Templates · Audiences |
+| 6 | **Insights** | Dashboards · Reports · Team Performance · Predictive |
+
+Settings lives as a gear icon / user menu — not a primary tab.
+
+### What moved and why
+
+| Current location | New location | Reason |
+|---|---|---|
+| Separate "Deals" + "Pipeline" tabs | Merged under Leads → Pipeline & Deals | Same object, two views |
+| Separate "List View" + "Static List" tabs | Merged under Leads → Lists | Same object, one view with a toggle |
+| Top-level "Lead Intelligence" | Sub-tab under Leads → Research | Rename clarifies purpose |
+| Top-level "Activities" | Removed — lives inside each Lead profile | Was noise, not a destination |
+| Top-level "Signals" | Sub-tab under Data Hub | Back-office feed, not a primary workflow |
+| Top-level "Segments" | Sub-tab under Data Hub | Feeder for campaigns/prospecting, not a daily destination |
+| Top-level "AI Workforce" | Sub-tab under Data Hub | Back-office control panel |
+| "Campaigns" inside Call Center | New top-level Marketing | Outreach ≠ calling; needs its own home |
+| "Call Scripts" as standalone | Sub-tab under Call Center → Knowledge Base | Lives with objections and playbooks |
+| WhatsApp + Email as separate tabs | Merged under Call Center → Messages | One unified conversation view |
+
+---
+
+## 2. Home — Consolidated Briefing
+
+The Home tab becomes the **single interactive landing page** a user sees each morning. No separate "briefing" vs "performance" vs "to-do" tabs.
+
+### Layout — 5 sections on one screen
+
+**A. Daily Briefing card (top)**
+- Date and a plain-language summary of the day
+- Pulls from: today's calendar, overdue tasks, hot leads, pipeline changes overnight
+- Example: *"3 hot leads need follow-up, 2 callbacks due by noon, 1 deal stalled over 14 days."*
+
+**B. Performance strip**
+- KPI tiles: Calls today · Meetings booked · Pipeline value · Win rate (7d / 30d / YTD)
+- Sparklines on each tile
+- Click any tile → drills into Insights → Dashboards
+
+**C. To-Do list (interactive)**
+- Today's actions from: HubSpot tasks, Forgotten Leads engine, Signals
+- Each row: lead name, action type, urgency, deep link to lead
+- Inline actions: ✓ Done · ⏭ Snooze · 📞 Call · 💬 Open
+
+**D. Daily Insights feed**
+- Auto-generated overnight: market news hitting portfolio companies, new wealth signals detected, regulatory changes, deal risk alerts
+- Dismissible cards, each with a "Take action" CTA
+
+**E. AI Assistant (persistent right rail, all screens)**
+- Chat panel available from Home and from every other tab
+- Has context of whatever screen the user is on
+- Suggested prompts rotate by screen: *"Summarize my day"*, *"Which leads am I ignoring?"*, *"Draft follow-ups for today's callbacks"*
+- Powered by Claude API (`claude-sonnet-4-6`)
+
+### Acceptance criteria
+- All 5 sections load in one scroll (no tab-switching inside Home)
+- AI Assistant reads current page context
+- To-Do items are clickable and write back to HubSpot
+- Performance tiles refresh at least every 15 minutes
+
+---
+
+## 3. Leads
+
+### 3.1 Pipeline & Deals (merged)
+- Kanban of deal stages
+- Toggle: Card view ⇄ Table view
+- Filters: Owner · stage · value · probability · close date
+- Each card: company, contact, value, last activity, next step
+
+### 3.2 Lists (List View + Static Lists merged)
+- Left rail: All contacts · My contacts · Static Lists (collapsible)
+- Main: Current list view with column customization
+- "New Static List" button creates a frozen snapshot
+
+### 3.3 Research (formerly "Lead Intelligence")
+**Purpose clarified:** auto-generated deep research dossier on any lead.
+
+What it shows per lead:
+- Wealth estimate and methodology
+- Board positions and company ownership
+- Family tree *(respecting exclusion list)*
+- News mentions and digital footprint
+- Compliance flags *(sanctions, PEP, adverse media)*
+
+Generated on lead creation, refreshable on demand.
+
+### 3.4 Forgotten Leads *(redefined — see Section 4)*
+
+### 3.5 Bug fix — "Add Contact" button
+Currently broken. Root cause likely: form submit not wired to HubSpot API.
+**Fix:** `POST /crm/v3/objects/contacts` with portal ID from env, toast on success, refresh list view. Validate required fields client-side before submit.
+
+---
+
+## 4. Forgotten Leads — Redefined
+
+### 4.1 New definition
+A lead is "Forgotten" when **BOTH** conditions are true:
+
+1. **No contact for ≥ 90 days** (no call, email, WhatsApp, or meeting logged), AND
+2. **At least one signal** from this list:
+
+| Signal | Trigger |
+|---|---|
+| 💰 Wealth event | Liquidity event, IPO exit, property transaction, dividend declaration linked to contact or their company |
+| 💼 Job change | New role detected via LinkedIn, press, or regulatory disclosure |
+| 🏛 Inheritance | Obituary or estate event linked to family |
+| 📱 Digital activity | Opened recent email, visited website, engaged on LinkedIn, podcast appearance |
+| 🤝 Broken promise | CRM note contains *"follow up"*, *"callback"*, *"send proposal"*, *"revisit"* with no subsequent activity |
+| ⏰ Unactioned task | Task due > 30 days ago, never closed |
+
+### 4.2 UI — replace current harsh color palette
+Signals display as **soft chips** on each lead row. Current colors are too saturated. Replace with:
+
+| Signal | New color |
+|---|---|
+| Wealth event | Soft lavender |
+| Job change / digital activity | Muted sky blue |
+| Inheritance / broken promise | Warm sand |
+| Unactioned task | Muted coral *(not red)* |
+
+Each chip has a tooltip: *"Why is this here?"* → explains the exact trigger.
+
+### 4.3 Bulk actions on the list
+- Assign to me
+- Add to sequence
+- Dismiss for 30 days
+- Export
+
+### 4.4 Query logic
+```
+forgottenLeads = contacts WHERE
+  last_activity_date < NOW() - 90 days
+  AND (
+    signals.wealth_event = true
+    OR signals.job_change = true
+    OR signals.inheritance = true
+    OR signals.digital_engagement_last_30d = true
+    OR notes MATCHES /follow up|callback|revisit/i
+    OR tasks.due_date < NOW() - 30 days AND status != 'completed'
+  )
+ORDER BY signal_recency DESC
+```
+
+---
+
+## 5. Call Center — Full Redesign
+
+### 5.1 Dashboard *(new landing — replaces current weak entry)*
+Analytics-first landing page.
+
+**Widgets:**
+- **Today's calls** — count, duration, connect rate
+- **Activity heatmap** — calls by hour × day, last 30 days
+- **Trend chart** — calls per week, with YoY toggle
+- **Leaderboard** — top performers (team-level)
+- **AI Insights panel** — auto-generated, e.g. *"Connect rate drops 40% after 4pm — shift calls earlier"* or *"Leads contacted within 2 min of a signal convert 3x"*
+- **Predictive analytics**:
+  - Closing probability per open deal (model-scored)
+  - Success analysis — which call patterns correlate with wins
+
+**Controls:**
+- Date range selector: Today · 7d · 30d · QTD · YTD · Custom · YoY comparison
+- "Generate Report" button → exports PDF/XLSX of current view
+
+### 5.2 Calls & Transcripts *(redesigned)*
+
+**During a live call:**
+
+Three-column layout:
+- **Left rail — Lead context**: who they are, last conversation summary, research dossier highlights
+- **Center — Live transcript**: scrolling, speaker-labeled, bilingual support (Arabic/English/Gulf/Levantine/Egyptian dialects)
+- **Right rail — Live coaching panel (human-driven, NEW)**:
+  - Senior BD can type notes in real time that appear on the rep's screen
+  - Suggested scripts auto-surface based on keywords detected in transcript
+  - **Objection handler**: when an objection is detected (*"too expensive"*, *"already have a provider"*, *"send me an email"*), top 3 pre-approved responses pop up instantly
+
+**Post-call:**
+- Full transcript with speaker labels + timestamps
+- AI-generated: summary · key quotes · action items · sentiment score
+- "Add to CRM" button → writes note back to lead record
+
+### 5.3 AI Agent
+**Same interface** as Calls & Transcripts for humans — so reps supervise AI calls the same way they review their own.
+
+Additional toggle row at the top:
+- 🎙 **Voice selector** — dropdown of available voices (nova, onyx, shimmer, echo, fable, alloy)
+- 🗣 **Dialect selector** — Gulf · Levantine · Egyptian · MSA · English
+- 🎛 **Persona selector** — pick from saved personas
+
+### 5.4 Knowledge Base *(consolidates scattered content)*
+One home for everything that supports calls.
+
+- **Scripts** — by scenario: cold call · follow-up · objection · closing
+- **Objection library** — each objection maps to 3 approved responses, tagged by client type
+- **Playbooks** — structured sequences (e.g. *"HNW family office first touch"*, *"Post-IPO follow-up"*)
+- **Company insights** — firm pitch, differentiators, compliance talking points
+
+Searchable, filterable, versioned. Each item links from the live coaching panel in 5.2.
+
+### 5.5 Messages *(WhatsApp + Email merged)*
+One unified timeline per lead, channel icon per message.
+
+- **Generated from the lead itself** — the send buttons live on the lead profile
+- This tab is the **outbox / history / inbox view**
+- Quick-send templates: HNW intro, meeting confirm, document request
+- Filter by: channel, status (sent/delivered/read/replied), owner
+
+### 5.6 Removed from Call Center
+- ❌ **Campaigns** → moved to Marketing (Section 7)
+
+---
+
+## 6. Data Hub — Back-Office Home
+
+### 6.1 Segments *(relocated from top-level)*
+Saved segment builder. Feeds campaigns, prospecting, and lists.
+
+### 6.2 Enrichment
+**Current problems:**
+- Clicking a lead doesn't change state visually
+- "New Search" button is broken
+- No way to preview what enrichment will find
+
+**New behavior:**
+- **Hover tooltip** — hovering a lead in the queue expands a tooltip: current profile completeness %, missing fields, suggested enrichment sources
+- **Click → opens full profile drawer**, and the lead card shifts to a "selected" visual state (tint change, not mesh gradient)
+- **Fix "New Search"** — likely root cause: input not bound to query state or API returning 404. Wire input → debounced call to the enrichment provider
+
+### 6.3 AI Workforce *(relocated from top-level)*
+Agent roster. Each agent card: status, tasks queued, tasks completed today, success rate. Start/stop/configure controls.
+
+### 6.4 Signals *(relocated from top-level)*
+**Current problem:** mesh gradient is disliked.
+**Fix:** Replace with flat card design — white background, subtle accent border only.
+
+Feed of detected signals across all leads. Each signal → *"Create task"* or *"Add to sequence"*.
+
+### 6.5 Removed
+- ❌ **Activities** standalone tab — activities now live inside each Lead profile drawer as a timeline, not as a top-level screen
+
+---
+
+## 7. Marketing *(new top-level tab)*
+
+Relocated from inside Call Center. Outreach deserves its own home.
+
+- **Campaigns** — email blasts, WhatsApp broadcasts, nurture sequences
+- **Templates** — reusable email + WhatsApp content library
+- **Audiences** — built from Segments (Data Hub) and Static Lists (Leads)
+- **Performance** — open rate, click rate, reply rate, meetings booked per campaign
+
+---
+
+## 8. Insights *(expanded)*
+
+### 8.1 Dashboards
+- Prebuilt: Pipeline Health · Conversion Funnel · Activity Quality · Segment Performance
+- Every dashboard is **editable** — add/remove widgets, adjust filters
+- Save custom dashboards per user
+
+### 8.2 Reports
+- Generate any report from any dashboard
+- Export: PDF · XLSX · PPTX
+- Schedule: daily / weekly / monthly email delivery
+
+### 8.3 Team Performance
+Per-rep scorecards with **three required filters**:
+- **YTD** (current year)
+- **Since inception** (all-time from firm founding)
+- **Custom range**
+
+Metrics: calls · meetings booked · proposals sent · deals won · AUM added · revenue generated.
+
+The dashboard itself is **adjustable** — users can modify which KPIs show and add analysis widgets (e.g. correlation between call volume and close rate). YoY comparison toggle on every metric.
+
+### 8.4 Predictive
+- Deal closing probability (model-scored per open deal)
+- Success pattern analysis — which lead attributes + activity patterns correlate with wins
+- Churn risk scoring for existing clients
+
+---
+
+## 9. Implementation Priority
+
+| Phase | Scope | Why first |
+|---|---|---|
+| **P0 — Bugs** | Fix Add Contact · Fix New Search in Enrichment | Blocking daily use |
+| **P1 — IA restructure** | Collapse nav to 6 tabs. Move Segments / AI Workforce / Signals under Data Hub. Merge Pipeline+Deals, Lists, Messages | No new logic, pure reorganization |
+| **P2 — Home expansion** | Build the 5-section Home with persistent AI Assistant | Core daily workflow |
+| **P3 — Forgotten Leads rewrite** | New definition + new color palette + signal chips | Biggest prospecting uplift |
+| **P4 — Call Center Dashboard** | Analytics landing + predictive widget | Replaces weak current landing |
+| **P5 — Calls & Transcripts redesign** | Live human coaching panel + objection handler | Core product differentiator |
+| **P6 — Knowledge Base consolidation** | Scripts + objections + playbooks unified | Unblocks P5 |
+| **P7 — Marketing tab** | Move campaigns out of Call Center | Cleanup |
+| **P8 — Insights expansion** | Team Performance filters + adjustable dashboards | Reporting depth |
+
+---
+
+## 10. Open Questions
+
+1. **Research sub-tab name** — confirm "Research" over "Intelligence" or "Dossier"?
+2. **Forgotten Leads threshold** — confirm 90 days (vs 60 or 120)?
+3. **AI Assistant scope** — read-only on Home, or can it write (create tasks, send messages)?
+4. **Predictive model** — build against HubSpot historical data, or do we need a separate warehouse first?
+5. **"Since inception" filter** — what anchor date for the firm founding?
+6. **Color palette** — approving the soft lavender / sky / sand / coral direction for Forgotten Leads, or want different hues?
