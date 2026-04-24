@@ -35,7 +35,7 @@ const NAV_GROUPS = [
       { icon: Users, label: "Contacts", href: "/contacts" },
       { icon: Building2, label: "Companies", href: "/companies" },
       { icon: ListIcon, label: "Lists", href: "/lists" },
-      { icon: Star, label: "Research", href: "/intelligence" },
+      { icon: Star, label: "Lead Intelligence", href: "/intelligence" },
       { icon: Filter, label: "Properties", href: "/properties" },
     ],
   },

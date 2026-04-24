@@ -14,7 +14,7 @@ function NativeTabLayout() {
     <NativeTabs>
       <NativeTabs.Trigger name="index">
         <Icon sf={{ default: "sparkles", selected: "sparkles" }} />
-        <Label>Briefing</Label>
+        <Label>Command Center</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="pipeline">
         <Icon sf={{ default: "chart.bar", selected: "chart.bar.fill" }} />
@@ -65,7 +65,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Briefing",
+          title: "Command Center",
           tabBarIcon: ({ color, focused }) =>
             isIOS ? (
               <SymbolView name={focused ? "sparkles" : "sparkles"} tintColor={color} size={24} />

@@ -244,6 +244,14 @@ export function useContactActivities(id?: string) {
   });
 }
 
+export function useForgottenLeads() {
+  return useQuery({
+    queryKey: ["forgotten-leads"],
+    queryFn: () => apiFetch<{ leads: any[]; summary: string | null }>("/ai/forgotten-leads"),
+    staleTime: 120_000,
+  });
+}
+
 // ---------- helpers ----------
 export function initials(first?: string | null, last?: string | null) {
   return `${(first || "?").charAt(0)}${(last || "").charAt(0)}`.toUpperCase();
