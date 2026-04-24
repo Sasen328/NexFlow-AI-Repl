@@ -20,7 +20,7 @@ const NAV_GROUPS = [
     label: "Home",
     icon: Sparkles,
     items: [
-      { icon: Sparkles, label: "Daily Briefing", href: "/" },
+      { icon: Sparkles, label: "Command Center", href: "/" },
       { icon: BarChart3, label: "Performance", href: "/analytics" },
       { icon: Activity, label: "Daily Insights", href: "/insights" },
       { icon: Bot, label: "AI Assistant", href: "/assistant" },

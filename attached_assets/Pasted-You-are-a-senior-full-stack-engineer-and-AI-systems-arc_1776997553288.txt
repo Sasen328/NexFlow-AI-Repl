@@ -1,0 +1,281 @@
+You are a senior full-stack engineer and AI systems architect.
+
+Your task is to RESTRUCTURE, FIX, and ENHANCE my existing CRM application with a focus on:
+- AI-driven lead management
+- Call center intelligence
+- Conversion optimization
+- Clean UX with modular architecture
+
+⚠️ IMPORTANT:
+- Do NOT use placeholders
+- Do NOT skip logic
+- Ensure everything is functional end-to-end
+- Maintain scalable architecture (React + Node + DB assumed)
+- Preserve existing data where possible
+
+---
+
+# 1. LEAD SEGMENTATION LOGIC (CRITICAL)
+
+REPLACE:
+"Forgotten Leads"
+
+WITH:
+"Re-Engagement Opportunities"
+
+LOGIC:
+Create backend function:
+
+IF:
+- last_contact_date >= 90 days
+AND
+- ANY of:
+    - wealth_signal = true
+    - job_change = true
+    - inheritance_signal = true
+    - digital_activity_score > threshold
+    - follow_up_requested = true AND no_action_taken = true
+    - follow_up_flagged = true AND no_logged_activity = true
+
+THEN:
+→ classify as "Re-Engagement Opportunity"
+
+UI:
+- Add priority score (0–100)
+- Add tooltip:
+  "Missed opportunity based on inactivity + high-value signals"
+- Replace color with premium soft gradient (gold/lavender/pastel)
+
+---
+
+# 2. COMMAND CENTER (FORMERLY BRIEFING)
+
+RENAME:
+"Briefing" → "Daily Command Center"
+
+BUILD AS INTERACTIVE MODULE:
+
+Tabs:
+- Overview
+- Tasks
+- Insights
+- AI Assistant
+
+FEATURES:
+- Auto-generated daily lead list (top 50–100)
+- Performance analytics (team + agent)
+- Task generation engine
+- SLA alerts (missed follow-ups)
+- Embedded AI assistant (chat + action trigger)
+
+---
+
+# 3. NAVIGATION RESTRUCTURE
+
+FIX + REORGANIZE:
+
+1. Fix "Add Contact" (currently broken)
+
+2. Merge:
+- Deals + Pipeline → "Deals & Pipeline"
+
+3. Merge:
+- Static List + List View → "Lists"
+
+4. Move:
+- Segments → Data Hub
+- AI Workforce → Data Hub
+
+5. Convert:
+- Lead Intelligence → Sub-tab inside Lead Profile
+
+---
+
+# 4. CALL CENTER INTELLIGENCE (NEW MODULE)
+
+CREATE NEW TAB:
+"Call Center Intelligence"
+
+DASHBOARD MUST INCLUDE:
+- Total calls (daily / weekly / monthly)
+- Connection rate
+- Conversion rate
+- Trend charts
+- AI insights summary
+
+FILTERS:
+- Today
+- Custom date range
+- Year-over-Year comparison
+
+AI FEATURES:
+- Predictive closing probability
+- Success likelihood score
+- Forecasted meetings
+
+---
+
+# 5. CALLS & TRANSCRIPTS (FULL REDESIGN)
+
+REBUILD UI:
+
+FOR HUMAN AGENTS:
+- Live coaching panel (real-time suggestions)
+- Objection handling prompts
+- Dynamic script recommendations
+
+FOR AI AGENT:
+- Same interface capability
+- Access transcripts + analysis
+
+ADD:
+- Voice Library toggle (for AI voice agents)
+
+---
+
+# 6. KNOWLEDGE BASE (UNDER CALL CENTER)
+
+CREATE STRUCTURED MODULE:
+
+Sections:
+- Call Scripts
+- Objection Handling
+- Playbooks
+- Company Insights
+
+Must be searchable + categorized
+
+---
+
+# 7. COMMUNICATION HUB
+
+MERGE:
+- WhatsApp
+- Email
+
+INTO:
+"Communications"
+
+FEATURES:
+- Auto-generate messages from lead data
+- Context-aware templates
+- Accessible inside lead profile
+
+---
+
+# 8. MARKETING MODULE
+
+REMOVE:
+- Campaigns from Call Center
+
+CREATE NEW TAB:
+"Marketing"
+
+Includes:
+- Campaigns
+- Automation
+- Messaging tools
+
+---
+
+# 9. ENRICHMENT & LEAD PROFILE UX
+
+ENHANCE:
+
+- Hover tooltip → quick profile preview
+- On click:
+    → Expand full enriched profile
+    → Trigger dynamic gradient transition
+
+FIX:
+- "New Search" (currently broken)
+
+---
+
+# 10. CLEANUP & RESTRUCTURE
+
+REMOVE or REDEFINE:
+
+- Activities → redefine or remove
+- Signals → integrate into:
+    - Lead profile
+    - Lead Intelligence sub-tab
+
+IMPROVE:
+- Mesh gradient design consistency (light pastel only)
+
+---
+
+# 11. INSIGHTS & REPORTING
+
+INTEGRATE:
+
+- Daily Insights → inside Command Center
+
+CREATE NEW TAB:
+"Insights & Reports"
+
+FEATURES:
+- Custom dashboards
+- Report generation
+- Export functionality
+
+---
+
+# 12. TEAM PERFORMANCE DASHBOARD
+
+ADD:
+
+Inside Insights:
+
+- Performance tracking:
+    - YTD
+    - Since inception
+
+FILTERS:
+- Agent
+- Region
+- Time
+
+AI ANALYSIS:
+- Strengths
+- Weaknesses
+- Recommendations
+
+---
+
+# 13. UI/UX DESIGN SYSTEM
+
+GLOBAL RULES:
+
+- Use bright mesh gradient (cotton candy / pastel tones)
+- NO dark theme
+- Dynamic gradients on interaction
+- Clean, modern, investor-grade UI
+
+---
+
+# 14. ARCHITECTURE REQUIREMENTS
+
+- Modular components (React)
+- API-driven backend (Node/Express)
+- Scalable DB schema updates
+- Event-driven updates (for AI insights + signals)
+- Maintain performance
+
+---
+
+# 15. FINAL DELIVERABLE
+
+You must:
+1. Update frontend UI
+2. Update backend logic
+3. Fix all broken features
+4. Implement new modules fully
+5. Ensure everything is functional (no mock data)
+
+Return:
+- Updated file structure
+- Key components created
+- APIs added/updated
+- Summary of changes

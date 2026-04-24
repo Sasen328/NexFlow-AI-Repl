@@ -4,6 +4,15 @@
 
 NexFlow is an AI-native B2B CRM built as a React + Vite frontend with an Express/Drizzle/PostgreSQL backend in a pnpm monorepo.
 
+## UI Theme
+
+- **Light mode default** with a vibrant cotton candy / pastel mesh gradient
+- Background: near-white with lavender hue (HSL 280 30% 99%)
+- 10 animated mesh gradient nodes in lavender, teal, amber, and mint
+- Glassmorphism cards: rgba(255,253,255,0.78) with blur and soft border
+- Chameleon gradient: #B8A0C8 → #C0A0B8 → #88B8B0 → #90B8B8 → #B8B880 → #C8A880
+- Dark mode available via toggle
+
 ## Stack
 
 - **Monorepo tool**: pnpm workspaces
