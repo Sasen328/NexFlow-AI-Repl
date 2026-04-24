@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   Search, Database, Filter, Download, Plus, Check, ChevronDown,
   Building2, Users, Mail, Phone, Linkedin, MapPin, Briefcase, Globe,
-  Sparkles, Zap, Target, ArrowRight, Layers, RefreshCw
+  Sparkles, Zap, Target, ArrowRight, Layers, RefreshCw, X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +68,7 @@ export default function SourcingPage() {
   });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [waterfall, setWaterfall] = useState(true);
+  const [showNewSearch, setShowNewSearch] = useState(false);
 
   function toggle(id: string) {
     setSelected(prev => {
@@ -96,7 +97,10 @@ export default function SourcingPage() {
             <div className="text-sm font-bold text-[#88B8B0]">{totalCredits.toLocaleString()}</div>
             <div className="text-[10px] text-muted-foreground">credits available</div>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90 transition-opacity">
+          <button
+            onClick={() => setShowNewSearch(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+          >
             <Plus className="w-4 h-4" />
             New Search
           </button>
@@ -312,6 +316,123 @@ export default function SourcingPage() {
           ))}
         </div>
       )}
+
+      {showNewSearch && (
+        <NewSearchModal onClose={() => setShowNewSearch(false)} onSave={(name) => {
+          setShowNewSearch(false);
+          setTab("saved");
+        }} />
+      )}
     </div>
   );
 }
+
+function NewSearchModal({ onClose, onSave }: { onClose: () => void; onSave: (name: string) => void }) {
+  const [form, setForm] = useState({
+    name: "",
+    region: "GCC",
+    industry: "All",
+    seniority: "C-Level, VP",
+    company_size: "501+",
+    intent: "",
+    providers: ["lusha", "clay"],
+  });
+  const [running, setRunning] = useState(false);
+  const up = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  function handleSave() {
+    if (!form.name.trim()) return;
+    setRunning(true);
+    setTimeout(() => {
+      setRunning(false);
+      onSave(form.name);
+    }, 1200);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="glass-card rounded-2xl p-6 w-full max-w-lg bg-background" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+              <Search className="w-4 h-4 text-[#C8A880]" />
+              New Prospect Search
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Define your ICP filters and run across connected providers</p>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="space-y-3.5">
+          <div>
+            <label className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">Search Name *</label>
+            <input autoFocus className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/60 border border-border/40 text-sm outline-none text-foreground focus:border-[#B8A0C8]" value={form.name} onChange={e => up("name", e.target.value)} placeholder='e.g. "KSA FinTech Decision Makers"' />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">Region</label>
+              <select className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/60 border border-border/40 text-sm outline-none text-foreground" value={form.region} onChange={e => up("region", e.target.value)}>
+                {["GCC", "KSA", "UAE", "Qatar", "Bahrain", "Kuwait", "Oman", "MENA"].map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">Industry</label>
+              <select className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/60 border border-border/40 text-sm outline-none text-foreground" value={form.industry} onChange={e => up("industry", e.target.value)}>
+                {["All", "FinTech", "SaaS", "Real Estate", "Healthcare", "Retail", "Telecom", "Energy", "Manufacturing"].map(i => <option key={i} value={i}>{i}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">Seniority</label>
+              <select className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/60 border border-border/40 text-sm outline-none text-foreground" value={form.seniority} onChange={e => up("seniority", e.target.value)}>
+                {["C-Level, VP", "Director+", "Manager+", "Individual Contributor", "All levels"].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">Company Size</label>
+              <select className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/60 border border-border/40 text-sm outline-none text-foreground" value={form.company_size} onChange={e => up("company_size", e.target.value)}>
+                {["1-50", "51-200", "201-500", "501+", "1,000+", "5,000+"].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">Intent Signal (optional)</label>
+            <input className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/60 border border-border/40 text-sm outline-none text-foreground focus:border-[#B8A0C8]" value={form.intent} onChange={e => up("intent", e.target.value)} placeholder='e.g. "Hiring for sales roles" or "raised Series B"' />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground mb-1.5 block">Data Providers</label>
+            <div className="flex flex-wrap gap-2">
+              {["lusha", "clay", "signalhire", "rocketreach", "crunchbase"].map(p => {
+                const on = form.providers.includes(p);
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setForm(f => ({ ...f, providers: on ? f.providers.filter(x => x !== p) : [...f.providers, p] }))}
+                    className={cn("px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all capitalize", on ? "border-[#B8A0C8] bg-[#B8A0C8]/15 text-[#B8A0C8]" : "border-border/40 text-muted-foreground hover:text-foreground")}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-5">
+          <button onClick={onClose} className="px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground">Cancel</button>
+          <button
+            onClick={handleSave}
+            disabled={!form.name.trim() || running}
+            className="px-4 py-2 rounded-lg text-sm font-semibold nf-chameleon-bg text-white disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {running ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Running search…</> : <><Sparkles className="w-3.5 h-3.5" /> Run & Save</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
