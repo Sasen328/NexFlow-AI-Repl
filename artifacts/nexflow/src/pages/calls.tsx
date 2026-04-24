@@ -1,8 +1,8 @@
-import { useCalls } from "@/hooks/useApi";
+import { useCalls, useAnalyzeCall } from "@/hooks/useApi";
 import {
   Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, Brain,
-  Mic, MicOff, Play, Pause, Volume2, TrendingUp, TrendingDown,
-  AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Activity
+  Mic, Play, Volume2, TrendingUp, TrendingDown,
+  AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Activity, X, Loader2, Sparkles, MessageSquare
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -36,45 +36,16 @@ function ScoreGauge({ score }: { score: number }) {
   );
 }
 
-function WaveformBar({ active }: { active: boolean }) {
-  const bars = [3, 6, 9, 5, 8, 11, 7, 4, 9, 6, 3, 8, 5, 10, 7, 4, 6, 9, 5, 8];
-  return (
-    <div className="flex items-center gap-0.5 h-8">
-      {bars.map((h, i) => (
-        <div
-          key={i}
-          className={cn("w-1 rounded-full transition-all", active ? "bg-[#88B8B0]" : "bg-muted/60")}
-          style={{ height: `${h * 2.5}px`, animationDelay: `${i * 0.05}s` }}
-        />
-      ))}
-    </div>
-  );
-}
-
-const LIVE_CALL = {
-  contact: "Sara Al-Mansouri",
-  company: "Gulf Ventures",
-  duration: "04:23",
-  score: 88,
-  sentiment: 0.78,
-  talkRatio: { me: 42, them: 58 },
-  topics: ["Proposal pricing", "Arabic AI agents", "Q2 timeline"],
-  coaching: [
-    { type: "good", text: "Excellent active listening — letting Sara lead the conversation" },
-    { type: "tip", text: "Mention the Gulf Ventures case study within next 2 minutes" },
-    { type: "warn", text: "Avoid technical jargon — Sara prefers business outcomes" },
-  ],
-};
-
 export default function CallsPage() {
   const { data, isLoading } = useCalls();
   const calls = data?.calls ?? [];
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [liveActive, setLiveActive] = useState(true);
+  const [openCall, setOpenCall] = useState<any>(null);
 
   const completedCalls = calls.filter((c: any) => c.status === "completed");
-  const avgScore = completedCalls.length
-    ? Math.round(completedCalls.reduce((acc: number, c: any) => acc + (c.call_score ?? 0), 0) / completedCalls.filter((c: any) => c.call_score !== null).length)
+  const scored = completedCalls.filter((c: any) => c.call_score !== null);
+  const avgScore = scored.length
+    ? Math.round(scored.reduce((acc: number, c: any) => acc + (c.call_score ?? 0), 0) / scored.length)
     : 0;
 
   return (
@@ -85,7 +56,7 @@ export default function CallsPage() {
             <Phone className="w-6 h-6 text-[#88B8B0]" />
             Call Monitoring
           </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Real-time AI coaching and call intelligence</p>
+          <p className="text-muted-foreground text-sm mt-0.5">AI coaching, transcripts, objections, and call intelligence</p>
         </div>
         <div className="flex gap-3">
           <div className="glass-card rounded-xl px-3 py-2 text-center">
@@ -96,124 +67,9 @@ export default function CallsPage() {
             <div className="text-lg font-bold text-[#B8A0C8]">{completedCalls.length}</div>
             <div className="text-[10px] text-muted-foreground">Completed</div>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90 transition-opacity">
-            <Phone className="w-4 h-4" />
-            Start Call
-          </button>
         </div>
       </div>
 
-      {/* LIVE CALL MONITOR */}
-      <div className="nf-chameleon-border rounded-2xl p-5 glass-card">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className={cn("w-2 h-2 rounded-full", liveActive ? "bg-[#88B8B0] animate-pulse" : "bg-muted")} />
-            <span className="text-sm font-bold text-foreground">Live Call Monitor</span>
-            {liveActive && <span className="text-xs text-[#88B8B0] font-medium">● LIVE</span>}
-          </div>
-          <button
-            onClick={() => setLiveActive(!liveActive)}
-            className={cn("text-xs px-3 py-1.5 rounded-lg font-medium transition-all",
-              liveActive ? "bg-destructive/20 text-destructive" : "nf-chameleon-bg text-white"
-            )}
-          >
-            {liveActive ? "End Call" : "Join Call"}
-          </button>
-        </div>
-
-        {liveActive ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {/* Left — Call Info */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl nf-chameleon-bg flex items-center justify-center text-white font-bold">SA</div>
-                <div>
-                  <div className="font-bold text-foreground">{LIVE_CALL.contact}</div>
-                  <div className="text-sm text-muted-foreground">{LIVE_CALL.company}</div>
-                </div>
-                <div className="ml-auto text-right">
-                  <div className="text-xl font-mono font-bold text-[#88B8B0]">{LIVE_CALL.duration}</div>
-                  <div className="text-[10px] text-muted-foreground">Duration</div>
-                </div>
-              </div>
-              <WaveformBar active={liveActive} />
-              <div className="flex gap-2">
-                <button className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-[#88B8B0]/20 text-[#88B8B0] text-sm font-medium hover:bg-[#88B8B0]/30 transition-colors">
-                  <Mic className="w-4 h-4" />
-                  Mute
-                </button>
-                <button className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-muted/50 text-muted-foreground text-sm font-medium hover:bg-muted/80 transition-colors">
-                  <Volume2 className="w-4 h-4" />
-                  Speaker
-                </button>
-              </div>
-            </div>
-
-            {/* Center — Live Score + Sentiment */}
-            <div className="flex flex-col items-center justify-center gap-4">
-              <ScoreGauge score={LIVE_CALL.score} />
-              <div className="w-full space-y-2">
-                <div>
-                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                    <span>Your talk time</span>
-                    <span>{LIVE_CALL.talkRatio.me}%</span>
-                  </div>
-                  <div className="h-2 bg-muted/40 rounded-full overflow-hidden flex">
-                    <div className="h-full bg-[#B8A0C8]" style={{ width: `${LIVE_CALL.talkRatio.me}%` }} />
-                    <div className="h-full bg-[#88B8B0]" style={{ width: `${LIVE_CALL.talkRatio.them}%` }} />
-                  </div>
-                  <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
-                    <span className="text-[#B8A0C8]">You</span>
-                    <span className="text-[#88B8B0]">Sara</span>
-                  </div>
-                </div>
-                <div className="p-2 rounded-lg bg-[#88B8B0]/10 border border-[#88B8B0]/20 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-[#88B8B0]" />
-                  <span className="text-xs text-[#88B8B0] font-medium">Very Positive Sentiment</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Right — AI Coaching */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Brain className="w-4 h-4 text-[#B8A0C8]" />
-                <span className="text-sm font-semibold text-foreground">Live AI Coaching</span>
-              </div>
-              <div className="space-y-2">
-                {LIVE_CALL.coaching.map((c, i) => (
-                  <div key={i} className={cn(
-                    "flex items-start gap-2 p-2.5 rounded-lg text-xs",
-                    c.type === "good" ? "bg-[#88B8B0]/10 border border-[#88B8B0]/20" :
-                      c.type === "tip" ? "bg-[#B8A0C8]/10 border border-[#B8A0C8]/20" :
-                        "bg-[#C8A880]/10 border border-[#C8A880]/20"
-                  )}>
-                    {c.type === "good" ? <CheckCircle2 className="w-3.5 h-3.5 text-[#88B8B0] flex-shrink-0 mt-0.5" /> :
-                      c.type === "tip" ? <Brain className="w-3.5 h-3.5 text-[#B8A0C8] flex-shrink-0 mt-0.5" /> :
-                        <AlertCircle className="w-3.5 h-3.5 text-[#C8A880] flex-shrink-0 mt-0.5" />}
-                    <span className={c.type === "good" ? "text-[#88B8B0]" : c.type === "tip" ? "text-[#B8A0C8]" : "text-[#C8A880]"}>{c.text}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3">
-                <div className="text-xs text-muted-foreground mb-1.5">Topics detected</div>
-                <div className="flex flex-wrap gap-1">
-                  {LIVE_CALL.topics.map(t => (
-                    <span key={t} className="text-xs px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground">{t}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-6 text-muted-foreground">
-            <Phone className="w-8 h-8 mx-auto mb-2 opacity-40" />
-            <p className="text-sm">No active call. Click "Join Call" to simulate live monitoring.</p>
-          </div>
-        )}
-      </div>
-
-      {/* Call History */}
       <div>
         <h2 className="font-semibold text-foreground mb-3 flex items-center gap-2">
           <Clock className="w-4 h-4 text-muted-foreground" />
@@ -222,6 +78,8 @@ export default function CallsPage() {
         <div className="space-y-3">
           {isLoading ? (
             Array(4).fill(0).map((_, i) => <div key={i} className="glass-card rounded-2xl p-5 h-24 animate-pulse" />)
+          ) : calls.length === 0 ? (
+            <div className="glass-card rounded-2xl p-10 text-center text-sm text-muted-foreground">No calls logged yet.</div>
           ) : calls.map((c: any) => {
             const sentiment = SENTIMENT_CONFIG(c.sentiment_score);
             const mins = c.duration_seconds ? Math.floor(c.duration_seconds / 60) : null;
@@ -252,12 +110,7 @@ export default function CallsPage() {
                     </div>
                     <div className="text-xs text-muted-foreground flex items-center gap-3 mt-0.5">
                       <span className="capitalize">{c.direction} · {c.status}</span>
-                      {mins !== null && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {mins}m {secs}s
-                        </span>
-                      )}
+                      {mins !== null && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{mins}m {secs}s</span>}
                       {sentiment && (
                         <span className={cn("flex items-center gap-1 font-medium", sentiment.color)}>
                           <sentiment.icon className="w-3 h-3" />
@@ -267,34 +120,35 @@ export default function CallsPage() {
                     </div>
                   </div>
 
-                  {c.call_score !== null && (
-                    <div className="flex-shrink-0">
-                      <ScoreGauge score={c.call_score} />
-                    </div>
+                  {c.call_score !== null && c.call_score !== undefined && (
+                    <div className="flex-shrink-0"><ScoreGauge score={Math.round(c.call_score)} /></div>
                   )}
-                  {isExpanded
-                    ? <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    : <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
+                  {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
                 </button>
 
-                {isExpanded && c.coaching_notes && (
+                {isExpanded && (
                   <div className="px-4 pb-4 border-t border-border/20">
-                    <div className="mt-3 p-3.5 rounded-xl bg-muted/30">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <Brain className="w-3.5 h-3.5 text-[#B8A0C8]" />
-                        <span className="text-xs font-bold text-[#B8A0C8]">AI Coaching Notes</span>
+                    {c.coaching_notes && (
+                      <div className="mt-3 p-3.5 rounded-xl bg-muted/30">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <Brain className="w-3.5 h-3.5 text-[#B8A0C8]" />
+                          <span className="text-xs font-bold text-[#B8A0C8]">AI Coaching Notes</span>
+                        </div>
+                        <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3">{c.coaching_notes}</p>
                       </div>
-                      <p className="text-sm text-foreground/80 leading-relaxed">{c.coaching_notes}</p>
-                      <div className="mt-3 flex items-center gap-3">
-                        <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                          <Play className="w-3.5 h-3.5" />
-                          Play recording
-                        </button>
-                        <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                          <MessageSquare className="w-3.5 h-3.5" />
-                          View transcript
-                        </button>
-                      </div>
+                    )}
+                    <div className="mt-3 flex items-center gap-3">
+                      <button
+                        onClick={() => setOpenCall(c)}
+                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-[#B8A0C8]/15 text-[#B8A0C8] font-semibold hover:bg-[#B8A0C8]/25"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        View transcript & analysis
+                      </button>
+                      <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                        <Play className="w-3.5 h-3.5" />
+                        Play recording
+                      </button>
                     </div>
                   </div>
                 )}
@@ -303,14 +157,136 @@ export default function CallsPage() {
           })}
         </div>
       </div>
+
+      {openCall && <CallDetailModal call={openCall} onClose={() => setOpenCall(null)} />}
     </div>
   );
 }
 
-function MessageSquare({ className }: { className?: string }) {
+function CallDetailModal({ call, onClose }: { call: any; onClose: () => void }) {
+  const analyze = useAnalyzeCall();
+  const [analysis, setAnalysis] = useState<any>(call.ai_insights ?? null);
+  const [transcript, setTranscript] = useState<string>(call.transcript ?? "");
+  const [coaching, setCoaching] = useState<string>(call.coaching_notes ?? "");
+
+  const runAnalysis = async () => {
+    const r: any = await analyze.mutateAsync(call.id);
+    setAnalysis(r?.analysis);
+    if (r?.call?.transcript) setTranscript(r.call.transcript);
+    if (r?.call?.coaching_notes) setCoaching(r.call.coaching_notes);
+  };
+
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-    </svg>
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-stretch justify-end" onClick={onClose}>
+      <div className="bg-background w-full max-w-2xl h-full overflow-y-auto p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-lg font-bold text-foreground">{call.contact_name ?? "Call"}</h2>
+            <div className="text-xs text-muted-foreground capitalize">{call.direction} · {call.status} · {Math.floor((call.duration_seconds ?? 0) / 60)}m</div>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+        </div>
+
+        {!analysis && (
+          <button onClick={runAnalysis} disabled={analyze.isPending} className="w-full px-4 py-3 rounded-xl nf-chameleon-bg text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2">
+            {analyze.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> AI is analyzing the call…</> : <><Sparkles className="w-4 h-4" /> Generate AI analysis</>}
+          </button>
+        )}
+
+        {analysis && (
+          <div className="space-y-4 mt-2">
+            {analysis.transcript_summary && (
+              <div className="p-4 rounded-xl bg-muted/30">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <MessageSquare className="w-3.5 h-3.5 text-foreground" />
+                  <span className="text-xs font-bold text-foreground uppercase tracking-wide">Transcript Summary</span>
+                </div>
+                <p className="text-sm text-foreground/80 leading-relaxed">{analysis.transcript_summary}</p>
+              </div>
+            )}
+
+            {analysis.key_topics?.length > 0 && (
+              <div>
+                <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2">Key Topics</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {analysis.key_topics.map((t: string, i: number) => (
+                    <span key={i} className="text-xs px-2.5 py-1 rounded-full bg-[#88B8B0]/15 text-[#88B8B0] font-medium">{t}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {analysis.objections?.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <AlertCircle className="w-3.5 h-3.5 text-[#C8A880]" />
+                  <span className="text-xs font-bold text-[#C8A880] uppercase tracking-wide">Objections raised</span>
+                </div>
+                <div className="space-y-2">
+                  {analysis.objections.map((o: any, i: number) => (
+                    <div key={i} className="p-3 rounded-xl bg-[#C8A880]/10 border border-[#C8A880]/20">
+                      <div className="text-sm font-semibold text-foreground mb-1">"{o.objection}"</div>
+                      <div className="text-xs text-foreground/70"><span className="text-[#88B8B0] font-semibold">Suggested response:</span> {o.response_suggestion}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {analysis.next_steps?.length > 0 && (
+              <div>
+                <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2">Recommended next steps</div>
+                <ul className="space-y-1.5">
+                  {analysis.next_steps.map((s: string, i: number) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-foreground/80">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#88B8B0] flex-shrink-0 mt-0.5" />
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {analysis.talk_ratio && (
+              <div>
+                <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2">Talk ratio</div>
+                <div className="h-3 bg-muted/40 rounded-full overflow-hidden flex">
+                  <div className="h-full bg-[#B8A0C8] flex items-center justify-center text-[10px] font-bold text-white" style={{ width: `${analysis.talk_ratio.rep ?? 50}%` }}>
+                    {Math.round(analysis.talk_ratio.rep ?? 50)}%
+                  </div>
+                  <div className="h-full bg-[#88B8B0] flex items-center justify-center text-[10px] font-bold text-white" style={{ width: `${analysis.talk_ratio.prospect ?? 50}%` }}>
+                    {Math.round(analysis.talk_ratio.prospect ?? 50)}%
+                  </div>
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                  <span>You</span><span>Prospect</span>
+                </div>
+              </div>
+            )}
+
+            {coaching && (
+              <div className="p-4 rounded-xl bg-[#B8A0C8]/10 border border-[#B8A0C8]/20">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Brain className="w-3.5 h-3.5 text-[#B8A0C8]" />
+                  <span className="text-xs font-bold text-[#B8A0C8] uppercase tracking-wide">Coaching</span>
+                </div>
+                <p className="text-sm text-foreground/80 leading-relaxed">{coaching}</p>
+              </div>
+            )}
+
+            {transcript && (
+              <details className="p-4 rounded-xl bg-muted/30">
+                <summary className="text-xs font-bold text-foreground cursor-pointer">Full transcript</summary>
+                <pre className="mt-3 text-xs text-foreground/70 whitespace-pre-wrap font-mono">{transcript}</pre>
+              </details>
+            )}
+
+            <button onClick={runAnalysis} disabled={analyze.isPending} className="w-full px-4 py-2 rounded-lg bg-muted/50 text-foreground text-xs font-semibold hover:bg-muted disabled:opacity-50 flex items-center justify-center gap-2">
+              {analyze.isPending ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Re-analyzing…</> : <><Sparkles className="w-3.5 h-3.5" /> Re-run AI analysis</>}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

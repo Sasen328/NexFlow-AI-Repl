@@ -135,3 +135,27 @@ Rich sample data pre-seeded: 8 contacts (GCC-focused), 6 companies (Saudi/UAE), 
 - New `useAdvanceDeal` mutation hook in `artifacts/mobile/lib/api.ts` invalidates `deals`, `dashboard`, and `pipeline-by-stage` queries on success.
 - `artifacts/mobile/app/(tabs)/pipeline.tsx`: deal cards are now tappable. Tap opens a `DealActionSheet` modal showing the deal title, stage, value, and probability. Two CTAs: "Advance to <NextStage>" (teal primary) and "Mark Closed Lost" (muted secondary). Terminal-stage deals show a non-actionable confirmation. Errors surface inline. Sheet uses the same text/plain CORS workaround via `apiPost`.
 - Verified e2e (runTest passed): advancing moves a deal between columns with the correct new probability, marking closed lost removes it from all five visible stage columns, and the corresponding activity row appears on the contact timeline.
+
+### Phase I — AI Everywhere + Working CRUD (Web)
+- New backend routes in `artifacts/api-server/src/routes/ai-extra.ts`:
+  - `POST /api/ai/lists/generate` — AI generates a contact list with explanation
+  - `POST /api/ai/properties/suggest` — Suggests custom properties from a NL prompt (one-click add)
+  - `POST /api/ai/segments/generate` — Translates NL criteria → Postgres WHERE; saves as a segment
+  - `GET /api/ai/segments/:id/members` — Returns up to 100 contacts matching the stored filter
+  - `POST /api/ai/companies/draft` — Drafts industry/size/description/HQ/tech from name+domain
+  - `POST /api/ai/contacts/import-csv` — Parses pasted CSV, AI-enriches each row, bulk-inserts
+  - `POST /api/ai/calls/:id/analyze` — Generates transcript, objections, topics, talk-ratio, coaching
+  - `GET /api/ai/forgotten-leads` — High-score contacts gone silent ≥14d, with one-line AI risk summary
+  - `POST /api/ai/agents/draft` — Drafts a full agent (system prompt, schedule, tools) from a description
+- Safety: `isSafeFilter()` blocks `;`, comments, DDL/DML keywords, `union select` in AI-generated SQL filters; queries are wrapped in `(...)` and validated with a count probe before persisting.
+- Web pages got working modals + AI on every CRUD button:
+  - `companies.tsx` NewCompanyModal (auto-enrich button); empty enum strings now stripped client-side
+  - `deals.tsx` NewDealModal + DealDetailDrawer with stage-move + delete; reads flattened `contact_name` / `company_name` (legacy nested still supported)
+  - `segments.tsx` AI NewSegmentModal + SegmentDrawer
+  - `lists.tsx` AiGenerateListModal
+  - `properties.tsx` AiSuggestModal with one-click add
+  - `intelligence.tsx` CSV import + ForgottenLeadsPanel
+  - `voice-agents.tsx` NewAgentModal (AI draft) + AgentRunDrawer using real `useAgents`
+  - `calls.tsx` CallDetailModal with `useAnalyzeCall` (transcript / objections / talk-ratio / coaching)
+  - `briefing.tsx` (home `/`) Forgotten-Leads panel + Regenerate AI insights
+- `useApi.ts`: `useCreate/useUpdate/useDelete` now invalidate each query key separately (multi-key arrays work correctly).

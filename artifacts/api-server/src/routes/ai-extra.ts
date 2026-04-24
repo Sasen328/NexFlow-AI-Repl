@@ -9,6 +9,16 @@ import { aiChat, aiJson } from "../lib/ai.js";
 
 const router = Router();
 
+// Block obviously dangerous fragments inside AI/user-generated SQL filter clauses.
+function isSafeFilter(s: string): boolean {
+  if (!s || typeof s !== "string") return false;
+  if (s.length > 2000) return false;
+  if (s.includes(";") || s.includes("--") || s.includes("/*") || s.includes("*/")) return false;
+  const banned = /\b(insert|update|delete|drop|alter|create|truncate|grant|revoke|copy|vacuum|attach|pg_|do\s+\$\$|begin|commit|rollback|union\s+all|union\s+select|into\s+outfile|into\s+dumpfile)\b/i;
+  if (banned.test(s)) return false;
+  return true;
+}
+
 // ── Company Intelligence ───────────────────────────────────────────────────
 router.get("/companies/:id/intelligence", async (req, res) => {
   try {
@@ -523,6 +533,309 @@ router.post("/agents/improve-prompt", async (req, res) => {
       maxTokens: 600,
     }).catch(() => null);
     res.json({ improved: (improved || system_prompt).trim() });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// ── AI: Generate a list from a natural-language prompt ─────────────────────
+router.post("/lists/generate", async (req, res) => {
+  try {
+    const { prompt = "", name = "" } = req.body ?? {};
+    if (!prompt.trim()) return res.status(400).json({ error: "prompt required" });
+    const { aiJson } = await import("../lib/ai.js");
+    const { db, contacts, static_lists, static_list_members } = await import("@workspace/db");
+    const { eq, sql, desc } = await import("drizzle-orm");
+
+    const allContacts = await db.select({
+      id: contacts.id, first_name: contacts.first_name, last_name: contacts.last_name,
+      title: contacts.title, status: contacts.status, lead_score: contacts.lead_score,
+      tags: contacts.tags, source: contacts.source,
+    }).from(contacts).orderBy(desc(contacts.lead_score)).limit(200);
+
+    const result = await aiJson<{ list_name: string; description: string; contact_ids: string[] }>({
+      system: "You are a CRM list-builder. Pick the contacts that match the user's criteria. Return JSON: {list_name: string, description: string, contact_ids: string[]}. Keep contact_ids strictly to provided ids. Pick at most 50.",
+      user: `Criteria: ${prompt}\n\nContacts JSON:\n${JSON.stringify(allContacts.slice(0, 150))}`,
+      maxTokens: 1500,
+    }).catch(() => null);
+
+    const ids = (result?.contact_ids ?? []).filter((id: string) =>
+      allContacts.some(c => c.id === id)
+    );
+    if (ids.length === 0) {
+      return res.json({ created: false, message: "AI couldn't match contacts. Try a more specific prompt.", suggestion: result?.description });
+    }
+
+    const listName = name.trim() || result?.list_name || "AI-Generated List";
+    const [list] = await db.insert(static_lists).values({
+      name: listName,
+      description: result?.description ?? `AI-generated from: ${prompt}`,
+      object_type: "contact" as any,
+      member_count: ids.length,
+    }).returning();
+
+    await db.insert(static_list_members).values(
+      ids.map(id => ({ list_id: list.id, entity_id: id }))
+    );
+
+    res.json({ created: true, list, member_count: ids.length, contact_ids: ids });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// ── AI: Suggest custom property definitions ────────────────────────────────
+router.post("/properties/suggest", async (req, res) => {
+  try {
+    const { prompt = "", object_type = "contact" } = req.body ?? {};
+    if (!prompt.trim()) return res.status(400).json({ error: "prompt required" });
+    const { aiJson } = await import("../lib/ai.js");
+
+    const result = await aiJson<{ properties: Array<{ name: string; label: string; type: string; description: string; options?: string[] }> }>({
+      system: `You are a CRM data architect. Suggest 2-5 custom property fields for ${object_type} records. Return JSON: {properties:[{name:string (snake_case), label:string (Human Title Case), type: "text"|"number"|"date"|"select"|"boolean"|"url"|"email", description:string, options?:string[]}]}. For 'select' type, include options.`,
+      user: prompt,
+      maxTokens: 800,
+    }).catch(() => null);
+
+    res.json({ properties: result?.properties ?? [] });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// ── AI: Generate a segment definition from prompt ──────────────────────────
+router.post("/segments/generate", async (req, res) => {
+  try {
+    const { prompt = "" } = req.body ?? {};
+    if (!prompt.trim()) return res.status(400).json({ error: "prompt required" });
+    const { aiJson } = await import("../lib/ai.js");
+    const { db, segments, contacts } = await import("@workspace/db");
+    const { sql } = await import("drizzle-orm");
+
+    const result = await aiJson<{ name: string; description: string; sql_where: string; reasoning: string }>({
+      system: `You are a SQL-savvy CRM analyst. Translate the user's NL criteria into a Postgres WHERE clause against the 'contacts' table. Available columns: first_name, last_name, email, title, status (enum: new|active|qualified|unqualified|customer), lead_score (0-100 float), tags (text[]), source (text), last_engaged_at (timestamp), created_at (timestamp), company_id (uuid). Use ILIKE for text matches, ANY() for tag matches. Return JSON: {name:string, description:string, sql_where:string (without WHERE keyword), reasoning:string}. Keep it valid Postgres syntax. NEVER include semicolons, comments, or other statements.`,
+      user: prompt,
+      maxTokens: 600,
+    }).catch(() => null);
+
+    if (!result?.sql_where) {
+      return res.status(400).json({ error: "AI couldn't translate that criteria. Try rephrasing." });
+    }
+    if (!isSafeFilter(result.sql_where)) {
+      return res.status(400).json({ error: "Generated filter rejected by safety check.", sql: result.sql_where });
+    }
+
+    // Validate by running a count query — abort if it errors
+    let count = 0;
+    try {
+      const r: any = await db.execute(sql.raw(`select count(*)::int as c from contacts where (${result.sql_where})`));
+      count = (r.rows ?? r)[0]?.c ?? 0;
+    } catch {
+      return res.status(400).json({ error: "AI generated invalid SQL — try rephrasing", sql: result.sql_where });
+    }
+
+    const [segment] = await db.insert(segments).values({
+      name: result.name,
+      description: result.description,
+      filter_query: result.sql_where,
+      contact_count: count,
+    }).returning();
+
+    res.json({ segment, count, reasoning: result.reasoning });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// ── AI: Get contacts in a segment ──────────────────────────────────────────
+router.get("/segments/:id/members", async (req, res) => {
+  try {
+    const { db, segments } = await import("@workspace/db");
+    const { eq, sql } = await import("drizzle-orm");
+    const [seg] = await db.select().from(segments).where(eq(segments.id, req.params.id));
+    if (!seg) return res.status(404).json({ error: "segment not found" });
+    if (!seg.filter_query) return res.json({ segment: seg, members: [] });
+    if (!isSafeFilter(seg.filter_query)) {
+      return res.status(400).json({ error: "Stored segment filter failed safety check." });
+    }
+    const r: any = await db.execute(sql.raw(
+      `select id, first_name, last_name, email, title, status, lead_score, source, last_engaged_at from contacts where (${seg.filter_query}) order by lead_score desc nulls last limit 100`
+    ));
+    res.json({ segment: seg, members: r.rows ?? r });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// ── AI: Draft a company from name + optional domain ────────────────────────
+router.post("/companies/draft", async (req, res) => {
+  try {
+    const { name = "", domain = "", website = "" } = req.body ?? {};
+    if (!name.trim()) return res.status(400).json({ error: "name required" });
+    const { aiJson } = await import("../lib/ai.js");
+    const result = await aiJson<{
+      industry: string; size: string; description: string; hq_location: string;
+      annual_revenue: string; technologies: string[]; pain_points: string[];
+    }>({
+      system: "You are a B2B research analyst. Given a company name (and optional domain), return your best educated guess as JSON: {industry, size (one of '1-10','11-50','51-200','201-500','501-1000','1000+'), description (1-2 sentences), hq_location, annual_revenue (e.g. '$10M-$50M'), technologies:string[], pain_points:string[]}. If unknown, infer plausibly. Return strict JSON only.",
+      user: `Company: ${name}${domain ? `\nDomain: ${domain}` : ""}${website ? `\nWebsite: ${website}` : ""}`,
+      maxTokens: 500,
+    }).catch(() => null);
+    res.json({ draft: result ?? {} });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// ── AI: CSV import — normalize, score, insert contacts ─────────────────────
+router.post("/contacts/import-csv", async (req, res) => {
+  try {
+    const { rows = [], default_source = "csv-import" } = req.body ?? {};
+    if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: "rows[] required" });
+    if (rows.length > 200) return res.status(400).json({ error: "max 200 rows per import" });
+
+    const { aiJson } = await import("../lib/ai.js");
+    const { db, contacts } = await import("@workspace/db");
+
+    // Have AI normalize fuzzy column names + infer lead score
+    const normalized = await aiJson<{ contacts: Array<{
+      first_name: string; last_name: string; email?: string; phone?: string;
+      title?: string; lead_score?: number; tags?: string[]; notes?: string;
+    }> }>({
+      system: "You are a data-cleaning agent. The user pasted CSV-like rows with various column names. Normalize each row to: {first_name, last_name, email, phone, title, lead_score (0-100 based on title seniority and completeness — VPs/Directors/CXOs score 70-95, managers 50-70, ICs 30-50, no title/email 10-25), tags:string[] (extracted hints like 'enterprise', 'finance' if obvious from data), notes (a 1-line enrichment summary)}. Skip rows missing both name and email. Return {contacts:[...]}.",
+      user: `Rows (JSON):\n${JSON.stringify(rows.slice(0, 200))}`,
+      maxTokens: 4000,
+    }).catch(() => null);
+
+    const cleaned = (normalized?.contacts ?? []).filter(c => (c.first_name || c.last_name) || c.email);
+    if (cleaned.length === 0) return res.json({ inserted: 0, contacts: [] });
+
+    const inserted = await db.insert(contacts).values(
+      cleaned.map(c => ({
+        first_name: (c.first_name || "").trim() || (c.email?.split("@")[0] ?? "Unknown"),
+        last_name: (c.last_name || "").trim() || "",
+        email: c.email || null,
+        phone: c.phone || null,
+        title: c.title || null,
+        lead_score: typeof c.lead_score === "number" ? Math.max(0, Math.min(100, c.lead_score)) : 25,
+        tags: c.tags && c.tags.length ? c.tags : null,
+        notes: c.notes || null,
+        source: default_source,
+        status: "new" as any,
+      }))
+    ).returning();
+
+    res.json({ inserted: inserted.length, contacts: inserted });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// ── AI: Analyze a call — generate transcript + objections + coaching ───────
+router.post("/calls/:id/analyze", async (req, res) => {
+  try {
+    const { db, calls, contacts, companies } = await import("@workspace/db");
+    const { eq } = await import("drizzle-orm");
+    const [call] = await db.select().from(calls).where(eq(calls.id, req.params.id));
+    if (!call) return res.status(404).json({ error: "call not found" });
+
+    let contact: any = null, company: any = null;
+    if (call.contact_id) {
+      [contact] = await db.select().from(contacts).where(eq(contacts.id, call.contact_id));
+      if (contact?.company_id) {
+        [company] = await db.select().from(companies).where(eq(companies.id, contact.company_id));
+      }
+    }
+
+    const { aiJson } = await import("../lib/ai.js");
+    const ctx = `Call direction: ${call.direction}\nDuration: ${call.duration_seconds}s\nOutcome: ${call.outcome ?? "n/a"}\nSentiment: ${call.sentiment_score ?? "n/a"}\nContact: ${contact ? `${contact.first_name} ${contact.last_name}, ${contact.title ?? ""}` : "Unknown"}\nCompany: ${company?.name ?? "Unknown"}, industry: ${company?.industry ?? "Unknown"}`;
+
+    const result = await aiJson<{
+      transcript_summary: string; key_topics: string[]; objections: Array<{ objection: string; response_suggestion: string }>;
+      next_steps: string[]; coaching_notes: string; talk_ratio_estimate: { rep: number; prospect: number };
+      win_probability_change: number;
+    }>({
+      system: "You are an elite sales-enablement coach. Synthesize a realistic post-call analysis from the metadata. Return JSON: {transcript_summary (3-4 sentence narrative recap), key_topics:string[] (3-5 topics), objections:[{objection, response_suggestion}], next_steps:string[] (2-3 concrete steps), coaching_notes (1 paragraph of constructive feedback), talk_ratio_estimate:{rep:number 0-100, prospect:number 0-100, sums to 100}, win_probability_change:number (-20 to +20)}. Be specific to the contact and industry.",
+      user: ctx,
+      maxTokens: 1500,
+    }).catch(() => null);
+
+    if (!result) return res.status(500).json({ error: "AI analysis failed" });
+
+    const ai_insights = {
+      transcript_summary: result.transcript_summary,
+      key_topics: result.key_topics,
+      objections: result.objections,
+      next_steps: result.next_steps,
+      talk_ratio: result.talk_ratio_estimate,
+      win_probability_change: result.win_probability_change,
+      generated_at: new Date().toISOString(),
+    };
+
+    const [updated] = await db.update(calls).set({
+      coaching_notes: result.coaching_notes,
+      ai_insights: ai_insights as any,
+      transcript: call.transcript ?? `[AI-synthesized recap]\n\n${result.transcript_summary}`,
+    }).where(eq(calls.id, req.params.id)).returning();
+
+    res.json({ call: updated, analysis: result });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// ── AI: Forgotten leads — high-score contacts with stale activity ──────────
+router.get("/forgotten-leads", async (_req, res) => {
+  try {
+    const { db } = await import("@workspace/db");
+    const { sql } = await import("drizzle-orm");
+    const r: any = await db.execute(sql.raw(`
+      select c.id, c.first_name, c.last_name, c.title, c.lead_score, c.status, c.last_engaged_at,
+             co.name as company_name,
+             extract(epoch from (now() - coalesce(c.last_engaged_at, c.created_at)))/86400 as days_silent,
+             (select count(*)::int from activities a where a.contact_id = c.id and a.created_at > now() - interval '14 days') as recent_activity_count
+      from contacts c
+      left join companies co on co.id = c.company_id
+      where c.lead_score >= 60
+        and c.status not in ('customer', 'unqualified')
+        and (c.last_engaged_at is null or c.last_engaged_at < now() - interval '14 days')
+      order by c.lead_score desc nulls last, days_silent desc nulls last
+      limit 12
+    `));
+    const rows = (r.rows ?? r).filter((x: any) => x.recent_activity_count === 0);
+
+    let summary = "";
+    if (rows.length > 0) {
+      try {
+        const { aiChat } = await import("../lib/ai.js");
+        summary = await aiChat({
+          system: "You are a sales-ops AI. In ONE sentence, summarize what's at risk if these forgotten leads aren't re-engaged this week. No preamble.",
+          user: `Forgotten leads:\n${rows.slice(0, 8).map((l: any) => `- ${l.first_name} ${l.last_name} (${l.company_name ?? "?"}) — score ${Math.round(l.lead_score)}, silent ${Math.round(l.days_silent)} days`).join("\n")}`,
+          maxTokens: 120,
+        }).catch(() => "");
+      } catch {}
+    }
+    res.json({ leads: rows, summary: summary.trim() });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// ── AI: Generate a default agent config from a single sentence ─────────────
+router.post("/agents/draft", async (req, res) => {
+  try {
+    const { description = "" } = req.body ?? {};
+    if (!description.trim()) return res.status(400).json({ error: "description required" });
+    const { aiJson } = await import("../lib/ai.js");
+    const result = await aiJson<{
+      name: string; icon: string; system_prompt: string; trigger_type: string;
+      schedule_cron?: string; tools: string[];
+    }>({
+      system: `You are an AI agent designer for a CRM. Given a 1-line description, return JSON: {name (3-4 words), icon (one of: Bot, Brain, Phone, Mail, Search, Zap, TrendingUp, Users, Target, Sparkles), system_prompt (a complete production prompt 4-8 sentences), trigger_type (one of "manual","scheduled","event"), schedule_cron (only if scheduled, like "0 9 * * 1-5"), tools:string[] (from: search_contacts, send_email, create_task, score_lead, draft_call_notes, summarize_pipeline)}.`,
+      user: description,
+      maxTokens: 800,
+    }).catch(() => null);
+    res.json({ draft: result ?? {} });
   } catch (err: any) {
     res.status(500).json({ error: err?.message ?? "Failed" });
   }
