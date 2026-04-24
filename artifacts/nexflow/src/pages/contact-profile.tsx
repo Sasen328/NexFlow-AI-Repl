@@ -96,80 +96,73 @@ export default function ContactProfilePage({ params }: Props) {
         </button>
       </Link>
 
-      {/* HERO BAR */}
-      <div className="glass-card rounded-3xl overflow-hidden">
-        <div className="relative h-24 nf-chameleon-bg opacity-90">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.15),transparent_50%)]" />
-        </div>
+      {/* HERO BAR — clean, no overlap */}
+      <div className="glass-card rounded-3xl p-5">
+        <div className="flex items-start gap-5">
+          {/* Avatar */}
+          <div className="w-20 h-20 rounded-2xl nf-chameleon-bg flex items-center justify-center text-white text-2xl font-black flex-shrink-0 shadow-md">
+            {(contact.first_name?.[0] ?? "") + (contact.last_name?.[0] ?? "")}
+          </div>
 
-        <div className="px-6 pb-6 -mt-12 relative">
-          <div className="flex items-end gap-5 mb-4">
-            <div className="w-24 h-24 rounded-2xl nf-chameleon-bg flex items-center justify-center text-white text-3xl font-black ring-4 ring-background shadow-lg flex-shrink-0">
-              {(contact.first_name?.[0] ?? "") + (contact.last_name?.[0] ?? "")}
+          {/* Identity */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-black text-foreground leading-tight">
+                {contact.first_name} {contact.last_name}
+              </h1>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider" style={{ background: `${scoreColor}20`, color: scoreColor }}>
+                {scoreLabel}
+              </span>
             </div>
-            <div className="flex-1 min-w-0 pb-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl font-black text-foreground leading-tight">
-                  {contact.first_name} {contact.last_name}
-                </h1>
-                <span className="text-xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wider" style={{ background: `${scoreColor}20`, color: scoreColor }}>
-                  {scoreLabel}
-                </span>
-              </div>
-              <div className="text-sm text-muted-foreground mt-0.5">{contact.title}</div>
-              <div className="flex items-center gap-1.5 mt-1">
-                <Building2 className="w-3.5 h-3.5 text-[#B8A0C8]" />
-                <span className="text-sm text-[#B8A0C8] font-semibold">{contact.company_name}</span>
-                <span className="text-muted-foreground">·</span>
-                <MapPin className="w-3 h-3 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Riyadh, Saudi Arabia</span>
-              </div>
-            </div>
-
-            {/* Score */}
-            <div className="text-right flex-shrink-0 pb-1">
-              <div className="text-4xl font-black leading-none" style={{ color: scoreColor }}>{score}</div>
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5 font-semibold">Lead Score</div>
+            <div className="text-sm text-muted-foreground mt-0.5">{contact.title}</div>
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <Building2 className="w-3.5 h-3.5 text-[#B8A0C8]" />
+              <span className="text-sm text-[#B8A0C8] font-semibold">{contact.company_name}</span>
+              {contact.email && (
+                <>
+                  <span className="text-muted-foreground/50">·</span>
+                  <Mail className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground truncate">{contact.email}</span>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Action bar */}
-          <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-border/20">
-            <button className="flex items-center gap-1.5 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90 transition-opacity">
-              <Phone className="w-3.5 h-3.5" />
-              Call
+          {/* Score block — solid, high contrast */}
+          <div className="flex flex-col items-end flex-shrink-0 pl-4 border-l border-border/40">
+            <div className="text-4xl font-black leading-none" style={{ color: scoreColor }}>{score}</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1 font-semibold">Lead Score</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">${((totalPipeline / 100) / 1000).toFixed(0)}k pipeline</div>
+          </div>
+        </div>
+
+        {/* Action bar */}
+        <div className="flex flex-wrap items-center gap-2 pt-4 mt-4 border-t border-border/20">
+          <button className="flex items-center gap-1.5 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90 transition-opacity">
+            <Phone className="w-3.5 h-3.5" /> Call
+          </button>
+          <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors">
+            <Bot className="w-3.5 h-3.5 text-[#B8A0C8]" /> AI Voice Agent
+          </button>
+          <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors">
+            <Mail className="w-3.5 h-3.5" /> Email
+          </button>
+          <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors">
+            <MessageSquare className="w-3.5 h-3.5 text-[#88B8B0]" /> WhatsApp
+          </button>
+          <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors">
+            <Linkedin className="w-3.5 h-3.5 text-[#0A66C2]" /> LinkedIn
+          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#C8A880]/15 text-[#C8A880] text-xs font-semibold hover:bg-[#C8A880]/25 transition-colors">
+              <RefreshCw className="w-3 h-3" /> Re-enrich
             </button>
-            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors">
-              <Bot className="w-3.5 h-3.5 text-[#B8A0C8]" />
-              AI Voice Agent
+            <button className="p-2 rounded-xl bg-muted/50 text-muted-foreground hover:text-foreground transition-colors">
+              <MoreHorizontal className="w-4 h-4" />
             </button>
-            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors">
-              <Mail className="w-3.5 h-3.5" />
-              Email
-            </button>
-            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors">
-              <MessageSquare className="w-3.5 h-3.5 text-[#88B8B0]" />
-              WhatsApp
-            </button>
-            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors">
-              <Linkedin className="w-3.5 h-3.5 text-[#0A66C2]" />
-              LinkedIn
-            </button>
-            <div className="ml-auto flex items-center gap-2">
-              <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#C8A880]/15 text-[#C8A880] text-xs font-semibold hover:bg-[#C8A880]/25 transition-colors">
-                <RefreshCw className="w-3 h-3" />
-                Re-enrich
-              </button>
-              <button className="p-2 rounded-xl bg-muted/50 text-muted-foreground hover:text-foreground transition-colors">
-                <MoreHorizontal className="w-4 h-4" />
-              </button>
-            </div>
           </div>
         </div>
       </div>
-
-      {/* AI Overview & Recommendations */}
-      <ContactAIOverview contactId={id} />
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-xl bg-muted/40 w-fit">
@@ -270,6 +263,9 @@ export default function ContactProfilePage({ params }: Props) {
 
           {/* CENTER + RIGHT */}
           <div className="lg:col-span-2 space-y-5">
+            {/* AI Overview — inside Overview tab, compact */}
+            <ContactAIOverview contactId={id} />
+
             {/* Pipeline summary */}
             <div className="grid grid-cols-3 gap-3">
               <div className="glass-card rounded-2xl p-4">
