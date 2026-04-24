@@ -41,35 +41,35 @@
 }
 
 :root {
-  --background: 285 17% 96%; 
-  --foreground: 273 22% 24%; 
+  --background: 280 30% 99%; 
+  --foreground: 270 25% 20%; 
   
-  --card: 285 17% 96%;
-  --card-foreground: 273 22% 24%;
-  --card-border: 276 30% 71%;
+  --card: 280 25% 98%;
+  --card-foreground: 270 25% 20%;
+  --card-border: 276 25% 80%;
   
-  --popover: 285 17% 96%;
-  --popover-foreground: 273 22% 24%;
-  --popover-border: 276 30% 71%;
+  --popover: 280 25% 98%;
+  --popover-foreground: 270 25% 20%;
+  --popover-border: 276 25% 80%;
   
-  --primary: 276 30% 71%; 
-  --primary-foreground: 285 17% 96%;
+  --primary: 276 35% 68%; 
+  --primary-foreground: 280 30% 99%;
   
-  --secondary: 315 23% 69%; 
-  --secondary-foreground: 273 22% 24%;
+  --secondary: 315 28% 68%; 
+  --secondary-foreground: 270 25% 20%;
   
-  --muted: 285 10% 90%;
-  --muted-foreground: 273 10% 40%;
+  --muted: 280 15% 94%;
+  --muted-foreground: 273 12% 45%;
   
-  --accent: 170 27% 63%; 
-  --accent-foreground: 273 22% 24%;
+  --accent: 170 32% 60%; 
+  --accent-foreground: 270 25% 20%;
   
   --destructive: 0 84% 60%;
-  --destructive-foreground: 285 17% 96%;
+  --destructive-foreground: 280 30% 99%;
 
-  --border: 276 10% 85%;
-  --input: 276 10% 85%;
-  --ring: 276 30% 71%;
+  --border: 276 15% 88%;
+  --input: 276 15% 88%;
+  --ring: 276 35% 68%;
 
   --nf-primary: #B8A0C8;
   --nf-secondary: #C0A0B8;
@@ -77,7 +77,7 @@
   --nf-wealth: #C8A880;
   --nf-interface: #90B8B8;
   --nf-highlight: #B8B880;
-  --radius: 0.5rem;
+  --radius: 0.625rem;
 }
 
 .dark {
@@ -177,16 +177,16 @@
   width: 55vmax; 
   height: 55vmax;
 }
-.n1{background:radial-gradient(circle,#B8A0C8,transparent 70%);top:-20%;left:-15%;opacity:.32;animation:f1 22s ease-in-out infinite}
-.n2{background:radial-gradient(circle,#88B8B0,transparent 70%);top:10%;right:-20%;opacity:.28;animation:f2 26s ease-in-out infinite}
-.n3{background:radial-gradient(circle,#C8A880,transparent 70%);bottom:-25%;left:10%;opacity:.24;animation:f3 30s ease-in-out infinite}
-.n4{background:radial-gradient(circle,#C0A0B8,transparent 70%);top:30%;left:40%;opacity:.20;animation:f4 24s ease-in-out infinite}
-.n5{background:radial-gradient(circle,#90B8B8,transparent 70%);bottom:5%;right:5%;opacity:.30;animation:f5 28s ease-in-out infinite}
-.n6{background:radial-gradient(circle,#B8B880,transparent 70%);top:50%;left:-10%;opacity:.22;animation:f6 32s ease-in-out infinite}
-.n7{background:radial-gradient(circle,#B8A0C8,transparent 70%);top:-10%;right:20%;opacity:.18;animation:f7 34s ease-in-out infinite}
-.n8{background:radial-gradient(circle,#88B8B0,transparent 70%);bottom:15%;left:35%;opacity:.26;animation:f8 27s ease-in-out infinite}
-.n9{background:radial-gradient(circle,#C8A880,transparent 70%);top:60%;right:30%;opacity:.14;animation:f9 31s ease-in-out infinite}
-.n10{background:radial-gradient(circle,#C0A0B8,transparent 70%);bottom:-10%;right:40%;opacity:.36;animation:f10 25s ease-in-out infinite}
+.n1{background:radial-gradient(circle,#c4a8d8,transparent 70%);top:-20%;left:-15%;opacity:.45;animation:f1 22s ease-in-out infinite}
+.n2{background:radial-gradient(circle,#96c8c0,transparent 70%);top:10%;right:-20%;opacity:.38;animation:f2 26s ease-in-out infinite}
+.n3{background:radial-gradient(circle,#d8b890,transparent 70%);bottom:-25%;left:10%;opacity:.35;animation:f3 30s ease-in-out infinite}
+.n4{background:radial-gradient(circle,#ccb0c8,transparent 70%);top:30%;left:40%;opacity:.28;animation:f4 24s ease-in-out infinite}
+.n5{background:radial-gradient(circle,#a0c8c8,transparent 70%);bottom:5%;right:5%;opacity:.40;animation:f5 28s ease-in-out infinite}
+.n6{background:radial-gradient(circle,#c8c890,transparent 70%);top:50%;left:-10%;opacity:.30;animation:f6 32s ease-in-out infinite}
+.n7{background:radial-gradient(circle,#c8b0d8,transparent 70%);top:-10%;right:20%;opacity:.25;animation:f7 34s ease-in-out infinite}
+.n8{background:radial-gradient(circle,#90c8c0,transparent 70%);bottom:15%;left:35%;opacity:.33;animation:f8 27s ease-in-out infinite}
+.n9{background:radial-gradient(circle,#d4b898,transparent 70%);top:60%;right:30%;opacity:.22;animation:f9 31s ease-in-out infinite}
+.n10{background:radial-gradient(circle,#c8a8d0,transparent 70%);bottom:-10%;right:40%;opacity:.42;animation:f10 25s ease-in-out infinite}
 @keyframes f1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(8vw,6vh) scale(1.15)}}
 @keyframes f2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-6vw,10vh) scale(1.1)}}
 @keyframes f3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(10vw,-8vh) scale(1.2)}}
@@ -200,23 +200,27 @@
 
 /* Glassmorphism */
 .glass-card {
-  background: rgba(245,242,246,0.7);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(184,160,200,0.2);
+  background: rgba(255,253,255,0.78);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(184,160,200,0.22);
+  box-shadow: 0 1px 3px rgba(184,160,200,0.08);
 }
 .dark .glass-card {
-  background: rgba(30,22,36,0.7);
-  border: 1px solid rgba(184,160,200,0.1);
+  background: rgba(30,22,36,0.75);
+  border: 1px solid rgba(184,160,200,0.12);
+  box-shadow: none;
 }
 
 .glass-panel {
-  background: rgba(245,242,246,0.85);
-  backdrop-filter: blur(16px);
-  border-right: 1px solid rgba(184,160,200,0.2);
+  background: rgba(255,253,255,0.88);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(184,160,200,0.22);
+  box-shadow: 2px 0 12px rgba(184,160,200,0.08);
 }
 .dark .glass-panel {
-  background: rgba(30,22,36,0.85);
-  border-right: 1px solid rgba(184,160,200,0.1);
+  background: rgba(30,22,36,0.88);
+  border-right: 1px solid rgba(184,160,200,0.12);
+  box-shadow: none;
 }
 
 /* Transitions */

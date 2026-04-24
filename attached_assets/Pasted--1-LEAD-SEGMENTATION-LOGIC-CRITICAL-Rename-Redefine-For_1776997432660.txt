@@ -1,0 +1,238 @@
+
+---
+
+## 1. 🔁 LEAD SEGMENTATION LOGIC (CRITICAL)
+
+### Rename & Redefine: “Forgotten Leads”
+
+Update logic and labeling:
+
+**New Name:** `Re-Engagement Opportunities`
+
+**Definition:**
+Flag any lead that meets ALL of the following:
+
+* Not contacted in **≥ 90 days**
+* AND at least one of the following signals exists:
+
+  * Wealth indicators (high income, assets, investor profile)
+  * Job change / promotion
+  * Inheritance indicators
+  * Digital activity (email opens, clicks, site visits, WhatsApp replies)
+  * Previously requested follow-up but **no action taken**
+  * Marked for follow-up but **no logged activity**
+
+**UI Changes:**
+
+* Replace current color scheme with **high-contrast premium gradient (soft gold / lavender / pastel highlight)**
+* Add **priority score badge**
+* Add tooltip: *“Missed opportunity based on inactivity + high-value signals”*
+
+---
+
+## 2. 🧠 BRIEFING → INTERACTIVE COMMAND CENTER
+
+### Convert “Briefing” into a **central intelligence hub**
+
+**Rename:** `Daily Command Center`
+
+**Features:**
+
+* Performance analytics (team + individual)
+* AI-generated insights
+* To-do list (auto-generated tasks)
+* Lead priorities (top 50–100)
+* Alerts (SLA breaches, missed follow-ups)
+* AI Assistant embedded (chat + action-triggering)
+
+**UX:**
+
+* Tab-based interactive layout:
+
+  * Overview
+  * Tasks
+  * Insights
+  * AI Assistant
+
+---
+
+## 3. 🧩 NAVIGATION & STRUCTURE FIXES
+
+### Fix broken / confusing architecture:
+
+* ❌ “Add Contact” → FIX functionality (currently broken)
+* 🔄 Merge:
+
+  * `Deals` + `Pipeline` → **Single Tab: “Deals & Pipeline”**
+* 📂 Move:
+
+  * `Static Lists` + `List View` → **Single Tab: “Lists”**
+* ❓ “Lead Intelligence”:
+
+  * Convert into **Sub-tab under Lead Profile**
+  * Add clear value (signals, scoring, insights)
+* 🎯 “Segments”:
+
+  * Move under **Data Hub**
+* 🤖 “AI Workforce”:
+
+  * Move under **Data Hub**
+
+---
+
+## 4. 📞 CALL CENTER (MAJOR UPGRADE)
+
+### New Tab: `Call Center Intelligence`
+
+**Dashboard must include:**
+
+* Call volume (daily / weekly / monthly)
+* Connection rates
+* Conversion rates
+* Trends over time
+* AI-generated insights
+* Agent performance
+
+**Advanced Features:**
+
+* Date filters (Today / Custom Range)
+* YOY comparison
+* Predictive analytics:
+
+  * Closing probability
+  * Success likelihood
+  * Forecasted meetings
+
+---
+
+## 5. 📞 CALLS & TRANSCRIPTS (REDESIGN)
+
+### Full UI overhaul required
+
+**For Human Agents:**
+
+* Live call coaching (real-time suggestions)
+* Objection handling prompts
+* Script recommendations
+
+**For AI Agent:**
+
+* Same interface capability as human
+* Access to transcripts + insights
+* Toggle for **Voice Library**
+
+---
+
+## 6. 📚 KNOWLEDGE BASE (UNDER CALL CENTER)
+
+Create structured repository:
+
+**Sections:**
+
+* Call Scripts
+* Objection Handling
+* Playbooks
+* Company Insights
+
+---
+
+## 7. 💬 COMMUNICATION (WHATSAPP & EMAIL)
+
+* Merge into **one unified tab**
+* Auto-generated from lead profile
+* Context-aware messaging
+* Easily accessible per lead
+
+---
+
+## 8. 📢 MARKETING STRUCTURE
+
+* ❌ Remove “Campaigns” from Call Center
+* ✅ Create new top-level tab: `Marketing`
+
+  * Campaigns
+  * Automation
+  * Messaging
+
+---
+
+## 9. 🔍 ENRICHMENT & SEEDING
+
+Enhancements:
+
+* Expand lead profile via **hover tooltip**
+* On click:
+
+  * Expand full enriched profile
+  * Trigger **dynamic gradient UI transition**
+* ❌ Fix “New Search” (currently not working)
+
+---
+
+## 10. ⚠️ CLEANUP (REMOVE / REPOSITION)
+
+* ❌ “Activities” → unclear purpose → redefine or remove
+* ❌ “Signals” → unclear placement → integrate into:
+
+  * Lead profile
+  * Lead Intelligence sub-tab
+* 🎨 Improve mesh gradient across these sections
+
+---
+
+## 11. 📊 INSIGHTS & ANALYTICS
+
+### Structure:
+
+**Under Command Center:**
+
+* Daily Insights (merged with briefing)
+
+**New Tab:** `Insights & Reports`
+
+* Full dashboards
+* Custom report generation
+* Export capability
+
+---
+
+## 12. 👥 TEAM PERFORMANCE DASHBOARD
+
+Add inside Insights:
+
+**Features:**
+
+* Performance tracking:
+
+  * YTD
+  * Since inception
+* Filters:
+
+  * Agent
+  * Region
+  * Time period
+* AI analysis:
+
+  * Strengths
+  * Weaknesses
+  * Recommendations
+
+---
+
+## 13. 🎨 UI/UX REQUIREMENTS
+
+* Use **bright mesh gradient (cotton candy / pastel)**
+* Avoid dark themes
+* Dynamic gradients on interaction
+* Clean, premium, investor-grade interface
+
+---
+
+## 🚀 FINAL INSTRUCTION
+
+Implement all changes as:
+
+* Modular components
+* Scalable architecture
+* Fully functional (no placeholders)
+* Optimized for CRM + AI-driven sales workflows
