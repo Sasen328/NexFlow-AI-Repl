@@ -1,7 +1,8 @@
-import { useContacts, useSignals, useDeals } from "@/hooks/useApi";
-import { Star, Brain, TrendingUp, Zap, ArrowUp, ArrowDown, Minus, Target, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useContacts, useSignals, useDeals, useAiImportCsv, useForgottenLeads } from "@/hooks/useApi";
+import { Star, Brain, TrendingUp, Zap, ArrowDown, Target, AlertCircle, CheckCircle2, Minus, Upload, Loader2, X, Clock, Sparkles, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "wouter";
+import { useState } from "react";
 
 const INTENT_LABELS: Record<number, { label: string; color: string; bg: string; icon: any }> = {
   5: { label: "Buying Now", color: "text-[#88B8B0]", bg: "bg-[#88B8B0]/15", icon: CheckCircle2 },
@@ -28,13 +29,7 @@ function ScoreRing({ score, size = 64 }: { score: number; size?: number }) {
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth="3.5" className="text-muted/30" />
-        <circle
-          cx={size / 2} cy={size / 2} r={r} fill="none"
-          stroke={color} strokeWidth="3.5"
-          strokeDasharray={`${dash} ${circ}`}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="3.5" strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" transform={`rotate(-90 ${size / 2} ${size / 2})`} />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-base font-black text-foreground leading-none">{score}</span>
@@ -66,6 +61,7 @@ export default function IntelligencePage() {
   const { data: contactsData, isLoading } = useContacts();
   const { data: signalsData } = useSignals();
   const { data: dealsData } = useDeals();
+  const [showCsv, setShowCsv] = useState(false);
   const contacts = contactsData?.contacts ?? [];
   const signals = signalsData?.signals ?? [];
   const deals = dealsData?.deals ?? [];
@@ -93,7 +89,10 @@ export default function IntelligencePage() {
           </h1>
           <p className="text-muted-foreground text-sm mt-0.5">AI-powered scoring, intent detection, and pipeline intelligence</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <button onClick={() => setShowCsv(true)} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#B8A0C8]/15 text-[#B8A0C8] text-xs font-semibold hover:bg-[#B8A0C8]/25">
+            <Upload className="w-3.5 h-3.5" /> Import CSV (AI-enrich)
+          </button>
           <div className="glass-card rounded-xl px-3 py-2 text-center">
             <div className="text-lg font-bold text-[#88B8B0]">{contacts.length}</div>
             <div className="text-[10px] text-muted-foreground">Tracked</div>
@@ -109,8 +108,9 @@ export default function IntelligencePage() {
         </div>
       </div>
 
+      <ForgottenLeadsPanel />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Leaderboard */}
         <div className="lg:col-span-2 glass-card rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-foreground">Lead Scoring Leaderboard</h2>
@@ -128,16 +128,12 @@ export default function IntelligencePage() {
               return (
                 <Link key={c.id} href={`/contacts/${c.id}`}>
                   <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/30 transition-colors cursor-pointer group">
-                    <div className="text-sm font-bold text-muted-foreground/40 w-5 text-center flex-shrink-0">
-                      {idx + 1}
-                    </div>
+                    <div className="text-sm font-bold text-muted-foreground/40 w-5 text-center flex-shrink-0">{idx + 1}</div>
                     <div className="w-9 h-9 rounded-full nf-chameleon-bg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                       {(c.first_name?.[0] ?? "") + (c.last_name?.[0] ?? "")}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-foreground group-hover:text-[#B8A0C8] transition-colors">
-                        {c.first_name} {c.last_name}
-                      </div>
+                      <div className="text-sm font-semibold text-foreground group-hover:text-[#B8A0C8] transition-colors">{c.first_name} {c.last_name}</div>
                       <div className="text-xs text-muted-foreground">{c.title} · {c.company_name}</div>
                     </div>
                     <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium flex-shrink-0", cfg.bg, cfg.color)}>
@@ -149,7 +145,7 @@ export default function IntelligencePage() {
                         ${((contactDeals[0].value ?? 0) / 100).toLocaleString()}
                       </div>
                     )}
-                    <ScoreRing score={score} size={44} />
+                    <ScoreRing score={Math.round(score)} size={44} />
                   </div>
                 </Link>
               );
@@ -157,7 +153,6 @@ export default function IntelligencePage() {
           </div>
         </div>
 
-        {/* Scoring Model */}
         <div className="space-y-4">
           <div className="glass-card rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-4">
@@ -165,9 +160,7 @@ export default function IntelligencePage() {
               <h2 className="font-semibold text-foreground">AI Scoring Model</h2>
             </div>
             <div className="space-y-3">
-              {scoringFactors.map(f => (
-                <ScoringFactor key={f.label} {...f} />
-              ))}
+              {scoringFactors.map(f => <ScoringFactor key={f.label} {...f} />)}
             </div>
             <div className="mt-4 p-3 rounded-xl bg-muted/30 text-xs text-muted-foreground">
               Model trained on 12,400+ B2B deals across GCC markets. Updated weekly.
@@ -182,14 +175,12 @@ export default function IntelligencePage() {
             <div className="space-y-2">
               {riskContacts.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No at-risk contacts</p>
-              ) : riskContacts.map((c: any) => (
+              ) : riskContacts.slice(0, 6).map((c: any) => (
                 <div key={c.id} className="flex items-center gap-2 p-2 rounded-lg bg-[#C8A880]/10 border border-[#C8A880]/20">
-                  <div className="w-6 h-6 rounded-full nf-chameleon-bg flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">
-                    {c.first_name?.[0]}
-                  </div>
+                  <div className="w-6 h-6 rounded-full nf-chameleon-bg flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">{c.first_name?.[0]}</div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium text-foreground truncate">{c.first_name} {c.last_name}</div>
-                    <div className="text-[10px] text-muted-foreground">Score: {c.lead_score}</div>
+                    <div className="text-[10px] text-muted-foreground">Score: {Math.round(c.lead_score)}</div>
                   </div>
                   <ArrowDown className="w-3 h-3 text-[#C8A880]" />
                 </div>
@@ -199,7 +190,6 @@ export default function IntelligencePage() {
         </div>
       </div>
 
-      {/* Intent Signals Matrix */}
       <div className="glass-card rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-foreground">Buying Intent Matrix</h2>
@@ -218,6 +208,127 @@ export default function IntelligencePage() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {showCsv && <CsvImportModal onClose={() => setShowCsv(false)} />}
+    </div>
+  );
+}
+
+function ForgottenLeadsPanel() {
+  const { data, isLoading } = useForgottenLeads();
+  const leads = data?.leads ?? [];
+  const summary = data?.summary;
+
+  if (isLoading) return <div className="glass-card rounded-2xl p-5 h-32 animate-pulse" />;
+  if (leads.length === 0) return null;
+
+  return (
+    <div className="nf-chameleon-border rounded-2xl glass-card p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-[#C8A880]" />
+          <h2 className="font-semibold text-foreground">Forgotten Leads</h2>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-[#C8A880]/20 text-[#C8A880] font-bold">{leads.length}</span>
+        </div>
+        <Sparkles className="w-3.5 h-3.5 text-[#B8A0C8]" />
+      </div>
+      {summary && (
+        <p className="text-xs text-foreground/80 italic mb-3 px-3 py-2 rounded-lg bg-[#B8A0C8]/10">{summary}</p>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+        {leads.slice(0, 6).map((l: any) => (
+          <Link key={l.id} href={`/contacts/${l.id}`}>
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-muted/30 hover:bg-muted/50 cursor-pointer">
+              <div className="w-8 h-8 rounded-full nf-chameleon-bg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+                {(l.first_name?.[0] ?? "") + (l.last_name?.[0] ?? "")}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold text-foreground truncate">{l.first_name} {l.last_name}</div>
+                <div className="text-[10px] text-muted-foreground truncate">
+                  {l.company_name ?? "—"} · silent {Math.round(l.days_silent)}d
+                </div>
+              </div>
+              <div className="text-xs font-bold text-[#88B8B0]">{Math.round(l.lead_score)}</div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CsvImportModal({ onClose }: { onClose: () => void }) {
+  const [text, setText] = useState("");
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState("");
+  const importCsv = useAiImportCsv();
+
+  const parseCsv = (raw: string): any[] => {
+    const lines = raw.trim().split(/\r?\n/).filter(Boolean);
+    if (lines.length < 2) return [];
+    const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+    return lines.slice(1).map(line => {
+      const cells = line.split(",").map(c => c.trim());
+      const row: any = {};
+      headers.forEach((h, i) => row[h] = cells[i] ?? "");
+      return row;
+    });
+  };
+
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => setText(String(reader.result ?? ""));
+    reader.readAsText(f);
+  };
+
+  const submit = async () => {
+    setError(""); setResult(null);
+    const rows = parseCsv(text);
+    if (rows.length === 0) { setError("Couldn't parse CSV — needs header row + data rows"); return; }
+    try {
+      const r = await importCsv.mutateAsync({ rows });
+      setResult(r);
+    } catch (e: any) {
+      setError(e?.message ?? "Import failed");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="glass-card rounded-2xl p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
+            <Upload className="w-4 h-4 text-[#B8A0C8]" /> Import CSV — AI Enrichment
+          </h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          Upload or paste a CSV with contact data. AI normalizes column names, scores leads, and inserts them.
+          Expected columns (any case, in any order): name, first_name, last_name, email, phone, title, company.
+        </p>
+        <input type="file" accept=".csv,text/csv" onChange={onFile} className="text-xs mb-2 block" />
+        <textarea
+          value={text}
+          onChange={e => setText(e.target.value)}
+          rows={8}
+          placeholder="first_name,last_name,email,title&#10;Jane,Doe,jane@acme.com,VP Engineering"
+          className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-xs font-mono outline-none"
+        />
+        {result && (
+          <div className="mt-3 p-3 rounded-xl bg-[#88B8B0]/10 text-xs text-[#88B8B0]">
+            ✓ Imported {result.inserted} contacts with AI-scored lead scores
+          </div>
+        )}
+        {error && <div className="mt-3 text-xs text-destructive p-2 rounded bg-destructive/10">{error}</div>}
+        <div className="flex gap-2 mt-4">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted">Close</button>
+          <button onClick={submit} disabled={!text.trim() || importCsv.isPending} className="flex-1 px-4 py-2 rounded-lg nf-chameleon-bg text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2">
+            {importCsv.isPending ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> AI enriching…</> : <><Sparkles className="w-3.5 h-3.5" /> Import & enrich</>}
+          </button>
         </div>
       </div>
     </div>

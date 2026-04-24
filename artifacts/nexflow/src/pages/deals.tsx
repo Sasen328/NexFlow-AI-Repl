@@ -1,5 +1,6 @@
-import { useDeals } from "@/hooks/useApi";
-import { Plus, DollarSign, TrendingUp, ArrowRight } from "lucide-react";
+import { useDeals, useContacts, useCompanies, useCreate, useUpdate, useDelete } from "@/hooks/useApi";
+import { Plus, DollarSign, X, Loader2, Trash2, Building2, User, Calendar, Tag } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 const STAGES = ["lead", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"];
@@ -27,6 +28,8 @@ function ProbabilityBar({ pct }: { pct: number }) {
 
 export default function DealsPage() {
   const { data, isLoading } = useDeals();
+  const [showNew, setShowNew] = useState(false);
+  const [openDeal, setOpenDeal] = useState<any>(null);
   const deals = data?.deals ?? [];
 
   const stageGroups: Record<string, any[]> = {};
@@ -48,13 +51,12 @@ export default function DealsPage() {
             ${(total / 100).toLocaleString()} in active pipeline
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity">
+        <button onClick={() => setShowNew(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity">
           <Plus className="w-4 h-4" />
           New Deal
         </button>
       </div>
 
-      {/* Kanban */}
       <div className="flex gap-4 overflow-x-auto pb-4">
         {STAGES.map(stage => {
           const cfg = STAGE_CONFIG[stage];
@@ -75,7 +77,12 @@ export default function DealsPage() {
                   </div>
                 ) : (
                   stageDeals.map((d: any) => (
-                    <div key={d.id} className="glass-card rounded-xl p-4 hover:shadow-md transition-all cursor-pointer group">
+                    <button
+                      type="button"
+                      key={d.id}
+                      onClick={() => setOpenDeal(d)}
+                      className="w-full text-left glass-card rounded-xl p-4 hover:shadow-md transition-all cursor-pointer group"
+                    >
                       <div className="font-semibold text-sm text-foreground group-hover:text-[#B8A0C8] transition-colors line-clamp-2 mb-2">
                         {d.title}
                       </div>
@@ -92,13 +99,175 @@ export default function DealsPage() {
                           {d.contact.firstName} {d.contact.lastName}
                         </div>
                       )}
-                    </div>
+                    </button>
                   ))
                 )}
               </div>
             </div>
           );
         })}
+      </div>
+
+      {showNew && <NewDealModal onClose={() => setShowNew(false)} />}
+      {openDeal && <DealDetailDrawer deal={openDeal} onClose={() => setOpenDeal(null)} />}
+    </div>
+  );
+}
+
+function NewDealModal({ onClose }: { onClose: () => void }) {
+  const [title, setTitle] = useState("");
+  const [valueDollars, setValueDollars] = useState("");
+  const [stage, setStage] = useState("lead");
+  const [contactId, setContactId] = useState("");
+  const [companyId, setCompanyId] = useState("");
+  const [notes, setNotes] = useState("");
+  const { data: contactsData } = useContacts();
+  const { data: companiesData } = useCompanies();
+  const create = useCreate("/deals", ["deals", "dashboard"]);
+
+  const submit = () => {
+    const cents = Math.round(Number(valueDollars || "0") * 100);
+    create.mutate(
+      {
+        title,
+        value: cents,
+        stage,
+        contact_id: contactId || null,
+        company_id: companyId || null,
+        notes: notes || null,
+        currency: "USD",
+      },
+      { onSuccess: () => onClose() }
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="glass-card rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-foreground text-lg">New Deal</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground">Title *</label>
+            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Q2 expansion — Acme" className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none focus:border-[#B8A0C8]" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Value (USD)</label>
+              <input value={valueDollars} onChange={e => setValueDollars(e.target.value)} type="number" placeholder="50000" className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Stage</label>
+              <select value={stage} onChange={e => setStage(e.target.value)} className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none">
+                {STAGES.map(s => <option key={s} value={s}>{STAGE_CONFIG[s].label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground">Contact</label>
+            <select value={contactId} onChange={e => setContactId(e.target.value)} className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none">
+              <option value="">— none —</option>
+              {(contactsData?.contacts ?? []).map((c: any) => (
+                <option key={c.id} value={c.id}>{c.first_name} {c.last_name}{c.title ? ` (${c.title})` : ""}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground">Company</label>
+            <select value={companyId} onChange={e => setCompanyId(e.target.value)} className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none">
+              <option value="">— none —</option>
+              {(companiesData?.companies ?? []).map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground">Notes</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none" />
+          </div>
+        </div>
+        <div className="flex gap-2 mt-5">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted">Cancel</button>
+          <button onClick={submit} disabled={!title || create.isPending} className="flex-1 px-4 py-2 rounded-lg nf-chameleon-bg text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2">
+            {create.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            Create deal
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DealDetailDrawer({ deal, onClose }: { deal: any; onClose: () => void }) {
+  const update = useUpdate((id) => `/deals/${id}`, ["deals", "dashboard"]);
+  const del = useDelete((id) => `/deals/${id}`, ["deals", "dashboard"]);
+  const cfg = STAGE_CONFIG[deal.stage] ?? STAGE_CONFIG.lead;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-stretch justify-end" onClick={onClose}>
+      <div className="bg-background w-full max-w-md h-full overflow-y-auto p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <span className={cn("text-xs px-2 py-1 rounded-full font-semibold", cfg.bg, cfg.color)}>{cfg.label}</span>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+        </div>
+        <h2 className="text-xl font-bold text-foreground mb-1">{deal.title}</h2>
+        <div className="text-2xl font-black text-[#88B8B0] mb-4">${((deal.value ?? 0) / 100).toLocaleString()}</div>
+
+        <div className="space-y-3 text-sm">
+          {(deal.contact_name ?? (deal.contact && `${deal.contact.firstName ?? ""} ${deal.contact.lastName ?? ""}`.trim())) && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <User className="w-4 h-4" /> {deal.contact_name ?? `${deal.contact?.firstName ?? ""} ${deal.contact?.lastName ?? ""}`.trim()}
+            </div>
+          )}
+          {(deal.company_name ?? deal.company?.name) && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Building2 className="w-4 h-4" /> {deal.company_name ?? deal.company?.name}
+            </div>
+          )}
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Calendar className="w-4 h-4" /> Created {new Date(deal.createdAt ?? deal.created_at).toLocaleDateString()}
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground mb-1">Probability</div>
+            <ProbabilityBar pct={deal.probability ?? 0} />
+          </div>
+          {deal.notes && (
+            <div className="p-3 rounded-xl bg-muted/30">
+              <div className="text-xs font-semibold text-muted-foreground mb-1">Notes</div>
+              <p className="text-sm text-foreground/80 whitespace-pre-wrap">{deal.notes}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 space-y-2">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Move to stage</div>
+          <div className="flex flex-wrap gap-1.5">
+            {STAGES.map(s => (
+              <button
+                key={s}
+                onClick={() => update.mutate({ id: deal.id, data: { stage: s } })}
+                disabled={s === deal.stage || update.isPending}
+                className={cn(
+                  "text-xs px-2.5 py-1 rounded-full font-medium transition-colors",
+                  s === deal.stage ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-muted/40 hover:bg-muted text-foreground"
+                )}
+              >
+                {STAGE_CONFIG[s].label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-8 pt-4 border-t border-border/40">
+          <button
+            onClick={() => { if (confirm("Delete this deal?")) del.mutate(deal.id, { onSuccess: () => onClose() }); }}
+            className="flex items-center gap-2 text-xs text-destructive hover:text-destructive/80"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Delete deal
+          </button>
+        </div>
       </div>
     </div>
   );

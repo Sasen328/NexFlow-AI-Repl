@@ -191,25 +191,28 @@ export function useRunAiAgent() {
 }
 
 // ── Generic mutation helpers ───────────────────────────────────────────────
+function invalidateAll(qc: ReturnType<typeof useQueryClient>, keys: string[]) {
+  for (const k of keys) qc.invalidateQueries({ queryKey: [k] });
+}
 export function useCreate(path: string, invalidate: string[]) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: any) => apiFetch(path, { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: invalidate }),
+    onSuccess: () => invalidateAll(qc, invalidate),
   });
 }
 export function useDelete(pathFn: (id: string) => string, invalidate: string[]) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiFetch(pathFn(id), { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: invalidate }),
+    onSuccess: () => invalidateAll(qc, invalidate),
   });
 }
 export function useUpdate(pathFn: (id: string) => string, invalidate: string[]) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => apiFetch(pathFn(id), { method: "PATCH", body: JSON.stringify(data) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: invalidate }),
+    onSuccess: () => invalidateAll(qc, invalidate),
   });
 }
 export function useEnrichContact() {
@@ -391,5 +394,66 @@ export function usePostCallOrchestrate() {
   return useMutation({
     mutationFn: ({ callId, outcome }: { callId: string; outcome: string }) =>
       apiFetch(`/ai/post-call/${callId}`, { method: "POST", body: JSON.stringify({ outcome }) }),
+  });
+}
+
+// ── Phase I: AI generators + creators ──────────────────────────────────────
+export function useAiGenerateList() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { prompt: string; name?: string }) =>
+      apiFetch(`/ai/lists/generate`, { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lists"] }),
+  });
+}
+export function useAiSuggestProperties() {
+  return useMutation({
+    mutationFn: (data: { prompt: string; object_type?: string }) =>
+      apiFetch(`/ai/properties/suggest`, { method: "POST", body: JSON.stringify(data) }),
+  });
+}
+export function useAiGenerateSegment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { prompt: string }) =>
+      apiFetch(`/ai/segments/generate`, { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["segments"] }),
+  });
+}
+export function useSegmentMembers(id: string, enabled = true) {
+  return useQuery({
+    queryKey: ["segments", id, "members"],
+    queryFn: () => apiFetch(`/ai/segments/${id}/members`),
+    enabled: !!id && enabled,
+  });
+}
+export function useAiDraftCompany() {
+  return useMutation({
+    mutationFn: (data: { name: string; domain?: string; website?: string }) =>
+      apiFetch(`/ai/companies/draft`, { method: "POST", body: JSON.stringify(data) }),
+  });
+}
+export function useAiImportCsv() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { rows: any[]; default_source?: string }) =>
+      apiFetch(`/ai/contacts/import-csv`, { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["contacts"] }); qc.invalidateQueries({ queryKey: ["dashboard"] }); },
+  });
+}
+export function useAnalyzeCall() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch(`/ai/calls/${id}/analyze`, { method: "POST", body: JSON.stringify({}) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["calls"] }),
+  });
+}
+export function useForgottenLeads() {
+  return useQuery({ queryKey: ["forgotten-leads"], queryFn: () => apiFetch(`/ai/forgotten-leads`), staleTime: 5 * 60_000 });
+}
+export function useAiDraftAgent() {
+  return useMutation({
+    mutationFn: (description: string) =>
+      apiFetch(`/ai/agents/draft`, { method: "POST", body: JSON.stringify({ description }) }),
   });
 }

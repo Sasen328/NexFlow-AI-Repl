@@ -1,5 +1,6 @@
-import { useDashboard, useSignals, useActivities, useNotifications } from "@/hooks/useApi";
-import { TrendingUp, Users, DollarSign, Zap, Phone, ArrowUpRight, Target, Brain, Activity } from "lucide-react";
+import { useDashboard, useSignals, useActivities, useNotifications, useForgottenLeads, useRegenerateInsights } from "@/hooks/useApi";
+import { TrendingUp, Users, Zap, Phone, ArrowUpRight, Brain, Activity, Clock, Sparkles, Loader2 } from "lucide-react";
+import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 
 function StatCard({ icon: Icon, label, value, sub, color }: { icon: any; label: string; value: string; sub?: string; color: string }) {
@@ -37,10 +38,14 @@ export default function Dashboard() {
   const { data: signalsData } = useSignals({ limit: "5" });
   const { data: activitiesData } = useActivities({ limit: "5" });
   const { data: notifData } = useNotifications();
+  const { data: forgottenData } = useForgottenLeads();
+  const regenerate = useRegenerateInsights();
 
   const signals = signalsData?.signals ?? [];
   const activities = activitiesData?.activities ?? [];
   const notifications = (notifData?.notifications ?? []).filter((n: any) => !n.read);
+  const forgotten = forgottenData?.leads ?? [];
+  const forgottenSummary = forgottenData?.summary;
 
   const stats = dashboard?.stats ?? {
     totalContacts: 0, totalCompanies: 0, openDeals: 0, totalRevenue: 0,
@@ -51,10 +56,52 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">AI-native overview of your pipeline and signals</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground text-sm mt-1">AI-native overview of your pipeline and signals</p>
+        </div>
+        <button
+          onClick={() => regenerate.mutate()}
+          disabled={regenerate.isPending}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#B8A0C8]/15 text-[#B8A0C8] text-xs font-semibold hover:bg-[#B8A0C8]/25 disabled:opacity-50"
+        >
+          {regenerate.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+          {regenerate.isPending ? "Regenerating…" : "Regenerate AI insights"}
+        </button>
       </div>
+
+      {forgotten.length > 0 && (
+        <div className="nf-chameleon-border rounded-2xl glass-card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-[#C8A880]" />
+              <h2 className="font-semibold text-foreground">Forgotten Leads</h2>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-[#C8A880]/20 text-[#C8A880] font-bold">{forgotten.length}</span>
+            </div>
+            <Sparkles className="w-3.5 h-3.5 text-[#B8A0C8]" />
+          </div>
+          {forgottenSummary && (
+            <p className="text-xs text-foreground/80 italic mb-3 px-3 py-2 rounded-lg bg-[#B8A0C8]/10">{forgottenSummary}</p>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            {forgotten.slice(0, 6).map((l: any) => (
+              <Link key={l.id} href={`/contacts/${l.id}`}>
+                <div className="flex items-center gap-2 p-2.5 rounded-xl bg-muted/30 hover:bg-muted/50 cursor-pointer">
+                  <div className="w-8 h-8 rounded-full nf-chameleon-bg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+                    {(l.first_name?.[0] ?? "") + (l.last_name?.[0] ?? "")}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-foreground truncate">{l.first_name} {l.last_name}</div>
+                    <div className="text-[10px] text-muted-foreground truncate">{l.company_name ?? "—"} · silent {Math.round(l.days_silent)}d</div>
+                  </div>
+                  <div className="text-xs font-bold text-[#88B8B0]">{Math.round(l.lead_score)}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
