@@ -1,8 +1,25 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "ov3-EfnPwS7kUbgWzKnxW"
 uri = "file://artifacts/mobile/assets/images/icon.png"
 type = "image"
 title = "generated_image"
+
+[[outputs]]
+id = "0n5CRH83xHGEr6QWWmxct"
+uri = "file://artifacts/nexflow/public/NexFlow_Icon_1024.png"
+type = "image"
+title = "NexFlow Icon — 1024×1024 (494 KB)"
+
+[[outputs]]
+id = "r-OkmOS69kP9h0bRLOpzN"
+uri = "file://artifacts/nexflow/public/NexFlow_Icon_512.png"
+type = "image"
+title = "NexFlow Icon — 512×512 (183 KB)"
+
+[[outputs]]
+id = "wUEDo71g6_WVgulziHWq6"
+uri = "file://artifacts/nexflow/public/NexFlow_Logo_Full_3200.png"
+type = "image"
+title = "NexFlow Full Logo — 3200×1800 (870 KB)"
