@@ -457,3 +457,14 @@ export function useAiDraftAgent() {
       apiFetch(`/ai/agents/draft`, { method: "POST", body: JSON.stringify({ description }) }),
   });
 }
+export function useContactOverview() {
+  return useMutation({
+    mutationFn: (id: string) => apiFetch(`/ai/contacts/${id}/overview`, { method: "POST", body: JSON.stringify({}) }),
+  });
+}
+export function useAiDraftAutomation() {
+  return useMutation({
+    mutationFn: (description: string) =>
+      apiFetch(`/ai/automations/draft`, { method: "POST", body: JSON.stringify({ description }) }),
+  });
+}

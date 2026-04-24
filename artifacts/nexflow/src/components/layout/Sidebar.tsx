@@ -16,62 +16,56 @@ const SOLO_BOTTOM = { icon: Bell, label: "Notifications", href: "/notifications"
 
 const NAV_GROUPS = [
   {
-    key: "pipeline",
-    label: "Pipeline",
+    key: "crm",
+    label: "CRM",
     items: [
       { icon: Users, label: "Contacts", href: "/contacts" },
       { icon: Building2, label: "Companies", href: "/companies" },
       { icon: TrendingUp, label: "Deals", href: "/deals" },
-      { icon: GitBranch, label: "Funnel", href: "/funnel" },
-    ],
-  },
-  {
-    key: "lists",
-    label: "Records",
-    items: [
+      { icon: GitBranch, label: "Pipeline / Funnel", href: "/funnel" },
       { icon: ListIcon, label: "Lists", href: "/lists" },
       { icon: Target, label: "Segments", href: "/segments" },
       { icon: Filter, label: "Properties", href: "/properties" },
-    ],
-  },
-  {
-    key: "sourcing",
-    label: "Sourcing",
-    items: [
-      { icon: Database, label: "Enrichment", href: "/sourcing" },
       { icon: Star, label: "Lead Intelligence", href: "/intelligence" },
     ],
   },
   {
-    key: "engage",
-    label: "Engage",
+    key: "callcenter",
+    label: "Call Center",
     items: [
-      { icon: PhoneCall, label: "Today's Calls", href: "/call-list" },
-      { icon: Phone, label: "Calls", href: "/calls" },
-      { icon: Bot, label: "Voice Agents", href: "/voice-agents" },
+      { icon: PhoneCall, label: "Today's Call List", href: "/call-list" },
+      { icon: Phone, label: "Calls & Transcripts", href: "/calls" },
+      { icon: Bot, label: "AI Voice Agents", href: "/voice-agents" },
+      { icon: FileText, label: "Call Scripts", href: "/scripts" },
       { icon: MessageSquare, label: "WhatsApp", href: "/whatsapp" },
       { icon: Mail, label: "Email", href: "/email" },
       { icon: Megaphone, label: "Campaigns", href: "/campaigns" },
-      { icon: Activity, label: "Activities", href: "/activities" },
-      { icon: FileText, label: "Scripts", href: "/scripts" },
     ],
   },
   {
-    key: "ai",
-    label: "AI Workforce",
+    key: "datahub",
+    label: "Data Hub",
     items: [
-      { icon: Sparkles, label: "AI Assistant", href: "/assistant" },
-      { icon: Bot, label: "AI Agents", href: "/ai" },
+      { icon: Database, label: "Enrichment & Seeding", href: "/sourcing" },
+      { icon: Activity, label: "Activities", href: "/activities" },
+      { icon: Zap, label: "Buying Signals", href: "/signals" },
+    ],
+  },
+  {
+    key: "automation",
+    label: "Automation Center",
+    items: [
+      { icon: Zap, label: "Automation Rules", href: "/automation" },
+      { icon: Bot, label: "AI Workforce", href: "/ai" },
       { icon: Wand2, label: "Agent Builder", href: "/agents" },
-      { icon: Zap, label: "Automations", href: "/automation" },
+      { icon: Sparkles, label: "AI Assistant", href: "/assistant" },
       { icon: Sparkles, label: "Daily Insights", href: "/insights" },
     ],
   },
   {
-    key: "ops",
-    label: "Insights & Ops",
+    key: "insights",
+    label: "Insights",
     items: [
-      { icon: Zap, label: "Signals", href: "/signals" },
       { icon: LayoutDashboard, label: "Dashboards", href: "/dashboards" },
       { icon: BarChart3, label: "Analytics", href: "/analytics" },
       { icon: UserSquare2, label: "Team", href: "/team" },

@@ -1,4 +1,4 @@
-import { useContact, useActivities, useCalls, useDeals, useSignals, useContactLists, usePropertyValues, useProperties, useUpsertPropertyValue } from "@/hooks/useApi";
+import { useContact, useActivities, useCalls, useDeals, useSignals, useContactLists, usePropertyValues, useProperties, useUpsertPropertyValue, useContactOverview } from "@/hooks/useApi";
 import { Link } from "wouter";
 import {
   ArrowLeft, Mail, Phone, Linkedin, Globe, MapPin, Building2, Star,
@@ -168,23 +168,8 @@ export default function ContactProfilePage({ params }: Props) {
         </div>
       </div>
 
-      {/* AI Recommended Action */}
-      <div className="glass-card rounded-2xl p-4 border border-[#B8A0C8]/30 bg-gradient-to-r from-[#B8A0C8]/8 to-transparent">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl nf-chameleon-bg flex items-center justify-center flex-shrink-0">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] font-bold text-[#B8A0C8] uppercase tracking-widest">AI-Recommended Next Action</div>
-            <div className="text-sm font-semibold text-foreground mt-0.5">
-              Call within next 24h — Gulf Ventures Series B announced yesterday creates a high-conviction expansion window
-            </div>
-          </div>
-          <button className="px-4 py-2 rounded-xl nf-chameleon-bg text-white text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-1 flex-shrink-0">
-            Execute <ChevronRight className="w-3 h-3" />
-          </button>
-        </div>
-      </div>
+      {/* AI Overview & Recommendations */}
+      <ContactAIOverview contactId={id} />
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-xl bg-muted/40 w-fit">
@@ -623,6 +608,138 @@ function CustomPropertiesCard({ entityId, objectType }: { entityId: string; obje
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ContactAIOverview({ contactId }: { contactId: string }) {
+  const overview = useContactOverview();
+  const data: any = overview.data;
+
+  function generate() {
+    overview.mutate(contactId);
+  }
+
+  if (!data && !overview.isPending) {
+    return (
+      <div className="glass-card rounded-2xl p-4 border border-[#B8A0C8]/30 bg-gradient-to-r from-[#B8A0C8]/8 to-transparent">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl nf-chameleon-bg flex items-center justify-center flex-shrink-0">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-bold text-[#B8A0C8] uppercase tracking-widest">AI Analysis</div>
+            <div className="text-sm font-semibold text-foreground mt-0.5">
+              Generate an AI overview, risks, and recommended next actions for this contact.
+            </div>
+          </div>
+          <button
+            onClick={generate}
+            className="px-4 py-2 rounded-xl nf-chameleon-bg text-white text-xs font-bold hover:opacity-90 flex items-center gap-1 flex-shrink-0"
+          >
+            <Sparkles className="w-3 h-3" /> Run analysis
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (overview.isPending) {
+    return (
+      <div className="glass-card rounded-2xl p-6 border border-[#B8A0C8]/30">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <Sparkles className="w-4 h-4 text-[#B8A0C8] animate-pulse" />
+          AI is analyzing engagement, signals, and pipeline…
+        </div>
+      </div>
+    );
+  }
+
+  const recs: any[] = data?.recommendations ?? [];
+  const strengths: string[] = data?.strengths ?? [];
+  const risks: string[] = data?.risks ?? [];
+  const talking: string[] = data?.talking_points ?? [];
+  const eng = data?.engagement_score ?? 0;
+
+  return (
+    <div className="glass-card rounded-2xl p-5 border border-[#B8A0C8]/30 bg-gradient-to-br from-[#B8A0C8]/8 via-transparent to-transparent">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl nf-chameleon-bg flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-[#B8A0C8] uppercase tracking-widest">AI Overview</div>
+            <div className="text-xs text-muted-foreground">Engagement score: <span className="font-bold text-foreground">{eng}</span></div>
+          </div>
+        </div>
+        <button onClick={generate} className="text-[10px] px-2 py-1 rounded-lg bg-muted/40 text-muted-foreground hover:text-foreground flex items-center gap-1">
+          <RefreshCw className="w-3 h-3" /> Refresh
+        </button>
+      </div>
+
+      {data?.summary && (
+        <p className="text-sm text-foreground/90 mb-4 leading-relaxed">{data.summary}</p>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        {strengths.length > 0 && (
+          <div>
+            <div className="text-[10px] font-bold text-[#88B8B0] uppercase tracking-wide mb-1.5">Strengths</div>
+            <ul className="space-y-1">
+              {strengths.map((s, i) => (
+                <li key={i} className="text-xs text-foreground/80 flex items-start gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-[#88B8B0] mt-0.5 flex-shrink-0" /> {s}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {risks.length > 0 && (
+          <div>
+            <div className="text-[10px] font-bold text-[#C8A880] uppercase tracking-wide mb-1.5">Risks</div>
+            <ul className="space-y-1">
+              {risks.map((s, i) => (
+                <li key={i} className="text-xs text-foreground/80 flex items-start gap-1.5">
+                  <AlertCircle className="w-3 h-3 text-[#C8A880] mt-0.5 flex-shrink-0" /> {s}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {recs.length > 0 && (
+        <div className="mb-4">
+          <div className="text-[10px] font-bold text-[#B8A0C8] uppercase tracking-wide mb-2">Recommended actions</div>
+          <div className="space-y-1.5">
+            {recs.map((r, i) => (
+              <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+                <span className={cn("text-[9px] px-1.5 py-0.5 rounded font-bold uppercase",
+                  r.priority === "high" ? "bg-[#C8A880]/20 text-[#C8A880]" :
+                  r.priority === "medium" ? "bg-[#B8A0C8]/20 text-[#B8A0C8]" :
+                  "bg-muted/60 text-muted-foreground")}>{r.priority ?? "med"}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-semibold text-foreground">{r.title}</div>
+                  {r.reasoning && <div className="text-[10px] text-muted-foreground">{r.reasoning}</div>}
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-background/60 text-muted-foreground capitalize flex-shrink-0">{r.action}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {talking.length > 0 && (
+        <div>
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1.5">Talking points</div>
+          <div className="flex flex-wrap gap-1.5">
+            {talking.map((t, i) => (
+              <span key={i} className="text-[11px] px-2 py-1 rounded-full bg-[#88B8B0]/10 text-foreground/80 border border-[#88B8B0]/30">{t}</span>
+            ))}
+          </div>
         </div>
       )}
     </div>

@@ -6,7 +6,9 @@ import {
 import { cn } from "@/lib/utils";
 import {
   useAutomations, useCreate, useUpdate, useDelete, useRunAutomation, useAutomationRuns,
+  useAiDraftAutomation,
 } from "@/hooks/useApi";
+import { Sparkles, Loader2 as Loader2B } from "lucide-react";
 
 const TRIGGER_OPTIONS = [
   { value: "stage_change", label: "Stage change" },
@@ -224,11 +226,53 @@ function NewRuleModal({ onClose, onCreate }: any) {
   const [description, setDescription] = useState("");
   const [trigger, setTrigger] = useState("stage_change");
   const [actionIdx, setActionIdx] = useState(0);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiActions, setAiActions] = useState<any[] | null>(null);
+  const [error, setError] = useState("");
+  const draft = useAiDraftAutomation();
+
+  async function generateWithAI() {
+    setError("");
+    try {
+      const r: any = await draft.mutateAsync(aiPrompt);
+      const d = r?.draft ?? {};
+      if (d.name) setName(d.name);
+      if (d.description) setDescription(d.description);
+      if (d.trigger && TRIGGER_OPTIONS.find(t => t.value === d.trigger)) setTrigger(d.trigger);
+      if (Array.isArray(d.actions) && d.actions.length) setAiActions(d.actions);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to generate");
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
-      <div className="glass-card rounded-2xl p-6 w-full max-w-lg my-8" onClick={e => e.stopPropagation()}>
+      <div className="glass-card rounded-2xl p-6 w-full max-w-xl my-8" onClick={e => e.stopPropagation()}>
         <h3 className="font-bold text-foreground mb-4">New Automation Rule</h3>
+
+        {/* AI generator */}
+        <div className="p-3 rounded-xl bg-[#B8A0C8]/8 border border-[#B8A0C8]/30 mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="w-3.5 h-3.5 text-[#B8A0C8]" />
+            <span className="text-xs font-bold text-[#B8A0C8] uppercase tracking-wide">AI Rule Generator</span>
+          </div>
+          <textarea
+            value={aiPrompt}
+            onChange={e => setAiPrompt(e.target.value)}
+            rows={2}
+            placeholder='e.g. "When a deal sits in qualified for over 14 days, advance it to proposal and create a follow-up task"'
+            className="w-full px-3 py-2 rounded-lg bg-background/60 border border-border/40 text-sm outline-none"
+          />
+          <button
+            onClick={generateWithAI}
+            disabled={!aiPrompt.trim() || draft.isPending}
+            className="mt-2 w-full px-3 py-1.5 rounded-lg nf-chameleon-bg text-white text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5"
+          >
+            {draft.isPending ? <Loader2B className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+            {draft.isPending ? "Drafting…" : "Draft this rule with AI"}
+          </button>
+        </div>
+
         <div className="space-y-3">
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Rule name" className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none" />
           <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="What does this rule do?" rows={2} className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none" />
@@ -239,16 +283,30 @@ function NewRuleModal({ onClose, onCreate }: any) {
             </select>
           </div>
           <div>
-            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Action</label>
-            <select value={actionIdx} onChange={e => setActionIdx(Number(e.target.value))} className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none">
-              {ACTION_TEMPLATES.map((a, i) => <option key={i} value={i}>{a.label}</option>)}
-            </select>
+            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">
+              {aiActions ? `Actions (AI-generated, ${aiActions.length})` : "Action"}
+            </label>
+            {aiActions ? (
+              <div className="mt-1 p-3 rounded-lg bg-muted/30 border border-border/30 space-y-1">
+                {aiActions.map((a, i) => (
+                  <div key={i} className="text-xs text-foreground/80 font-mono">
+                    {i + 1}. {a.type}{a.title ? ` — ${a.title}` : ""}{a.from_stage ? ` (${a.from_stage} → ${a.to_stage})` : ""}
+                  </div>
+                ))}
+                <button onClick={() => setAiActions(null)} className="mt-1 text-[10px] text-muted-foreground hover:text-foreground underline">Use template instead</button>
+              </div>
+            ) : (
+              <select value={actionIdx} onChange={e => setActionIdx(Number(e.target.value))} className="w-full mt-1 px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-sm outline-none">
+                {ACTION_TEMPLATES.map((a, i) => <option key={i} value={i}>{a.label}</option>)}
+              </select>
+            )}
           </div>
         </div>
+        {error && <div className="mt-3 text-xs text-destructive p-2 rounded bg-destructive/10">{error}</div>}
         <div className="flex gap-2 mt-5">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm">Cancel</button>
           <button
-            onClick={() => onCreate({ name, description, trigger, enabled: true, actions: [ACTION_TEMPLATES[actionIdx]] })}
+            onClick={() => onCreate({ name, description, trigger, enabled: true, actions: aiActions ?? [ACTION_TEMPLATES[actionIdx]] })}
             disabled={!name}
             className="flex-1 px-4 py-2 rounded-lg nf-chameleon-bg text-white text-sm font-semibold disabled:opacity-50">
             Create rule

@@ -841,4 +841,74 @@ router.post("/agents/draft", async (req, res) => {
   }
 });
 
+// ── Contact AI Overview / Recommendations ───────────────────────────────────
+router.post("/contacts/:id/overview", async (req, res) => {
+  try {
+    const [c] = await db.select().from(contacts).where(eq(contacts.id, req.params.id));
+    if (!c) return res.status(404).json({ error: "Not found" });
+
+    const company = c.company_id ? (await db.select().from(companies).where(eq(companies.id, c.company_id)))[0] : null;
+    const recentActivities = await db.select().from(activities).where(eq(activities.contact_id, c.id)).orderBy(desc(activities.created_at)).limit(5);
+    const recentCalls = await db.select().from(calls).where(eq(calls.contact_id, c.id)).orderBy(desc(calls.created_at)).limit(3);
+    const recentSignals = await db.select().from(signals).where(eq(signals.contact_id, c.id)).orderBy(desc(signals.created_at)).limit(5);
+    const openDeals = await db.select().from(deals).where(and(eq(deals.contact_id, c.id), sql`stage not in ('closed_won','closed_lost')`));
+
+    const ctx = {
+      contact: { name: `${c.first_name} ${c.last_name}`, title: c.title, email: c.email, status: c.status, lead_score: c.lead_score, tags: c.tags, last_engaged_at: c.last_engaged_at },
+      company: company ? { name: company.name, industry: company.industry, country: company.country, size: company.size } : null,
+      activities: recentActivities.map(a => ({ type: a.type, title: a.title, status: a.status, at: a.created_at })),
+      calls: recentCalls.map(cl => ({ outcome: cl.outcome, score: cl.score, summary: cl.summary })),
+      signals: recentSignals.map(s => ({ type: s.type, title: s.title, score: s.score })),
+      open_deals: openDeals.map(d => ({ title: d.title, stage: d.stage, value: d.value, probability: d.probability })),
+    };
+
+    const overview = await aiJson<any>({
+      system: "You are a B2B sales intelligence analyst. Analyze a contact's profile, engagement history, and pipeline. Output strict JSON only.",
+      user: `Analyze this contact and produce JSON: {"summary":"2-3 sentences about who they are and where the relationship stands","strengths":["3 short bullets"],"risks":["2-3 short bullets"],"recommendations":[{"action":"call|email|whatsapp|meeting|enrich|nurture","title":"short imperative","reasoning":"1 sentence","priority":"high|medium|low"}],"talking_points":["3 short conversational openers based on their context"],"engagement_score":0-100}.\n\nContext: ${JSON.stringify(ctx).slice(0, 4000)}`,
+      fallback: {
+        summary: `${c.first_name} ${c.last_name} is a ${c.title ?? "contact"}${company ? ` at ${company.name}` : ""}. Lead score ${c.lead_score ?? 0}.`,
+        strengths: ["Active in CRM", "Has assigned owner", "Profile populated"],
+        risks: ["Limited recent engagement", "Needs enrichment refresh"],
+        recommendations: [
+          { action: "call", title: "Reach out within 48h", reasoning: "Maintain warm relationship.", priority: "high" },
+          { action: "enrich", title: "Re-enrich profile", reasoning: "Refresh data from sources.", priority: "medium" },
+        ],
+        talking_points: ["Reference recent industry news", "Ask about current quarter priorities", "Offer a tailored case study"],
+        engagement_score: c.lead_score ?? 50,
+      },
+    });
+
+    res.json(overview);
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// ── AI Automation Rule Drafter ─────────────────────────────────────────────
+router.post("/automations/draft", async (req, res) => {
+  try {
+    const { description = "" } = req.body ?? {};
+    if (!description.trim()) return res.status(400).json({ error: "description required" });
+    const draft = await aiJson<any>({
+      system: `You design CRM automation rules. Output strict JSON only.
+Allowed triggers: stage_change, activity_completed, signal_received, no_answer, form_submitted, score_threshold, schedule, campaign_open.
+Allowed action types:
+- create_task (fields: title, body, target: "all_open_deals")
+- advance_stage (fields: from_stage, to_stage; stages: lead, qualified, proposal, negotiation, closed_won, closed_lost)
+- log_note (fields: message)`,
+      user: `User wants: "${description}". Output JSON: {"name":"3-6 words","description":"1 sentence","trigger":"<trigger>","actions":[{"type":"...","title":"...","body":"...","from_stage":"...","to_stage":"...","message":"...","target":"..."}]}`,
+      fallback: {
+        name: "Follow up on no-answer calls",
+        description: "Auto-create a follow-up task whenever a call goes unanswered.",
+        trigger: "no_answer",
+        actions: [{ type: "create_task", target: "all_open_deals", title: "Retry call tomorrow", body: "Auto-generated follow-up from missed call." }],
+      },
+    });
+    res.json({ draft });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
 export default router;
