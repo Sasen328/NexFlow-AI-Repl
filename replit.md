@@ -13,6 +13,17 @@ NexFlow is an AI-native B2B CRM built as a React + Vite frontend with an Express
 - Chameleon gradient: #B8A0C8 → #C0A0B8 → #88B8B0 → #90B8B8 → #B8B880 → #C8A880
 - Dark mode available via toggle
 
+## Auto-Seed (Production Data)
+
+`artifacts/api-server/src/lib/autoSeed.ts` runs on every API server cold-start.
+It checks if the `contacts` table is empty and, if so, inserts a full set of demo data:
+- 4 users, 6 companies, 8 contacts (with lead scores 58–92)
+- 7 deals across all pipeline stages, 6 signals, 8 activities, 5 calls, 6 notifications
+- 3 AI agents, 3 campaigns, 3 automation rules, 7 custom properties, 4 static lists, 1 dashboard
+
+This ensures the production database is never empty after a fresh deploy.
+The guard is idempotent — it does nothing if data already exists.
+
 ## Stack
 
 - **Monorepo tool**: pnpm workspaces
