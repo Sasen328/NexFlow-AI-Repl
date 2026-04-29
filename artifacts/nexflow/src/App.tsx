@@ -46,6 +46,11 @@ import ReportsPage from "@/pages/reports";
 import PredictivePage from "@/pages/predictive";
 import CulturalIntelligencePage from "@/pages/cultural-intelligence";
 import SettingsPage from "@/pages/settings";
+import SequencesPage from "@/pages/sequences";
+import QuotesPage from "@/pages/quotes";
+import ForecastingPage from "@/pages/forecasting";
+import MeetingsPage from "@/pages/meetings";
+import ConversationIntelligencePage from "@/pages/conversation-intelligence";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -103,6 +108,11 @@ function AppLayout() {
           <Route path="/predictive" component={PredictivePage} />
           <Route path="/cultural-intelligence" component={CulturalIntelligencePage} />
           <Route path="/settings" component={SettingsPage} />
+          <Route path="/sequences" component={SequencesPage} />
+          <Route path="/quotes" component={QuotesPage} />
+          <Route path="/forecasting" component={ForecastingPage} />
+          <Route path="/meetings" component={MeetingsPage} />
+          <Route path="/conversation-intelligence" component={ConversationIntelligencePage} />
           <Route component={NotFound} />
         </Switch>
       </main>
