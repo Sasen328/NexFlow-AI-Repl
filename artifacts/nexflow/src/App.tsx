@@ -1,4 +1,6 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { useEffect } from "react";
+import { isSignedIn } from "@/lib/marketing-auth";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,7 +12,7 @@ import WelcomePage from "@/pages/marketing/Welcome";
 import AboutPage from "@/pages/marketing/About";
 import PricingPage from "@/pages/marketing/Pricing";
 import AuthPage from "@/pages/marketing/Auth";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 import Briefing from "@/pages/briefing";
 import SectionHubPage from "@/pages/section-hub";
@@ -45,6 +47,7 @@ import DashboardsPage from "@/pages/dashboards";
 import DashboardDetailPage from "@/pages/dashboard-detail";
 import InsightsPage from "@/pages/insights";
 import CampaignsPage from "@/pages/campaigns";
+import ChannelsPage from "@/pages/channels";
 import AgentBuilderPage from "@/pages/agent-builder";
 import MessagesPage from "@/pages/messages";
 import TemplatesPage from "@/pages/templates";
@@ -125,6 +128,7 @@ function AppLayout() {
           <Route path="/dashboards/:id" component={DashboardDetailPage} />
           <Route path="/insights" component={InsightsPage} />
           <Route path="/campaigns" component={CampaignsPage} />
+          <Route path="/channels" component={ChannelsPage} />
           <Route path="/agents" component={AgentBuilderPage} />
           <Route path="/notifications" component={NotificationsPage} />
           <Route path="/analytics" component={AnalyticsPage} />
@@ -186,6 +190,19 @@ function MarketingRoute({ children }: { children: React.ReactNode }) {
   return <MarketingLayout>{children}</MarketingLayout>;
 }
 
+/**
+ * Demo gate: anyone trying to access an in-app CRM route without picking a
+ * persona is redirected to /signin. The marketing/investor/auth paths above
+ * are reached before this gate fires, so they remain public.
+ */
+function ProtectedAppLayout() {
+  const [, navigate] = useLocation();
+  useEffect(() => {
+    if (!isSignedIn()) navigate("/signin");
+  }, [navigate]);
+  return <AppLayout />;
+}
+
 function RootRoutes() {
   return (
     <Switch>
@@ -196,7 +213,7 @@ function RootRoutes() {
       <Route path="/pricing">    <MarketingRoute><PricingPage /></MarketingRoute></Route>
       <Route path="/signin">     <MarketingRoute><AuthPage mode="signin" /></MarketingRoute></Route>
       <Route path="/signup">     <MarketingRoute><AuthPage mode="signup" /></MarketingRoute></Route>
-      <Route component={AppLayout} />
+      <Route component={ProtectedAppLayout} />
     </Switch>
   );
 }

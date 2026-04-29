@@ -11,6 +11,7 @@ import {
   SECTIONS, TOP_NAV, findSectionByRoute, findTopNavBySection,
   type SectionDef, type TopNavEntry,
 } from "@/lib/sections";
+import { ROLE_LIST, getRole, setRole, setSignedIn } from "@/lib/marketing-auth";
 
 interface TopBarProps {
   dark: boolean;
@@ -32,10 +33,22 @@ export function TopBar({ dark, onDark }: TopBarProps) {
   const [location] = useLocation();
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [openTopKey, setOpenTopKey] = useState<string | null>(null);
+  const [currentRole, setCurrentRole] = useState(() => getRole());
   const wrapRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: notifData } = useNotifications();
   const unreadCount = (notifData?.notifications ?? []).filter((n: { read?: boolean }) => !n.read).length;
+
+  // Listen for role changes triggered anywhere in the app.
+  useEffect(() => {
+    const refresh = () => setCurrentRole(getRole());
+    window.addEventListener("nf:role-change", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("nf:role-change", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
 
   const activeSection = findSectionByRoute(location);
   const activeTop = activeSection ? findTopNavBySection(activeSection.key) : null;
@@ -167,34 +180,91 @@ export function TopBar({ dark, onDark }: TopBarProps) {
               aria-haspopup="menu"
               aria-expanded={avatarOpen}
             >
-              <div className="w-7 h-7 rounded-full nf-chameleon-bg flex items-center justify-center text-white text-[11px] font-black">
-                A
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-black"
+                style={{ background: `linear-gradient(135deg,${currentRole.accent},#B8A0C8)` }}
+              >
+                {currentRole.initials}
+              </div>
+              <div className="hidden md:flex flex-col items-start leading-tight">
+                <span className="text-[11px] font-bold">{currentRole.label}</span>
+                <span className="text-[9px] text-muted-foreground">{currentRole.name}</span>
               </div>
             </button>
             {avatarOpen && (
-              <div className="absolute right-0 top-full mt-1 w-64 glass-card rounded-xl border border-border/40 shadow-xl py-2 z-50">
-                <div className="px-3 py-2 border-b border-border/30">
-                  <div className="text-sm font-semibold">Admin User</div>
-                  <div className="text-xs text-muted-foreground">admin@nexflow.ai</div>
+              <div className="absolute right-0 top-full mt-1 w-72 glass-card rounded-xl border border-border/40 shadow-xl py-2 z-50">
+                <div className="px-3 py-2 border-b border-border/30 flex items-center gap-2">
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0"
+                    style={{ background: `linear-gradient(135deg,${currentRole.accent},#B8A0C8)` }}
+                  >
+                    {currentRole.initials}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold truncate">{currentRole.name}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{currentRole.title}</div>
+                    <div className="text-[10px] text-muted-foreground truncate">{currentRole.email}</div>
+                  </div>
                 </div>
+
+                {/* Persona switcher */}
+                <div className="px-3 pt-2 pb-1">
+                  <div className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Switch persona
+                  </div>
+                  <div className="grid grid-cols-1 gap-1">
+                    {ROLE_LIST.map((r) => {
+                      const active = r.key === currentRole.key;
+                      return (
+                        <button
+                          key={r.key}
+                          onClick={() => {
+                            setRole(r.key);
+                            setAvatarOpen(false);
+                          }}
+                          className={cn(
+                            "flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-all",
+                            active ? "bg-muted/60" : "hover:bg-muted/40",
+                          )}
+                        >
+                          <div
+                            className="w-6 h-6 rounded-md flex items-center justify-center text-white text-[10px] font-black flex-shrink-0"
+                            style={{ background: `linear-gradient(135deg,${r.accent},#B8A0C8)` }}
+                          >
+                            {r.initials}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[12px] font-bold truncate leading-tight">{r.label}</div>
+                            <div className="text-[10px] text-muted-foreground truncate leading-tight">{r.name}</div>
+                          </div>
+                          {active && (
+                            <div className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded"
+                              style={{ background: `${r.accent}25`, color: r.accent }}>
+                              Active
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <Link href="/account-settings">
-                  <div className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 cursor-pointer">
+                  <div className="flex items-center gap-2 mx-1 mt-1 px-2 py-2 text-sm hover:bg-muted/50 cursor-pointer rounded-lg">
                     <Settings className="w-3.5 h-3.5 text-muted-foreground" /> Account Settings
                     <ChevronRight className="w-3 h-3 ml-auto text-muted-foreground" />
                   </div>
                 </Link>
                 <Link href="/capabilities">
-                  <div className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 cursor-pointer">
+                  <div className="flex items-center gap-2 mx-1 px-2 py-2 text-sm hover:bg-muted/50 cursor-pointer rounded-lg">
                     <Sparkles className="w-3.5 h-3.5 text-muted-foreground" /> Capabilities
                   </div>
                 </Link>
                 <div className="border-t border-border/30 mt-1 pt-1">
                   <button
                     onClick={() => {
-                      import("@/lib/marketing-auth").then((m) => {
-                        m.setSignedIn(false);
-                        window.location.href = "/welcome";
-                      });
+                      setSignedIn(false);
+                      window.location.href = "/welcome";
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 text-left"
                   >
@@ -204,7 +274,7 @@ export function TopBar({ dark, onDark }: TopBarProps) {
                 <div className="px-3 pt-2 mt-1 border-t border-border/30">
                   <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#C8A880]/10 border border-[#C8A880]/25">
                     <FlaskConical className="w-3 h-3 text-[#C8A880]" />
-                    <div className="text-[10px] font-bold text-[#C8A880]">DEMO MODE</div>
+                    <div className="text-[10px] font-bold text-[#C8A880]">DEMO MODE — click any persona above to switch</div>
                   </div>
                 </div>
               </div>
