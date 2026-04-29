@@ -6,6 +6,14 @@ NexFlow is an AI-native B2B CRM designed to streamline sales and marketing opera
 ## User Preferences
 I prefer iterative development with clear, concise communication. Before making any major architectural changes or introducing new dependencies, please ask for my approval. Ensure that all new features are well-documented and follow established coding standards. I appreciate detailed explanations for complex implementations.
 
+## Recent Changes (April 29, 2026)
+
+- **Navigation overhaul:** replaced left `Sidebar` with horizontal `TopBar` (`artifacts/nexflow/src/components/layout/TopBar.tsx`). Eight grouped sections (Home, Sales, Call Center, Marketing, Automation, AI Hub, Insights, Data) each open a click-triggered mega-dropdown with all tools shown as tile cards. ARIA semantics (`aria-haspopup`, `aria-expanded`, `aria-controls`, `role="menu"`); closes on outside click, route change, or Escape. Includes mobile burger overlay and avatar dropdown linking to `/account-settings`.
+- **Account Settings hub:** new `/account-settings` and `/account-settings/:section` routes (`artifacts/nexflow/src/pages/account-settings.tsx`) consolidate all admin pages (settings, permissions, custom properties, trust-center, public-trust, capabilities, migration) into a single tabbed page with grouped side nav (ACCOUNT / DATA & FIELDS / SECURITY & TRUST / PLATFORM) and a search filter. Uses lazy-loaded existing pages. Public trust shows a "open in new tab" link instead of being embedded since it's a customer-facing page. Invalid section keys redirect to `/account-settings/settings`.
+- **Contact profile Properties card:** new "PROPERTIES" panel on contact-profile overview tab (`artifacts/nexflow/src/pages/contact-profile.tsx`) shows Contact Owner (with avatar + email), Lead Stage (colored pill), Lead Score (number + progress bar), Company link, Title, Tags, Last Engaged date, Created/Updated dates.
+- **API contact owner data:** `GET /api/contacts/:id` now `leftJoin`s the `users` table to return `owner_id`, `owner_name`, `owner_email`, plus `company_industry` and `last_engaged_at` (`artifacts/api-server/src/routes/contacts.ts`).
+- **Layout:** `App.tsx` switched from `flex` row (sidebar) to `flex-col` (topbar) with `max-w-[1600px]` centered main; removed `collapsed` state.
+
 ## System Architecture
 NexFlow is built as a pnpm monorepo, separating the frontend and backend.
 -   **Frontend**: React + Vite, styled with Tailwind CSS and shadcn/ui. It provides a modern, responsive user interface with a default light mode featuring a pastel mesh gradient and glassmorphism cards. A dark mode toggle is also available.

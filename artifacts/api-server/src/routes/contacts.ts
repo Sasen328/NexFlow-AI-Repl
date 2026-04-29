@@ -100,17 +100,23 @@ router.get("/:id", async (req, res) => {
         title: contacts.title,
         company_id: contacts.company_id,
         company_name: companies.name,
+        company_industry: companies.industry,
         lead_score: contacts.lead_score,
         status: contacts.status,
         avatar_url: contacts.avatar_url,
         linkedin_url: contacts.linkedin_url,
         notes: contacts.notes,
         tags: contacts.tags,
+        owner_id: contacts.owner_id,
+        owner_name: users.name,
+        owner_email: users.email,
+        last_engaged_at: contacts.last_engaged_at,
         created_at: contacts.created_at,
         updated_at: contacts.updated_at,
       })
       .from(contacts)
       .leftJoin(companies, eq(contacts.company_id, companies.id))
+      .leftJoin(users, eq(contacts.owner_id, users.id))
       .where(eq(contacts.id, req.params.id));
 
     if (!contact) return res.status(404).json({ error: "Contact not found" });
