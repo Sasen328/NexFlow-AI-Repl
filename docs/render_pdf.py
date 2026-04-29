@@ -396,7 +396,9 @@ def render_one(md_path: Path) -> Path:
     out_path = md_path.with_suffix(".pdf")
     md_text = md_path.read_text(encoding="utf-8")
     full_html = build_full_html(md_text, doc_title=md_path.stem)
-    HTML(string=full_html, base_url=str(DOCS_DIR)).write_pdf(
+    # Resolve relative image paths (e.g. charts/foo.svg) against the markdown
+    # file's own directory, so per-folder asset references work.
+    HTML(string=full_html, base_url=str(md_path.parent) + "/").write_pdf(
         target=str(out_path),
         stylesheets=[CSS(string=BRAND_CSS)],
     )
@@ -408,6 +410,9 @@ def main() -> None:
     business_dir = DOCS_DIR / "business"
     if business_dir.is_dir():
         md_files += sorted(p for p in business_dir.glob("*.md"))
+    investor_dir = DOCS_DIR / "investor"
+    if investor_dir.is_dir():
+        md_files += sorted(p for p in investor_dir.glob("*.md"))
     if not md_files:
         print("No markdown files found.")
         return

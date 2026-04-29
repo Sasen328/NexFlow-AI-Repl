@@ -575,3 +575,23 @@ export type AutomationRule = typeof automation_rules.$inferSelect;
 export type Campaign = typeof campaigns.$inferSelect;
 export type AiAgent = typeof ai_agents.$inferSelect;
 export type AiInsight = typeof ai_insights.$inferSelect;
+
+// ── Investor data-room access log ──────────────────────────────────────────
+// Logs every passcode attempt and every successful document download from
+// the private investor landing page so the founders can see who has been
+// engaging with the materials. Stored as a flat append-only table.
+export const investor_access_log = pgTable("investor_access_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ts: timestamp("ts").defaultNow().notNull(),
+  // "auth_success" | "auth_failure" | "download" | "view"
+  action: text("action").notNull(),
+  // Slug of the document being downloaded (only for "download")
+  doc_slug: text("doc_slug"),
+  // Coarse client info — IP from x-forwarded-for and trimmed user agent
+  ip: text("ip"),
+  user_agent: text("user_agent"),
+  // Whether the action was authorised at the time it happened
+  success: boolean("success").default(true).notNull(),
+});
+
+export type InvestorAccessLogEntry = typeof investor_access_log.$inferSelect;

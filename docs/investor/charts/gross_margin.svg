@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" font-family="Manrope, system-ui, sans-serif">
+  <rect x="0" y="0" width="720" height="320" fill="#F4F2F0"/>
+  <text x="36" y="36" font-size="16" font-weight="700" fill="#3F2E56" letter-spacing="2">GROSS MARGIN PROGRESSION</text>
+  <text x="36" y="56" font-size="11" fill="#3F2E56" opacity="0.6">COGS as % of revenue compresses as fixed hosting and AI overhead amortise across a larger seat base. Source: financial model sheet 05 · P&amp;L.</text>
+
+  <!-- axes -->
+  <line x1="80" y1="100" x2="80" y2="260" stroke="#3F2E56" stroke-opacity="0.25"/>
+  <line x1="80" y1="260" x2="690" y2="260" stroke="#3F2E56" stroke-opacity="0.25"/>
+  <g font-size="10" fill="#3F2E56" opacity="0.65" text-anchor="end">
+    <text x="74" y="264">70%</text>
+    <text x="74" y="232">75%</text>
+    <text x="74" y="200">80%</text>
+    <text x="74" y="168">85%</text>
+    <text x="74" y="136">90%</text>
+    <text x="74" y="104">95%</text>
+  </g>
+  <g stroke="#3F2E56" stroke-opacity="0.08">
+    <line x1="80" y1="232" x2="690" y2="232"/>
+    <line x1="80" y1="200" x2="690" y2="200"/>
+    <line x1="80" y1="168" x2="690" y2="168"/>
+    <line x1="80" y1="136" x2="690" y2="136"/>
+    <line x1="80" y1="104" x2="690" y2="104"/>
+  </g>
+
+  <!-- 80% benchmark line -->
+  <line x1="80" y1="200" x2="690" y2="200" stroke="#A26B4F" stroke-dasharray="4 4" stroke-opacity="0.55"/>
+  <text x="685" y="195" font-size="10" fill="#A26B4F" text-anchor="end" font-style="italic">SaaS benchmark · 80%</text>
+
+  <!-- data: 77 -> y=215, 79 -> y=203, 81 -> y=190 -->
+  <!-- mapping: 70 -> 264, 95 -> 104, slope -6.4 per pct => y = 264 - (pct-70)*6.4 -->
+  <!-- 77: 264-44.8=219.2  79: 264-57.6=206.4  81: 264-70.4=193.6 -->
+  <polyline points="200,219 420,206 640,194" fill="none" stroke="#3F2E56" stroke-width="3"/>
+  <circle cx="200" cy="219" r="6" fill="#7CC8B8" stroke="#3F2E56" stroke-width="2"/>
+  <circle cx="420" cy="206" r="6" fill="#7CC8B8" stroke="#3F2E56" stroke-width="2"/>
+  <circle cx="640" cy="194" r="6" fill="#C9A9D6" stroke="#3F2E56" stroke-width="2"/>
+
+  <text x="200" y="288" font-size="11" font-weight="700" fill="#3F2E56" text-anchor="middle">YEAR 1</text>
+  <text x="200" y="248" font-size="11" font-weight="700" fill="#3F2E56" text-anchor="middle">77%</text>
+  <text x="420" y="288" font-size="11" font-weight="700" fill="#3F2E56" text-anchor="middle">YEAR 2</text>
+  <text x="420" y="232" font-size="11" font-weight="700" fill="#3F2E56" text-anchor="middle">79%</text>
+  <text x="640" y="288" font-size="11" font-weight="700" fill="#3F2E56" text-anchor="middle">YEAR 3</text>
+  <text x="640" y="220" font-size="11" font-weight="700" fill="#3F2E56" text-anchor="middle">81%</text>
+</svg>

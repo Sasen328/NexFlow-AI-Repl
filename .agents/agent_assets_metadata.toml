@@ -53,3 +53,39 @@ id = "3UH7B5ugYGnSXI6InLkNy"
 uri = "file://artifacts/marketing-demo-video/public/exports/nexflow-marketing-demo.mp4"
 type = "video"
 title = "NexFlow Marketing Demo — 90s investor cut (1280×720, H.264 + AAC)"
+
+[[outputs]]
+id = "JIoCujk6YGjnH1sz53kIV"
+uri = "file://docs/investor/01-investor-highlevel.pdf"
+type = "pdf"
+title = "01 — Investor Deck (high level, PDF)"
+
+[[outputs]]
+id = "1tqgYhAR8PbDMmH5yjLu9"
+uri = "file://docs/investor/01-investor-highlevel.pptx"
+type = "slides"
+title = "01 — Investor Deck (high level, PPTX)"
+
+[[outputs]]
+id = "fBN8edsSI9llmDB4LYd4X"
+uri = "file://docs/investor/02-investor-deep-dive.pdf"
+type = "pdf"
+title = "02 — Investor Deep-Dive (PDF)"
+
+[[outputs]]
+id = "u-4rvcYkpHdov598M40Z8"
+uri = "file://docs/investor/03-feasibility-study.pdf"
+type = "pdf"
+title = "03 — Feasibility Study (PDF)"
+
+[[outputs]]
+id = "U7Zmth3mb1f5hnBbKAnav"
+uri = "file://docs/investor/04-three-year-financial-plan.pdf"
+type = "pdf"
+title = "04 — Three-Year Financial Plan (PDF)"
+
+[[outputs]]
+id = "xoD4_gVmroL95yr-isDWR"
+uri = "file://docs/investor/README.pdf"
+type = "pdf"
+title = "Investor Pack — README (PDF)"
