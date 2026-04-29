@@ -628,9 +628,70 @@ function CampaignDetail({ campaign, onClose, onGenerate, onSend, generating, sen
   const [audience, setAudience] = useState("dormant leads");
   const [goal, setGoal] = useState("re-engage and book a meeting");
   const [tone, setTone] = useState("friendly");
-  const [tab, setTab] = useState<"content" | "recipients">("content");
+  const [tab, setTab] = useState<"content" | "recipients" | "creative" | "publish">("content");
   const { data, isLoading } = useCampaignRecipients(campaign.id);
   const recipients = data?.recipients ?? [];
+
+  // creative
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [imageStyle, setImageStyle] = useState("professional");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageErr, setImageErr] = useState<string | null>(null);
+
+  // publish
+  const PLATFORMS = [
+    { key: "linkedin", label: "LinkedIn" },
+    { key: "tiktok", label: "TikTok" },
+    { key: "instagram", label: "Instagram" },
+    { key: "twitter", label: "Twitter / X" },
+    { key: "whatsapp", label: "WhatsApp Broadcast" },
+    { key: "email", label: "Email" },
+  ];
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(["linkedin", "instagram"]);
+  const [publishCaption, setPublishCaption] = useState("");
+  const [publishLoading, setPublishLoading] = useState(false);
+  const [publishResults, setPublishResults] = useState<any>(null);
+
+  async function generateImage() {
+    setImageLoading(true);
+    setImageErr(null);
+    try {
+      const r = await apiFetch("/marketing/generate-image", {
+        method: "POST",
+        body: JSON.stringify({
+          campaign_id: campaign.id,
+          prompt: imagePrompt || `${campaign.name} — ${campaign.subject ?? goal}`,
+          style: imageStyle,
+        }),
+      });
+      setImageUrl(r.image_url);
+    } catch (e: any) {
+      setImageErr(e?.message ?? "Image generation failed");
+    } finally {
+      setImageLoading(false);
+    }
+  }
+
+  async function publishNow() {
+    setPublishLoading(true);
+    setPublishResults(null);
+    try {
+      const r = await apiFetch(`/marketing/publish/${campaign.id}`, {
+        method: "POST",
+        body: JSON.stringify({
+          platforms: selectedPlatforms,
+          caption: publishCaption || campaign.subject || campaign.name,
+          image_url: imageUrl,
+        }),
+      });
+      setPublishResults(r);
+    } catch (e: any) {
+      setPublishResults({ error: e?.message ?? "Publish failed" });
+    } finally {
+      setPublishLoading(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
@@ -641,8 +702,13 @@ function CampaignDetail({ campaign, onClose, onGenerate, onSend, generating, sen
         </div>
         <p className="text-xs text-muted-foreground capitalize mb-4">{campaign.channel} · {campaign.status} · {campaign.sent_count ?? 0} sent · {campaign.opened_count ?? 0} opened</p>
 
-        <div className="flex gap-1 border-b border-border/30 mb-5">
-          {[{ id: "content", label: "Content", icon: FileText }, { id: "recipients", label: `Recipients (${campaign.sent_count ?? 0})`, icon: Users }].map(t => (
+        <div className="flex gap-1 border-b border-border/30 mb-5 overflow-x-auto">
+          {[
+            { id: "content", label: "Content", icon: FileText },
+            { id: "creative", label: "AI Creative", icon: Sparkles },
+            { id: "publish", label: "Multi-publish", icon: Send },
+            { id: "recipients", label: `Recipients (${campaign.sent_count ?? 0})`, icon: Users },
+          ].map(t => (
             <button key={t.id} onClick={() => setTab(t.id as any)} className={cn("px-3 py-2 text-xs font-semibold flex items-center gap-1.5 border-b-2 -mb-px transition-colors",
               tab === t.id ? "border-[#88B8B0] text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
               <t.icon className="w-3.5 h-3.5" /> {t.label}
@@ -677,6 +743,99 @@ function CampaignDetail({ campaign, onClose, onGenerate, onSend, generating, sen
               </button>
             </div>
           </>
+        )}
+
+        {tab === "creative" && (
+          <div className="space-y-4">
+            <div>
+              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1.5">Image prompt</div>
+              <textarea
+                value={imagePrompt}
+                onChange={(e) => setImagePrompt(e.target.value)}
+                placeholder={`e.g. Sleek hero image for "${campaign.name}" campaign — ${tone} tone, GCC business setting, modern…`}
+                className="w-full px-3 py-2 rounded-lg bg-muted/40 border border-border/40 text-sm min-h-[80px] outline-none"
+              />
+              <div className="flex items-center gap-2 mt-2">
+                <select value={imageStyle} onChange={(e) => setImageStyle(e.target.value)} className="px-3 py-2 rounded-lg bg-muted/50 border border-border/40 text-xs outline-none">
+                  <option value="professional">Professional</option>
+                  <option value="vibrant">Vibrant / Lifestyle</option>
+                  <option value="minimal">Minimal</option>
+                  <option value="luxury">Luxury</option>
+                  <option value="tech">Tech / Modern</option>
+                </select>
+                <button onClick={generateImage} disabled={imageLoading}
+                  className="flex-1 px-3 py-2 rounded-lg bg-[#B8A0C8] text-white text-xs font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50">
+                  <Sparkles className="w-3.5 h-3.5" /> {imageLoading ? "Generating image…" : "Generate hero image with AI"}
+                </button>
+              </div>
+              {imageErr && <div className="text-xs text-red-500 mt-2">{imageErr}</div>}
+            </div>
+            {imageUrl && (
+              <div className="rounded-xl overflow-hidden border border-border/40">
+                <img src={imageUrl} alt="Generated campaign" className="w-full h-64 object-cover" />
+                <div className="px-3 py-2 text-[10px] text-muted-foreground flex items-center justify-between">
+                  <span>Image attached to campaign</span>
+                  <button onClick={() => setTab("publish")} className="text-[#88B8B0] font-semibold">Use in publish →</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "publish" && (
+          <div className="space-y-4">
+            <div>
+              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1.5">Pick platforms</div>
+              <div className="grid grid-cols-3 gap-2">
+                {PLATFORMS.map((p) => (
+                  <label key={p.key} className={cn(
+                    "px-3 py-2 rounded-lg border cursor-pointer text-xs flex items-center gap-2 transition",
+                    selectedPlatforms.includes(p.key) ? "border-[#88B8B0] bg-[#88B8B0]/10" : "border-border/40 hover:bg-muted/30"
+                  )}>
+                    <input type="checkbox" checked={selectedPlatforms.includes(p.key)}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelectedPlatforms([...selectedPlatforms, p.key]);
+                        else setSelectedPlatforms(selectedPlatforms.filter((x) => x !== p.key));
+                      }}
+                      className="accent-[#88B8B0]" />
+                    {p.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1.5">Caption / post body</div>
+              <textarea
+                value={publishCaption}
+                onChange={(e) => setPublishCaption(e.target.value)}
+                placeholder={campaign.subject || campaign.name}
+                className="w-full px-3 py-2 rounded-lg bg-muted/40 border border-border/40 text-sm min-h-[80px] outline-none"
+              />
+            </div>
+            {imageUrl && (
+              <div className="text-xs text-muted-foreground flex items-center gap-2">
+                <img src={imageUrl} alt="" className="w-10 h-10 rounded object-cover" />
+                Hero image attached
+              </div>
+            )}
+            <button onClick={publishNow} disabled={publishLoading || selectedPlatforms.length === 0}
+              className="w-full px-3 py-2 rounded-lg bg-[#88B8B0] text-white text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50">
+              <Send className="w-3.5 h-3.5" /> {publishLoading ? "Publishing to all selected…" : `Publish to ${selectedPlatforms.length} platform${selectedPlatforms.length === 1 ? "" : "s"}`}
+            </button>
+            {publishResults && (
+              <div className="space-y-2">
+                {publishResults.error && <div className="text-xs text-red-500">{publishResults.error}</div>}
+                {publishResults.results?.map((r: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between text-xs px-3 py-2 rounded-lg bg-muted/30">
+                    <span className="font-semibold capitalize">{r.platform}</span>
+                    <span className={r.status === "published" ? "text-[#88B8B0]" : "text-amber-500"}>
+                      {r.status === "published" ? "✓ Published" : r.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {tab === "recipients" && (

@@ -1,0 +1,77 @@
+I’ll transcribe your handwritten notes first, then rephrase them as clean, structured feature specs ready for Replit.
+Transcription of your notes
+Sales / Team Lead → but more insights on performance. The funnel that is currently set, except marketing.
+Marketing:
+	•	Marketing full lifecycle/funnel
+	•	Have option to push campaigns into platforms (LinkedIn, TikTok, Instagram, any other platform)
+	•	Generate full campaign tailoring by having image, key message & messages
+	•	View leads that are not moving in funnel & suggest campaigns
+	•	Option to tailor campaigns through WhatsApp or email with full content & ability to generate images, videos, lead-by-script writing
+	•	Have an AI Assistant for marketing analysis & support
+	•	Campaign Analysis toolkit
+More Features:
+	•	Deduplication Data: fetch duplications in uploading leads
+	•	Upload names feature: through adding basic data & then fully enriching, even through business cards
+	•	Call analysis into contacts: when contacts having analysis, the previous engagements (meetings, calls) should be analyzed
+	•	Suggestion to contacts: Generate automation to contact, top prioritize leads through call sequence either through AI voice, or send messages/emails, or agents getting outgoing as incoming to increase call activities
+
+Now here are the cleaned-up Replit-ready specs:
+
+CRM App — Additional Feature Specifications
+1. Marketing Module (Full Funnel)
+Objective: Extend the current CRM beyond sales/team lead insights to cover the complete marketing funnel with AI-driven campaign execution.
+1.1 Multi-Platform Campaign Publishing
+Enable users to push campaigns directly from the CRM to external platforms including LinkedIn, TikTok, Instagram, and other social/ad platforms via API integration. Each campaign should support platform-specific formatting, scheduling, and post-launch tracking.
+1.2 AI-Generated Campaign Builder
+Build a campaign generation engine that produces a full campaign package from a single prompt or lead segment, including:
+	•	Campaign imagery / creative assets (AI image generation)
+	•	Key message and positioning statement
+	•	Full set of ad copy variants (headlines, captions, CTAs)
+	•	Suggested target audience and channel mix
+1.3 Stalled-Lead Campaign Recommender
+Detect leads that are not progressing through the funnel (no stage movement within X days) and automatically suggest re-engagement campaigns tailored to the lead’s stage, source, and previous interactions.
+1.4 Direct Outreach Campaigns (WhatsApp / Email)
+Enable users to launch outreach campaigns through WhatsApp and email directly from the CRM, with:
+	•	Full AI-generated content (subject lines, body copy, CTAs)
+	•	Auto-generated images and short videos for inclusion
+	•	AI-drafted call/voicenote scripts for sales follow-up
+	•	Personalization at the lead level
+1.5 Marketing AI Assistant
+Embed an AI assistant within the marketing module that supports:
+	•	Performance analysis of running and past campaigns
+	•	Recommendations to improve CTR, conversion, and ROI
+	•	Q&A on marketing data (“Which campaign generated the most qualified leads last month?”)
+1.6 Campaign Analysis Toolkit
+Provide a dashboard for campaign performance with metrics across all channels (impressions, clicks, conversions, cost-per-lead, ROI), comparative analysis across campaigns, and exportable reports.
+
+2. Data & Lead Management Enhancements
+2.1 Lead Deduplication Engine
+On every lead upload (CSV, manual entry, or integration), the system should automatically detect duplicates based on configurable matching criteria (email, phone, full name + company, etc.), flag them for review, and offer merge / skip / overwrite actions.
+2.2 Lead Upload & Enrichment Feature
+Allow users to upload leads with minimal basic data (e.g., just a name, or a scanned business card) and have the system automatically enrich the record with full contact details, company information, role, LinkedIn profile, and other relevant fields. Business card OCR should be supported as an input method.
+2.3 Contact-Level Call & Meeting Analysis
+When a contact’s profile is opened or analyzed, the system should automatically pull and analyze all previous engagements with that contact, including:
+	•	Past meetings (notes, summaries, sentiment)
+	•	Past calls (transcripts, talking points, outcomes)
+	•	Email threads
+The output should be a unified engagement summary with key insights, objections raised, and recommended next steps.
+
+3. AI-Driven Contact Engagement Automation
+3.1 Smart Contact Suggestions
+Generate AI-powered recommendations for who to contact next, prioritizing leads by likelihood-to-convert, recency, and engagement signals.
+3.2 Automated Call Sequencing
+Build an automation engine that executes prioritized outreach through any of the following channels:
+	•	AI Voice Agent — outbound calls placed by an AI voice assistant
+	•	Automated messaging — WhatsApp / SMS sequences
+	•	Automated email sequences
+3.3 Inbound-Style Outbound Calling
+Implement a feature where outbound calls placed by agents are routed/displayed in a way that mimics inbound call handling, increasing daily call activity and answer rates. (Effectively a power-dialer / parallel-dialer mode where agents act on connected calls only.)
+
+Suggested Build Priority for Replit
+	1.	Lead Deduplication + Upload & Enrichment (foundational data quality)
+	2.	Contact-Level Engagement Analysis (immediate sales value)
+	3.	Marketing Module — Campaign Builder + Multi-Platform Publishing
+	4.	AI Voice Agent + Call Sequencing
+	5.	Marketing AI Assistant + Campaign Analytics Toolkit
+
+Want me to drop this into a replit.md spec file you can paste directly into your Replit project, or break any specific feature into a more detailed user-stories / acceptance-criteria format?​​​​​​​​​​​​​​​​

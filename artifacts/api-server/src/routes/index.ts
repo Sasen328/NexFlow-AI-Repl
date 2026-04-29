@@ -29,6 +29,10 @@ import activityCaptureRouter from "./activity-capture";
 import attributionRouter from "./attribution";
 import healthScoresRouter from "./health-scores";
 import redactionRouter from "./redaction";
+import dedupRouter from "./dedup";
+import marketingExtrasRouter from "./marketing-extras";
+import powerDialerRouter from "./power-dialer";
+import leadEnrichRouter from "./lead-enrich";
 
 const router: IRouter = Router();
 
@@ -62,5 +66,9 @@ router.use("/activity-capture", activityCaptureRouter);
 router.use("/attribution", attributionRouter);
 router.use("/health-scores", healthScoresRouter);
 router.use("/redaction", redactionRouter);
+router.use("/dedup", dedupRouter);
+router.use("/marketing", marketingExtrasRouter);
+router.use("/power-dialer", powerDialerRouter);
+router.use("/lead-enrich", leadEnrichRouter);
 
 export default router;

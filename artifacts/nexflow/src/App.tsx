@@ -66,6 +66,10 @@ import AttributionPage from "@/pages/attribution";
 import ActivityCapturePage from "@/pages/activity-capture";
 import CallRedactionPage from "@/pages/call-redaction";
 import PublicTrustPage from "@/pages/public-trust";
+import DedupPage from "@/pages/dedup";
+import LeadEnrichPage from "@/pages/lead-enrich";
+import MarketingAssistantPage from "@/pages/marketing-assistant";
+import PowerDialerPage from "@/pages/power-dialer";
 import PermissionsPage from "@/pages/permissions";
 import ReportBuilderPage from "@/pages/report-builder";
 import CapabilitiesPage from "@/pages/capabilities";
@@ -146,6 +150,10 @@ function AppLayout() {
           <Route path="/activity-capture" component={ActivityCapturePage} />
           <Route path="/call-redaction" component={CallRedactionPage} />
           <Route path="/public-trust" component={PublicTrustPage} />
+          <Route path="/dedup" component={DedupPage} />
+          <Route path="/lead-enrich" component={LeadEnrichPage} />
+          <Route path="/marketing-assistant" component={MarketingAssistantPage} />
+          <Route path="/power-dialer" component={PowerDialerPage} />
           <Route path="/permissions" component={PermissionsPage} />
           <Route path="/report-builder" component={ReportBuilderPage} />
           <Route path="/capabilities" component={CapabilitiesPage} />
