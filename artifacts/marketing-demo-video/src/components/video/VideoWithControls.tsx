@@ -132,6 +132,41 @@ function ControlBar({
   );
 }
 
+function PreRenderedDownloadButton() {
+  // Vite serves /public at the BASE_URL root, so a build artifact under
+  // public/exports is reachable from the browser at <BASE_URL>exports/...
+  const href = `${import.meta.env.BASE_URL}exports/nexflow-marketing-demo.mp4`;
+  return (
+    <div className="absolute top-5 right-[470px] z-50 flex flex-col items-end gap-2 max-w-[420px]">
+      <a
+        href={href}
+        download="nexflow-marketing-demo.mp4"
+        className="flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full backdrop-blur-md transition-all hover:scale-105 cursor-pointer no-underline"
+        style={{
+          background: 'linear-gradient(90deg, rgba(45,30,60,0.95), rgba(72,52,88,0.95))',
+          boxShadow: '0 10px 30px rgba(45,30,60,0.36)',
+          border: '1px solid rgba(255,255,255,0.3)',
+        }}
+        aria-label="Download pre-rendered MP4"
+      >
+        <Download className="w-5 h-5 text-white" />
+        <span className="text-[13px] font-semibold text-white tracking-wide">
+          Download MP4 · 90s · with audio
+        </span>
+      </a>
+      <div
+        className="px-3 py-1.5 rounded-lg text-[11px] text-white/95 max-w-[300px] text-right leading-snug"
+        style={{
+          background: 'rgba(17, 24, 39, 0.7)',
+          backdropFilter: 'blur(8px)',
+        }}
+      >
+        Server-rendered investor cut · 26 MB · plays everywhere
+      </div>
+    </div>
+  );
+}
+
 function RecorderButton({
   status,
   progress,
@@ -384,7 +419,10 @@ export default function VideoWithControls() {
         onToggle={handleSoundToggle}
       />
 
-      {/* Real in-browser recorder button */}
+      {/* Pre-rendered MP4 download button (primary, reliable path) */}
+      <PreRenderedDownloadButton />
+
+      {/* Real in-browser recorder button (secondary "re-record live" path) */}
       <RecorderButton
         status={recorder.status}
         progress={recorder.progress}

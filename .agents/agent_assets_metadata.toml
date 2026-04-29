@@ -47,3 +47,9 @@ id = "wUEDo71g6_WVgulziHWq6"
 uri = "file://artifacts/nexflow/public/NexFlow_Logo_Full_3200.png"
 type = "image"
 title = "NexFlow Full Logo — 3200×1800 (870 KB)"
+
+[[outputs]]
+id = "3UH7B5ugYGnSXI6InLkNy"
+uri = "file://artifacts/marketing-demo-video/public/exports/nexflow-marketing-demo.mp4"
+type = "video"
+title = "NexFlow Marketing Demo — 90s investor cut (1280×720, H.264 + AAC)"
