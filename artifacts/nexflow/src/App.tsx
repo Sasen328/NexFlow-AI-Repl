@@ -4,9 +4,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LivingMesh } from "@/components/layout/LivingMesh";
 import { TopBar } from "@/components/layout/TopBar";
+import { SectionTabStrip } from "@/components/layout/SectionTabStrip";
 import { useState, useEffect } from "react";
 
 import Briefing from "@/pages/briefing";
+import SectionHubPage from "@/pages/section-hub";
 import Dashboard from "@/pages/dashboard";
 import ContactsPage from "@/pages/contacts";
 import ContactProfilePage from "@/pages/contact-profile";
@@ -88,9 +90,11 @@ function AppLayout() {
     <div className="min-h-screen bg-background flex flex-col">
       <LivingMesh />
       <TopBar dark={dark} onDark={setDark} />
+      <SectionTabStrip />
       <main className="flex-1 min-w-0 px-4 sm:px-6 py-6 overflow-y-auto relative z-10 max-w-[1600px] w-full mx-auto">
         <Switch>
           <Route path="/" component={Briefing} />
+          <Route path="/section/:key" component={SectionHubPage} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/sourcing" component={SourcingPage} />
           <Route path="/voice-agents" component={VoiceAgentsPage} />
