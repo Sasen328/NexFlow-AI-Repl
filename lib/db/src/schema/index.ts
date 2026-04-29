@@ -9,6 +9,7 @@ import {
   pgEnum,
   jsonb,
   primaryKey,
+  index,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -580,18 +581,25 @@ export type AiInsight = typeof ai_insights.$inferSelect;
 // Logs every passcode attempt and every successful document download from
 // the private investor landing page so the founders can see who has been
 // engaging with the materials. Stored as a flat append-only table.
-export const investor_access_log = pgTable("investor_access_log", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  ts: timestamp("ts").defaultNow().notNull(),
-  // "auth_success" | "auth_failure" | "download" | "view"
-  action: text("action").notNull(),
-  // Slug of the document being downloaded (only for "download")
-  doc_slug: text("doc_slug"),
-  // Coarse client info — IP from x-forwarded-for and trimmed user agent
-  ip: text("ip"),
-  user_agent: text("user_agent"),
-  // Whether the action was authorised at the time it happened
-  success: boolean("success").default(true).notNull(),
-});
+export const investor_access_log = pgTable(
+  "investor_access_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ts: timestamp("ts").defaultNow().notNull(),
+    // "auth_success" | "auth_failure" | "download" | "view"
+    action: text("action").notNull(),
+    // Slug of the document being downloaded (only for "download")
+    doc_slug: text("doc_slug"),
+    // Coarse client info — IP from x-forwarded-for and trimmed user agent
+    ip: text("ip"),
+    user_agent: text("user_agent"),
+    // Whether the action was authorised at the time it happened
+    success: boolean("success").default(true).notNull(),
+  },
+  (t) => ({
+    // The /access-log endpoint and any future audit query orders by ts DESC.
+    tsIdx: index("investor_access_log_ts_idx").on(t.ts),
+  }),
+);
 
 export type InvestorAccessLogEntry = typeof investor_access_log.$inferSelect;

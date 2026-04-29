@@ -76,6 +76,9 @@ function docsRoot(): string {
 // Cookie value format:  <issuedAtMs>.<hex hmac>
 // HMAC = HMAC-SHA256(SESSION_SECRET, "investor:" + issuedAtMs)
 function signCookie(issuedAtMs: number): string {
+  // Defence-in-depth: callers (POST /auth) already gate on SIGNING_SECRET,
+  // but refuse to sign with an empty key under any circumstance.
+  if (!SIGNING_SECRET) throw new Error("SESSION_SECRET is not configured");
   const mac = crypto
     .createHmac("sha256", SIGNING_SECRET)
     .update(`investor:${issuedAtMs}`)
@@ -274,7 +277,16 @@ router.get("/download/:slug", requireAuth, async (req, res) => {
     "Content-Disposition",
     `attachment; filename="${doc.filename}"`,
   );
-  createReadStream(full).pipe(res);
+  // If the file becomes unreadable mid-stream we must NOT let the error
+  // propagate as an unhandled exception (which would crash the entire
+  // server). Log it and end the response cleanly instead.
+  const stream = createReadStream(full);
+  stream.on("error", (err) => {
+    req.log?.error({ err, slug: doc.slug }, "investor download stream error");
+    if (!res.headersSent) res.status(500);
+    res.end();
+  });
+  stream.pipe(res);
 });
 
 // GET /investors/access-log — gated; recent activity for the founders
