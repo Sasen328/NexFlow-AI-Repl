@@ -1,6 +1,5 @@
 import { AnimatePresence } from 'framer-motion';
 import { useVideoPlayer } from '@/lib/video';
-import { Scene1 } from './video_scenes/Scene1';
 import { Scene2 } from './video_scenes/Scene2';
 import { Scene3 } from './video_scenes/Scene3';
 import { Scene4 } from './video_scenes/Scene4';
@@ -9,22 +8,40 @@ import { Scene6 } from './video_scenes/Scene6';
 import { Scene7 } from './video_scenes/Scene7';
 import { Scene8 } from './video_scenes/Scene8';
 import { SceneAllTools } from './video_scenes/SceneAllTools';
+import {
+  SceneHook,
+  ScenePain1,
+  ScenePain2,
+  ScenePain3,
+  ScenePain4,
+  SceneReveal,
+} from './video_scenes/ScenesPainPoints';
 import { useEffect } from 'react';
 
 export const SCENE_DURATIONS = {
-  scene1: 8000,
-  scene2: 10000,
-  scene3: 11000,
-  scene4: 9000,
-  scene5: 8000,
-  scene6: 8000,
-  scene7: 9000,
-  sceneAllTools: 18000,
+  sceneHook: 5000,
+  scenePain1: 4500,
+  scenePain2: 4500,
+  scenePain3: 4500,
+  scenePain4: 4500,
+  sceneReveal: 4000,
+  scene2: 8000,
+  scene3: 8000,
+  scene4: 6000,
+  scene5: 6000,
+  scene6: 6000,
+  scene7: 7000,
+  sceneAllTools: 13000,
   scene8: 9000,
 };
 
 const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
-  scene1: Scene1,
+  sceneHook: SceneHook,
+  scenePain1: ScenePain1,
+  scenePain2: ScenePain2,
+  scenePain3: ScenePain3,
+  scenePain4: ScenePain4,
+  sceneReveal: SceneReveal,
   scene2: Scene2,
   scene3: Scene3,
   scene4: Scene4,
