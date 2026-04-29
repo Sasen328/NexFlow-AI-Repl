@@ -5,7 +5,7 @@ import {
   Bell, Search, Moon, Sun, Settings, Sparkles, FlaskConical,
   LogOut, ChevronRight, ChevronDown,
 } from "lucide-react";
-import { NexFlowWordmark, NexFlowLogo } from "./NexFlowLogo";
+import { NexFlowLogo } from "./NexFlowLogo";
 import { useNotifications } from "@/hooks/useApi";
 import {
   SECTIONS, TOP_NAV, findSectionByRoute, findTopNavBySection,
@@ -19,11 +19,14 @@ interface TopBarProps {
 
 /**
  * Two-row hero navigation:
- *   Row 1 — brand + utilities (search / notifications / dark mode / avatar)
- *   Row 2 — six top-nav buttons (Home, CRM, Contact Center, Enrichment,
- *           Marketing, More). Hover/focus reveals a dropdown listing the
- *           section's sub-tabs. "More" shows a categorized dropdown of all
- *           remaining sections grouped by section header.
+ *   Row 1 — logo icon (no wordmark) + six top-nav buttons (Home, CRM,
+ *           Contact Center, Enrichment, Marketing, More). Single-section
+ *           buttons reveal their sub-tabs on hover. "More" opens a
+ *           hierarchical two-pane menu where the left column lists
+ *           grouped sections and the right column reveals that section's
+ *           sub-tabs on hover/click.
+ *   Row 2 — search bar + utilities (notifications, dark mode, avatar)
+ *           pushed to the right edge. No logos or icons in this row.
  */
 export function TopBar({ dark, onDark }: TopBarProps) {
   const [location] = useLocation();
@@ -37,7 +40,7 @@ export function TopBar({ dark, onDark }: TopBarProps) {
   const activeSection = findSectionByRoute(location);
   const activeTop = activeSection ? findTopNavBySection(activeSection.key) : null;
 
-  // Close avatar dropdown on outside click
+  // Close avatar/nav dropdowns on outside click
   useEffect(() => {
     function onClick(e: MouseEvent) {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
@@ -81,10 +84,14 @@ export function TopBar({ dark, onDark }: TopBarProps) {
       ref={wrapRef}
       className="sticky top-0 z-40 glass-panel border-b border-border/30 backdrop-blur-xl"
     >
-      {/* ── Row 1 (top): 6-button top nav + utilities ──────────────
-            Tabs sit ABOVE the logo. Utilities (search / bell /
-            dark mode / avatar) hug the right edge.                 */}
-      <div className="flex items-center h-12 px-3 sm:px-4 max-w-[1600px] mx-auto w-full gap-1">
+      {/* ── Row 1 (top): logo icon + 6-button top nav ──────────────
+            Logo sits beside the Home tab. No wordmark. No utilities. */}
+      <div className="flex items-center h-12 px-3 sm:px-4 max-w-[1600px] mx-auto w-full gap-2">
+        <Link href="/">
+          <div className="flex-shrink-0 cursor-pointer p-1 rounded-lg hover:bg-muted/40 transition-colors" aria-label="NexFlow home">
+            <NexFlowLogo size={28} />
+          </div>
+        </Link>
         <nav
           className="flex items-center gap-1 flex-1 overflow-x-auto no-scrollbar"
           aria-label="Primary"
@@ -102,11 +109,14 @@ export function TopBar({ dark, onDark }: TopBarProps) {
             />
           ))}
         </nav>
+      </div>
 
-        {/* Utilities — pushed all the way right */}
-        <div className="flex items-center gap-1 flex-shrink-0">
+      {/* ── Row 2 (below tabs): search + utilities, right-aligned.
+            Nothing on the left — completely clean below the tab row. */}
+      <div className="border-t border-border/20">
+        <div className="flex items-center justify-end h-10 px-3 sm:px-4 max-w-[1600px] mx-auto w-full gap-1">
           <button
-            className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/40 text-muted-foreground text-xs hover:bg-muted/60 transition-colors w-44 lg:w-56"
+            className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/40 text-muted-foreground text-xs hover:bg-muted/60 transition-colors w-44 lg:w-64"
             aria-label="Search"
             onClick={() => alert("Global search coming soon — try the per-page search inside Contacts, Companies, etc.")}
           >
@@ -196,19 +206,6 @@ export function TopBar({ dark, onDark }: TopBarProps) {
           </div>
         </div>
       </div>
-
-      {/* ── Row 2 (below tabs): centered NexFlow logo as the brand
-            anchor for the workspace.                                */}
-      <div className="border-t border-border/20">
-        <div className="flex items-center justify-center h-16 max-w-[1600px] mx-auto px-4">
-          <Link href="/">
-            <div className="flex items-center gap-3 cursor-pointer">
-              <NexFlowLogo size={36} />
-              <NexFlowWordmark />
-            </div>
-          </Link>
-        </div>
-      </div>
     </header>
   );
 }
@@ -242,8 +239,6 @@ function TopNavButton({
 
   function handleClick() {
     if (isMore) {
-      // Always ensure the dropdown is open on click. Hover may have already
-      // opened it; we don't want a click to immediately close what hover opened.
       onOpen();
     } else {
       navigate(clickHref);
@@ -257,8 +252,6 @@ function TopNavButton({
       onMouseLeave={onScheduleClose}
       onFocus={onOpen}
       onBlur={(e) => {
-        // Only close if focus leaves the entire wrapper (mousing into dropdown
-        // triggers a focus event on the link, which we want to keep open).
         if (!e.currentTarget.contains(e.relatedTarget as Node)) onScheduleClose();
       }}
     >
@@ -298,14 +291,70 @@ function TopNavButton({
         )}
       </button>
 
-      {isOpen && <TopNavDropdown entry={entry} onItemClick={onItemClick} currentPath={currentPath} />}
+      {isOpen && (isMore
+        ? <MoreDropdown entry={entry} onItemClick={onItemClick} currentPath={currentPath} />
+        : <SingleSectionDropdown entry={entry} onItemClick={onItemClick} currentPath={currentPath} />
+      )}
     </div>
   );
 }
 
-/* ─── Dropdown panel rendered on hover/focus ─────────────────────── */
+/* ─── Single-section dropdown (Home, CRM, etc) ──────────────────── */
 
-function TopNavDropdown({
+function SingleSectionDropdown({
+  entry, onItemClick, currentPath,
+}: {
+  entry: TopNavEntry;
+  onItemClick: () => void;
+  currentPath: string;
+}) {
+  const section = SECTIONS.find((s) => s.key === entry.sections[0]);
+  if (!section) return null;
+
+  return (
+    <div className="absolute top-full left-0 mt-1 z-50 glass-card rounded-xl border border-border/40 shadow-xl py-2 w-72">
+      {section.items.map((item) => {
+        const ItemIcon = item.icon;
+        const active =
+          currentPath === item.href ||
+          (item.href !== "/" && currentPath.startsWith(item.href + "/"));
+        return (
+          <Link key={item.href} href={item.href}>
+            <div
+              className={cn(
+                "flex items-start gap-2.5 px-3 py-2 mx-1 rounded-md cursor-pointer transition-colors",
+                active ? "bg-muted/60" : "hover:bg-muted/40",
+              )}
+              onClick={onItemClick}
+            >
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                style={{ background: `${section.accent}20` }}
+              >
+                <ItemIcon className="w-3.5 h-3.5" style={{ color: section.accent }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className={cn(
+                  "text-sm font-semibold truncate",
+                  active ? "text-foreground" : "text-foreground/90",
+                )}>
+                  {item.label}
+                </div>
+                <div className="text-[11px] text-muted-foreground line-clamp-1">
+                  {item.desc}
+                </div>
+              </div>
+            </div>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─── Hierarchical "More" dropdown: left = sections, right = items ── */
+
+function MoreDropdown({
   entry, onItemClick, currentPath,
 }: {
   entry: TopNavEntry;
@@ -316,41 +365,65 @@ function TopNavDropdown({
     .map((k) => SECTIONS.find((s) => s.key === k))
     .filter((s): s is SectionDef => Boolean(s));
 
-  // Multi-section ("More") → categorized columns. Single-section → flat list.
-  const isMulti = sections.length > 1;
+  // Default the right-pane preview to whichever grouped section the user is
+  // currently inside (if any), otherwise the first one.
+  const initialKey =
+    sections.find((s) =>
+      currentPath.startsWith(`/section/${s.key}`) ||
+      s.items.some((i) => currentPath === i.href || (i.href !== "/" && currentPath.startsWith(i.href + "/"))),
+    )?.key ?? sections[0]?.key ?? null;
+
+  const [hoveredKey, setHoveredKey] = useState<string | null>(initialKey);
+  const activeSection = sections.find((s) => s.key === hoveredKey) ?? sections[0] ?? null;
 
   return (
-    <div
-      className={cn(
-        "absolute top-full left-0 mt-1 z-50 glass-card rounded-xl border border-border/40 shadow-xl py-2",
-        isMulti ? "w-[640px] grid grid-cols-2 gap-x-2" : "w-72",
-      )}
-    >
-      {sections.map((section) => (
-        <div key={section.key} className={cn(isMulti && "px-1")}>
-          {isMulti && (
-            <Link href={section.defaultHref}>
+    // Right-anchored so the panel never clips off the right side of the viewport.
+    <div className="absolute top-full right-0 mt-1 z-50 glass-card rounded-xl border border-border/40 shadow-xl flex w-[560px] overflow-hidden">
+      {/* Left column — section names */}
+      <div className="w-[200px] py-2 border-r border-border/30 bg-muted/15">
+        {sections.map((section) => {
+          const SectionIcon = section.icon;
+          const isHovered = hoveredKey === section.key;
+          return (
+            <Link key={section.key} href={section.defaultHref}>
               <div
-                className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-muted/40 rounded-md"
+                onMouseEnter={() => setHoveredKey(section.key)}
+                onFocus={() => setHoveredKey(section.key)}
                 onClick={onItemClick}
+                className={cn(
+                  "flex items-center gap-2 mx-1 px-2.5 py-2 rounded-md cursor-pointer transition-colors",
+                  isHovered ? "bg-muted/70" : "hover:bg-muted/40",
+                )}
               >
                 <div
-                  className="w-5 h-5 rounded flex items-center justify-center"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
                   style={{ background: `${section.accent}25` }}
                 >
-                  <section.icon className="w-3 h-3" style={{ color: section.accent }} />
+                  <SectionIcon className="w-3.5 h-3.5" style={{ color: section.accent }} />
                 </div>
-                <div
-                  className="text-[10px] font-black uppercase tracking-wider"
-                  style={{ color: section.accent }}
-                >
-                  {section.label}
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-semibold text-foreground truncate">
+                    {section.label}
+                  </div>
                 </div>
+                <ChevronRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />
               </div>
             </Link>
-          )}
-          <div className={cn(isMulti ? "pl-2" : "")}>
-            {section.items.map((item) => {
+          );
+        })}
+      </div>
+
+      {/* Right column — items of the hovered section */}
+      <div className="flex-1 py-2 max-h-[60vh] overflow-y-auto">
+        {activeSection ? (
+          <>
+            <div
+              className="px-3 pb-1.5 text-[10px] font-black uppercase tracking-wider"
+              style={{ color: activeSection.accent }}
+            >
+              {activeSection.label}
+            </div>
+            {activeSection.items.map((item) => {
               const ItemIcon = item.icon;
               const active =
                 currentPath === item.href ||
@@ -358,17 +431,17 @@ function TopNavDropdown({
               return (
                 <Link key={item.href} href={item.href}>
                   <div
+                    onClick={onItemClick}
                     className={cn(
-                      "flex items-start gap-2.5 px-3 py-2 rounded-md cursor-pointer transition-colors",
+                      "flex items-start gap-2.5 mx-1 px-2.5 py-2 rounded-md cursor-pointer transition-colors",
                       active ? "bg-muted/60" : "hover:bg-muted/40",
                     )}
-                    onClick={onItemClick}
                   >
                     <div
                       className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                      style={{ background: `${section.accent}20` }}
+                      style={{ background: `${activeSection.accent}20` }}
                     >
-                      <ItemIcon className="w-3.5 h-3.5" style={{ color: section.accent }} />
+                      <ItemIcon className="w-3.5 h-3.5" style={{ color: activeSection.accent }} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className={cn(
@@ -385,9 +458,11 @@ function TopNavDropdown({
                 </Link>
               );
             })}
-          </div>
-        </div>
-      ))}
+          </>
+        ) : (
+          <div className="px-3 py-4 text-xs text-muted-foreground">No items.</div>
+        )}
+      </div>
     </div>
   );
 }

@@ -6,10 +6,13 @@ import { findSectionByRoute, SECTIONS, type SectionDef } from "@/lib/sections";
 /**
  * Renders a horizontally-scrollable tab strip for the section the current
  * route belongs to. Each section starts with a "Dashboard" tab pointing at
- * its section hub (`/section/<key>`), followed by every sub-tab. The Home
- * section already has a Command Center tab pointing at "/" so we skip the
- * extra Dashboard there to avoid duplication.
+ * its section hub (`/section/<key>`), followed by every sub-tab. Sections
+ * that already include their own dashboard-like first tab (Home → Command
+ * Center, Contact Center → Call Dashboard) skip the extra Dashboard to
+ * avoid duplication.
  */
+const SECTIONS_WITHOUT_DASHBOARD = new Set(["home", "callcenter"]);
+
 export function SectionTabStrip() {
   const [location] = useLocation();
   const section = findSectionByRoute(location);
@@ -19,14 +22,14 @@ export function SectionTabStrip() {
 
 function SectionTabStripInner({ section, location }: { section: SectionDef; location: string }) {
   const Icon = section.icon;
-  const showDashboard = section.key !== "home";
+  const showDashboard = !SECTIONS_WITHOUT_DASHBOARD.has(section.key);
   const dashboardHref = `/section/${section.key}`;
   const dashboardActive =
     location === dashboardHref || location.startsWith(dashboardHref + "/");
 
   return (
     <div
-      className="border-b border-border/30 backdrop-blur-md sticky top-28 z-30"
+      className="border-b border-border/30 backdrop-blur-md sticky top-[5.5rem] z-30"
       style={{
         background:
           "linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.65))",
