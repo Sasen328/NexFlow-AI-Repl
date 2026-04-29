@@ -6,6 +6,30 @@ uri = "file://artifacts/mobile/assets/images/icon.png"
 type = "image"
 title = "generated_image"
 
+[[generated]]
+id = "WFiNtJ70zIO-xSdRxNcS-"
+uri = "file://artifacts/marketing-demo-video/public/images/riyadh-skyline.png"
+type = "image"
+title = "Riyadh skyline warm gradient"
+
+[[generated]]
+id = "YeAf645OyZ7Sgrb_moi1b"
+uri = "file://artifacts/marketing-demo-video/public/images/avatar-1.png"
+type = "image"
+title = "Abstract person avatar 1"
+
+[[generated]]
+id = "IfqNNISWcbejqPwmLCiJH"
+uri = "file://artifacts/marketing-demo-video/public/images/avatar-2.png"
+type = "image"
+title = "Abstract person avatar 2"
+
+[[generated]]
+id = "2X2JQkQQ0QjhiZKVRrilA"
+uri = "file://artifacts/marketing-demo-video/public/images/avatar-3.png"
+type = "image"
+title = "Abstract person avatar 3"
+
 [[outputs]]
 id = "0n5CRH83xHGEr6QWWmxct"
 uri = "file://artifacts/nexflow/public/NexFlow_Icon_1024.png"
