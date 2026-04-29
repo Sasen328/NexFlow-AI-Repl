@@ -18,11 +18,27 @@ Every document is shipped both as Markdown (for in-repo reading and version cont
 
 ## Re-rendering the PDFs
 
+From the repo root:
+
 ```bash
-python3 docs/render_pdf.py
+pnpm run docs:pdf
 ```
 
-Reads every `docs/*.md`, renders to a branded PDF (NexFlow header, page numbers, palette accents, table of contents) using WeasyPrint. Output goes back into `docs/`.
+That shells out to `python3 docs/render_pdf.py`, which reads every `docs/*.md` (plus `docs/business/*.md` and `docs/investor/*.md`) and renders a branded PDF — NexFlow header, page numbers, palette accents, table of contents — using WeasyPrint. Output goes back into the same folder as the source markdown.
+
+### Drift check
+
+To verify every markdown source has an up-to-date PDF sibling (useful as a pre-commit hook or CI check):
+
+```bash
+pnpm run docs:pdf:check
+```
+
+It exits non-zero if any `*.md` is newer than its matching `*.pdf` (or the PDF is missing). When that happens, run `pnpm run docs:pdf` and commit the regenerated PDFs alongside your markdown edits.
+
+### System dependencies
+
+WeasyPrint needs the following native libraries available on the host: `pango`, `cairo`, `harfbuzz`, `fontconfig`, `freetype`, `gdk-pixbuf`, `glib`. They are already installed in this Replit environment; on a fresh clone, install them via your platform's package manager before running `pnpm run docs:pdf`.
 
 ## Conventions
 
