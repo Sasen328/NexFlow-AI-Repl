@@ -63,12 +63,22 @@ type Tab = "overview" | "tasks" | "insights" | "assistant";
 
 export default function CommandCenterPage() {
   const { data: dash } = useDashboard();
-  const { data: contactsData } = useContacts({ limit: "10" });
+  const { data: contactsData } = useContacts({ limit: "100" });
   const { data: forgottenData } = useForgottenLeads();
   const regenerate = useRegenerateInsights();
   const forgotten = (forgottenData?.leads ?? []) as any[];
   const forgottenSummary = forgottenData?.summary as string | undefined;
   const allContacts = (contactsData?.contacts ?? []) as any[];
+  // Build lowercase name → id lookup so tasks can deep-link to the contact page
+  const contactByName = new Map<string, string>();
+  for (const c of allContacts) {
+    const full = `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim().toLowerCase();
+    if (full && c.id) contactByName.set(full, c.id);
+  }
+  const findContactId = (name: string | null | undefined): string | null => {
+    if (!name) return null;
+    return contactByName.get(name.trim().toLowerCase()) ?? null;
+  };
   const priorityContacts = [...allContacts]
     .sort((a, b) => (b.lead_score ?? 0) - (a.lead_score ?? 0))
     .slice(0, 3)
@@ -492,12 +502,27 @@ export default function CommandCenterPage() {
                         <div className="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground flex-wrap">
                           <Clock className="w-3 h-3 flex-shrink-0" />
                           <span>{task.due}</span>
-                          {task.contact && (
-                            <>
-                              <span>·</span>
-                              <span className="text-[#B8A0C8] font-medium">{task.contact}</span>
-                            </>
-                          )}
+                          {task.contact && (() => {
+                            const cid = findContactId(task.contact);
+                            return (
+                              <>
+                                <span>·</span>
+                                {cid ? (
+                                  <Link href={`/contacts/${cid}`}>
+                                    <span
+                                      className="text-[#B8A0C8] font-semibold cursor-pointer hover:underline hover:text-[#88B8B0] transition-colors inline-flex items-center gap-1"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {task.contact}
+                                      <ChevronRight className="w-3 h-3" />
+                                    </span>
+                                  </Link>
+                                ) : (
+                                  <span className="text-[#B8A0C8] font-medium">{task.contact}</span>
+                                )}
+                              </>
+                            );
+                          })()}
                           <span className="ml-auto px-1.5 py-0.5 rounded bg-muted/60 text-[10px] font-medium flex-shrink-0">{task.source}</span>
                         </div>
                       </div>
