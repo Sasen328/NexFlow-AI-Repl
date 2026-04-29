@@ -1,0 +1,31 @@
+kind = "slides"
+previewPath = "/company-profile-deck/"
+title = "NexFlow Company Profile"
+version = "1.0.0"
+id = "artifacts/company-profile-deck"
+router = "path"
+
+[[integratedSkills]]
+name = "slides"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/company-profile-deck/" ]
+localPort = 22742
+
+[services.development]
+run = "pnpm --filter @workspace/company-profile-deck run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/company-profile-deck", "run", "build" ]
+publicDir = "artifacts/company-profile-deck/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22742"
+BASE_PATH = "/company-profile-deck/"
