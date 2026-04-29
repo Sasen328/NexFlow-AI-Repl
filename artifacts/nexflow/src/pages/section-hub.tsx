@@ -408,7 +408,7 @@ function SectionNotFound() {
     <div className="rounded-2xl p-10 text-center glass-card">
       <h1 className="text-2xl font-black mb-2">Section not found</h1>
       <p className="text-muted-foreground mb-4">That section doesn't exist.</p>
-      <Link href="/">
+      <Link href="/home">
         <button className="px-4 py-2 rounded-lg nf-chameleon-bg text-white font-semibold">
           Back to Command Center
         </button>

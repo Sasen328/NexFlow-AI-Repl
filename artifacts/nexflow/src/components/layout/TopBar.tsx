@@ -87,7 +87,7 @@ export function TopBar({ dark, onDark }: TopBarProps) {
       {/* ── Row 1 (top): logo icon + 6-button top nav ──────────────
             Logo sits beside the Home tab. No wordmark. No utilities. */}
       <div className="flex items-center h-12 px-3 sm:px-4 max-w-[1600px] mx-auto w-full gap-2">
-        <Link href="/">
+        <Link href="/home">
           <div className="flex-shrink-0 cursor-pointer p-1 rounded-lg hover:bg-muted/40 transition-colors" aria-label="NexFlow home">
             <NexFlowLogo size={28} />
           </div>
