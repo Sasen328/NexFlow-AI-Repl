@@ -244,6 +244,31 @@ export function useContactActivities(id?: string) {
   });
 }
 
+export type ApiCall = {
+  id: string;
+  contact_id: string | null;
+  contact_name?: string | null;
+  contact_title?: string | null;
+  company_name?: string | null;
+  direction: string | null;
+  outcome: string | null;
+  duration_seconds: number | null;
+  ai_insights: any;
+  coaching_notes: string | null;
+  created_at: string;
+};
+
+export function useCalls(params?: { contact_id?: string; limit?: number }) {
+  const qs = params
+    ? "?" + new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]))).toString()
+    : "";
+  return useQuery({
+    queryKey: ["calls", params],
+    queryFn: () => apiFetch<{ calls: ApiCall[] }>(`/calls${qs}`),
+    staleTime: 30_000,
+  });
+}
+
 export function useForgottenLeads() {
   return useQuery({
     queryKey: ["forgotten-leads"],

@@ -192,4 +192,43 @@ router.post("/seed-crm", async (_req, res) => {
   }
 });
 
+// DB Status + Force Reseed
+router.get("/status", async (_req, res) => {
+  try {
+    const tables = [
+      { name: "contacts", table: contacts },
+      { name: "companies", table: companies },
+      { name: "deals", table: deals },
+      { name: "campaigns", table: campaigns },
+      { name: "ai_agents", table: ai_agents },
+    ];
+    const counts: Record<string, number> = {};
+    for (const { name, table } of tables) {
+      const [{ c }] = await db.select({ c: sql<number>`count(*)` }).from(table as any);
+      counts[name] = Number(c);
+    }
+    res.json({ status: "ok", counts, seeded: counts["contacts"] > 0 });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+router.post("/reseed", async (_req, res) => {
+  try {
+    // Only reseed if DB appears empty or very sparse
+    const [{ c }] = await db.select({ c: sql<number>`count(*)` }).from(contacts);
+    const contactCount = Number(c);
+    if (contactCount >= 5) {
+      return res.json({ ok: true, skipped: true, reason: `DB already has ${contactCount} contacts — no reseed needed`, contacts: contactCount });
+    }
+    // Import and run autoSeed
+    const { autoSeed } = await import("../lib/autoSeed.js");
+    await autoSeed();
+    const [{ c: newCount }] = await db.select({ c: sql<number>`count(*)` }).from(contacts);
+    res.json({ ok: true, skipped: false, contacts: Number(newCount) });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
 export default router;
