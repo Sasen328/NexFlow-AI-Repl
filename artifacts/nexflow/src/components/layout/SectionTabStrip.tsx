@@ -1,12 +1,14 @@
 import { Link, useLocation } from "wouter";
+import { LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { findSectionByRoute, SECTIONS, type SectionDef } from "@/lib/sections";
 
 /**
  * Renders a horizontally-scrollable tab strip for the section the current
- * route belongs to. Lists the section's items as tabs — the section hub
- * (`/section/:key`) is reachable via the top-nav button click and is no
- * longer surfaced as a duplicate "Dashboard" sub-tab.
+ * route belongs to. Each section starts with a "Dashboard" tab pointing at
+ * its section hub (`/section/<key>`), followed by every sub-tab. The Home
+ * section already has a Command Center tab pointing at "/" so we skip the
+ * extra Dashboard there to avoid duplication.
  */
 export function SectionTabStrip() {
   const [location] = useLocation();
@@ -17,10 +19,14 @@ export function SectionTabStrip() {
 
 function SectionTabStripInner({ section, location }: { section: SectionDef; location: string }) {
   const Icon = section.icon;
+  const showDashboard = section.key !== "home";
+  const dashboardHref = `/section/${section.key}`;
+  const dashboardActive =
+    location === dashboardHref || location.startsWith(dashboardHref + "/");
 
   return (
     <div
-      className="border-b border-border/30 backdrop-blur-md sticky top-14 z-30"
+      className="border-b border-border/30 backdrop-blur-md sticky top-28 z-30"
       style={{
         background:
           "linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.65))",
@@ -38,6 +44,32 @@ function SectionTabStripInner({ section, location }: { section: SectionDef; loca
             </div>
             <span className="text-[13px] font-bold text-foreground">{section.label}</span>
           </div>
+
+          {/* Dashboard tab — every section except Home gets one. Home's
+              Command Center sub-tab IS its dashboard. */}
+          {showDashboard && (
+            <Link href={dashboardHref}>
+              <button
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap flex-shrink-0 transition-all",
+                  dashboardActive
+                    ? "text-white shadow-sm"
+                    : "text-foreground/65 hover:text-foreground hover:bg-muted/50",
+                )}
+                style={
+                  dashboardActive
+                    ? {
+                        background: `linear-gradient(135deg, ${section.accent}, #B8A0C8)`,
+                        boxShadow: `0 4px 12px ${section.accent}40`,
+                      }
+                    : undefined
+                }
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                Dashboard
+              </button>
+            </Link>
+          )}
 
           {/* Item tabs */}
           {section.items.map((item) => {

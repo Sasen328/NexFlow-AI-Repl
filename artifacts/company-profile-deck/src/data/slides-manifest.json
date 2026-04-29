@@ -24,8 +24,32 @@
     "speakerNotes": ""
   },
   {
-    "id": "0a8d1c10-difference-11-dddddddddddd",
+    "id": "0a8d1c10-painsf-1111-d111d111d111",
     "position": 4,
+    "filepath": "src/pages/slides/PainSalesforce.tsx",
+    "title": "Pain in Salesforce",
+    "description": "Where the incumbent fails GCC buyers",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-painhs-1111-d222d222d222",
+    "position": 5,
+    "filepath": "src/pages/slides/PainHubSpot.tsx",
+    "title": "Pain in HubSpot",
+    "description": "Where the marketing-led suite breaks down",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-painzo-1111-d333d333d333",
+    "position": 6,
+    "filepath": "src/pages/slides/PainZohoOthers.tsx",
+    "title": "Pain in Zoho · Pipedrive · Freshworks",
+    "description": "Why \"good enough\" still isn't good enough",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-difference-11-dddddddddddd",
+    "position": 7,
     "filepath": "src/pages/slides/Difference.tsx",
     "title": "What we do differently",
     "description": "Four founding pillars",
@@ -33,15 +57,39 @@
   },
   {
     "id": "0a8d1c10-marketpain-1-eeeeeeeeeeee",
-    "position": 5,
+    "position": 8,
     "filepath": "src/pages/slides/MarketPain.tsx",
     "title": "Market pain points",
     "description": "Pain → NexFlow response",
     "speakerNotes": ""
   },
   {
+    "id": "0a8d1c10-mktsize-1111-e111e111e111",
+    "position": 9,
+    "filepath": "src/pages/slides/MarketSize.tsx",
+    "title": "Market size & opportunity",
+    "description": "Global TAM, GCC SAM, realistic SOM",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-comprev-1111-e222e222e222",
+    "position": 10,
+    "filepath": "src/pages/slides/CompetitorRevenue.tsx",
+    "title": "Competitor revenue",
+    "description": "Real revenue numbers vs where NexFlow stands",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-where-stand-e333e333e333",
+    "position": 11,
+    "filepath": "src/pages/slides/WhereWeStand.tsx",
+    "title": "Where we stand",
+    "description": "2x2 positioning vs incumbents",
+    "speakerNotes": ""
+  },
+  {
     "id": "0a8d1c10-marketvalue-ffffffffffff",
-    "position": 6,
+    "position": 12,
     "filepath": "src/pages/slides/MarketValue.tsx",
     "title": "Value generated",
     "description": "Outcomes for customers who adopt",
@@ -49,7 +97,7 @@
   },
   {
     "id": "0a8d1c10-competitive-1-1111aaaa1111",
-    "position": 7,
+    "position": 13,
     "filepath": "src/pages/slides/Competitive.tsx",
     "title": "Competitive landscape",
     "description": "NexFlow vs. global CRMs",
@@ -57,15 +105,71 @@
   },
   {
     "id": "0a8d1c10-product-1111-2222bbbb2222",
-    "position": 8,
+    "position": 14,
     "filepath": "src/pages/slides/Product.tsx",
     "title": "Product overview",
     "description": "Eight modules, one platform",
     "speakerNotes": ""
   },
   {
+    "id": "0a8d1c10-feathome-2222-2222cccc2222",
+    "position": 15,
+    "filepath": "src/pages/slides/FeatureHome.tsx",
+    "title": "Feature deep-dive — Home",
+    "description": "Command Center & daily AI briefing",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-featcrm-2222-2222dddd2222",
+    "position": 16,
+    "filepath": "src/pages/slides/FeatureCRM.tsx",
+    "title": "Feature deep-dive — CRM",
+    "description": "Pipeline, deals, ABM, forecasting",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-featcc-2222-22222eeee222",
+    "position": 17,
+    "filepath": "src/pages/slides/FeatureContactCenter.tsx",
+    "title": "Feature deep-dive — Contact Center",
+    "description": "Power Dialer, AI Voice Agent, Conversation Intel",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-featcalls-22-22222fff2222",
+    "position": 18,
+    "filepath": "src/pages/slides/FeatureCallsTranscripts.tsx",
+    "title": "Feature deep-dive — Calls into the system",
+    "description": "How call notes flow back into CRM",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-featenrich-2-2222a1a12222",
+    "position": 19,
+    "filepath": "src/pages/slides/FeatureEnrichment.tsx",
+    "title": "Feature deep-dive — Enrichment",
+    "description": "GCC-first waterfall enrichment & signals",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-featmkt-2222-2222b2b22222",
+    "position": 20,
+    "filepath": "src/pages/slides/FeatureMarketing.tsx",
+    "title": "Feature deep-dive — Marketing",
+    "description": "AI strategy builder, dormant reactivation, attribution",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-dataflow-2222-2222c3c32222",
+    "position": 21,
+    "filepath": "src/pages/slides/HowDataFlows.tsx",
+    "title": "How the system works end-to-end",
+    "description": "Worked example: signal → closed-won",
+    "speakerNotes": ""
+  },
+  {
     "id": "0a8d1c10-roleceo-1111-3333cccc3333",
-    "position": 9,
+    "position": 22,
     "filepath": "src/pages/slides/RoleCEO.tsx",
     "title": "Role view — CEO",
     "description": "Pipeline, forecast, and revenue health",
@@ -73,7 +177,7 @@
   },
   {
     "id": "0a8d1c10-rolesm-11111-4444dddd4444",
-    "position": 10,
+    "position": 23,
     "filepath": "src/pages/slides/RoleSalesManager.tsx",
     "title": "Role view — Sales Manager",
     "description": "Coaching, capacity, and conversion",
@@ -81,7 +185,7 @@
   },
   {
     "id": "0a8d1c10-rolest-11111-5555eeee5555",
-    "position": 11,
+    "position": 24,
     "filepath": "src/pages/slides/RoleSalesTeam.tsx",
     "title": "Role view — Sales Team",
     "description": "One screen for the whole day",
@@ -89,15 +193,23 @@
   },
   {
     "id": "0a8d1c10-rolemkt-1111-6666ffff6666",
-    "position": 12,
+    "position": 25,
     "filepath": "src/pages/slides/RoleMarketing.tsx",
     "title": "Role view — Marketing",
     "description": "Campaigns, attribution, segments",
     "speakerNotes": ""
   },
   {
+    "id": "0a8d1c10-pricing-2222-2222d4d42222",
+    "position": 26,
+    "filepath": "src/pages/slides/PricingModel.tsx",
+    "title": "Pricing model",
+    "description": "SAR-priced, per-seat, AI included",
+    "speakerNotes": ""
+  },
+  {
     "id": "0a8d1c10-traction-111-77771a1a7777",
-    "position": 13,
+    "position": 27,
     "filepath": "src/pages/slides/Traction.tsx",
     "title": "Traction & roadmap",
     "description": "Three-year build path",
@@ -105,7 +217,7 @@
   },
   {
     "id": "0a8d1c10-closing-111-88882b2b8888",
-    "position": 14,
+    "position": 28,
     "filepath": "src/pages/slides/Closing.tsx",
     "title": "Closing",
     "description": "Vision and contact",
