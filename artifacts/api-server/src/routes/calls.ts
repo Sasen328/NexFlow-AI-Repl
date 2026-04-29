@@ -1,16 +1,20 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { calls, contacts, activities } from "@workspace/db";
-import { eq, desc, sql } from "drizzle-orm";
-import { aiJson } from "../lib/ai.js";
+import { eq, desc, sql, and } from "drizzle-orm";
+import { aiJson, aiChat } from "../lib/ai.js";
 
 const router = Router();
 
 router.get("/", async (req, res) => {
   try {
-    const { status, limit = "50", offset = "0" } = req.query as Record<string, string>;
+    const { status, contact_id, limit = "50", offset = "0" } = req.query as Record<string, string>;
     const lim = Math.min(parseInt(limit), 200);
     const off = parseInt(offset);
+
+    const wheres: any[] = [];
+    if (status) wheres.push(eq(calls.status, status as any));
+    if (contact_id) wheres.push(eq(calls.contact_id, contact_id));
 
     const results = await db
       .select({
@@ -25,13 +29,16 @@ router.get("/", async (req, res) => {
         transcript: calls.transcript,
         sentiment_score: calls.sentiment_score,
         call_score: calls.call_score,
+        ai_insights: calls.ai_insights,
         coaching_notes: calls.coaching_notes,
+        outcome: calls.outcome,
         started_at: calls.started_at,
         ended_at: calls.ended_at,
         created_at: calls.created_at,
       })
       .from(calls)
       .leftJoin(contacts, eq(calls.contact_id, contacts.id))
+      .where(wheres.length > 0 ? and(...wheres) : undefined)
       .orderBy(desc(calls.created_at))
       .limit(lim)
       .offset(off);
@@ -155,6 +162,116 @@ router.post("/log", async (req, res) => {
   }
 });
 
+// AI voice conversation turn: takes the running transcript and returns the AI response + updated call data
+router.post("/voice-response", async (req, res) => {
+  try {
+    const { messages, contact_name, contact_title, company_name, language = "en" } = req.body ?? {};
+    if (!messages?.length) return res.status(400).json({ error: "messages required" });
+
+    const systemPrompt = language === "ar"
+      ? `أنت مساعد مبيعات محترف يجري مكالمة هاتفية مع ${contact_name ?? "عميل"}, ${contact_title ?? ""} في ${company_name ?? ""}. أجب بالعربية بلهجة خليجية مهنية ودافئة. كن موجزاً (لا تتجاوز 3 جمل). هدفك: فهم احتياجاتهم وتقديم قيمة NexFlow CRM.`
+      : `You are a professional sales rep conducting a live phone call with ${contact_name ?? "a prospect"}, ${contact_title ?? ""} at ${company_name ?? ""}. Keep responses concise (max 3 sentences). Speak naturally as if on a real call — no bullet points, no markdown. Your goal: understand their needs and demonstrate NexFlow's value. Be warm, confident, and consultative.`;
+
+    const aiMessages = [
+      { role: "system", content: systemPrompt },
+      ...messages.map((m: any) => ({ role: m.role, content: m.content })),
+    ];
+
+    const { aiEnabled, openrouter, openai } = await import("../lib/ai.js");
+    const useRouter = Boolean(process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL && process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY);
+    const client = useRouter ? openrouter() : openai();
+    const model = useRouter ? "openai/gpt-4o-mini" : "gpt-4o-mini";
+
+    const resp = await client.chat.completions.create({ model, messages: aiMessages, max_tokens: 200 });
+    const reply = resp.choices[0]?.message?.content ?? "Could you tell me more about your current setup?";
+    res.json({ reply });
+  } catch (err: any) {
+    req.log.error(err);
+    res.json({ reply: "I apologize, could you repeat that? I want to make sure I understand your needs correctly." });
+  }
+});
+
+// Generate a multi-dimension scorecard for a completed call
+router.post("/scorecard", async (req, res) => {
+  try {
+    const { call_id, transcript, contact_name, outcome } = req.body ?? {};
+    if (!transcript && !call_id) return res.status(400).json({ error: "transcript or call_id required" });
+
+    let callTranscript = transcript;
+    if (!callTranscript && call_id) {
+      const [c] = await db.select({ transcript: calls.transcript }).from(calls).where(eq(calls.id, call_id));
+      callTranscript = c?.transcript;
+    }
+
+    const scorecard = await aiJson<{
+      overall: number;
+      dimensions: Array<{ name: string; score: number; feedback: string; icon: string }>;
+      strengths: string[];
+      improvements: string[];
+      next_best_action: string;
+    }>({
+      system: "You are a sales call quality evaluator. Score each dimension 0-100.",
+      user: `Evaluate this sales call. Contact: ${contact_name ?? "prospect"}. Outcome: ${outcome ?? "completed"}.\n\nTranscript:\n${callTranscript ?? "(no transcript)"}\n\nReturn JSON: {"overall": 0-100, "dimensions": [{"name": "Opening", "score": 0-100, "feedback": "1 sentence", "icon": "👋"}, {"name": "Discovery", "score": 0-100, "feedback": "...", "icon": "🔍"}, {"name": "Value Presentation", "score": 0-100, "feedback": "...", "icon": "💡"}, {"name": "Objection Handling", "score": 0-100, "feedback": "...", "icon": "🛡️"}, {"name": "Cultural Awareness", "score": 0-100, "feedback": "...", "icon": "🌍"}, {"name": "Next Steps", "score": 0-100, "feedback": "...", "icon": "📅"}], "strengths": ["..."], "improvements": ["..."], "next_best_action": "..."}`,
+      fallback: {
+        overall: 78,
+        dimensions: [
+          { name: "Opening", score: 82, feedback: "Strong opening with personalised context.", icon: "👋" },
+          { name: "Discovery", score: 75, feedback: "Good questions but could probe deeper on budget.", icon: "🔍" },
+          { name: "Value Presentation", score: 80, feedback: "Highlighted relevant features for their industry.", icon: "💡" },
+          { name: "Objection Handling", score: 70, feedback: "Handled pricing concern adequately.", icon: "🛡️" },
+          { name: "Cultural Awareness", score: 85, feedback: "Appropriate tone for GCC market.", icon: "🌍" },
+          { name: "Next Steps", score: 78, feedback: "Clear follow-up agreed.", icon: "📅" },
+        ],
+        strengths: ["Strong rapport building", "Clear value articulation"],
+        improvements: ["Probe budget earlier", "Ask for referrals"],
+        next_best_action: "Send a personalised follow-up email within 24 hours.",
+      },
+    });
+
+    if (call_id) {
+      await db.update(calls).set({ call_score: scorecard.overall, ai_insights: scorecard as any } as any).where(eq(calls.id, call_id));
+    }
+    res.json(scorecard);
+  } catch (err: any) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to generate scorecard" });
+  }
+});
+
+// Add a note to a call record and mirror it to the activity timeline
+router.post("/:id/note", async (req, res) => {
+  try {
+    const { note, contact_id } = req.body ?? {};
+    if (!note) return res.status(400).json({ error: "note required" });
+
+    const [existing] = await db.select().from(calls).where(eq(calls.id, req.params.id));
+    if (!existing) return res.status(404).json({ error: "Call not found" });
+
+    const existingNotes = (existing as any).coaching_notes ?? "";
+    const updated = existingNotes
+      ? `${existingNotes}\n\n[${new Date().toISOString()}] ${note}`
+      : `[${new Date().toISOString()}] ${note}`;
+
+    await db.update(calls).set({ coaching_notes: updated } as any).where(eq(calls.id, req.params.id));
+
+    if (contact_id || existing.contact_id) {
+      await db.insert(activities).values({
+        type: "note" as any,
+        title: "Call note added",
+        body: note,
+        contact_id: (contact_id ?? existing.contact_id) as any,
+        status: "completed" as any,
+        completed_at: new Date(),
+        metadata: { source: "call_note", call_id: req.params.id },
+      } as any);
+    }
+    res.json({ success: true, updated_notes: updated });
+  } catch (err: any) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to add note" });
+  }
+});
+
 router.get("/:id", async (req, res) => {
   try {
     const [call] = await db
@@ -170,7 +287,9 @@ router.get("/:id", async (req, res) => {
         transcript: calls.transcript,
         sentiment_score: calls.sentiment_score,
         call_score: calls.call_score,
+        ai_insights: calls.ai_insights,
         coaching_notes: calls.coaching_notes,
+        outcome: calls.outcome,
         started_at: calls.started_at,
         ended_at: calls.ended_at,
         created_at: calls.created_at,

@@ -1,14 +1,18 @@
 import { useContact, useActivities, useCalls, useDeals, useSignals, useContactLists, usePropertyValues, useProperties, useUpsertPropertyValue, useContactOverview } from "@/hooks/useApi";
+import { apiFetch } from "@/hooks/useApi";
 import { Link } from "wouter";
 import {
   ArrowLeft, Mail, Phone, Linkedin, Globe, MapPin, Building2, Star,
   Brain, Zap, TrendingUp, MessageSquare, Activity, Edit, Send, MoreHorizontal,
   CheckCircle2, AlertCircle, RefreshCw, ExternalLink, Tag, Users, Award,
   Briefcase, GraduationCap, Languages, Calendar, Code2, DollarSign,
-  Sparkles, ChevronRight, FileText, Database, Bot, ListChecks, Settings2, Check
+  Sparkles, ChevronRight, FileText, Database, Bot, ListChecks, Settings2, Check,
+  PhoneOutgoing, PhoneIncoming, PhoneMissed, Clock, ChevronDown, ChevronUp,
+  Loader2, StickyNote, TrendingDown, Mic
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import VoiceCallModal from "@/components/VoiceCallModal";
 
 const ENRICHMENT_SOURCES = [
   { name: "Lusha", color: "#9747FF", confidence: 98, fields: ["email", "phone", "title"] },
@@ -55,7 +59,8 @@ export default function ContactProfilePage({ params }: Props) {
   const deals = dealsData?.deals ?? [];
   const signals = signalsData?.signals ?? [];
 
-  const [tab, setTab] = useState<"overview" | "engagement" | "deals" | "enrichment">("overview");
+  const [tab, setTab] = useState<"overview" | "engagement" | "calls" | "deals" | "enrichment">("overview");
+  const [showCallModal, setShowCallModal] = useState(false);
 
   if (isLoading) {
     return (
@@ -138,10 +143,10 @@ export default function ContactProfilePage({ params }: Props) {
 
         {/* Action bar */}
         <div className="flex flex-wrap items-center gap-2 pt-4 mt-4 border-t border-border/20">
-          <button className="flex items-center gap-1.5 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90 transition-opacity">
+          <button onClick={() => setShowCallModal(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90 transition-opacity">
             <Phone className="w-3.5 h-3.5" /> Call
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors">
+          <button onClick={() => setShowCallModal(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors">
             <Bot className="w-3.5 h-3.5 text-[#B8A0C8]" /> AI Voice Agent
           </button>
           <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors">
@@ -165,12 +170,13 @@ export default function ContactProfilePage({ params }: Props) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-xl bg-muted/40 w-fit">
+      <div className="flex gap-1 p-1 rounded-xl bg-muted/40 w-fit flex-wrap">
         {[
-          { k: "overview", label: "Overview" },
-          { k: "engagement", label: "Engagement" },
-          { k: "deals", label: `Deals (${deals.length})` },
-          { k: "enrichment", label: "Enrichment" },
+          { k: "overview",    label: "Overview" },
+          { k: "engagement",  label: "Engagement" },
+          { k: "calls",       label: `Calls (${calls.length})` },
+          { k: "deals",       label: `Deals (${deals.length})` },
+          { k: "enrichment",  label: "Enrichment" },
         ].map(t => (
           <button
             key={t.k}
@@ -417,6 +423,10 @@ export default function ContactProfilePage({ params }: Props) {
         </div>
       )}
 
+      {tab === "calls" && (
+        <CallsTab contact={contact} calls={calls} />
+      )}
+
       {tab === "enrichment" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 space-y-5">
@@ -493,6 +503,300 @@ export default function ContactProfilePage({ params }: Props) {
             </button>
           </div>
         </div>
+      )}
+      {showCallModal && (
+        <VoiceCallModal
+          contact={{
+            id: contact.id,
+            first_name: contact.first_name,
+            last_name: contact.last_name,
+            title: contact.title,
+            company_name: contact.company_name,
+          }}
+          onClose={() => setShowCallModal(false)}
+          onCallSaved={() => setTab("calls")}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── CallsTab ────────────────────────────────────────────────────────────────
+function formatDur(s: number | null) {
+  if (!s) return "—";
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
+
+function ScoreBar({ score, label, feedback }: { score: number; label: string; feedback: string }) {
+  const color = score >= 80 ? "#88B8B0" : score >= 60 ? "#B8B880" : "#C0A0B8";
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs mb-1">
+        <span className="font-medium text-foreground">{label}</span>
+        <span className="font-bold" style={{ color }}>{score}</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden mb-1">
+        <div className="h-full rounded-full" style={{ width: `${score}%`, background: color }} />
+      </div>
+      <p className="text-[10px] text-muted-foreground">{feedback}</p>
+    </div>
+  );
+}
+
+function CallRow({ call, contact }: { call: any; contact: any }) {
+  const [expanded, setExpanded] = useState(false);
+  const [loadingSc, setLoadingSc] = useState(false);
+  const [scorecard, setScorecard] = useState<any>(call.ai_insights?.dimensions ? call.ai_insights : null);
+  const [note, setNote] = useState("");
+  const [noteSaved, setNoteSaved] = useState(false);
+  const [postDone, setPostDone] = useState<string[]>([]);
+
+  const statusColor: Record<string, string> = {
+    completed: "#88B8B0", missed: "#C0A0B8", failed: "hsl(var(--destructive))", scheduled: "#C8A880", in_progress: "#B8B880",
+  };
+  const DirIcon = call.direction === "inbound" ? PhoneIncoming : call.status === "missed" ? PhoneMissed : PhoneOutgoing;
+  const color = statusColor[call.status] ?? "#88B8B0";
+
+  async function analyzeCall() {
+    setLoadingSc(true);
+    const sc = await apiFetch("/calls/scorecard", {
+      method: "POST",
+      body: JSON.stringify({ call_id: call.id, contact_name: `${contact.first_name ?? ""} ${contact.last_name ?? ""}`, outcome: call.status }),
+    });
+    setScorecard(sc);
+    setLoadingSc(false);
+  }
+
+  async function saveNote() {
+    if (!note.trim()) return;
+    await apiFetch(`/calls/${call.id}/note`, { method: "POST", body: JSON.stringify({ note, contact_id: contact.id }) });
+    setNoteSaved(true);
+    setNote("");
+    setTimeout(() => setNoteSaved(false), 2000);
+  }
+
+  async function triggerAction(type: "whatsapp" | "email") {
+    if (postDone.includes(type)) return;
+    setPostDone(p => [...p, type]);
+    await apiFetch("/activities", {
+      method: "POST",
+      body: JSON.stringify({
+        type: type === "whatsapp" ? "whatsapp" : "email",
+        title: type === "whatsapp" ? "WhatsApp follow-up" : "Follow-up email drafted",
+        body: type === "whatsapp"
+          ? `Hi ${contact.first_name ?? ""}! Great speaking with you. I'll follow up with the details we discussed.`
+          : `Hi ${contact.first_name ?? ""},\n\nThank you for your time. As discussed, I'm following up with the key points from our conversation.`,
+        contact_id: contact.id,
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        metadata: { source: "post_call_action", call_id: call.id },
+      }),
+    });
+  }
+
+  return (
+    <div className="glass-card rounded-2xl overflow-hidden">
+      <div
+        className="flex items-center gap-4 p-4 cursor-pointer hover:bg-muted/10 transition-colors"
+        onClick={() => setExpanded(e => !e)}
+      >
+        {/* Direction icon */}
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${color}20` }}>
+          <DirIcon className="w-4 h-4" style={{ color }} />
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-foreground capitalize">{call.direction} · {call.status}</span>
+            {call.outcome && <span className="text-xs px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground capitalize">{call.outcome.replace("_", " ")}</span>}
+          </div>
+          <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+            <Clock className="w-3 h-3" />
+            {formatDur(call.duration_seconds)}
+            {call.started_at && (
+              <>
+                <span>·</span>
+                <span>{new Date(call.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Score */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {call.call_score != null && (
+            <div className="text-center">
+              <div className="text-lg font-black" style={{ color: call.call_score >= 80 ? "#88B8B0" : call.call_score >= 60 ? "#B8B880" : "#C0A0B8" }}>
+                {Math.round(call.call_score)}
+              </div>
+              <div className="text-[9px] text-muted-foreground">score</div>
+            </div>
+          )}
+          {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="border-t border-border/15 p-4 space-y-4">
+          {/* Transcript */}
+          {call.transcript && (
+            <div>
+              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Transcript</div>
+              <div className="bg-muted/20 rounded-xl p-3 text-xs text-foreground/80 whitespace-pre-wrap max-h-40 overflow-y-auto leading-relaxed">
+                {call.transcript}
+              </div>
+            </div>
+          )}
+
+          {/* AI Insights */}
+          {call.ai_insights?.summary && (
+            <div className="p-3 rounded-xl bg-[#B8A0C8]/10 border border-[#B8A0C8]/20">
+              <div className="text-[10px] font-bold text-[#B8A0C8] uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3" /> AI Summary
+              </div>
+              <p className="text-xs text-foreground">{call.ai_insights.summary}</p>
+            </div>
+          )}
+
+          {/* Coaching notes */}
+          {call.coaching_notes && (
+            <div>
+              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <StickyNote className="w-3 h-3" /> Notes
+              </div>
+              <div className="bg-muted/20 rounded-xl p-3 text-xs text-foreground/80 whitespace-pre-wrap leading-relaxed max-h-24 overflow-y-auto">
+                {call.coaching_notes}
+              </div>
+            </div>
+          )}
+
+          {/* Scorecard */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Star className="w-3 h-3 text-[#C8A880]" /> Call Scorecard
+              </div>
+              {!scorecard && (
+                <button onClick={analyzeCall} disabled={loadingSc}
+                  className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg nf-chameleon-bg text-white font-semibold hover:opacity-90 disabled:opacity-50">
+                  {loadingSc ? <Loader2 className="w-3 h-3 animate-spin" /> : <Brain className="w-3 h-3" />}
+                  {loadingSc ? "Analysing…" : "Analyse Call"}
+                </button>
+              )}
+            </div>
+            {scorecard ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Overall score</span>
+                  <span className="text-2xl font-black" style={{ color: (scorecard.overall ?? 0) >= 80 ? "#88B8B0" : (scorecard.overall ?? 0) >= 60 ? "#B8B880" : "#C0A0B8" }}>
+                    {scorecard.overall ?? call.call_score ?? "—"}<span className="text-xs font-normal text-muted-foreground">/100</span>
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  {(scorecard.dimensions ?? []).map((d: any) => (
+                    <ScoreBar key={d.name} score={d.score} label={`${d.icon} ${d.name}`} feedback={d.feedback} />
+                  ))}
+                </div>
+                {scorecard.next_best_action && (
+                  <div className="p-2.5 rounded-xl bg-[#B8A0C8]/10 border border-[#B8A0C8]/20">
+                    <div className="text-[10px] font-bold text-[#B8A0C8] uppercase tracking-wider mb-0.5">Next best action</div>
+                    <div className="text-xs text-foreground">{scorecard.next_best_action}</div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              !loadingSc && <p className="text-xs text-muted-foreground">Click "Analyse Call" to generate a multi-dimension scorecard.</p>
+            )}
+          </div>
+
+          {/* Post-call actions */}
+          <div>
+            <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Post-Call Actions</div>
+            <div className="flex gap-2 flex-wrap">
+              {[
+                { type: "whatsapp" as const, icon: MessageSquare, label: "Send WhatsApp", color: "#B8B880" },
+                { type: "email" as const, icon: Mail, label: "Draft Follow-up Email", color: "#B8A0C8" },
+              ].map(action => {
+                const done = postDone.includes(action.type);
+                return (
+                  <button key={action.type} onClick={() => triggerAction(action.type)}
+                    className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border",
+                      done ? "bg-[#88B8B0]/15 text-[#88B8B0] border-[#88B8B0]/30" : "bg-muted/40 text-foreground border-border/30 hover:border-border/60")}>
+                    {done ? <CheckCircle2 className="w-3 h-3" /> : <action.icon className="w-3 h-3" style={{ color: action.color }} />}
+                    {done ? "Pushed ✓" : action.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Add note */}
+          <div>
+            <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Push Note to Profile</div>
+            <div className="flex gap-2">
+              <input
+                value={note} onChange={e => setNote(e.target.value)}
+                placeholder="Add a note about this call…"
+                className="flex-1 px-3 py-2 rounded-xl bg-muted/40 border border-border/30 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-[#B8A0C8]/40"
+              />
+              <button onClick={saveNote} disabled={!note.trim()}
+                className={cn("px-3 py-2 rounded-xl text-xs font-semibold transition-all",
+                  noteSaved ? "bg-[#88B8B0] text-white" : "nf-chameleon-bg text-white disabled:opacity-40")}>
+                {noteSaved ? "✓" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CallsTab({ contact, calls }: { contact: any; calls: any[] }) {
+  const [showCallModal, setShowCallModal] = useState(false);
+  const { refetch } = useCalls({ contact_id: contact.id, limit: "20" });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Call History</h3>
+          <p className="text-xs text-muted-foreground">{calls.length} call{calls.length !== 1 ? "s" : ""} · Click any call to see transcript, scorecard & post-call actions</p>
+        </div>
+        <button
+          onClick={() => setShowCallModal(true)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+        >
+          <Mic className="w-3.5 h-3.5" />
+          Start AI Call
+        </button>
+      </div>
+
+      {calls.length === 0 ? (
+        <div className="glass-card rounded-2xl p-12 text-center">
+          <Phone className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground mb-4">No calls logged yet</p>
+          <button onClick={() => setShowCallModal(true)} className="px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold">
+            Start First Call
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {calls.map((c: any) => (
+            <CallRow key={c.id} call={c} contact={contact} />
+          ))}
+        </div>
+      )}
+
+      {showCallModal && (
+        <VoiceCallModal
+          contact={{ id: contact.id, first_name: contact.first_name, last_name: contact.last_name, title: contact.title, company_name: contact.company_name }}
+          onClose={() => setShowCallModal(false)}
+          onCallSaved={() => { setShowCallModal(false); refetch?.(); }}
+        />
       )}
     </div>
   );
