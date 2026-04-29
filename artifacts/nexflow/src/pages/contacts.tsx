@@ -1,5 +1,5 @@
 import { useContacts, useViews, useLists, useUsers, useBulkEnrich, useBulkAddToLists, useSaveView, useDeleteView, useCreateContact } from "@/hooks/useApi";
-import { Search, Plus, Sparkles, FolderPlus, Bookmark, X, Loader2, Save } from "lucide-react";
+import { Search, Plus, Sparkles, FolderPlus, Bookmark, X, Loader2, Save, Phone, MessageSquare, Mail } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
@@ -324,10 +324,50 @@ export default function ContactsPage() {
                       {c.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3.5 text-right cursor-pointer" onClick={() => navigate(`/contacts/${c.id}`)}>
-                    <span className="text-[10px] text-[#B8A0C8] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                      View profile →
-                    </span>
+                  <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <a
+                        href={`tel:${c.phone}`}
+                        onClick={(e) => { if (!c.phone) e.preventDefault(); }}
+                        title={c.phone ? `Call ${c.phone}` : "No phone"}
+                        className={cn(
+                          "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
+                          c.phone ? "bg-[#88B8B0]/15 text-[#88B8B0] hover:bg-[#88B8B0]/30" : "bg-muted/30 text-muted-foreground/40 cursor-not-allowed"
+                        )}
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                      </a>
+                      <a
+                        href={c.phone ? `https://wa.me/${c.phone.replace(/\D/g,"")}` : "#"}
+                        target="_blank" rel="noreferrer"
+                        onClick={(e) => { if (!c.phone) e.preventDefault(); }}
+                        title="WhatsApp"
+                        className={cn(
+                          "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
+                          c.phone ? "bg-[#B8A0C8]/15 text-[#B8A0C8] hover:bg-[#B8A0C8]/30" : "bg-muted/30 text-muted-foreground/40 cursor-not-allowed"
+                        )}
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                      </a>
+                      <a
+                        href={c.email ? `mailto:${c.email}` : "#"}
+                        onClick={(e) => { if (!c.email) e.preventDefault(); }}
+                        title={c.email ?? "No email"}
+                        className={cn(
+                          "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
+                          c.email ? "bg-[#C8A880]/15 text-[#C8A880] hover:bg-[#C8A880]/30" : "bg-muted/30 text-muted-foreground/40 cursor-not-allowed"
+                        )}
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/contacts/${c.id}`)}
+                        className="ml-1 text-[10px] text-[#B8A0C8] font-medium whitespace-nowrap"
+                      >
+                        View →
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))

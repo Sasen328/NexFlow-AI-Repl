@@ -215,19 +215,48 @@ router.get("/status", async (_req, res) => {
 
 router.post("/reseed", async (_req, res) => {
   try {
-    // Only reseed if DB appears empty or very sparse
     const [{ c }] = await db.select({ c: sql<number>`count(*)` }).from(contacts);
     const contactCount = Number(c);
     if (contactCount >= 5) {
       return res.json({ ok: true, skipped: true, reason: `DB already has ${contactCount} contacts — no reseed needed`, contacts: contactCount });
     }
-    // Import and run autoSeed
     const { autoSeed } = await import("../lib/autoSeed.js");
     await autoSeed();
     const [{ c: newCount }] = await db.select({ c: sql<number>`count(*)` }).from(contacts);
     res.json({ ok: true, skipped: false, contacts: Number(newCount) });
   } catch (err: any) {
     res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// Force-reseed: wipes all data then re-runs autoSeed
+router.post("/force-reseed", async (_req, res) => {
+  try {
+    // Delete in FK-safe order
+    await db.execute(sql`DELETE FROM dashboard_widgets`);
+    await db.execute(sql`DELETE FROM dashboards`);
+    await db.execute(sql`DELETE FROM static_list_members`);
+    await db.execute(sql`DELETE FROM static_lists`);
+    await db.execute(sql`DELETE FROM activities`);
+    await db.execute(sql`DELETE FROM calls`);
+    await db.execute(sql`DELETE FROM signals`);
+    await db.execute(sql`DELETE FROM notifications`);
+    await db.execute(sql`DELETE FROM deals`);
+    await db.execute(sql`DELETE FROM automation_rules`);
+    await db.execute(sql`DELETE FROM campaigns`);
+    await db.execute(sql`DELETE FROM ai_agents`);
+    await db.execute(sql`DELETE FROM custom_properties`);
+    await db.execute(sql`DELETE FROM contacts`);
+    await db.execute(sql`DELETE FROM companies`);
+    await db.execute(sql`DELETE FROM users`);
+
+    const { autoSeed } = await import("../lib/autoSeed.js");
+    await autoSeed();
+
+    const [{ c }] = await db.select({ c: sql<number>`count(*)` }).from(contacts);
+    res.json({ ok: true, contacts: Number(c), message: "Database fully reseeded with rich demo data." });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Force-reseed failed" });
   }
 });
 
