@@ -89,3 +89,9 @@ id = "xoD4_gVmroL95yr-isDWR"
 uri = "file://docs/investor/README.pdf"
 type = "pdf"
 title = "Investor Pack — README (PDF)"
+
+[[outputs]]
+id = "av0PsRGNId4y_N4rlicQo"
+uri = "file://artifacts/company-profile-deck/COMPANY_PROFILE.md"
+type = "text"
+title = "NexFlow Company Profile"
