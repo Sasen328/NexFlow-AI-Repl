@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, Repeat, Volume2, VolumeX } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, ChevronUp, Download, Loader2, Repeat, Volume2, VolumeX } from 'lucide-react';
 import VideoTemplate, { SCENE_DURATIONS } from './VideoTemplate';
 import { useSceneControls } from '@/lib/video/useSceneControls';
 import { useAmbientAudio } from '@/lib/video/useAmbientAudio';
+import { useTabRecorder } from '@/lib/video/useTabRecorder';
 
 const PROGRESS_TICK_MS = 60;
 
@@ -131,6 +132,97 @@ function ControlBar({
   );
 }
 
+function RecorderButton({
+  status,
+  progress,
+  errorMessage,
+  totalSeconds,
+  onRecord,
+  onCancel,
+}: {
+  status: 'idle' | 'preparing' | 'recording' | 'finalizing' | 'error';
+  progress: number;
+  errorMessage: string | null;
+  totalSeconds: number;
+  onRecord: () => void;
+  onCancel: () => void;
+}) {
+  const isBusy = status === 'preparing' || status === 'recording' || status === 'finalizing';
+  const remaining = Math.max(0, Math.ceil(totalSeconds - progress * totalSeconds));
+
+  let label = `Download MP4 · ${totalSeconds}s`;
+  if (status === 'preparing') label = 'Pick this tab to share…';
+  else if (status === 'recording') label = `Recording… ${remaining}s left`;
+  else if (status === 'finalizing') label = 'Saving file…';
+  else if (status === 'error') label = 'Try again';
+
+  return (
+    <div className="absolute top-5 right-44 z-50 flex flex-col items-end gap-2 max-w-[420px]">
+      <button
+        onClick={isBusy ? onCancel : onRecord}
+        className="flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full backdrop-blur-md transition-all hover:scale-105 cursor-pointer"
+        style={{
+          background:
+            status === 'recording'
+              ? 'linear-gradient(90deg, #C24A4A, #9C3838)'
+              : 'linear-gradient(90deg, rgba(184,160,200,0.95), rgba(136,184,176,0.95))',
+          boxShadow: '0 10px 30px rgba(45,30,60,0.28)',
+          border: '1px solid rgba(255,255,255,0.3)',
+        }}
+        aria-label={label}
+      >
+        {status === 'preparing' || status === 'finalizing' ? (
+          <Loader2 className="w-5 h-5 text-white animate-spin" />
+        ) : status === 'recording' ? (
+          <span className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
+          </span>
+        ) : (
+          <Download className="w-5 h-5 text-white" />
+        )}
+        <span className="text-[13px] font-semibold text-white tracking-wide">{label}</span>
+      </button>
+
+      {status === 'recording' && (
+        <div
+          className="w-[280px] h-1.5 bg-white/30 rounded-full overflow-hidden"
+          aria-hidden="true"
+        >
+          <div
+            className="h-full bg-white/95 transition-[width] duration-100"
+            style={{ width: `${progress * 100}%` }}
+          />
+        </div>
+      )}
+
+      {status === 'error' && errorMessage && (
+        <div
+          className="px-3 py-2 rounded-lg text-[12px] text-white max-w-[300px] text-right"
+          style={{
+            background: 'rgba(156,56,56,0.92)',
+            boxShadow: '0 6px 18px rgba(156,56,56,0.3)',
+          }}
+        >
+          {errorMessage}
+        </div>
+      )}
+
+      {status === 'idle' && (
+        <div
+          className="px-3 py-1.5 rounded-lg text-[11px] text-white/95 max-w-[300px] text-right leading-snug"
+          style={{
+            background: 'rgba(17, 24, 39, 0.7)',
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          You'll be asked to share <b>this tab</b> · audio is included
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SoundToggle({
   enabled,
   muted,
@@ -191,7 +283,27 @@ export default function VideoWithControls() {
     audioRef,
     audioUrl,
   } = useAmbientAudio();
-  const [exportHelpOpen, setExportHelpOpen] = useState(false);
+
+  const recorder = useTabRecorder();
+  const totalDurationMs = useMemo(
+    () => Object.values(SCENE_DURATIONS).reduce((a, b) => a + b, 0),
+    [],
+  );
+
+  const handleRecord = useCallback(() => {
+    if (recorder.status === 'recording' || recorder.status === 'preparing') return;
+    void recorder.start({
+      durationMs: totalDurationMs,
+      audioUrl,
+      onStart: () => {
+        // Reset video timeline to scene 1 the moment recording starts
+        jumpTo(0);
+        // Also mute the on-page audio so we don't double-play (recorder injects its own)
+        const el = audioRef.current;
+        if (el) el.muted = true;
+      },
+    });
+  }, [recorder, totalDurationMs, audioUrl, jumpTo, audioRef]);
 
   const sensorRef = useRef<HTMLDivElement | null>(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -272,61 +384,15 @@ export default function VideoWithControls() {
         onToggle={handleSoundToggle}
       />
 
-      {/* Export instructions pill */}
-      <button
-        onClick={() => setExportHelpOpen((v) => !v)}
-        className="absolute top-5 right-44 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full backdrop-blur-md transition-all hover:scale-105"
-        style={{
-          background: 'rgba(17, 24, 39, 0.65)',
-          boxShadow: '0 8px 25px rgba(0,0,0,0.18)',
-          border: '1px solid rgba(255,255,255,0.25)',
-        }}
-        aria-label="Show export instructions"
-      >
-        <span className="text-[13px] font-semibold text-white tracking-wide">
-          {exportHelpOpen ? 'Close' : 'Export MP4 ▾'}
-        </span>
-      </button>
-
-      {exportHelpOpen && (
-        <div
-          className="absolute top-20 right-5 z-50 w-[360px] p-5 rounded-2xl backdrop-blur-xl"
-          style={{
-            background: 'rgba(17, 24, 39, 0.92)',
-            border: '1px solid rgba(255,255,255,0.18)',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
-            color: '#fff',
-          }}
-        >
-          <div className="text-[11px] uppercase tracking-[0.2em] font-bold text-white/60 mb-2">
-            How to download as MP4
-          </div>
-          <div className="text-[15px] font-semibold mb-3">
-            Use the Export button on this preview pane
-          </div>
-          <ol className="space-y-2 text-[13px] text-white/85 list-decimal pl-5">
-            <li>
-              In the preview pane toolbar above this video, click the{' '}
-              <span className="font-semibold text-white">Export</span> /{' '}
-              <span className="font-semibold text-white">Download</span> button.
-            </li>
-            <li>
-              The recorder captures all 9 scenes at 30fps and produces an{' '}
-              <span className="font-semibold text-white">.mp4</span> file you can save.
-            </li>
-            <li>
-              The MP4 is silent by design — add the included background track in any
-              editor (CapCut, Premiere, iMovie) over the video.
-            </li>
-          </ol>
-          <div
-            className="mt-4 px-3 py-2 rounded-lg text-[12px]"
-            style={{ background: 'rgba(184,160,200,0.18)', color: '#E8DFEF' }}
-          >
-            Total length: 90 seconds · 1080p · ~15 MB
-          </div>
-        </div>
-      )}
+      {/* Real in-browser recorder button */}
+      <RecorderButton
+        status={recorder.status}
+        progress={recorder.progress}
+        errorMessage={recorder.errorMessage}
+        totalSeconds={Math.round(totalDurationMs / 1000)}
+        onRecord={handleRecord}
+        onCancel={recorder.cancel}
+      />
 
       <div
         ref={sensorRef}
