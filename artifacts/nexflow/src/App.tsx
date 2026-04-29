@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LivingMesh } from "@/components/layout/LivingMesh";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { TopBar } from "@/components/layout/TopBar";
 import { useState, useEffect } from "react";
 
 import Briefing from "@/pages/briefing";
@@ -70,6 +70,7 @@ import DedupPage from "@/pages/dedup";
 import LeadEnrichPage from "@/pages/lead-enrich";
 import MarketingAssistantPage from "@/pages/marketing-assistant";
 import PowerDialerPage from "@/pages/power-dialer";
+import AccountSettingsPage from "@/pages/account-settings";
 import PermissionsPage from "@/pages/permissions";
 import ReportBuilderPage from "@/pages/report-builder";
 import CapabilitiesPage from "@/pages/capabilities";
@@ -80,15 +81,14 @@ const queryClient = new QueryClient({
 });
 
 function AppLayout() {
-  const [collapsed, setCollapsed] = useState(false);
   const [dark, setDark] = useState(false);
   useEffect(() => { document.documentElement.classList.toggle("dark", dark); }, [dark]);
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <LivingMesh />
-      <Sidebar collapsed={collapsed} onCollapse={setCollapsed} dark={dark} onDark={setDark} />
-      <main className="flex-1 min-w-0 p-6 overflow-y-auto relative z-10">
+      <TopBar dark={dark} onDark={setDark} />
+      <main className="flex-1 min-w-0 px-4 sm:px-6 py-6 overflow-y-auto relative z-10 max-w-[1600px] w-full mx-auto">
         <Switch>
           <Route path="/" component={Briefing} />
           <Route path="/dashboard" component={Dashboard} />
@@ -154,6 +154,8 @@ function AppLayout() {
           <Route path="/lead-enrich" component={LeadEnrichPage} />
           <Route path="/marketing-assistant" component={MarketingAssistantPage} />
           <Route path="/power-dialer" component={PowerDialerPage} />
+          <Route path="/account-settings" component={AccountSettingsPage} />
+          <Route path="/account-settings/:section" component={AccountSettingsPage} />
           <Route path="/permissions" component={PermissionsPage} />
           <Route path="/report-builder" component={ReportBuilderPage} />
           <Route path="/capabilities" component={CapabilitiesPage} />

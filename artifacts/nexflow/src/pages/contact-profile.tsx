@@ -215,6 +215,9 @@ export default function ContactProfilePage({ params }: Props) {
               </div>
             </div>
 
+            {/* Core CRM properties — owner, stage, score, dates */}
+            <ContactCoreProperties contact={contact} />
+
             {/* List memberships */}
             <ContactListsCard contactId={id} />
 
@@ -1042,6 +1045,110 @@ function ContactAIOverview({ contactId }: { contactId: string }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ContactCoreProperties({ contact }: { contact: any }) {
+  const STAGES = [
+    { value: "new",          label: "New",          color: "#90B8B8" },
+    { value: "engaged",      label: "Engaged",      color: "#B8A0C8" },
+    { value: "qualified",    label: "Qualified",    color: "#88B8B0" },
+    { value: "opportunity",  label: "Opportunity",  color: "#C8A880" },
+    { value: "customer",     label: "Customer",     color: "#88B8B0" },
+    { value: "unqualified",  label: "Unqualified",  color: "#A89090" },
+  ];
+  const stage = STAGES.find((s) => s.value === contact.status) ?? STAGES[0];
+  const tags: string[] = contact.tags ?? [];
+
+  const ownerInitials = contact.owner_name
+    ? contact.owner_name.split(" ").map((n: string) => n[0]).slice(0, 2).join("").toUpperCase()
+    : "—";
+
+  return (
+    <div className="glass-card rounded-2xl p-5">
+      <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+        <Tag className="w-3 h-3" />
+        Properties
+      </h3>
+      <dl className="space-y-3 text-sm">
+        <Row label="Contact Owner">
+          {contact.owner_name ? (
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full nf-chameleon-bg flex items-center justify-center text-white text-[10px] font-black">{ownerInitials}</div>
+              <div className="min-w-0">
+                <div className="text-foreground font-semibold truncate">{contact.owner_name}</div>
+                {contact.owner_email && <div className="text-[10px] text-muted-foreground truncate">{contact.owner_email}</div>}
+              </div>
+            </div>
+          ) : (
+            <span className="text-muted-foreground italic">Unassigned</span>
+          )}
+        </Row>
+
+        <Row label="Lead Stage">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
+            style={{ backgroundColor: `${stage.color}25`, color: stage.color }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: stage.color }} />
+            {stage.label}
+          </span>
+        </Row>
+
+        <Row label="Lead Score">
+          <div className="flex items-center gap-2">
+            <div className="text-base font-black text-foreground">{Math.round(contact.lead_score ?? 0)}</div>
+            <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+              <div className="h-full nf-chameleon-bg" style={{ width: `${Math.min(100, contact.lead_score ?? 0)}%` }} />
+            </div>
+          </div>
+        </Row>
+
+        {contact.company_name && (
+          <Row label="Company">
+            <Link href={`/companies/${contact.company_id}`}>
+              <span className="text-[#B8A0C8] font-semibold hover:underline cursor-pointer">{contact.company_name}</span>
+            </Link>
+            {contact.company_industry && <span className="text-[10px] text-muted-foreground ml-2">· {contact.company_industry}</span>}
+          </Row>
+        )}
+
+        {contact.title && <Row label="Title"><span className="text-foreground/85">{contact.title}</span></Row>}
+
+        <Row label="Tags">
+          {tags.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {tags.map((t) => (
+                <span key={t} className="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 text-foreground/70 font-medium">{t}</span>
+              ))}
+            </div>
+          ) : <span className="text-muted-foreground italic">No tags</span>}
+        </Row>
+
+        {contact.last_engaged_at && (
+          <Row label="Last Engaged">
+            <span className="text-foreground/85">{new Date(contact.last_engaged_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
+          </Row>
+        )}
+
+        <Row label="Created">
+          <span className="text-foreground/85">{new Date(contact.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
+        </Row>
+
+        {contact.updated_at && contact.updated_at !== contact.created_at && (
+          <Row label="Updated">
+            <span className="text-foreground/85">{new Date(contact.updated_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
+          </Row>
+        )}
+      </dl>
+    </div>
+  );
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[110px_1fr] gap-2 items-start">
+      <dt className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold pt-1">{label}</dt>
+      <dd className="min-w-0">{children}</dd>
     </div>
   );
 }
