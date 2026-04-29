@@ -4,27 +4,6 @@ import {
   LogOut, ArrowRight, Sparkles, FileSpreadsheet, Presentation,
 } from "lucide-react";
 
-/**
- * Private investor data-room landing page.
- *
- * Public-facing route at /investors. Two states:
- *   1. Locked  — branded passcode form
- *   2. Unlocked — list of available investor documents (deck, deep dive,
- *                 feasibility, financial plan) with download links.
- *
- * Audit data (passcode attempts, downloads) is recorded server-side in the
- * `investor_access_log` table. We deliberately do NOT show that log to
- * authenticated visitors here, because the shared passcode is given to
- * multiple investors and surfacing each other's IPs/user-agents would leak
- * audit metadata between them. The founders can read the log directly from
- * the database, or via a future admin-gated route.
- *
- * Colour system: chameleon palette — #B8A0C8 lavender, #88B8B0 sage,
- *                #C8A880 sand, #F8F5F0 cream. Typography: Manrope body,
- *                Cormorant display headings (already in the brand stack).
- */
-
-// ── API helpers (use credentials so the cookie round-trips) ──────────────
 async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const url = `${window.location.origin}/api-server/api${path}`;
   const res = await fetch(url, {
@@ -83,7 +62,6 @@ function kindIcon(kind: InvestorDoc["kind"]) {
   }
 }
 
-// ── Branded background ───────────────────────────────────────────────────
 function ChameleonBackdrop() {
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden">
@@ -94,7 +72,6 @@ function ChameleonBackdrop() {
             "linear-gradient(160deg,#F8F5F0 0%,#F4ECEC 35%,#EFEAE3 70%,#E8DFD6 100%)",
         }}
       />
-      {/* Soft chameleon orbs */}
       <div
         className="absolute top-[-15%] left-[-10%] w-[55vw] h-[55vw] rounded-full opacity-40 blur-3xl"
         style={{ background: "radial-gradient(closest-side,#B8A0C8 0%, transparent 70%)" }}
@@ -111,7 +88,6 @@ function ChameleonBackdrop() {
   );
 }
 
-// ── Locked: passcode form ────────────────────────────────────────────────
 function LockedView({ onUnlock }: { onUnlock: () => void }) {
   const [passcode, setPasscode] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -267,7 +243,6 @@ function LockedView({ onUnlock }: { onUnlock: () => void }) {
   );
 }
 
-// ── Unlocked: documents grid ─────────────────────────────────────────────
 function UnlockedView({ onLogout }: { onLogout: () => void }) {
   const [docs, setDocs] = useState<InvestorDoc[] | null>(null);
   const [docsErr, setDocsErr] = useState<string | null>(null);
@@ -315,7 +290,6 @@ function UnlockedView({ onLogout }: { onLogout: () => void }) {
   return (
     <div className="min-h-screen px-6 py-12 sm:py-16">
       <div className="max-w-5xl mx-auto">
-        {/* ── Header ─────────────────────────────────────────────── */}
         <div className="flex items-start justify-between gap-6 mb-12">
           <div>
             <p
@@ -342,8 +316,7 @@ function UnlockedView({ onLogout }: { onLogout: () => void }) {
                 fontFamily: "Manrope, system-ui, sans-serif",
               }}
             >
-              Below are the latest investor materials. Click any item to
-              download. {today}.
+              Below are the latest investor materials. Click any item to download. {today}.
             </p>
           </div>
           <button
@@ -362,7 +335,6 @@ function UnlockedView({ onLogout }: { onLogout: () => void }) {
           </button>
         </div>
 
-        {/* ── Documents grid ────────────────────────────────────── */}
         {docsErr && (
           <div
             className="rounded-2xl p-4 mb-6 flex items-center gap-2 text-sm"
@@ -467,7 +439,6 @@ function UnlockedView({ onLogout }: { onLogout: () => void }) {
   );
 }
 
-// ── Top-level page ───────────────────────────────────────────────────────
 export default function InvestorsPage() {
   const [authed, setAuthed] = useState<boolean | null>(null);
 
