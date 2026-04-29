@@ -8,16 +8,18 @@ import { Scene5 } from './video_scenes/Scene5';
 import { Scene6 } from './video_scenes/Scene6';
 import { Scene7 } from './video_scenes/Scene7';
 import { Scene8 } from './video_scenes/Scene8';
+import { SceneAllTools } from './video_scenes/SceneAllTools';
 import { useEffect } from 'react';
 
 export const SCENE_DURATIONS = {
-  scene1: 10000,
-  scene2: 12000,
-  scene3: 15000,
-  scene4: 12000,
-  scene5: 10000,
-  scene6: 10000,
-  scene7: 12000,
+  scene1: 8000,
+  scene2: 10000,
+  scene3: 11000,
+  scene4: 9000,
+  scene5: 8000,
+  scene6: 8000,
+  scene7: 9000,
+  sceneAllTools: 18000,
   scene8: 9000,
 };
 
@@ -29,6 +31,7 @@ const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
   scene5: Scene5,
   scene6: Scene6,
   scene7: Scene7,
+  sceneAllTools: SceneAllTools,
   scene8: Scene8,
 };
 
