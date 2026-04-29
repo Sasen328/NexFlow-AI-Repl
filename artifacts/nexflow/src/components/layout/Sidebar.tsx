@@ -8,6 +8,7 @@ import {
   ListIcon, LayoutDashboard, Filter, Megaphone, GitBranch, PhoneCall, Wand2, Layers, Globe,
   Calendar, Mic, Briefcase, Headphones, BookOpen,
   Workflow, ScanLine, Network, Shield,
+  Heart, Route, FileSpreadsheet, CreditCard, BookText, Lock, Eye,
 } from "lucide-react";
 import { NexFlowLogo, NexFlowWordmark } from "./NexFlowLogo";
 import { useNotifications } from "@/hooks/useApi";
@@ -43,6 +44,7 @@ const NAV_GROUPS = [
       { icon: FileText,   label: "Quotes & CPQ",     href: "/quotes" },
       { icon: TrendingUp, label: "Forecasting",      href: "/forecasting" },
       { icon: ScanLine,   label: "Card Scanner",     href: "/business-cards" },
+      { icon: Heart,      label: "Health Scores",    href: "/health-scores" },
     ],
   },
   {
@@ -57,6 +59,8 @@ const NAV_GROUPS = [
       { icon: Bot,             label: "AI Voice Agent",        href: "/voice-agents" },
       { icon: BookOpen,        label: "Knowledge Base",        href: "/scripts" },
       { icon: MessageSquare,   label: "Messages",              href: "/messages" },
+      { icon: MessageSquare,   label: "WhatsApp",              href: "/whatsapp" },
+      { icon: Shield,          label: "Call Redaction",        href: "/call-redaction" },
     ],
   },
 
@@ -73,6 +77,9 @@ const NAV_GROUPS = [
       { icon: Layers,     label: "Templates",             href: "/templates" },
       { icon: Globe,      label: "Cultural Intelligence", href: "/cultural-intelligence" },
       { icon: Target,     label: "Audiences",             href: "/audiences" },
+      { icon: FileText,   label: "Web Forms",             href: "/web-forms" },
+      { icon: Eye,        label: "Document Tracking",     href: "/document-tracking" },
+      { icon: CreditCard, label: "Quote-to-Cash",         href: "/quote-to-cash" },
     ],
   },
   {
@@ -84,6 +91,8 @@ const NAV_GROUPS = [
       { icon: Workflow, label: "Workflow Builder",  href: "/workflows" },
       { icon: Zap,      label: "Automation Rules",  href: "/automation" },
       { icon: Wand2,    label: "Agent Builder",     href: "/agents" },
+      { icon: Route,    label: "Lead Routing",      href: "/lead-routing" },
+      { icon: Mail,     label: "Activity Capture",  href: "/activity-capture" },
     ],
   },
 
@@ -99,6 +108,7 @@ const NAV_GROUPS = [
       { icon: Sparkles, label: "Predictive",        href: "/predictive" },
       { icon: Database, label: "Enrichment",        href: "/sourcing" },
       { icon: Zap,      label: "Signals",           href: "/signals" },
+      { icon: BookText, label: "Sales Playbooks",   href: "/playbooks" },
     ],
   },
   {
@@ -111,6 +121,8 @@ const NAV_GROUPS = [
       { icon: FileText,        label: "Reports",          href: "/reports" },
       { icon: BarChart3,       label: "Analytics",        href: "/analytics" },
       { icon: UserSquare2,     label: "Team Performance", href: "/team" },
+      { icon: BarChart3,       label: "Attribution",      href: "/attribution" },
+      { icon: BarChart3,       label: "Report Builder",   href: "/report-builder" },
     ],
   },
 
@@ -124,6 +136,7 @@ const NAV_GROUPS = [
       { icon: ListIcon, label: "Lists",      href: "/lists" },
       { icon: Filter,   label: "Properties", href: "/properties" },
       { icon: Target,   label: "Segments",   href: "/segments" },
+      { icon: FileSpreadsheet, label: "Migration", href: "/migration" },
     ],
   },
   {
@@ -133,6 +146,9 @@ const NAV_GROUPS = [
     icon: Shield,
     items: [
       { icon: Shield,   label: "Trust Center", href: "/trust-center" },
+      { icon: Globe,    label: "Public Trust", href: "/public-trust" },
+      { icon: Lock,     label: "Permissions",  href: "/permissions" },
+      { icon: Sparkles, label: "Capabilities", href: "/capabilities" },
       { icon: Settings, label: "Settings",     href: "/settings" },
     ],
   },

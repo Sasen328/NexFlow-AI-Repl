@@ -23,6 +23,12 @@ import campaignsRouter from "./campaigns";
 import agentsRouter from "./agents";
 import trackingRouter from "./tracking";
 import seedExtraRouter from "./seed-extra";
+import businessCardsRouter from "./business-cards";
+import playbooksRouter from "./playbooks";
+import activityCaptureRouter from "./activity-capture";
+import attributionRouter from "./attribution";
+import healthScoresRouter from "./health-scores";
+import redactionRouter from "./redaction";
 
 const router: IRouter = Router();
 
@@ -50,5 +56,11 @@ router.use("/campaigns", campaignsRouter);
 router.use("/agents", agentsRouter);
 router.use("/tracking", trackingRouter);
 router.use("/admin", seedExtraRouter);
+router.use("/business-cards", businessCardsRouter);
+router.use("/playbooks", playbooksRouter);
+router.use("/activity-capture", activityCaptureRouter);
+router.use("/attribution", attributionRouter);
+router.use("/health-scores", healthScoresRouter);
+router.use("/redaction", redactionRouter);
 
 export default router;

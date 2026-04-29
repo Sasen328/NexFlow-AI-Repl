@@ -39,7 +39,7 @@ app.options(/.*/, cors());
 // text/plain is a CORS-safe content type, which lets mobile POSTs avoid
 // preflight (the workspace proxy strips Access-Control-Allow-Origin from
 // OPTIONS responses, so preflight always fails).
-app.use(express.json({ type: ["application/json", "text/plain"], limit: "1mb" }));
+app.use(express.json({ type: ["application/json", "text/plain"], limit: "25mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
