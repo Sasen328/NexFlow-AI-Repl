@@ -13,6 +13,15 @@ NexFlow is an AI-native B2B CRM built as a React + Vite frontend with an Express
 - Chameleon gradient: #B8A0C8 → #C0A0B8 → #88B8B0 → #90B8B8 → #B8B880 → #C8A880
 - Dark mode available via toggle
 
+## Tier Features (v3 — April 29, 2026)
+
+20 features across 4 product tiers added in this pass. Status surfaced at `/capabilities`:
+- **16 functional** (live DB+AI, no extra setup): Workflow Builder, Lead Routing, Web Forms, Document Tracking, Customer Health Scores, Business Card Scanner (GPT-4o Vision via OpenRouter), Templates, Account Hub (ABM), Multi-Touch Attribution (first/last/linear with channel-bias weighting), AI Sales Playbooks, Custom Report Builder, Migration (CSV), Trust Center, Public Trust Page, Call Recording Redaction (regex PCI/PII), Activity Capture (paste→AI parse).
+- **2 demo / preview**: Mobile Offline Mode (Expo cache layer roadmap), Field Permissions & Approvals (UI + localStorage; backend RBAC middleware roadmap).
+- **2 needs external API**: WhatsApp Business (Meta/Twilio/Infobip), Quote-to-Cash (Mada/Tap/HyperPay/PayTabs).
+
+New backend routers: `business-cards`, `playbooks`, `activity-capture`, `attribution`, `health-scores`, `redaction`. Express JSON body limit raised to 25mb to accommodate base64-encoded card uploads. `/views` and `/automations` routers updated to coerce flexible client payloads (form-builder `view_type`, lead-routing `trigger:{kind}` object) into the strict schema enums (`object_type`, `automation_trigger`).
+
 ## Major Feature Upgrades (v2 — April 2026)
 
 ### Web (nexflow)

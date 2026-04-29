@@ -14,9 +14,52 @@ router.get("/", async (_req, res) => {
   }
 });
 
+// Allowed triggers in the schema enum. Anything else (e.g. "lead_routing"
+// from the routing builder UI) is stored inside trigger_config so the rule
+// row remains valid while preserving the client intent.
+const TRIGGER_ENUM = new Set([
+  "stage_change", "activity_completed", "signal_received", "no_answer",
+  "form_submitted", "score_threshold", "schedule", "campaign_open",
+]);
+function normalizeTrigger(input: any): { trigger: any; trigger_config: any } {
+  if (!input) return { trigger: "form_submitted", trigger_config: { kind: "lead_routing" } };
+  if (typeof input === "string") {
+    return TRIGGER_ENUM.has(input)
+      ? { trigger: input, trigger_config: null }
+      : { trigger: "form_submitted", trigger_config: { kind: input } };
+  }
+  // object form: { kind: "lead_routing", ... }
+  const kind = (input as any).kind ?? (input as any).type;
+  return TRIGGER_ENUM.has(kind)
+    ? { trigger: kind, trigger_config: input }
+    : { trigger: "form_submitted", trigger_config: input };
+}
+function normalizeBody(b: any) {
+  const out: Record<string, unknown> = {};
+  if (b.name !== undefined) out.name = String(b.name);
+  if (b.description !== undefined) out.description = b.description;
+  if (b.trigger !== undefined || b.trigger_config !== undefined) {
+    const t = normalizeTrigger(b.trigger ?? b.trigger_config);
+    out.trigger = t.trigger;
+    out.trigger_config = b.trigger_config ?? t.trigger_config;
+  }
+  if (b.conditions !== undefined) out.conditions = b.conditions;
+  if (b.actions !== undefined) out.actions = Array.isArray(b.actions) ? b.actions : [b.actions];
+  if (b.enabled !== undefined) out.enabled = Boolean(b.enabled);
+  if (b.is_active !== undefined && b.enabled === undefined) out.enabled = Boolean(b.is_active);
+  return out;
+}
+
 router.post("/", async (req, res) => {
   try {
-    const [r] = await db.insert(automation_rules).values({ ...req.body, org_id: "default" }).returning();
+    const body = normalizeBody(req.body ?? {});
+    if (!body.actions) body.actions = [];
+    if (!body.trigger) {
+      const t = normalizeTrigger(undefined);
+      body.trigger = t.trigger;
+      body.trigger_config = t.trigger_config;
+    }
+    const [r] = await db.insert(automation_rules).values({ ...(body as any), org_id: "default" }).returning();
     res.status(201).json(r);
   } catch (err: any) {
     res.status(500).json({ error: err?.message ?? "Failed" });
@@ -25,9 +68,10 @@ router.post("/", async (req, res) => {
 
 router.patch("/:id", async (req, res) => {
   try {
-    const [r] = await db.update(automation_rules).set(req.body).where(eq(automation_rules.id, req.params.id)).returning();
+    const body = normalizeBody(req.body ?? {});
+    const [r] = await db.update(automation_rules).set(body as any).where(eq(automation_rules.id, req.params.id)).returning();
     res.json(r);
-  } catch (err) { res.status(500).json({ error: "Failed" }); }
+  } catch (err: any) { res.status(500).json({ error: err?.message ?? "Failed" }); }
 });
 
 router.delete("/:id", async (req, res) => {

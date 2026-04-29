@@ -1,74 +1,163 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useLocation } from "wouter";
 import {
-  ScanLine, Upload, Camera, CheckCircle2, Sparkles, User, Mail, Phone, Building2,
-  Globe, MapPin, Linkedin, Languages, Plus, Wand2, ArrowRight, Loader2, Eye, Check,
-  X, FileImage, Users, TrendingUp,
+  ScanLine, Upload, Camera, Sparkles, User, Mail, Phone, Building2,
+  Globe, MapPin, Linkedin, Languages, Wand2, ArrowRight, Loader2,
+  Check, X, FileImage, AlertCircle, Trash2, RefreshCw, Hash,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiFetch } from "@/hooks/useApi";
 
-type ExtractedField = { key: string; label: string; value: string; confidence: number; icon: any };
-
-const SAMPLE_EXTRACT: ExtractedField[] = [
-  { key: "name_en", label: "Name (English)", value: "Ahmed Al-Rashidi",            confidence: 98, icon: User },
-  { key: "name_ar", label: "Name (Arabic)",  value: "أحمد الرشيدي",                confidence: 96, icon: Languages },
-  { key: "title",   label: "Title",          value: "Chief Information Officer",   confidence: 95, icon: User },
-  { key: "company", label: "Company",        value: "NEOM Tech & Digital Holdings",confidence: 99, icon: Building2 },
-  { key: "email",   label: "Email",          value: "ahmed.rashidi@neom.com",      confidence: 97, icon: Mail },
-  { key: "phone",   label: "Mobile",         value: "+966 50 123 4567",            confidence: 94, icon: Phone },
-  { key: "office",  label: "Office",         value: "+966 13 888 9000 ext 4521",   confidence: 88, icon: Phone },
-  { key: "website", label: "Website",        value: "neom.com",                    confidence: 99, icon: Globe },
-  { key: "address", label: "Address",        value: "NEOM Bay, Tabuk Province, KSA",confidence: 82, icon: MapPin },
-  { key: "linkedin",label: "LinkedIn",       value: "linkedin.com/in/aalrashidi",  confidence: 76, icon: Linkedin },
-];
-
-const ENRICHMENT = [
-  { label: "Industry",        value: "Government / Smart City",       source: "Crunchbase" },
-  { label: "Company size",    value: "5,000-10,000",                  source: "LinkedIn" },
-  { label: "Annual revenue",  value: "$8.4B (2025)",                  source: "ZoomInfo" },
-  { label: "Funding",         value: "$500B PIF backed",              source: "Crunchbase" },
-  { label: "Tech stack",      value: "Salesforce, AWS, SAP, Azure",   source: "BuiltWith" },
-  { label: "Lead score",      value: "94 / 100",                      source: "NexFlow AI" },
-];
-
-const RECENT_SCANS = [
-  { id: "1", name: "Sara Al-Mansouri",  company: "Gulf Ventures",     time: "2m ago",  status: "saved",     score: 94 },
-  { id: "2", name: "Mohammed Al-Otaibi",company: "Aramco Digital",    time: "1h ago",  status: "saved",     score: 91 },
-  { id: "3", name: "Hessa Al-Nahyan",   company: "Abu Dhabi Holdings",time: "3h ago",  status: "saved",     score: 87 },
-  { id: "4", name: "Khalid Al-Hamdan",  company: "Doha Petroleum",    time: "yesterday", status: "review",  score: 72 },
-  { id: "5", name: "Layla Hassan",      company: "MENA Banking",      time: "yesterday", status: "saved",   score: 84 },
-  { id: "6", name: "Reem Al-Dossari",   company: "Aramco Digital",    time: "2d ago",  status: "duplicate", score: 0 },
-];
-
-const STATUS_STYLE: Record<string, string> = {
-  saved:     "bg-[#88B8B0]/15 text-[#88B8B0] border-[#88B8B0]/30",
-  review:    "bg-[#C8A880]/15 text-[#C8A880] border-[#C8A880]/30",
-  duplicate: "bg-[#C0A0B8]/15 text-[#C0A0B8] border-[#C0A0B8]/30",
+const FIELD_META: Record<string, { label: string; icon: any }> = {
+  name_en:  { label: "Name (English)",  icon: User },
+  name_ar:  { label: "Name (Arabic)",   icon: Languages },
+  title:    { label: "Title",           icon: User },
+  company:  { label: "Company",         icon: Building2 },
+  company_ar: { label: "Company (Arabic)", icon: Languages },
+  email:    { label: "Email",           icon: Mail },
+  mobile:   { label: "Mobile",          icon: Phone },
+  office:   { label: "Office",          icon: Phone },
+  fax:      { label: "Fax",             icon: Phone },
+  website:  { label: "Website",         icon: Globe },
+  address:  { label: "Address",         icon: MapPin },
+  city:     { label: "City",            icon: MapPin },
+  country:  { label: "Country",         icon: MapPin },
+  linkedin: { label: "LinkedIn",        icon: Linkedin },
+  twitter:  { label: "Twitter / X",     icon: Hash },
+  industry_guess: { label: "Industry",  icon: Building2 },
 };
 
-function confidenceBadge(c: number) {
-  if (c >= 95) return { color: "text-[#88B8B0]", bg: "bg-[#88B8B0]/15", label: "high" };
-  if (c >= 85) return { color: "text-[#B8B880]", bg: "bg-[#B8B880]/15", label: "good" };
-  return { color: "text-[#C8A880]", bg: "bg-[#C8A880]/15", label: "low" };
-}
+const FIELD_ORDER = [
+  "name_en", "name_ar", "title", "company", "email",
+  "mobile", "office", "website", "linkedin", "address",
+  "city", "country", "industry_guess",
+];
+
+type ExtractField = { key: string; confidence: number; bbox?: { x: number; y: number; w: number; h: number } };
 
 export default function BusinessCardsPage() {
-  const [scanState, setScanState] = useState<"empty" | "scanning" | "complete">("complete");
-  const [fields, setFields] = useState<ExtractedField[]>(SAMPLE_EXTRACT);
+  const [, navigate] = useLocation();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [scanState, setScanState] = useState<"empty" | "scanning" | "complete" | "error">("empty");
+  const [error, setError] = useState<string | null>(null);
+  const [extracted, setExtracted] = useState<Record<string, string | null>>({});
+  const [confidences, setConfidences] = useState<Record<string, number>>({});
+  const [bboxes, setBboxes] = useState<ExtractField[]>([]);
+  const [savingState, setSavingState] = useState<"idle" | "saving" | "saved" | "duplicate">("idle");
+  const [savedContactId, setSavedContactId] = useState<string | null>(null);
+  const [recent, setRecent] = useState<any[]>([]);
 
-  function simulateScan() {
+  useEffect(() => { loadRecent(); }, []);
+
+  async function loadRecent() {
+    try {
+      const r = await apiFetch<{ scans: any[] }>("/business-cards/recent");
+      setRecent(r.scans ?? []);
+    } catch {}
+  }
+
+  function pickFile() { fileRef.current?.click(); }
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Please upload an image file (JPG, PNG, or HEIC)");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Image too large (max 10MB)");
+      return;
+    }
+    setError(null);
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      setImageDataUrl(dataUrl);
+      await runScan(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function runScan(dataUrl: string) {
     setScanState("scanning");
-    setTimeout(() => {
-      setFields(SAMPLE_EXTRACT);
+    setExtracted({});
+    setConfidences({});
+    setBboxes([]);
+    setSavingState("idle");
+    setSavedContactId(null);
+    try {
+      const r = await apiFetch<{ extracted: any }>("/business-cards/scan", {
+        method: "POST",
+        body: JSON.stringify({ image_data_url: dataUrl }),
+      });
+      const ex = r.extracted ?? {};
+      const fieldsMap: Record<string, string | null> = {};
+      const confMap: Record<string, number> = {};
+      for (const k of Object.keys(FIELD_META)) {
+        if (ex[k] !== undefined) fieldsMap[k] = ex[k];
+      }
+      const fields = Array.isArray(ex.fields) ? ex.fields : [];
+      for (const f of fields) {
+        if (f && typeof f === "object" && f.key) {
+          confMap[f.key] = typeof f.confidence === "number" ? f.confidence : 80;
+        }
+      }
+      // default confidence for fields without explicit value
+      for (const k of Object.keys(fieldsMap)) {
+        if (fieldsMap[k] && confMap[k] === undefined) confMap[k] = 88;
+      }
+      setExtracted(fieldsMap);
+      setConfidences(confMap);
+      setBboxes(fields);
       setScanState("complete");
-    }, 1600);
+    } catch (err: any) {
+      console.error(err);
+      setError(err?.message ?? "Scan failed. Check your connection and try again.");
+      setScanState("error");
+    }
   }
 
   function updateField(key: string, value: string) {
-    setFields(fields.map((f) => (f.key === key ? { ...f, value, confidence: 100 } : f)));
+    setExtracted((s) => ({ ...s, [key]: value }));
+    setConfidences((s) => ({ ...s, [key]: 100 }));
+  }
+
+  async function saveContact() {
+    setSavingState("saving");
+    try {
+      const r = await apiFetch<{ contact_id: string; duplicate: boolean }>("/business-cards/save", {
+        method: "POST",
+        body: JSON.stringify({ extracted }),
+      });
+      setSavedContactId(r.contact_id);
+      setSavingState(r.duplicate ? "duplicate" : "saved");
+      loadRecent();
+    } catch (err: any) {
+      console.error(err);
+      setError(err?.message ?? "Save failed");
+      setSavingState("idle");
+    }
+  }
+
+  function reset() {
+    setImageDataUrl(null);
+    setExtracted({});
+    setConfidences({});
+    setBboxes([]);
+    setScanState("empty");
+    setSavingState("idle");
+    setSavedContactId(null);
+    setError(null);
+    if (fileRef.current) fileRef.current.value = "";
   }
 
   return (
     <div className="p-5 space-y-4">
+      <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={onFile} className="hidden" />
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -77,229 +166,238 @@ export default function BusinessCardsPage() {
               <ScanLine className="w-5 h-5 text-white" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight">Business Card Scanner</h1>
-            <span className="px-2 py-0.5 rounded-md bg-[#B8A0C8]/15 text-[#B8A0C8] text-[10px] font-bold uppercase tracking-wide">
-              Vision AI
+            <span className="px-2 py-0.5 rounded-md bg-[#88B8B0]/15 text-[#88B8B0] text-[10px] font-bold uppercase tracking-wide border border-[#88B8B0]/30">
+              Live · GPT-4o Vision
             </span>
           </div>
           <p className="text-sm text-muted-foreground ml-11">
-            Snap a card at a Riyadh, Dubai, or Doha trade show — contact created in 5 seconds, bilingual (Arabic + English).
+            Snap a card — real OCR via vision AI, bilingual (Arabic + English), saves directly to your contacts in 3 seconds.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-border/40 hover:bg-muted/50 transition">
-            <Camera className="w-3.5 h-3.5" /> Mobile capture
-          </button>
-          <button onClick={simulateScan} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white nf-chameleon-bg shadow-sm">
+          {scanState !== "empty" && (
+            <button onClick={reset} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-border/40 hover:bg-muted/50 transition">
+              <RefreshCw className="w-3.5 h-3.5" /> New scan
+            </button>
+          )}
+          <button onClick={pickFile} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white nf-chameleon-bg shadow-sm">
             <Upload className="w-3.5 h-3.5" /> Upload card
           </button>
         </div>
       </div>
 
+      {error && (
+        <div className="glass-panel p-3 border-[#C0A0B8]/30 bg-[#C0A0B8]/10 flex items-center gap-2 text-sm">
+          <AlertCircle className="w-4 h-4 text-[#C0A0B8]" />
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="ml-auto"><X className="w-4 h-4" /></button>
+        </div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3">
-        {[
-          { label: "Cards scanned (30d)", value: "284", icon: FileImage,  color: "#B8A0C8" },
-          { label: "Auto-saved",          value: "248", icon: CheckCircle2, color: "#88B8B0" },
-          { label: "Avg accuracy",        value: "96%", icon: Sparkles,   color: "#C8A880" },
-          { label: "Pipeline added",      value: "$1.4M", icon: TrendingUp, color: "#B8B880" },
-        ].map((s) => {
-          const Icon = s.icon;
-          return (
-            <div key={s.label} className="glass-panel rounded-xl p-3.5">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${s.color}20`, color: s.color }}>
-                  <Icon className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold leading-none" style={{ color: s.color }}>{s.value}</div>
-                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold mt-1">{s.label}</div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        <Stat label="TOTAL SCANS" value={recent.length} accent="#B8A0C8" />
+        <Stat label="THIS WEEK" value={recent.filter(r => Date.now() - new Date(r.created_at).getTime() < 7*86400_000).length} accent="#88B8B0" />
+        <Stat label="AVG CONFIDENCE" value={Object.keys(confidences).length ? `${Math.round(Object.values(confidences).reduce((s, c) => s + c, 0) / Object.keys(confidences).length)}%` : "—"} accent="#C8A880" />
+        <Stat label="OCR ENGINE" value="GPT-4o" accent="#90B8B8" sub="vision" />
       </div>
 
       <div className="grid grid-cols-12 gap-4">
-        {/* Card preview + drop zone */}
-        <div className="col-span-4 space-y-3">
-          <div className="glass-panel rounded-xl p-3">
-            <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Source image</div>
-            <div className="aspect-[1.6/1] rounded-lg overflow-hidden relative" style={{
-              background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)",
-            }}>
-              {/* Mock business card */}
-              <div className="absolute inset-0 p-5 flex flex-col justify-between">
-                <div>
-                  <div className="text-white text-base font-bold tracking-tight">Ahmed Al-Rashidi</div>
-                  <div className="text-white/60 text-xs mt-0.5">أحمد الرشيدي</div>
-                  <div className="text-[#B8A0C8] text-[11px] mt-2 font-semibold">Chief Information Officer</div>
-                </div>
-                <div>
-                  <div className="text-[#88B8B0] text-sm font-bold">NEOM Tech & Digital</div>
-                  <div className="text-white/50 text-[10px] mt-1">ahmed.rashidi@neom.com · +966 50 123 4567</div>
-                  <div className="text-white/40 text-[10px] mt-0.5">NEOM Bay, Tabuk Province, KSA</div>
-                </div>
+        {/* Card preview */}
+        <div className="col-span-5 glass-panel p-4">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Card image</div>
+          {!imageDataUrl ? (
+            <button onClick={pickFile} className="w-full aspect-[16/10] rounded-xl border-2 border-dashed border-border/50 hover:border-[#B8A0C8] hover:bg-[#B8A0C8]/5 transition flex flex-col items-center justify-center gap-3 text-muted-foreground">
+              <FileImage className="w-12 h-12 text-[#B8A0C8]/60" />
+              <div className="text-sm font-semibold">Drop card image or click to upload</div>
+              <div className="text-xs">JPG, PNG, HEIC · max 10MB</div>
+              <div className="flex items-center gap-2 text-xs mt-1">
+                <Camera className="w-3.5 h-3.5" /> Mobile camera supported
               </div>
-              {/* Scanning overlay */}
+            </button>
+          ) : (
+            <div className="relative w-full aspect-[16/10] rounded-xl overflow-hidden bg-muted">
+              <img src={imageDataUrl} alt="Card" className="w-full h-full object-contain" />
               {scanState === "scanning" && (
-                <div className="absolute inset-0 bg-[#B8A0C8]/20 backdrop-blur-sm flex items-center justify-center">
-                  <div className="text-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-white mx-auto mb-2" />
-                    <div className="text-xs text-white font-semibold">AI extracting fields…</div>
-                  </div>
+                <div className="absolute inset-0 bg-background/70 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
+                  <Loader2 className="w-8 h-8 text-[#B8A0C8] animate-spin" />
+                  <div className="text-sm font-semibold">Vision AI extracting fields…</div>
+                  <div className="text-xs text-muted-foreground">~3 seconds</div>
                 </div>
               )}
-              {/* Vision AI bbox overlays */}
-              {scanState === "complete" && (
-                <>
-                  <div className="absolute top-[16%] left-[7%] w-[55%] h-[14%] border border-[#88B8B0]/70 rounded-sm pointer-events-none">
-                    <div className="absolute -top-3 left-0 px-1 bg-[#88B8B0] rounded-sm text-[8px] font-bold text-white">98%</div>
-                  </div>
-                  <div className="absolute top-[57%] left-[7%] w-[45%] h-[10%] border border-[#88B8B0]/70 rounded-sm pointer-events-none">
-                    <div className="absolute -top-3 left-0 px-1 bg-[#88B8B0] rounded-sm text-[8px] font-bold text-white">99%</div>
-                  </div>
-                </>
-              )}
+              {scanState === "complete" && bboxes.map((f, i) => f.bbox ? (
+                <div
+                  key={i}
+                  className="absolute border-2 border-[#88B8B0] bg-[#88B8B0]/10 rounded"
+                  style={{
+                    left: `${f.bbox.x}%`, top: `${f.bbox.y}%`,
+                    width: `${f.bbox.w}%`, height: `${f.bbox.h}%`,
+                  }}
+                  title={`${FIELD_META[f.key]?.label ?? f.key} · ${f.confidence}%`}
+                />
+              ) : null)}
             </div>
-            <div className="mt-3 flex items-center gap-2">
-              <button className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-[11px] font-semibold border border-border/40 hover:bg-muted/50">
-                <Upload className="w-3 h-3" /> Replace
-              </button>
-              <button onClick={simulateScan} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-[11px] font-semibold text-white nf-chameleon-bg">
-                <Wand2 className="w-3 h-3" /> Re-scan
-              </button>
-            </div>
-          </div>
+          )}
 
-          <div className="glass-panel rounded-xl p-3">
-            <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Drop more cards</div>
-            <div className="border-2 border-dashed border-border/40 rounded-lg p-6 text-center hover:border-[#B8A0C8]/50 hover:bg-[#B8A0C8]/5 transition cursor-pointer">
-              <Upload className="w-7 h-7 text-muted-foreground/50 mx-auto mb-2" />
-              <div className="text-xs font-semibold">Drag image here</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">PNG, JPG up to 10 MB · batch upload supported</div>
+          {scanState === "complete" && (
+            <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+              <Legend color="#88B8B0" label="High 95+" />
+              <Legend color="#B8B880" label="Good 85-94" />
+              <Legend color="#C8A880" label="Low <85" />
             </div>
-          </div>
+          )}
         </div>
 
         {/* Extracted fields */}
-        <div className="col-span-5">
-          <div className="glass-panel rounded-xl p-3.5 h-full">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <div className="text-sm font-bold flex items-center gap-2">
-                  Extracted fields
-                  <span className="px-1.5 py-0.5 rounded-md bg-[#88B8B0]/15 text-[#88B8B0] text-[10px] font-bold">
-                    {fields.filter((f) => f.confidence >= 90).length}/{fields.length} HIGH CONFIDENCE
-                  </span>
-                </div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">Tap any field to edit · changes raise confidence to 100%</div>
+        <div className="col-span-7 glass-panel p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Extracted fields</div>
+              <div className="text-sm font-semibold mt-0.5">
+                {scanState === "empty" ? "Upload a card to begin" : scanState === "scanning" ? "Reading…" : `${Object.values(extracted).filter(Boolean).length} fields detected`}
               </div>
-              <button className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-[#B8A0C8] hover:bg-[#B8A0C8]/10">
-                <Sparkles className="w-3 h-3" /> Re-process with AI
-              </button>
             </div>
-            <div className="space-y-1.5">
-              {fields.map((f) => {
-                const Icon = f.icon;
-                const cb = confidenceBadge(f.confidence);
+            {scanState === "complete" && savingState !== "saved" && savingState !== "duplicate" && (
+              <button
+                onClick={saveContact}
+                disabled={savingState === "saving" || !extracted.name_en}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm transition",
+                  savingState === "saving" || !extracted.name_en
+                    ? "bg-muted text-muted-foreground cursor-not-allowed"
+                    : "nf-chameleon-bg"
+                )}
+              >
+                {savingState === "saving" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                {savingState === "saving" ? "Saving…" : "Save as contact"}
+              </button>
+            )}
+            {(savingState === "saved" || savingState === "duplicate") && (
+              <button
+                onClick={() => savedContactId && navigate(`/contacts/${savedContactId}`)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#88B8B0]/15 text-[#88B8B0] border border-[#88B8B0]/30"
+              >
+                <Check className="w-3.5 h-3.5" /> {savingState === "duplicate" ? "Updated" : "Saved"} · view contact <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {scanState === "empty" && (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              Drop a card on the left or use mobile camera. Fields appear here in seconds.
+            </div>
+          )}
+
+          {scanState === "scanning" && (
+            <div className="space-y-2">
+              {[1,2,3,4,5,6].map(i => (
+                <div key={i} className="h-10 bg-muted/40 rounded-lg animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {scanState === "complete" && (
+            <div className="space-y-1.5 max-h-[460px] overflow-y-auto pr-1">
+              {FIELD_ORDER.filter(k => extracted[k]).map((key) => {
+                const meta = FIELD_META[key];
+                const Icon = meta?.icon ?? Hash;
+                const conf = confidences[key] ?? 80;
+                const badge = conf >= 95 ? { c: "#88B8B0", l: "high" } : conf >= 85 ? { c: "#B8B880", l: "good" } : { c: "#C8A880", l: "low" };
                 return (
-                  <div key={f.key} className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 group">
+                  <div key={key} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40">
                     <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wide">{f.label}</div>
-                      <input
-                        value={f.value}
-                        onChange={(e) => updateField(f.key, e.target.value)}
-                        className="w-full text-sm font-semibold bg-transparent focus:outline-none border-b border-transparent focus:border-[#B8A0C8]/50"
-                        dir={f.key === "name_ar" ? "rtl" : "ltr"}
-                      />
-                    </div>
-                    <div className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0", cb.bg, cb.color)}>
-                      {f.confidence}%
-                    </div>
-                    <button className="opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-[#88B8B0] transition">
-                      <Check className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="text-xs font-semibold text-muted-foreground w-32 flex-shrink-0">{meta?.label ?? key}</div>
+                    <input
+                      value={extracted[key] ?? ""}
+                      onChange={(e) => updateField(key, e.target.value)}
+                      className="flex-1 bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-[#B8A0C8] rounded px-1.5 py-0.5 text-sm font-medium"
+                    />
+                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: `${badge.c}20`, color: badge.c }}>
+                      {badge.l} {conf}%
+                    </span>
                   </div>
                 );
               })}
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-border/30">
-              <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                <Sparkles className="w-3 h-3 text-[#B8A0C8]" /> AI enrichment
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {ENRICHMENT.map((e) => (
-                  <div key={e.label} className="p-2 rounded-md bg-muted/30 border border-border/30">
-                    <div className="text-[10px] text-muted-foreground">{e.label}</div>
-                    <div className="text-xs font-semibold leading-tight">{e.value}</div>
-                    <div className="text-[9px] text-[#B8A0C8] mt-0.5">via {e.source}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-4 flex items-center gap-2">
-              <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-border/40 hover:bg-muted/50">
-                <X className="w-3.5 h-3.5" /> Discard
-              </button>
-              <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-border/40 hover:bg-muted/50">
-                <Eye className="w-3.5 h-3.5" /> Preview contact
-              </button>
-              <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-white nf-chameleon-bg shadow-sm">
-                <Plus className="w-3.5 h-3.5" /> Save to CRM
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent scans */}
-        <div className="col-span-3 space-y-3">
-          <div className="glass-panel rounded-xl p-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Recent scans</div>
-              <button className="text-[10px] text-[#B8A0C8] hover:underline">view all</button>
-            </div>
-            <div className="space-y-1.5">
-              {RECENT_SCANS.map((r) => (
-                <div key={r.id} className="p-2 rounded-md hover:bg-muted/40 cursor-pointer">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-semibold truncate">{r.name}</div>
-                      <div className="text-[10px] text-muted-foreground truncate">{r.company}</div>
-                    </div>
-                    <div className={cn("px-1.5 py-0.5 rounded-md text-[9px] font-bold border flex-shrink-0", STATUS_STYLE[r.status])}>
-                      {r.status.toUpperCase()}
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-[10px] text-muted-foreground">{r.time}</span>
-                    {r.score > 0 && <span className="text-[10px] font-bold text-[#B8A0C8]">{r.score}/100</span>}
-                  </div>
+              {FIELD_ORDER.filter(k => extracted[k]).length === 0 && (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  AI couldn't detect any fields. Try a clearer image.
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-
-          <div className="glass-panel rounded-xl p-3 bg-[#C8A880]/5 border border-[#C8A880]/30">
-            <div className="flex items-center gap-2 mb-2">
-              <Languages className="w-4 h-4 text-[#C8A880]" />
-              <div className="text-xs font-bold">Bilingual processing</div>
-            </div>
-            <div className="text-[11px] text-muted-foreground leading-relaxed">
-              Cards in Arabic, English, French, or mixed scripts are detected automatically. Names parsed via Khaleeji-aware NLP for proper RTL display and search.
-            </div>
-            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-              {["العربية", "English", "Français", "اردو"].map((l) => (
-                <span key={l} className="px-1.5 py-0.5 rounded-md bg-[#C8A880]/15 text-[#C8A880] text-[10px] font-semibold">{l}</span>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
+      </div>
+
+      {/* Recent scans */}
+      <div className="glass-panel p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recent card scans</div>
+            <div className="text-sm font-semibold mt-0.5">Last {recent.length} contacts captured from cards</div>
+          </div>
+          <button onClick={loadRecent} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+            <RefreshCw className="w-3 h-3" /> Refresh
+          </button>
+        </div>
+        {recent.length === 0 ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">No card scans yet — your first scan will appear here.</div>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            {recent.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => navigate(`/contacts/${r.id}`)}
+                className="flex items-center gap-2 p-2 rounded-lg border border-border/30 hover:border-[#B8A0C8]/40 hover:bg-[#B8A0C8]/5 transition text-left"
+              >
+                <div className="w-8 h-8 rounded-full bg-[#B8A0C8]/15 text-[#B8A0C8] flex items-center justify-center text-[11px] font-bold flex-shrink-0">
+                  {r.name?.split(" ").map((p: string) => p[0]).slice(0, 2).join("") || "?"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-semibold truncate">{r.name}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">{r.title ?? "—"}</div>
+                </div>
+                <span className="text-[10px] text-muted-foreground">{relTime(r.created_at)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Footer info */}
+      <div className="glass-panel p-3 flex items-center gap-3 text-xs">
+        <Wand2 className="w-4 h-4 text-[#B8A0C8]" />
+        <span className="text-muted-foreground">
+          Vision OCR runs on your inference quota — bilingual extraction (English + Arabic), normalized phone numbers, deduplication on email.
+          Cards are <span className="font-bold text-foreground">not stored</span> — only the extracted fields and a reference activity log.
+        </span>
       </div>
     </div>
   );
+}
+
+function Stat({ label, value, accent, sub }: { label: string; value: any; accent: string; sub?: string }) {
+  return (
+    <div className="glass-panel p-3">
+      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{label}</div>
+      <div className="text-2xl font-bold mt-1" style={{ color: accent }}>{value}</div>
+      {sub && <div className="text-[10px] text-muted-foreground">{sub}</div>}
+    </div>
+  );
+}
+
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="w-2.5 h-2.5 rounded" style={{ background: color }} />
+      <span className="text-muted-foreground">{label}</span>
+    </div>
+  );
+}
+
+function relTime(d: string) {
+  const ms = Date.now() - new Date(d).getTime();
+  if (ms < 60_000) return "just now";
+  if (ms < 3600_000) return `${Math.floor(ms/60_000)}m ago`;
+  if (ms < 86400_000) return `${Math.floor(ms/3600_000)}h ago`;
+  return `${Math.floor(ms/86400_000)}d ago`;
 }

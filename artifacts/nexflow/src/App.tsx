@@ -55,6 +55,20 @@ import WorkflowsPage from "@/pages/workflows";
 import BusinessCardsPage from "@/pages/business-cards";
 import AccountsPage from "@/pages/accounts";
 import TrustCenterPage from "@/pages/trust-center";
+import HealthScoresPage from "@/pages/health-scores";
+import LeadRoutingPage from "@/pages/lead-routing";
+import WebFormsPage from "@/pages/web-forms";
+import DocumentTrackingPage from "@/pages/document-tracking";
+import QuoteToCashPage from "@/pages/quote-to-cash";
+import MigrationPage from "@/pages/migration";
+import PlaybooksPage from "@/pages/playbooks";
+import AttributionPage from "@/pages/attribution";
+import ActivityCapturePage from "@/pages/activity-capture";
+import CallRedactionPage from "@/pages/call-redaction";
+import PublicTrustPage from "@/pages/public-trust";
+import PermissionsPage from "@/pages/permissions";
+import ReportBuilderPage from "@/pages/report-builder";
+import CapabilitiesPage from "@/pages/capabilities";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -121,6 +135,20 @@ function AppLayout() {
           <Route path="/business-cards" component={BusinessCardsPage} />
           <Route path="/accounts" component={AccountsPage} />
           <Route path="/trust-center" component={TrustCenterPage} />
+          <Route path="/health-scores" component={HealthScoresPage} />
+          <Route path="/lead-routing" component={LeadRoutingPage} />
+          <Route path="/web-forms" component={WebFormsPage} />
+          <Route path="/document-tracking" component={DocumentTrackingPage} />
+          <Route path="/quote-to-cash" component={QuoteToCashPage} />
+          <Route path="/migration" component={MigrationPage} />
+          <Route path="/playbooks" component={PlaybooksPage} />
+          <Route path="/attribution" component={AttributionPage} />
+          <Route path="/activity-capture" component={ActivityCapturePage} />
+          <Route path="/call-redaction" component={CallRedactionPage} />
+          <Route path="/public-trust" component={PublicTrustPage} />
+          <Route path="/permissions" component={PermissionsPage} />
+          <Route path="/report-builder" component={ReportBuilderPage} />
+          <Route path="/capabilities" component={CapabilitiesPage} />
           <Route component={NotFound} />
         </Switch>
       </main>
