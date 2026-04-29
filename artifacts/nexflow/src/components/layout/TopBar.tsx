@@ -81,22 +81,32 @@ export function TopBar({ dark, onDark }: TopBarProps) {
       ref={wrapRef}
       className="sticky top-0 z-40 glass-panel border-b border-border/30 backdrop-blur-xl"
     >
-      {/* ── Row 1: brand + utilities ─────────────────────────────── */}
-      <div className="flex items-center h-14 px-4 gap-3 max-w-[1600px] mx-auto w-full">
-        <Link href="/">
-          <div className="flex items-center gap-2 cursor-pointer flex-shrink-0">
-            <NexFlowLogo size={28} />
-            <span className="hidden sm:block">
-              <NexFlowWordmark />
-            </span>
-          </div>
-        </Link>
+      {/* ── Row 1 (top): 6-button top nav + utilities ──────────────
+            Tabs sit ABOVE the logo. Utilities (search / bell /
+            dark mode / avatar) hug the right edge.                 */}
+      <div className="flex items-center h-12 px-3 sm:px-4 max-w-[1600px] mx-auto w-full gap-1">
+        <nav
+          className="flex items-center gap-1 flex-1 overflow-x-auto no-scrollbar"
+          aria-label="Primary"
+        >
+          {TOP_NAV.map((entry) => (
+            <TopNavButton
+              key={entry.key}
+              entry={entry}
+              isActive={activeTop?.key === entry.key}
+              isOpen={openTopKey === entry.key}
+              onOpen={() => openTop(entry.key)}
+              onScheduleClose={scheduleCloseTop}
+              onItemClick={() => setOpenTopKey(null)}
+              currentPath={location}
+            />
+          ))}
+        </nav>
 
-        {/* Right cluster — pushed all the way right */}
-        <div className="flex items-center gap-1 ml-auto">
-          {/* Search: full width on md+, icon-only on small */}
+        {/* Utilities — pushed all the way right */}
+        <div className="flex items-center gap-1 flex-shrink-0">
           <button
-            className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/40 text-muted-foreground text-xs hover:bg-muted/60 transition-colors w-56"
+            className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/40 text-muted-foreground text-xs hover:bg-muted/60 transition-colors w-44 lg:w-56"
             aria-label="Search"
             onClick={() => alert("Global search coming soon — try the per-page search inside Contacts, Companies, etc.")}
           >
@@ -187,25 +197,17 @@ export function TopBar({ dark, onDark }: TopBarProps) {
         </div>
       </div>
 
-      {/* ── Row 2: 6-button top nav with hover dropdowns ─────────── */}
+      {/* ── Row 2 (below tabs): centered NexFlow logo as the brand
+            anchor for the workspace.                                */}
       <div className="border-t border-border/20">
-        <nav
-          className="flex items-center gap-1 px-3 sm:px-4 h-12 max-w-[1600px] mx-auto"
-          aria-label="Primary"
-        >
-          {TOP_NAV.map((entry) => (
-            <TopNavButton
-              key={entry.key}
-              entry={entry}
-              isActive={activeTop?.key === entry.key}
-              isOpen={openTopKey === entry.key}
-              onOpen={() => openTop(entry.key)}
-              onScheduleClose={scheduleCloseTop}
-              onItemClick={() => setOpenTopKey(null)}
-              currentPath={location}
-            />
-          ))}
-        </nav>
+        <div className="flex items-center justify-center h-16 max-w-[1600px] mx-auto px-4">
+          <Link href="/">
+            <div className="flex items-center gap-3 cursor-pointer">
+              <NexFlowLogo size={36} />
+              <NexFlowWordmark />
+            </div>
+          </Link>
+        </div>
       </div>
     </header>
   );
