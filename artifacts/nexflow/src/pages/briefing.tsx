@@ -462,20 +462,52 @@ export default function CommandCenterPage() {
                 <div className="space-y-2">
                   {group.map(task => (
                     <div key={task.id}
-                      className={cn("glass-card rounded-xl p-4 flex items-start gap-3 cursor-pointer transition-all", task.done && "opacity-50")}
-                      onClick={() => toggleTask(task.id)}>
-                      {task.done
-                        ? <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: PRIORITY_COLOR[priority] }} />
-                        : <Circle className="w-5 h-5 flex-shrink-0 mt-0.5 text-muted-foreground" />
-                      }
-                      <div className="flex-1 min-w-0">
-                        <div className={cn("text-sm font-medium text-foreground", task.done && "line-through")}>{task.label}</div>
-                        <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
-                          <Clock className="w-3 h-3" />{task.due}
-                          {task.contact && <><span>·</span><span className="text-[#B8A0C8]">{task.contact}</span></>}
-                          <span className="ml-auto px-1.5 py-0.5 rounded bg-muted/60 text-[10px] font-medium">{task.source}</span>
+                      className={cn(
+                        "glass-card rounded-xl flex items-stretch transition-all border",
+                        task.done ? "opacity-60 border-border/10" : "border-border/20 hover:border-[#B8A0C8]/30 hover:shadow-sm"
+                      )}>
+                      {/* Big explicit tap target for the checkbox */}
+                      <button
+                        type="button"
+                        onClick={() => toggleTask(task.id)}
+                        className={cn(
+                          "flex items-center justify-center w-14 flex-shrink-0 rounded-l-xl transition-all border-r",
+                          task.done
+                            ? "border-border/10"
+                            : "border-border/10 hover:bg-[#88B8B0]/10 active:bg-[#88B8B0]/20"
+                        )}
+                        aria-label={task.done ? "Mark as incomplete" : "Mark as complete"}
+                      >
+                        {task.done
+                          ? <CheckCircle2 className="w-6 h-6" style={{ color: PRIORITY_COLOR[priority] }} />
+                          : <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/40 transition-colors" />
+                        }
+                      </button>
+
+                      {/* Task content */}
+                      <div className="flex-1 min-w-0 p-4">
+                        <div className={cn("text-sm font-medium text-foreground leading-snug", task.done && "line-through text-muted-foreground")}>
+                          {task.label}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground flex-wrap">
+                          <Clock className="w-3 h-3 flex-shrink-0" />
+                          <span>{task.due}</span>
+                          {task.contact && (
+                            <>
+                              <span>·</span>
+                              <span className="text-[#B8A0C8] font-medium">{task.contact}</span>
+                            </>
+                          )}
+                          <span className="ml-auto px-1.5 py-0.5 rounded bg-muted/60 text-[10px] font-medium flex-shrink-0">{task.source}</span>
                         </div>
                       </div>
+
+                      {/* Done label appears when complete */}
+                      {task.done && (
+                        <div className="flex items-center pr-4">
+                          <span className="text-[10px] font-bold text-[#88B8B0] uppercase tracking-wider">Done</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
