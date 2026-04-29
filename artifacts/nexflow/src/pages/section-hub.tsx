@@ -1,5 +1,5 @@
 import { useRoute, Link, useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Sparkles, ArrowRight, RefreshCw, TrendingUp, TrendingDown, Phone, Mail,
   Building2, Users, GitBranch, Calendar, Megaphone, Database, Workflow, Bot,
@@ -25,7 +25,7 @@ interface SectionContent {
 }
 
 const CONTENT: Record<string, SectionContent> = {
-  sales: {
+  crm: {
     briefing:
       "Pipeline at $2.34M across 47 active deals — up 18% WoW. 3 deals in Negotiation are <7 days old with strong engagement (push for close). 2 deals at risk need re-engagement today.",
     kpis: [
@@ -166,11 +166,23 @@ export default function SectionHubPage() {
   const [, params] = useRoute("/section/:key");
   const [, navigate] = useLocation();
   const sectionKey = params?.key ?? "home";
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
 
-  // /section/home would duplicate the Command Center — redirect to /
+  // /section/home would duplicate the Command Center — redirect to /.
+  // Legacy /section/sales bookmarks should now land on the CRM hub (/funnel).
   useEffect(() => {
     if (sectionKey === "home") navigate("/", { replace: true });
+    else if (sectionKey === "sales") navigate("/funnel", { replace: true });
   }, [sectionKey, navigate]);
+
+  function handleRefresh() {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+      setRefreshedAt(new Date());
+    }, 800);
+  }
 
   const section = SECTIONS.find((s) => s.key === sectionKey);
   if (!section || sectionKey === "home") return null;
@@ -223,9 +235,14 @@ export default function SectionHubPage() {
                 </div>
               </div>
             </div>
-            <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/60 border border-white/80 text-xs text-muted-foreground hover:text-foreground shadow-sm backdrop-blur-sm">
-              <RefreshCw className="w-3 h-3" />
-              Refresh briefing
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/60 border border-white/80 text-xs text-muted-foreground hover:text-foreground shadow-sm backdrop-blur-sm disabled:opacity-60"
+            >
+              <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Refreshing..." : refreshedAt ? `Refreshed ${refreshedAt.toLocaleTimeString()}` : "Refresh briefing"}
             </button>
           </div>
 
