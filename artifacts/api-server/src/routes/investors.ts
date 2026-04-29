@@ -4,7 +4,6 @@ import crypto from "node:crypto";
 import { createReadStream, statSync, existsSync } from "node:fs";
 import path from "node:path";
 import { db, investor_access_log } from "@workspace/db";
-import { desc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -289,14 +288,11 @@ router.get("/download/:slug", requireAuth, async (req, res) => {
   stream.pipe(res);
 });
 
-// GET /investors/access-log — gated; recent activity for the founders
-router.get("/access-log", requireAuth, async (_req, res) => {
-  const rows = await db
-    .select()
-    .from(investor_access_log)
-    .orderBy(desc(investor_access_log.ts))
-    .limit(50);
-  res.json({ entries: rows });
-});
+// NOTE: We intentionally do NOT expose the access log over HTTP. The shared
+// passcode is given to multiple investors; surfacing each other's IPs and
+// user-agents to anyone who can unlock the room would leak audit data
+// between investors. The founders can query the `investor_access_log` table
+// directly via the database for now; a separate admin-gated route can be
+// added in a follow-up if needed.
 
 export default router;

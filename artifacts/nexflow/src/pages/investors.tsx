@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import {
-  Lock, Download, FileText, AlertCircle, Loader2, Eye, ShieldCheck,
-  LogOut, ArrowRight, Clock, Sparkles, FileSpreadsheet, Presentation,
+  Lock, Download, FileText, AlertCircle, Loader2, ShieldCheck,
+  LogOut, ArrowRight, Sparkles, FileSpreadsheet, Presentation,
 } from "lucide-react";
-import { apiFetch } from "@/hooks/useApi";
 
 /**
  * Private investor data-room landing page.
@@ -11,9 +10,14 @@ import { apiFetch } from "@/hooks/useApi";
  * Public-facing route at /investors. Two states:
  *   1. Locked  — branded passcode form
  *   2. Unlocked — list of available investor documents (deck, deep dive,
- *                 feasibility, financial plan) with download links plus a
- *                 founders-only access log so the team can see who has
- *                 engaged with the materials.
+ *                 feasibility, financial plan) with download links.
+ *
+ * Audit data (passcode attempts, downloads) is recorded server-side in the
+ * `investor_access_log` table. We deliberately do NOT show that log to
+ * authenticated visitors here, because the shared passcode is given to
+ * multiple investors and surfacing each other's IPs/user-agents would leak
+ * audit metadata between them. The founders can read the log directly from
+ * the database, or via a future admin-gated route.
  *
  * Colour system: chameleon palette — #B8A0C8 lavender, #88B8B0 sage,
  *                #C8A880 sand, #F8F5F0 cream. Typography: Manrope body,
@@ -30,21 +34,26 @@ async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    let parsed: unknown = null;
+    let parsed: { message?: string; error?: string } | null = null;
     try {
-      parsed = JSON.parse(text);
+      parsed = JSON.parse(text) as { message?: string; error?: string };
     } catch {
       /* not json */
     }
-    const error: any = new Error(
-      (parsed as any)?.message || (parsed as any)?.error || text || `HTTP ${res.status}`,
+    throw new ApiError(
+      parsed?.message || parsed?.error || text || `HTTP ${res.status}`,
+      res.status,
     );
-    error.status = res.status;
-    error.body = parsed;
-    throw error;
   }
   if (res.status === 204) return null as T;
   return res.json() as Promise<T>;
+}
+
+class ApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = "ApiError";
+  }
 }
 
 interface InvestorDoc {
@@ -56,35 +65,11 @@ interface InvestorDoc {
   bytes: number | null;
 }
 
-interface AccessLogEntry {
-  id: string;
-  ts: string;
-  action: string;
-  doc_slug: string | null;
-  ip: string | null;
-  user_agent: string | null;
-  success: boolean;
-}
-
 function fmtBytes(n: number | null): string {
   if (n == null) return "—";
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function fmtTs(s: string): string {
-  try {
-    const d = new Date(s);
-    return d.toLocaleString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return s;
-  }
 }
 
 function kindIcon(kind: InvestorDoc["kind"]) {
@@ -143,13 +128,15 @@ function LockedView({ onUnlock }: { onUnlock: () => void }) {
         body: JSON.stringify({ passcode }),
       });
       onUnlock();
-    } catch (err: any) {
-      if (err.status === 503) {
+    } catch (err) {
+      const status = err instanceof ApiError ? err.status : 0;
+      const message = err instanceof Error ? err.message : "";
+      if (status === 503) {
         setError(
-          err.message ||
+          message ||
             "The data-room is not yet configured. Please contact the NexFlow team.",
         );
-      } else if (err.status === 401) {
+      } else if (status === 401) {
         setError("That passcode is not valid. Please double-check and try again.");
       } else {
         setError("Something went wrong. Please try again in a moment.");
@@ -280,11 +267,10 @@ function LockedView({ onUnlock }: { onUnlock: () => void }) {
   );
 }
 
-// ── Unlocked: documents + access log ─────────────────────────────────────
+// ── Unlocked: documents grid ─────────────────────────────────────────────
 function UnlockedView({ onLogout }: { onLogout: () => void }) {
   const [docs, setDocs] = useState<InvestorDoc[] | null>(null);
   const [docsErr, setDocsErr] = useState<string | null>(null);
-  const [logEntries, setLogEntries] = useState<AccessLogEntry[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -292,15 +278,10 @@ function UnlockedView({ onLogout }: { onLogout: () => void }) {
       .then((r) => {
         if (!cancelled) setDocs(r.documents);
       })
-      .catch((e) => {
-        if (!cancelled) setDocsErr(e.message ?? "Failed to load documents");
-      });
-    api<{ entries: AccessLogEntry[] }>("/investors/access-log")
-      .then((r) => {
-        if (!cancelled) setLogEntries(r.entries);
-      })
-      .catch(() => {
-        /* non-fatal */
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setDocsErr(e instanceof Error ? e.message : "Failed to load documents");
+        }
       });
     return () => {
       cancelled = true;
@@ -470,119 +451,6 @@ function UnlockedView({ onLogout }: { onLogout: () => void }) {
             })}
           </div>
         )}
-
-        {/* ── Access log (founders-visible) ─────────────────────── */}
-        <div
-          className="rounded-2xl p-6 mb-8"
-          style={{
-            background: "rgba(255,255,255,0.55)",
-            border: "1px solid rgba(45,30,60,0.08)",
-          }}
-          data-testid="access-log"
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <Eye className="w-4 h-4" style={{ color: "#B8A0C8" }} />
-            <h2
-              className="text-[15px] font-semibold tracking-wide"
-              style={{
-                color: "#2D1E3C",
-                fontFamily: "Manrope, system-ui, sans-serif",
-              }}
-            >
-              Recent access (last 50 events)
-            </h2>
-            <span
-              className="text-[11px] ml-2 px-2 py-0.5 rounded-full"
-              style={{
-                background: "rgba(184,160,200,0.18)",
-                color: "#6B5878",
-              }}
-            >
-              founders-only
-            </span>
-          </div>
-          {!logEntries && (
-            <div className="text-[12px]" style={{ color: "#6B5878" }}>
-              <Loader2 className="w-3 h-3 animate-spin inline mr-1.5" />
-              Loading…
-            </div>
-          )}
-          {logEntries && logEntries.length === 0 && (
-            <p className="text-[12.5px]" style={{ color: "#6B5878" }}>
-              No activity recorded yet.
-            </p>
-          )}
-          {logEntries && logEntries.length > 0 && (
-            <div className="overflow-x-auto -mx-2">
-              <table className="w-full text-[12.5px]">
-                <thead>
-                  <tr
-                    className="text-left"
-                    style={{
-                      color: "#6B5878",
-                      borderBottom: "1px solid rgba(45,30,60,0.08)",
-                    }}
-                  >
-                    <th className="pb-2 px-2 font-semibold">When</th>
-                    <th className="pb-2 px-2 font-semibold">Event</th>
-                    <th className="pb-2 px-2 font-semibold">Doc</th>
-                    <th className="pb-2 px-2 font-semibold">IP</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logEntries.map((e) => (
-                    <tr
-                      key={e.id}
-                      style={{
-                        borderBottom: "1px solid rgba(45,30,60,0.04)",
-                      }}
-                    >
-                      <td
-                        className="py-2 px-2"
-                        style={{ color: "#2D1E3C", whiteSpace: "nowrap" }}
-                      >
-                        <Clock className="w-3 h-3 inline mr-1 -mt-0.5 opacity-50" />
-                        {fmtTs(e.ts)}
-                      </td>
-                      <td className="py-2 px-2">
-                        <span
-                          className="inline-block px-2 py-0.5 rounded-full text-[10.5px] font-semibold uppercase tracking-wider"
-                          style={
-                            e.action === "auth_failure"
-                              ? {
-                                  background: "rgba(156,56,56,0.12)",
-                                  color: "#9C3838",
-                                }
-                              : e.action === "download"
-                              ? {
-                                  background: "rgba(200,168,128,0.18)",
-                                  color: "#8C7848",
-                                }
-                              : {
-                                  background: "rgba(136,184,176,0.18)",
-                                  color: "#3F7C74",
-                                }
-                          }
-                        >
-                          {e.action.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td className="py-2 px-2" style={{ color: "#6B5878" }}>
-                        {e.doc_slug ?? "—"}
-                      </td>
-                      <td
-                        className="py-2 px-2 font-mono text-[11px]"
-                        style={{ color: "#6B5878" }}
-                      >
-                        {e.ip ?? "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
 
         <p
           className="text-center text-[11px] flex items-center justify-center gap-1.5"
