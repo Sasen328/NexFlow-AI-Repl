@@ -4,10 +4,11 @@ import {
   Play, TrendingUp, TrendingDown, AlertCircle, CheckCircle2, ChevronDown,
   ChevronUp, Activity, X, Loader2, Sparkles, MessageSquare, Mic, Volume2,
   BookOpen, Shield, Wand2, ToggleLeft, ToggleRight, Copy, Check, Star,
-  Filter, Search
+  Filter, Search, Bot, Plus
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import VoiceCallModal from "@/components/VoiceCallModal";
 
 const SENTIMENT_CONFIG = (score: number | null) => {
   if (score === null) return null;
@@ -69,6 +70,8 @@ export default function CallsPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [openCall, setOpenCall] = useState<any>(null);
   const [showCoach, setShowCoach] = useState(true);
+  const [showCallModal, setShowCallModal] = useState(false);
+  const [callModalContact, setCallModalContact] = useState<any>(null);
   const [coachTab, setCoachTab] = useState<CoachTab>("coaching");
   const [voiceToggle, setVoiceToggle] = useState(true);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
@@ -117,6 +120,13 @@ export default function CallsPage() {
             <div className="text-lg font-bold text-[#B8A0C8]">{completedCalls.length}</div>
             <div className="text-[10px] text-muted-foreground">Completed</div>
           </div>
+          <button
+            onClick={() => { setCallModalContact(null); setShowCallModal(true); }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+          >
+            <Bot className="w-4 h-4" />
+            Start AI Call
+          </button>
           <button
             onClick={() => setShowCoach(!showCoach)}
             className={cn("flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold border transition-all",
@@ -483,6 +493,20 @@ function CallDetailModal({ call, onClose }: { call: any; onClose: () => void }) 
           </div>
         )}
       </div>
+
+      {showCallModal && (
+        <VoiceCallModal
+          contact={callModalContact ?? {
+            id: "general",
+            first_name: "New",
+            last_name: "Prospect",
+            title: "Decision Maker",
+            company_name: "",
+          }}
+          onClose={() => setShowCallModal(false)}
+          onCallSaved={() => setShowCallModal(false)}
+        />
+      )}
     </div>
   );
 }
