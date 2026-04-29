@@ -5,7 +5,8 @@ import {
   Phone, FileText, Bell, BarChart3, Target, Database, Bot,
   ChevronLeft, ChevronRight, ChevronDown, Search, Moon, Sun,
   MessageSquare, Star, Settings, Mail, UserSquare2, FlaskConical,
-  ListIcon, LayoutDashboard, Filter, Megaphone, GitBranch, PhoneCall, Wand2, Layers, Globe
+  ListIcon, LayoutDashboard, Filter, Megaphone, GitBranch, PhoneCall, Wand2, Layers, Globe,
+  Calendar, Mic, Briefcase, Headphones, BookOpen,
 } from "lucide-react";
 import { NexFlowLogo, NexFlowWordmark } from "./NexFlowLogo";
 import { useNotifications } from "@/hooks/useApi";
@@ -13,55 +14,41 @@ import { useState, useEffect } from "react";
 
 const SOLO_BOTTOM = { icon: Bell, label: "Notifications", href: "/notifications", badge: true };
 
-// 6-tab structure per spec: Home, Leads, Call Center, Data Hub, Marketing, Insights
+// 7-section IA: Home → Sales → Call Center → Marketing → AI Hub → Data Hub → Insights
 const NAV_GROUPS = [
   {
     key: "home",
     label: "Home",
     icon: Sparkles,
     items: [
-      { icon: Sparkles, label: "Command Center", href: "/" },
-      { icon: BarChart3, label: "Performance", href: "/analytics" },
-      { icon: Activity, label: "Daily Insights", href: "/insights" },
-      { icon: Bot, label: "AI Assistant", href: "/assistant" },
+      { icon: Sparkles,  label: "Command Center", href: "/" },
+      { icon: Activity,  label: "Daily Insights", href: "/insights" },
+      { icon: Bot,       label: "AI Assistant",   href: "/assistant" },
     ],
   },
   {
-    key: "leads",
-    label: "Leads",
-    icon: Users,
+    key: "sales",
+    label: "Sales",
+    icon: Briefcase,
     items: [
-      { icon: GitBranch, label: "Pipeline & Deals", href: "/funnel" },
-      { icon: Users, label: "Contacts", href: "/contacts" },
-      { icon: Building2, label: "Companies", href: "/companies" },
-      { icon: ListIcon, label: "Lists", href: "/lists" },
-      { icon: Star, label: "Lead Intelligence", href: "/intelligence" },
-      { icon: Filter, label: "Properties", href: "/properties" },
+      { icon: GitBranch,  label: "Pipeline & Deals", href: "/funnel" },
+      { icon: Users,      label: "Contacts",         href: "/contacts" },
+      { icon: Building2,  label: "Companies",        href: "/companies" },
+      { icon: FileText,   label: "Quotes & CPQ",     href: "/quotes" },
+      { icon: TrendingUp, label: "Forecasting",      href: "/forecasting" },
     ],
   },
   {
     key: "callcenter",
     label: "Call Center",
-    icon: Phone,
+    icon: Headphones,
     items: [
-      { icon: LayoutDashboard, label: "Dashboard", href: "/call-list" },
-      { icon: Phone, label: "Calls & Transcripts", href: "/calls" },
-      { icon: Bot, label: "AI Agent", href: "/voice-agents" },
-      { icon: FileText, label: "Knowledge Base", href: "/scripts" },
-      { icon: MessageSquare, label: "Messages", href: "/messages" },
-    ],
-  },
-  {
-    key: "datahub",
-    label: "Data Hub",
-    icon: Database,
-    items: [
-      { icon: Target, label: "Segments", href: "/segments" },
-      { icon: Database, label: "Enrichment", href: "/sourcing" },
-      { icon: Bot, label: "AI Workforce", href: "/ai" },
-      { icon: Zap, label: "Signals", href: "/signals" },
-      { icon: Wand2, label: "Agent Builder", href: "/agents" },
-      { icon: Zap, label: "Automation Rules", href: "/automation" },
+      { icon: LayoutDashboard, label: "Call Dashboard",        href: "/call-list" },
+      { icon: Phone,           label: "Calls & Transcripts",   href: "/calls" },
+      { icon: Mic,             label: "Conversation Intel",    href: "/conversation-intelligence" },
+      { icon: Bot,             label: "AI Voice Agent",        href: "/voice-agents" },
+      { icon: BookOpen,        label: "Knowledge Base",        href: "/scripts" },
+      { icon: MessageSquare,   label: "Messages",              href: "/messages" },
     ],
   },
   {
@@ -69,10 +56,36 @@ const NAV_GROUPS = [
     label: "Marketing",
     icon: Megaphone,
     items: [
-      { icon: Megaphone, label: "Campaigns", href: "/campaigns" },
-      { icon: Globe, label: "Cultural Intelligence", href: "/cultural-intelligence" },
-      { icon: Layers, label: "Templates", href: "/templates" },
-      { icon: Target, label: "Audiences", href: "/audiences" },
+      { icon: GitBranch,  label: "Sequences",             href: "/sequences" },
+      { icon: Megaphone,  label: "Campaigns",             href: "/campaigns" },
+      { icon: Calendar,   label: "Meetings",              href: "/meetings" },
+      { icon: Layers,     label: "Templates",             href: "/templates" },
+      { icon: Globe,      label: "Cultural Intelligence", href: "/cultural-intelligence" },
+      { icon: Target,     label: "Audiences",             href: "/audiences" },
+    ],
+  },
+  {
+    key: "aihub",
+    label: "AI Hub",
+    icon: Bot,
+    items: [
+      { icon: Star,     label: "Lead Intelligence", href: "/intelligence" },
+      { icon: Bot,      label: "AI Workforce",      href: "/ai" },
+      { icon: Wand2,    label: "Agent Builder",     href: "/agents" },
+      { icon: Sparkles, label: "Predictive",        href: "/predictive" },
+      { icon: Database, label: "Enrichment",        href: "/sourcing" },
+      { icon: Zap,      label: "Signals",           href: "/signals" },
+    ],
+  },
+  {
+    key: "datahub",
+    label: "Data Hub",
+    icon: Database,
+    items: [
+      { icon: ListIcon, label: "Lists",            href: "/lists" },
+      { icon: Filter,   label: "Properties",       href: "/properties" },
+      { icon: Target,   label: "Segments",         href: "/segments" },
+      { icon: Zap,      label: "Automation Rules", href: "/automation" },
     ],
   },
   {
@@ -80,11 +93,10 @@ const NAV_GROUPS = [
     label: "Insights",
     icon: BarChart3,
     items: [
-      { icon: LayoutDashboard, label: "Dashboards", href: "/dashboards" },
-      { icon: BarChart3, label: "Analytics", href: "/analytics" },
-      { icon: UserSquare2, label: "Team Performance", href: "/team" },
-      { icon: FileText, label: "Reports", href: "/reports" },
-      { icon: Sparkles, label: "Predictive", href: "/predictive" },
+      { icon: LayoutDashboard, label: "Dashboards",       href: "/dashboards" },
+      { icon: FileText,        label: "Reports",          href: "/reports" },
+      { icon: BarChart3,       label: "Analytics",        href: "/analytics" },
+      { icon: UserSquare2,     label: "Team Performance", href: "/team" },
     ],
   },
 ];
