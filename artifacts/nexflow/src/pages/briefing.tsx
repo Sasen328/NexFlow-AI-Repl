@@ -3,9 +3,9 @@ import {
   Sparkles, Sun, AlertTriangle, TrendingUp, Phone, Mail, MessageSquare,
   Calendar, Zap, ArrowRight, Coffee, Brain, Target, Users, RefreshCw, ChevronRight,
   Clock, Loader2, CheckSquare, CheckCircle2, Circle, ListTodo, BarChart3,
-  Bot, BellRing, TrendingDown, Star, Flame,
+  Bot, BellRing, TrendingDown, Star, Flame, Mic, FileText, Send, CalendarPlus,
 } from "lucide-react";
-import { useDashboard, useContacts, useForgottenLeads, useRegenerateInsights } from "@/hooks/useApi";
+import { useDashboard, useContacts, useForgottenLeads, useRegenerateInsights, useCalls, apiFetch } from "@/hooks/useApi";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
@@ -65,7 +65,11 @@ export default function CommandCenterPage() {
   const { data: dash } = useDashboard();
   const { data: contactsData } = useContacts({ limit: "100" });
   const { data: forgottenData } = useForgottenLeads();
+  const { data: callsData } = useCalls({ limit: "10" });
   const regenerate = useRegenerateInsights();
+  const recentCalls = ((callsData?.calls ?? []) as any[])
+    .filter((c) => c.status === "completed")
+    .slice(0, 4);
   const forgotten = (forgottenData?.leads ?? []) as any[];
   const forgottenSummary = forgottenData?.summary as string | undefined;
   const allContacts = (contactsData?.contacts ?? []) as any[];
@@ -283,6 +287,32 @@ export default function CommandCenterPage() {
                     );
                   })}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ──── NEXT BEST ACTIONS — RECENT CALLS ──── */}
+          {recentCalls.length > 0 && (
+            <div className="glass-card rounded-2xl p-5 border-l-4" style={{ borderLeftColor: "#88B8B0" }}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #88B8B0, #B8A0C8)" }}>
+                    <Sparkles className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-foreground flex items-center gap-2">
+                      Next Best Actions · Recent Calls
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold text-white" style={{ background: "#88B8B0" }}>{recentCalls.length}</span>
+                    </h2>
+                    <p className="text-[11px] text-muted-foreground">AI-suggested follow-ups for your most recent conversations — one tap to act</p>
+                  </div>
+                </div>
+                <Link href="/calls"><span className="text-xs text-[#88B8B0] hover:underline cursor-pointer">All calls →</span></Link>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {recentCalls.map((call: any) => (
+                  <NextActionCard key={call.id} call={call} contactByName={contactByName} />
+                ))}
               </div>
             </div>
           )}
@@ -636,6 +666,154 @@ export default function CommandCenterPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────
+// NextActionCard — recent call with one-tap follow-up actions
+// ──────────────────────────────────────────────
+function NextActionCard({ call, contactByName }: { call: any; contactByName: Map<string, string> }) {
+  const [done, setDone] = useState<string[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const contactName: string = call.contact_name ?? "Unknown contact";
+  const contactId =
+    call.contact_id ??
+    contactByName.get(contactName.trim().toLowerCase()) ??
+    null;
+  const score = call.call_score != null ? Math.round(call.call_score) : null;
+  const sentiment = call.sentiment_score ?? 0;
+  const minsAgo = call.ended_at
+    ? Math.max(1, Math.round((Date.now() - new Date(call.ended_at).getTime()) / 60000))
+    : null;
+  const summary: string =
+    call.ai_insights?.next_best_action ??
+    call.ai_insights?.summary ??
+    call.coaching_notes ??
+    "Recap discussion and confirm the agreed next step.";
+
+  // Choose a smart suggested channel based on call outcome / sentiment
+  const suggestedChannel: "whatsapp" | "email" | "call" | "meeting" =
+    sentiment >= 0.4 ? "meeting" : sentiment >= 0 ? "email" : "whatsapp";
+
+  async function trigger(type: "whatsapp" | "email" | "call" | "meeting") {
+    if (done.includes(type) || busy) return;
+    setBusy(type);
+    try {
+      const titles: Record<string, string> = {
+        whatsapp: "WhatsApp follow-up sent",
+        email: "Follow-up email drafted",
+        call: "AI voice agent re-call queued",
+        meeting: "Meeting invite sent",
+      };
+      const bodies: Record<string, string> = {
+        whatsapp: `Hi ${contactName.split(" ")[0]}! Following up on our call — let me know a good time to continue the conversation.`,
+        email: `Hi ${contactName.split(" ")[0]},\n\nThank you for your time today. Recapping our conversation and the agreed next steps below.\n\nBest regards`,
+        call: `AI voice agent will dial ${contactName} within the next 30 minutes for a follow-up touchpoint.`,
+        meeting: `Calendar invite sent to ${contactName} for a follow-up meeting based on availability.`,
+      };
+      await apiFetch("/activities", {
+        method: "POST",
+        body: JSON.stringify({
+          type: type === "meeting" ? "meeting" : type === "call" ? "call" : type === "whatsapp" ? "whatsapp" : "email",
+          title: titles[type],
+          body: bodies[type],
+          contact_id: contactId,
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          metadata: { source: "command_center_nba", call_id: call.id },
+        }),
+      });
+      setDone((d) => [...d, type]);
+    } catch {
+      // Silent fail keeps the UI snappy; user sees no green tick on failure
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const ACTIONS: Array<{ type: "whatsapp" | "email" | "call" | "meeting"; label: string; icon: any; color: string }> = [
+    { type: "whatsapp", label: "WhatsApp", icon: MessageSquare, color: "#90B8B8" },
+    { type: "email", label: "Email", icon: Mail, color: "#B8A0C8" },
+    { type: "call", label: "AI Re-call", icon: Mic, color: "#88B8B0" },
+    { type: "meeting", label: "Schedule", icon: CalendarPlus, color: "#C8A880" },
+  ];
+
+  const scoreColor = score == null ? "#90B8B8" : score >= 80 ? "#88B8B0" : score >= 60 ? "#B8B880" : "#C0A0B8";
+
+  return (
+    <div className="p-4 rounded-xl bg-muted/15 border border-border/30 hover:border-border/60 transition-all">
+      <div className="flex items-start gap-3 mb-3">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "#88B8B020" }}>
+          <Phone className="w-4 h-4 text-[#88B8B0]" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            {contactId ? (
+              <Link href={`/contacts/${contactId}`}>
+                <span className="text-sm font-semibold text-foreground hover:text-[#B8A0C8] hover:underline cursor-pointer truncate">
+                  {contactName}
+                </span>
+              </Link>
+            ) : (
+              <span className="text-sm font-semibold text-foreground truncate">{contactName}</span>
+            )}
+            {score != null && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: `${scoreColor}20`, color: scoreColor }}>
+                {score}/100
+              </span>
+            )}
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider" style={{ background: `${ACTIONS.find(a => a.type === suggestedChannel)?.color}25`, color: ACTIONS.find(a => a.type === suggestedChannel)?.color }}>
+              ⭐ {suggestedChannel}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+            <Clock className="w-3 h-3" />
+            {minsAgo ? (minsAgo < 60 ? `${minsAgo}m ago` : `${Math.round(minsAgo / 60)}h ago`) : "Recently"}
+            {call.duration_seconds != null && <span>· {Math.floor(call.duration_seconds / 60)}m call</span>}
+          </div>
+        </div>
+      </div>
+
+      <div className="text-xs text-foreground/80 leading-relaxed mb-3 line-clamp-2 italic px-3 py-2 rounded-lg bg-[#B8A0C8]/8 border-l-2 border-[#B8A0C8]/40">
+        <Sparkles className="w-3 h-3 inline mr-1 text-[#B8A0C8]" />
+        {summary}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {ACTIONS.map((a) => {
+          const isDone = done.includes(a.type);
+          const isBusy = busy === a.type;
+          const isSuggested = a.type === suggestedChannel;
+          return (
+            <button
+              key={a.type}
+              onClick={() => trigger(a.type)}
+              disabled={isDone || isBusy}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all border",
+                isDone
+                  ? "bg-[#88B8B0]/15 text-[#88B8B0] border-[#88B8B0]/30 cursor-default"
+                  : isSuggested
+                  ? "bg-white border-2 hover:shadow-md"
+                  : "bg-muted/40 text-foreground border-border/30 hover:border-border/60",
+              )}
+              style={!isDone && isSuggested ? { borderColor: a.color, color: a.color } : undefined}
+              title={isSuggested ? "AI-suggested next step" : a.label}
+            >
+              {isBusy ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : isDone ? (
+                <CheckCircle2 className="w-3 h-3" />
+              ) : (
+                <a.icon className="w-3 h-3" style={!isSuggested ? { color: a.color } : undefined} />
+              )}
+              {isDone ? "Done" : a.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

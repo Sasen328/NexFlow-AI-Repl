@@ -52,13 +52,27 @@ export async function aiChat(opts: {
 
   // Prefer OpenRouter when available (multi-provider). Fall back to OpenAI.
   const useRouter = Boolean(openrouterBaseUrl && openrouterApiKey);
-  const client = useRouter ? openrouter() : openai();
+
+  let client: OpenAI;
+  try {
+    client = useRouter ? openrouter() : openai();
+  } catch (err: any) {
+    // No AI integration configured — return empty so caller can fallback
+    console.error("[ai] init failed:", err?.message ?? err);
+    return json ? "" : "";
+  }
+
   const chosenModel = useRouter
     ? (model ?? providerModelMap[provider])
     : "gpt-4o-mini";
 
+  // OpenAI requires the word "json" to appear in messages when using json_object response format
+  const systemText = json && system && !/json/i.test(system)
+    ? `${system} Always respond with valid JSON.`
+    : system;
+
   const messages: any[] = [];
-  if (system) messages.push({ role: "system", content: system });
+  if (systemText) messages.push({ role: "system", content: systemText });
   messages.push({ role: "user", content: user });
 
   try {
@@ -71,8 +85,7 @@ export async function aiChat(opts: {
     return resp.choices[0]?.message?.content ?? "";
   } catch (err: any) {
     // Graceful degradation — never crash the route
-    console.error("[ai]", err?.message ?? err);
-    if (json) return "{}";
+    console.error("[ai] request failed:", err?.message ?? err);
     return "";
   }
 }
@@ -85,8 +98,22 @@ export async function aiJson<T = any>(opts: {
   fallback?: T;
 }): Promise<T> {
   const text = await aiChat({ ...opts, json: true });
+  if (!text || !text.trim()) {
+    return (opts.fallback ?? ({} as T));
+  }
   try {
-    return JSON.parse(text) as T;
+    const parsed = JSON.parse(text) as T;
+    // Empty object means model returned "{}" — prefer fallback if provided
+    if (
+      opts.fallback &&
+      parsed &&
+      typeof parsed === "object" &&
+      !Array.isArray(parsed) &&
+      Object.keys(parsed as Record<string, unknown>).length === 0
+    ) {
+      return opts.fallback;
+    }
+    return parsed;
   } catch {
     return (opts.fallback ?? ({} as T));
   }
