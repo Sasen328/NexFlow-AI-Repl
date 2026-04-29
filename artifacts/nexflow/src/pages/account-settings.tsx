@@ -89,7 +89,7 @@ export default function AccountSettingsPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-xs text-muted-foreground flex items-center gap-1">
-            <Link href="/"><span className="hover:underline cursor-pointer">Home</span></Link>
+            <Link href="/home"><span className="hover:underline cursor-pointer">Home</span></Link>
             <ChevronRight className="w-3 h-3" />
             <span>Account Settings</span>
             <ChevronRight className="w-3 h-3" />

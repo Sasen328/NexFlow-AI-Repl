@@ -34,9 +34,9 @@ export const SECTIONS: SectionDef[] = [
     icon: Sparkles,
     tagline: "Your AI-powered daily briefing.",
     accent: "#B8A0C8",
-    defaultHref: "/",
+    defaultHref: "/home",
     items: [
-      { icon: Sparkles, label: "Command Center", href: "/",          desc: "Daily briefing & priorities" },
+      { icon: Sparkles, label: "Command Center", href: "/home",      desc: "Daily briefing & priorities" },
       { icon: Activity, label: "Daily Insights",  href: "/insights",  desc: "AI insights for your day" },
       { icon: Bot,      label: "AI Assistant",    href: "/assistant", desc: "Chat with NexFlow AI" },
     ],
@@ -229,7 +229,7 @@ export function findSectionByRoute(pathname: string): SectionDef | null {
     }
   }
   // Home fallback only for the Home root path
-  if (pathname === "/") return SECTIONS.find((s) => s.key === "home") ?? null;
+  if (pathname === "/home") return SECTIONS.find((s) => s.key === "home") ?? null;
   return null;
 }
 

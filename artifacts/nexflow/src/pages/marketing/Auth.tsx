@@ -18,7 +18,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
     setSubmitting(true);
     setTimeout(() => {
       setSignedIn(true);
-      navigate("/");
+      navigate("/home");
     }, 400);
   }
 
