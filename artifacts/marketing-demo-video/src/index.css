@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-display: 'Playfair Display', serif;
+
+  --color-background: #F8F5F0;
+  --color-foreground: #111827;
+
+  --color-primary: #B8A0C8; /* Purple-mauve */
+  --color-secondary: #88B8B0; /* Sage teal */
+  --color-accent: #C8A880; /* Warm sand */
+  
+  --color-dark-glass: rgba(17, 24, 39, 0.85);
+}
+
+@layer base {
+  :root {
+    --background: 40 33% 96%; /* #F8F5F0 */
+    --foreground: 222 47% 11%;
+    --primary: 276 27% 71%; /* #B8A0C8 */
+    --secondary: 170 25% 63%; /* #88B8B0 */
+    --accent: 33 41% 64%; /* #C8A880 */
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+.chameleon-gradient {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary), var(--color-accent));
+  background-size: 200% 200%;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+}
+
+.dark-glass-card {
+  background: rgba(17, 24, 39, 0.8);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  color: white;
+}
+
+.mesh-bg {
+  background-image: 
+    radial-gradient(at 40% 20%, rgba(184, 160, 200, 0.15) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, rgba(136, 184, 176, 0.15) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, rgba(200, 168, 128, 0.15) 0px, transparent 50%);
+}
