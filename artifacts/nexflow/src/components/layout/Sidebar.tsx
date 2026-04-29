@@ -1,4 +1,4 @@
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
 import { cn } from "@/lib/utils";
 import {
   Sparkles, Users, Building2, TrendingUp, Zap, Activity,
@@ -293,7 +293,9 @@ export function Sidebar({ collapsed, onCollapse, dark, onDark }: SidebarProps) {
               <div className="text-xs font-semibold text-foreground truncate leading-tight">Admin User</div>
               <div className="text-[10px] text-muted-foreground truncate leading-tight">admin@nexflow.ai</div>
             </div>
-            <Settings className="w-3.5 h-3.5 text-muted-foreground/50 flex-shrink-0 hover:text-foreground cursor-pointer" />
+            <Link href="/settings">
+              <Settings className={cn("w-3.5 h-3.5 flex-shrink-0 hover:text-foreground cursor-pointer transition-colors", location === "/settings" ? "text-[#B8A0C8]" : "text-muted-foreground/50")} />
+            </Link>
           </div>
         )}
         <div className={cn("flex px-2 pb-2 gap-1", collapsed ? "flex-col items-center" : "")}>
