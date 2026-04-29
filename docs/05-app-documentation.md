@@ -23,7 +23,8 @@ After signing in, every user lands on the **Command Center** (`/`). The shell is
 
 Right-cluster: global search (`⌘K`), notifications bell (red dot when unread > 0), dark-mode toggle, avatar menu with Account Settings / Capabilities / Sign out / DEMO MODE chip.
 
-> 📷 *Screenshot placeholder:* `/` — Command Center landing with TopBar visible, Living Mesh background, daily-briefing hero card.
+![Command Center landing at `/` — TopBar, Living Mesh background, AI daily-briefing hero card.](./assets/screens/command-center.jpg)
+*Command Center landing (`/`) — TopBar, AI daily-briefing hero card, today's KPI tiles.*
 
 ---
 
@@ -53,13 +54,17 @@ The Command Center hero shows a one-glance "state of the business":
 2. Click **"Open Insights"** → review any `critical` severity insight.
 3. Click **"Brief me"** chip in the assistant if you want a 30-second voice summary.
 
-> 📷 *Screenshot placeholder:* `/insights` — feed of severity-coded insight cards.
+![Daily Insights at `/insights` — 14-day insight volume sparkline, severity filter chips, severity-coded insight cards (playbook / market context / risk).](./assets/screens/insights-feed.jpg)
+*Daily Insights (`/insights`) — 14-day volume, severity / category filters, AI-generated insight cards.*
 
 #### Workflow 1.B — Friday forecast review
 1. Open **Sales → Forecasting**. Confirm the **Commit** number.
 2. Drill into any deal flagged "high slip risk".
 3. Open **Insights → Team Performance**, scan rep leaderboards.
 4. From the Team page, click any underperforming rep's row → review their last 5 calls in **Conversation Intel**.
+
+![Forecasting at `/forecasting` — Pipeline → Best Case → Commit → Closed Won waterfall, quarterly quota attainment, weekly Forecast vs Actual chart, AI confidence and risk-flagged callouts.](./assets/screens/forecasting.jpg)
+*Forecasting (`/forecasting`) — quota attainment, Pipeline → Best Case → Commit → Closed Won waterfall, weekly Forecast vs Actual, and AI forecast analysis with on-track / risk-flagged callouts.*
 
 #### Workflow 1.C — QBR prep (quarterly)
 1. Open **Insights → Attribution**, set window to "Last 90 days".
@@ -112,7 +117,8 @@ Command Center filtered to **their team**: pipeline, deals stalled > 14 days, ca
 3. Hover any "stuck" deal — read the AI risk reason.
 4. Tag deals to discuss in standup → bulk-create tasks for owners.
 
-> 📷 *Screenshot placeholder:* `/funnel` — kanban with stage chips, owner avatars, AI risk pills.
+![Sales Funnel at `/funnel` — stage bars from Lead → Closed Won with deal counts, pipeline value, and stage-over-stage conversion deltas.](./assets/screens/funnel-kanban.jpg)
+*Sales Funnel (`/funnel`) — stage-by-stage deal counts, pipeline value, and stage-over-stage conversion. Click any bar to inspect deals, time-in-stage, and AI stall diagnosis.*
 
 #### Workflow 2.B — Approve a discount > 20%
 1. Bell icon shows "1 approval pending" → click.
@@ -124,6 +130,9 @@ Command Center filtered to **their team**: pipeline, deals stalled > 14 days, ca
 2. Pick a recent low-sentiment call.
 3. Read AI summary, talk-listen ratio, missed objections.
 4. Click **"Send coaching note"** → rep gets a notification with timestamps.
+
+![Conversation Intelligence at `/conversation-intelligence` — KPI strip (calls analysed, avg sentiment, talk:listen, EN/AR bilingual support), recent calls list with sentiment chips, selected-call AI summary and talk:listen breakdown.](./assets/screens/conversation-intel.jpg)
+*Conversation Intelligence (`/conversation-intelligence`) — KPI strip, recent calls with sentiment / objection chips, and the selected call's AI summary, talk-listen ratio, topics, and objections — the surface managers use for the coaching workflow above.*
 
 #### Workflow 2.D — Routing change
 1. Open **Automation → Lead Routing**.
@@ -192,7 +201,8 @@ Command Center filtered to **them personally**:
 3. After the call, the AI fills the disposition + summary; AE confirms / edits.
 4. Sentiment + transcript are saved to the contact's timeline.
 
-> 📷 *Screenshot placeholder:* `/power-dialer` — queue card, in-call panel, post-call AI summary.
+![Power Dialer at `/power-dialer` — KPI strip (calls / connects / connect rate), AI-prioritized queue panel, in-call card with click-to-dial and AI voice agent handoff.](./assets/screens/power-dialer.jpg)
+*Power Dialer (`/power-dialer`) — KPI strip, AI-prioritized "Up Next" queue with lead scores, and the active in-call card with click-to-dial / AI voice agent fallback.*
 
 ### 3.4 Key workflows (step-by-step) — SDR
 
@@ -273,7 +283,8 @@ Command Center for marketing: campaigns running today, open / click rates last 7
 4. Generate hero image with AI (chameleon-aware so brand stays on tone).
 5. Schedule → Resend dispatches.
 
-> 📷 *Screenshot placeholder:* `/marketing-assistant` — chat panel with subject-line variants and a generated hero.
+![Marketing AI Assistant at `/marketing-assistant` — KPI strip (campaigns, open rate, click rate, cost / lead), chat surface, and "Try asking" suggestion chips for subject lines, channel mix, drop-off analysis.](./assets/screens/marketing-assistant.jpg)
+*Marketing AI Assistant (`/marketing-assistant`) — KPI strip, conversational chat surface, and suggestion chips for subject-line variants, channel analysis, and re-engagement plans.*
 
 #### Workflow 4.B — Cultural intelligence aware send
 1. **Marketing → Cultural Intelligence**. Confirm the next 30-day calendar (Ramadan, Eid, National Days).

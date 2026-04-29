@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   Sparkles, Sun, AlertTriangle, TrendingUp, Phone, Mail, MessageSquare,
   Calendar, Zap, ArrowRight, Coffee, Brain, Target, Users, RefreshCw, ChevronRight,
@@ -102,9 +102,19 @@ export default function CommandCenterPage() {
   const stats = dash?.stats ?? {};
   const totalPipeline = ((stats.totalRevenue ?? 0) / 100).toLocaleString();
 
+  const [, navigate] = useLocation();
   const [tab, setTab] = useState<Tab>("overview");
   const [tasks, setTasks] = useState(AUTO_TASKS);
   const [aiInput, setAiInput] = useState("");
+  const [refreshingBriefing, setRefreshingBriefing] = useState(false);
+  const [briefingRefreshedAt, setBriefingRefreshedAt] = useState<Date | null>(null);
+  function handleRefreshBriefing() {
+    setRefreshingBriefing(true);
+    setTimeout(() => {
+      setRefreshingBriefing(false);
+      setBriefingRefreshedAt(new Date());
+    }, 800);
+  }
   const [aiMessages, setAiMessages] = useState([
     { role: "ai", text: "Good morning! I've analyzed your pipeline, signals, and overnight AI agent activity. You have 3 urgent actions today. How can I help you prioritize?" },
   ]);
@@ -155,9 +165,14 @@ export default function CommandCenterPage() {
                 <div className="text-sm font-semibold mt-0.5 nf-chameleon-text">Daily Command Center</div>
               </div>
             </div>
-            <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/60 border border-white/80 text-xs text-muted-foreground hover:text-foreground shadow-sm backdrop-blur-sm">
-              <RefreshCw className="w-3 h-3" />
-              Refresh briefing
+            <button
+              type="button"
+              onClick={handleRefreshBriefing}
+              disabled={refreshingBriefing}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/60 border border-white/80 text-xs text-muted-foreground hover:text-foreground shadow-sm backdrop-blur-sm disabled:opacity-60"
+            >
+              <RefreshCw className={`w-3 h-3 ${refreshingBriefing ? "animate-spin" : ""}`} />
+              {refreshingBriefing ? "Refreshing..." : briefingRefreshedAt ? `Refreshed ${briefingRefreshedAt.toLocaleTimeString()}` : "Refresh briefing"}
             </button>
           </div>
 
@@ -600,7 +615,11 @@ export default function CommandCenterPage() {
             })}
           </div>
           <div className="glass-card rounded-2xl p-5 text-center">
-            <button className="flex items-center gap-2 mx-auto px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90">
+            <button
+              type="button"
+              onClick={() => navigate("/insights")}
+              className="flex items-center gap-2 mx-auto px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90"
+            >
               <Sparkles className="w-4 h-4" />
               Generate deeper analysis
             </button>

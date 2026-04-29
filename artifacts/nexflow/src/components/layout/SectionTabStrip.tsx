@@ -1,13 +1,12 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { findSectionByRoute, SECTIONS, type SectionDef } from "@/lib/sections";
 
 /**
- * Renders a horizontally-scrollable tab strip for the section the current route
- * belongs to. The first tab is always "Dashboard" → /section/<key>. The remaining
- * tabs are the section's items. Highlighted tab is computed from the current
- * pathname.
+ * Renders a horizontally-scrollable tab strip for the section the current
+ * route belongs to. Lists the section's items as tabs — the section hub
+ * (`/section/:key`) is reachable via the top-nav button click and is no
+ * longer surfaced as a duplicate "Dashboard" sub-tab.
  */
 export function SectionTabStrip() {
   const [location] = useLocation();
@@ -17,8 +16,6 @@ export function SectionTabStrip() {
 }
 
 function SectionTabStripInner({ section, location }: { section: SectionDef; location: string }) {
-  const dashboardHref = `/section/${section.key}`;
-  const isDashboardActive = location === dashboardHref;
   const Icon = section.icon;
 
   return (
@@ -41,29 +38,6 @@ function SectionTabStripInner({ section, location }: { section: SectionDef; loca
             </div>
             <span className="text-[13px] font-bold text-foreground">{section.label}</span>
           </div>
-
-          {/* Dashboard tab — always first */}
-          <Link href={dashboardHref}>
-            <button
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold whitespace-nowrap flex-shrink-0 transition-all",
-                isDashboardActive
-                  ? "text-white shadow-sm"
-                  : "text-foreground/65 hover:text-foreground hover:bg-muted/50",
-              )}
-              style={
-                isDashboardActive
-                  ? {
-                      background: `linear-gradient(135deg, ${section.accent}, #B8A0C8)`,
-                      boxShadow: `0 4px 12px ${section.accent}40`,
-                    }
-                  : undefined
-              }
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              Dashboard
-            </button>
-          </Link>
 
           {/* Item tabs */}
           {section.items.map((item) => {
