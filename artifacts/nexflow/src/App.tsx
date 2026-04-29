@@ -1,10 +1,16 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LivingMesh } from "@/components/layout/LivingMesh";
 import { TopBar } from "@/components/layout/TopBar";
 import { SectionTabStrip } from "@/components/layout/SectionTabStrip";
+import { MarketingLayout } from "@/components/marketing/MarketingLayout";
+import WelcomePage from "@/pages/marketing/Welcome";
+import AboutPage from "@/pages/marketing/About";
+import PricingPage from "@/pages/marketing/Pricing";
+import AuthPage from "@/pages/marketing/Auth";
+import { isSignedIn } from "@/lib/marketing-auth";
 import { useState, useEffect } from "react";
 
 import Briefing from "@/pages/briefing";
@@ -83,6 +89,11 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30000, retry: 1 } },
 });
 
+function HomeOrWelcome() {
+  if (!isSignedIn()) return <Redirect to="/welcome" />;
+  return <Briefing />;
+}
+
 function AppLayout() {
   const [dark, setDark] = useState(false);
   useEffect(() => { document.documentElement.classList.toggle("dark", dark); }, [dark]);
@@ -94,7 +105,7 @@ function AppLayout() {
       <SectionTabStrip />
       <main className="flex-1 min-w-0 px-4 sm:px-6 py-6 overflow-y-auto relative z-10 max-w-[1600px] w-full mx-auto">
         <Switch>
-          <Route path="/" component={Briefing} />
+          <Route path="/" component={HomeOrWelcome} />
           <Route path="/section/:key" component={SectionHubPage} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/sourcing" component={SourcingPage} />
@@ -177,10 +188,19 @@ function AppLayout() {
  * (TopBar / SectionTabStrip), so it is rendered directly here. All other
  * paths fall through to <AppLayout /> which contains the standard CRM nav.
  */
+function MarketingRoute({ children }: { children: React.ReactNode }) {
+  return <MarketingLayout>{children}</MarketingLayout>;
+}
+
 function RootRoutes() {
   return (
     <Switch>
       <Route path="/investors" component={InvestorsPage} />
+      <Route path="/welcome">    <MarketingRoute><WelcomePage /></MarketingRoute></Route>
+      <Route path="/about">      <MarketingRoute><AboutPage /></MarketingRoute></Route>
+      <Route path="/pricing">    <MarketingRoute><PricingPage /></MarketingRoute></Route>
+      <Route path="/signin">     <MarketingRoute><AuthPage mode="signin" /></MarketingRoute></Route>
+      <Route path="/signup">     <MarketingRoute><AuthPage mode="signup" /></MarketingRoute></Route>
       <Route component={AppLayout} />
     </Switch>
   );
