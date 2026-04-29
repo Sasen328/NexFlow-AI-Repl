@@ -1,10 +1,18 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
+
+// Trust the workspace reverse proxy so req.secure / req.ip / x-forwarded-*
+// reflect the actual client connection. Required for the investor data-room
+// cookie to be flagged Secure under HTTPS in production.
+app.set("trust proxy", true);
+
+app.use(cookieParser());
 
 app.use(
   pinoHttp({

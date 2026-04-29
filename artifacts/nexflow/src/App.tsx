@@ -76,6 +76,7 @@ import AccountSettingsPage from "@/pages/account-settings";
 import PermissionsPage from "@/pages/permissions";
 import ReportBuilderPage from "@/pages/report-builder";
 import CapabilitiesPage from "@/pages/capabilities";
+import InvestorsPage from "@/pages/investors";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -170,12 +171,27 @@ function AppLayout() {
   );
 }
 
+/**
+ * Top-level router. The /investors path is a public-facing data-room
+ * landing for outside investors and must NOT inherit the CRM chrome
+ * (TopBar / SectionTabStrip), so it is rendered directly here. All other
+ * paths fall through to <AppLayout /> which contains the standard CRM nav.
+ */
+function RootRoutes() {
+  return (
+    <Switch>
+      <Route path="/investors" component={InvestorsPage} />
+      <Route component={AppLayout} />
+    </Switch>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <AppLayout />
+          <RootRoutes />
         </WouterRouter>
         <Toaster />
       </TooltipProvider>

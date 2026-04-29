@@ -19,7 +19,8 @@
     "openai": "^4.95.0",
     "pino": "^9",
     "pino-http": "^10",
-    "resend": "^4.0.1"
+    "resend": "^4.0.1",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

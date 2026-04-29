@@ -33,6 +33,7 @@ import dedupRouter from "./dedup";
 import marketingExtrasRouter from "./marketing-extras";
 import powerDialerRouter from "./power-dialer";
 import leadEnrichRouter from "./lead-enrich";
+import investorsRouter from "./investors";
 
 const router: IRouter = Router();
 
@@ -70,5 +71,6 @@ router.use("/dedup", dedupRouter);
 router.use("/marketing", marketingExtrasRouter);
 router.use("/power-dialer", powerDialerRouter);
 router.use("/lead-enrich", leadEnrichRouter);
+router.use("/investors", investorsRouter);
 
 export default router;
