@@ -93,7 +93,7 @@ export function TopBar({ dark, onDark }: TopBarProps) {
           </div>
         </Link>
         <nav
-          className="flex items-center gap-1 flex-1 overflow-x-auto no-scrollbar"
+          className="flex items-center gap-1 flex-1 flex-wrap"
           aria-label="Primary"
         >
           {TOP_NAV.map((entry) => (
