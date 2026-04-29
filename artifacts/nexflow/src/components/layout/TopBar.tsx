@@ -103,6 +103,7 @@ export function TopBar({ dark, onDark }: TopBarProps) {
               isActive={activeTop?.key === entry.key}
               isOpen={openTopKey === entry.key}
               onOpen={() => openTop(entry.key)}
+              onClose={() => setOpenTopKey(null)}
               onScheduleClose={scheduleCloseTop}
               onItemClick={() => setOpenTopKey(null)}
               currentPath={location}
@@ -213,12 +214,13 @@ export function TopBar({ dark, onDark }: TopBarProps) {
 /* ─── Single top-nav button + hover dropdown ─────────────────────── */
 
 function TopNavButton({
-  entry, isActive, isOpen, onOpen, onScheduleClose, onItemClick, currentPath,
+  entry, isActive, isOpen, onOpen, onClose, onScheduleClose, onItemClick, currentPath,
 }: {
   entry: TopNavEntry;
   isActive: boolean;
   isOpen: boolean;
   onOpen: () => void;
+  onClose: () => void;
   onScheduleClose: () => void;
   onItemClick: () => void;
   currentPath: string;
@@ -237,23 +239,36 @@ function TopNavButton({
   // Accent for the active state — first section's accent (or chameleon for More)
   const accent = primarySection?.accent ?? "#B8A0C8";
 
-  function handleClick() {
+  function handleClick(e: React.MouseEvent) {
     if (isMore) {
-      onOpen();
+      // Click toggles the More dropdown; no hover timing involved.
+      e.preventDefault();
+      e.stopPropagation();
+      if (isOpen) onClose();
+      else onOpen();
     } else {
       navigate(clickHref);
     }
   }
 
+  // Hover-open is kept for the single-section tabs (Home, CRM, etc.) where it
+  // worked fine, but is DISABLED for "More" so the dropdown is purely a
+  // click-driven menu — no 150ms close timer can sneak in and shut it.
+  const hoverHandlers = isMore
+    ? {}
+    : {
+        onMouseEnter: onOpen,
+        onMouseLeave: onScheduleClose,
+        onFocus: onOpen,
+        onBlur: (e: React.FocusEvent) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) onScheduleClose();
+        },
+      };
+
   return (
     <div
       className="relative"
-      onMouseEnter={onOpen}
-      onMouseLeave={onScheduleClose}
-      onFocus={onOpen}
-      onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node)) onScheduleClose();
-      }}
+      {...hoverHandlers}
     >
       <button
         type="button"
