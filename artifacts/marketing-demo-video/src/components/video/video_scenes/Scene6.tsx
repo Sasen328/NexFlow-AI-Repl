@@ -1,95 +1,86 @@
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
-import { Clock, Moon, Sparkles, Languages } from 'lucide-react';
+import { ScreenshotFrame, SceneCaption, CalloutPin } from '../ScreenshotFrame';
+import { Mail, MessageCircle, Linkedin, Phone, Globe } from 'lucide-react';
 
 export function Scene6() {
-  const [phase, setPhase] = useState(0);
-
-  useEffect(() => {
-    const timers = [
-      setTimeout(() => setPhase(1), 500),
-      setTimeout(() => setPhase(2), 1500),
-      setTimeout(() => setPhase(3), 8000),
-    ];
-    return () => timers.forEach(t => clearTimeout(t));
-  }, []);
-
-  const recommendations = [
-    { icon: Clock, label: 'Send time', value: '9:00 AM AST', color: 'text-blue-400' },
-    { icon: Moon, label: 'Avoid', value: 'Friday prayer (12:00–14:00)', color: 'text-indigo-400' },
-    { icon: Sparkles, label: 'Hook angle', value: 'Vision 2030 alignment', color: 'text-emerald-400' },
-    { icon: Languages, label: 'Tone', value: 'Formal AR + EN', color: 'text-purple-400' },
+  const channels = [
+    { Icon: Mail, label: 'Email', color: 'rgba(184,160,200,0.95)' },
+    { Icon: MessageCircle, label: 'WhatsApp', color: 'rgba(136,184,176,0.95)' },
+    { Icon: Linkedin, label: 'LinkedIn', color: 'rgba(200,168,128,0.95)' },
+    { Icon: Phone, label: 'Voice AI', color: 'rgba(184,160,200,0.95)' },
+    { Icon: Globe, label: 'SMS', color: 'rgba(136,184,176,0.95)' },
   ];
 
   return (
-    <motion.div 
-      className="absolute inset-0 flex items-center justify-center z-10"
+    <motion.div
+      className="absolute inset-0 flex flex-col items-center justify-center z-10 p-[3vw]"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.8 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.6 }}
     >
-      {/* Arabic Geometric Pattern Background */}
-      <div 
-        className="absolute inset-0 opacity-[0.03] z-0" 
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M30 0l30 30-30 30L0 30z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          backgroundSize: '120px 120px'
-        }}
-      />
+      <div className="relative w-[78vw] max-w-[1500px]">
+        <ScreenshotFrame
+          src="/marketing-demo-video/screenshots/sequences.jpg"
+          alt="Sequences"
+          duration={10}
+          initialScale={1.02}
+          finalScale={1.1}
+          initialY="0%"
+          finalY="-3%"
+        />
 
-      <div className="w-full max-w-6xl px-12 flex flex-col md:flex-row items-center gap-16 z-20">
-        <div className="flex-1 text-left">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-            transition={{ duration: 0.8 }}
-          >
-            <h2 className="text-[4vw] font-bold text-[#111827] leading-tight" style={{ fontFamily: 'var(--font-display)' }}>
-              Cultural Intelligence
-            </h2>
-            <p className="text-[2vw] text-gray-600 mt-4 font-medium tracking-wide">
-              Native to the GCC.
-            </p>
-          </motion.div>
-        </div>
+        <CalloutPin x="62%" y="32%" label="35% reply rate" delay={1.4} color="secondary" />
+        <CalloutPin x="80%" y="32%" label="100% AI-localised" delay={2.6} color="accent" />
 
-        <div className="flex-1 w-full relative">
-          {/* Decorative aura */}
-          <div className="absolute inset-0 bg-[var(--color-primary)] opacity-10 blur-[80px] rounded-full z-0" />
-          
-          <motion.div 
-            className="dark-glass-card p-8 rounded-3xl border border-white/10 shadow-2xl bg-[#111827]/90 backdrop-blur-2xl relative z-10 w-full"
-            initial={{ opacity: 0, x: 40 }}
-            animate={phase >= 1 ? { opacity: 1, x: 0 } : { opacity: 0, x: 40 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            dir="rtl"
+        {/* Channel orchestration bar */}
+        <motion.div
+          className="absolute z-30 left-[5%] bottom-[8%]"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 4, duration: 0.5 }}
+        >
+          <div
+            className="flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-2xl"
+            style={{
+              background: 'rgba(26,21,48,0.94)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(184,160,200,0.3)',
+            }}
           >
-            <div className="space-y-4">
-              {recommendations.map((rec, i) => {
-                const Icon = rec.icon;
-                return (
-                  <motion.div
-                    key={i}
-                    className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-xl p-4"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={phase >= 2 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-                    transition={{ duration: 0.6, delay: phase >= 2 ? i * 0.2 : 0 }}
-                  >
-                    <div className={`p-3 rounded-lg bg-white/5 ${rec.color}`}>
-                      <Icon className="w-6 h-6" />
-                    </div>
-                    <div className="flex-1 text-right ml-4">
-                      <p className="text-white/60 text-sm font-medium mb-1" dir="ltr">{rec.label}</p>
-                      <p className="text-white text-lg font-semibold" dir="ltr">{rec.value}</p>
-                    </div>
-                  </motion.div>
-                );
-              })}
+            <div className="text-[11px] uppercase tracking-wider text-white/60 font-bold mr-2">
+              Cadence
             </div>
-          </motion.div>
-        </div>
+            {channels.map(({ Icon, label, color }, i) => (
+              <motion.div
+                key={label}
+                className="flex items-center gap-1.5"
+                initial={{ opacity: 0, scale: 0.6 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{
+                  delay: 4.4 + i * 0.2,
+                  duration: 0.35,
+                  ease: [0.34, 1.56, 0.64, 1],
+                }}
+              >
+                {i > 0 && <div className="w-3 h-px bg-white/30" />}
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center shadow-md"
+                  style={{ background: color }}
+                >
+                  <Icon className="w-5 h-5 text-white" strokeWidth={2.2} />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
       </div>
+
+      <SceneCaption
+        eyebrow="Step 5"
+        title="Multi-step cadences across every channel"
+        delay={0.5}
+      />
     </motion.div>
   );
 }

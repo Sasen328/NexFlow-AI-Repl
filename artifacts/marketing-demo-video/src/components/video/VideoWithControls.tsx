@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, Repeat } from 'lucide-react';
+import { ChevronDown, ChevronUp, Repeat, Volume2, VolumeX } from 'lucide-react';
 import VideoTemplate, { SCENE_DURATIONS } from './VideoTemplate';
 import { useSceneControls } from '@/lib/video/useSceneControls';
+import { useAmbientAudio } from '@/lib/video/useAmbientAudio';
 
 const PROGRESS_TICK_MS = 60;
 
@@ -130,6 +131,42 @@ function ControlBar({
   );
 }
 
+function SoundToggle({
+  enabled,
+  muted,
+  onToggle,
+}: {
+  enabled: boolean;
+  muted: boolean;
+  onToggle: () => void;
+}) {
+  const showHint = !enabled;
+  return (
+    <button
+      onClick={onToggle}
+      className="absolute top-5 right-5 z-50 group flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full backdrop-blur-md transition-all hover:scale-105"
+      style={{
+        background: showHint
+          ? 'linear-gradient(90deg, rgba(184,160,200,0.95), rgba(136,184,176,0.95))'
+          : 'rgba(17, 24, 39, 0.65)',
+        boxShadow: '0 8px 25px rgba(0,0,0,0.18)',
+        border: '1px solid rgba(255,255,255,0.25)',
+      }}
+      aria-label={!enabled ? 'Enable sound' : muted ? 'Unmute' : 'Mute'}
+      aria-pressed={enabled && !muted}
+    >
+      {!enabled || muted ? (
+        <VolumeX className="w-5 h-5 text-white" />
+      ) : (
+        <Volume2 className="w-5 h-5 text-white" />
+      )}
+      <span className="text-[13px] font-semibold text-white tracking-wide">
+        {!enabled ? 'Tap for sound' : muted ? 'Sound off' : 'Sound on'}
+      </span>
+    </button>
+  );
+}
+
 export default function VideoWithControls() {
   const isIframed = typeof window !== 'undefined' && window.self !== window.top;
 
@@ -145,6 +182,9 @@ export default function VideoWithControls() {
     jumpTo,
     toggleLock,
   } = useSceneControls(SCENE_DURATIONS);
+
+  const { enabled: audioEnabled, muted: audioMuted, enable: enableAudio, toggleMute } =
+    useAmbientAudio();
 
   const sensorRef = useRef<HTMLDivElement | null>(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -185,8 +225,17 @@ export default function VideoWithControls() {
     return () => document.removeEventListener('pointerdown', onDocPointerDown);
   }, [collapsed, tapPinned]);
 
+  const handleSoundToggle = useCallback(() => {
+    if (!audioEnabled) {
+      void enableAudio();
+    } else {
+      toggleMute();
+    }
+  }, [audioEnabled, enableAudio, toggleMute]);
+
   const barVisible = !collapsed || hovering || tapPinned;
 
+  // Export path: clean video for the recorder, no controls, no audio button
   if (!isIframed) return <VideoTemplate />;
 
   return (
@@ -197,6 +246,13 @@ export default function VideoWithControls() {
         loop
         onSceneChange={onSceneChange}
       />
+
+      <SoundToggle
+        enabled={audioEnabled}
+        muted={audioMuted}
+        onToggle={handleSoundToggle}
+      />
+
       <div
         ref={sensorRef}
         className="absolute bottom-0 left-0 right-0 z-50 flex flex-col justify-end"

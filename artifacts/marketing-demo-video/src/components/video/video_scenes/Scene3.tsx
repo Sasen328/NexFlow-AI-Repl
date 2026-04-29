@@ -1,88 +1,78 @@
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { ScreenshotFrame, SceneCaption, CalloutPin } from '../ScreenshotFrame';
 
 export function Scene3() {
-  const [phase, setPhase] = useState(0);
-
-  useEffect(() => {
-    const timers = [
-      setTimeout(() => setPhase(1), 500), // English
-      setTimeout(() => setPhase(2), 2500), // Arabic
-      setTimeout(() => setPhase(3), 5000), // Image
-      setTimeout(() => setPhase(4), 13500),
-    ];
-    return () => timers.forEach(t => clearTimeout(t));
-  }, []);
+  const channels = ['Email', 'WhatsApp', 'LinkedIn', 'SMS', 'Voice AI'];
 
   return (
-    <motion.div 
-      className="absolute inset-0 flex items-center justify-center gap-8 px-12 z-10"
-      initial={{ opacity: 0, y: 50 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.8 }}
+    <motion.div
+      className="absolute inset-0 flex flex-col items-center justify-center z-10 p-[3vw]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.6 }}
     >
-      <div className="w-1/2 flex flex-col gap-6">
-        <motion.h2 
-          className="text-[3vw] font-bold text-[#111827] leading-tight"
-          style={{ fontFamily: 'var(--font-display)' }}
-        >
-          From brief to creative in seconds.
-        </motion.h2>
-        
-        <div className="flex gap-4">
-          {/* English Email */}
-          <motion.div 
-            className="flex-1 glass-card rounded-2xl p-6 shadow-lg"
-            initial={{ opacity: 0, x: -20 }}
-            animate={phase >= 1 ? { opacity: 1, x: 0 } : { opacity: 0, x: -20 }}
-          >
-            <div className="h-4 w-1/3 bg-gray-200 rounded mb-4" />
-            <div className="h-2 w-full bg-gray-200 rounded mb-2" />
-            <div className="h-2 w-5/6 bg-gray-200 rounded mb-2" />
-            <div className="h-2 w-4/6 bg-gray-200 rounded" />
-          </motion.div>
+      <div className="relative w-[78vw] max-w-[1500px]">
+        <ScreenshotFrame
+          src="/marketing-demo-video/screenshots/campaigns.jpg"
+          alt="Marketing Intelligence campaign builder"
+          duration={15}
+          initialScale={1.02}
+          finalScale={1.12}
+          initialY="0%"
+          finalY="-2%"
+        />
 
-          {/* Arabic Email */}
-          <motion.div 
-            className="flex-1 glass-card rounded-2xl p-6 shadow-lg text-right"
-            initial={{ opacity: 0, x: -20 }}
-            animate={phase >= 2 ? { opacity: 1, x: 0 } : { opacity: 0, x: -20 }}
-            dir="rtl"
+        <CalloutPin x="32%" y="32%" label="$4.2M pipeline influenced" delay={1.5} color="secondary" />
+        <CalloutPin x="50%" y="62%" label="Pick channels & budget" delay={3} color="primary" />
+        <CalloutPin x="50%" y="86%" label="AI builds full strategy" delay={5} color="accent" />
+
+        {/* Floating channel chips badge that pop in sequentially top-right */}
+        <motion.div
+          className="absolute top-[8%] right-[3%] z-30 flex flex-col items-end gap-2"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 7 }}
+        >
+          <div
+            className="px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider text-white"
+            style={{ background: 'rgba(26,21,48,0.92)' }}
           >
-            <div className="h-4 w-1/3 bg-gray-200 rounded mb-4 mr-0 ml-auto" />
-            <div className="h-2 w-full bg-gray-200 rounded mb-2" />
-            <div className="h-2 w-5/6 bg-gray-200 rounded mb-2 mr-0 ml-auto" />
-            <div className="h-2 w-4/6 bg-gray-200 rounded mr-0 ml-auto" />
-          </motion.div>
-        </div>
+            5 channels selected
+          </div>
+          <div className="flex flex-wrap gap-1.5 max-w-[260px] justify-end">
+            {channels.map((c, i) => (
+              <motion.div
+                key={c}
+                className="px-2.5 py-1 rounded-full text-[12px] font-semibold text-white shadow-md"
+                style={{
+                  background:
+                    i % 3 === 0
+                      ? 'rgba(184,160,200,0.95)'
+                      : i % 3 === 1
+                        ? 'rgba(136,184,176,0.95)'
+                        : 'rgba(200,168,128,0.95)',
+                }}
+                initial={{ opacity: 0, scale: 0.6, y: -10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{
+                  delay: 7.3 + i * 0.18,
+                  duration: 0.4,
+                  ease: [0.34, 1.56, 0.64, 1],
+                }}
+              >
+                {c}
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
       </div>
 
-      {/* Image Gen */}
-      <motion.div 
-        className="w-1/2 h-[60vh] rounded-[2rem] overflow-hidden shadow-2xl relative bg-gray-200"
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={phase >= 3 ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.9 }}
-      >
-        {phase >= 3 && (
-          <motion.img 
-            src={`${import.meta.env.BASE_URL}images/riyadh-skyline.png`}
-            className="absolute inset-0 w-full h-full object-cover"
-            initial={{ opacity: 0, scale: 1.2, filter: 'blur(10px)' }}
-            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-            transition={{ duration: 2 }}
-          />
-        )}
-        {phase < 3 && (
-          <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-            <svg className="w-12 h-12 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          </div>
-        )}
-      </motion.div>
-
+      <SceneCaption
+        eyebrow="Step 2"
+        title="Multi-channel campaigns, AI-orchestrated"
+        delay={0.5}
+      />
     </motion.div>
   );
 }
