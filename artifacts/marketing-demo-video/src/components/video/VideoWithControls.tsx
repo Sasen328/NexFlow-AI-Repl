@@ -183,8 +183,15 @@ export default function VideoWithControls() {
     toggleLock,
   } = useSceneControls(SCENE_DURATIONS);
 
-  const { enabled: audioEnabled, muted: audioMuted, enable: enableAudio, toggleMute } =
-    useAmbientAudio();
+  const {
+    enabled: audioEnabled,
+    muted: audioMuted,
+    enable: enableAudio,
+    toggleMute,
+    audioRef,
+    audioUrl,
+  } = useAmbientAudio();
+  const [exportHelpOpen, setExportHelpOpen] = useState(false);
 
   const sensorRef = useRef<HTMLDivElement | null>(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -247,11 +254,79 @@ export default function VideoWithControls() {
         onSceneChange={onSceneChange}
       />
 
+      {/* Hidden audio element — autoplays muted, auto-unmutes on first user gesture */}
+      <audio
+        ref={audioRef}
+        src={audioUrl}
+        loop
+        autoPlay
+        muted
+        playsInline
+        preload="auto"
+        style={{ display: 'none' }}
+      />
+
       <SoundToggle
         enabled={audioEnabled}
         muted={audioMuted}
         onToggle={handleSoundToggle}
       />
+
+      {/* Export instructions pill */}
+      <button
+        onClick={() => setExportHelpOpen((v) => !v)}
+        className="absolute top-5 right-44 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full backdrop-blur-md transition-all hover:scale-105"
+        style={{
+          background: 'rgba(17, 24, 39, 0.65)',
+          boxShadow: '0 8px 25px rgba(0,0,0,0.18)',
+          border: '1px solid rgba(255,255,255,0.25)',
+        }}
+        aria-label="Show export instructions"
+      >
+        <span className="text-[13px] font-semibold text-white tracking-wide">
+          {exportHelpOpen ? 'Close' : 'Export MP4 ▾'}
+        </span>
+      </button>
+
+      {exportHelpOpen && (
+        <div
+          className="absolute top-20 right-5 z-50 w-[360px] p-5 rounded-2xl backdrop-blur-xl"
+          style={{
+            background: 'rgba(17, 24, 39, 0.92)',
+            border: '1px solid rgba(255,255,255,0.18)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+            color: '#fff',
+          }}
+        >
+          <div className="text-[11px] uppercase tracking-[0.2em] font-bold text-white/60 mb-2">
+            How to download as MP4
+          </div>
+          <div className="text-[15px] font-semibold mb-3">
+            Use the Export button on this preview pane
+          </div>
+          <ol className="space-y-2 text-[13px] text-white/85 list-decimal pl-5">
+            <li>
+              In the preview pane toolbar above this video, click the{' '}
+              <span className="font-semibold text-white">Export</span> /{' '}
+              <span className="font-semibold text-white">Download</span> button.
+            </li>
+            <li>
+              The recorder captures all 9 scenes at 30fps and produces an{' '}
+              <span className="font-semibold text-white">.mp4</span> file you can save.
+            </li>
+            <li>
+              The MP4 is silent by design — add the included background track in any
+              editor (CapCut, Premiere, iMovie) over the video.
+            </li>
+          </ol>
+          <div
+            className="mt-4 px-3 py-2 rounded-lg text-[12px]"
+            style={{ background: 'rgba(184,160,200,0.18)', color: '#E8DFEF' }}
+          >
+            Total length: 90 seconds · 1080p · ~15 MB
+          </div>
+        </div>
+      )}
 
       <div
         ref={sensorRef}
