@@ -24,6 +24,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "person.2", selected: "person.2.fill" }} />
         <Label>Contacts</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="calls">
+        <Icon sf={{ default: "phone", selected: "phone.fill" }} />
+        <Label>Calls</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="agents">
         <Icon sf={{ default: "waveform", selected: "waveform" }} />
         <Label>Agents</Label>
@@ -95,6 +99,18 @@ function ClassicTabLayout() {
               <SymbolView name={focused ? "person.2.fill" : "person.2"} tintColor={color} size={24} />
             ) : (
               <Feather name="users" size={20} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="calls"
+        options={{
+          title: "Calls",
+          tabBarIcon: ({ color, focused }) =>
+            isIOS ? (
+              <SymbolView name={focused ? "phone.fill" : "phone"} tintColor={color} size={24} />
+            ) : (
+              <Feather name="phone" size={20} color={color} />
             ),
         }}
       />

@@ -13,6 +13,24 @@ NexFlow is an AI-native B2B CRM built as a React + Vite frontend with an Express
 - Chameleon gradient: #B8A0C8 → #C0A0B8 → #88B8B0 → #90B8B8 → #B8B880 → #C8A880
 - Dark mode available via toggle
 
+## Major Feature Upgrades (v2 — April 2026)
+
+### Web (nexflow)
+- **Marketing Intelligence** (`/campaigns`): Full rewrite — 3-section nav (AI Strategy Builder, Dormant Lead Reactivation, Campaigns). Platform cost intelligence table (CPM/open rates for all channels). Full AI strategy generator with budget, calendar, and ROI output. Dormant lead personalised message generator.
+- **Properties Library** (`/properties`): 200+ standard CRM property library in 8 categories (Contact Identity, Job & Seniority, Behavioral, Sales & Pipeline, GCC/Regional, Company Info, Deal Properties, Marketing Attributes). Searchable "Property Library" modal with one-click enable.
+- **Smart Lists AI** (`/lists`): HubSpot Breeze-style AI generation — 8 quick-prompt chips, animated 5-step generation, contact preview, segment breakdown, refinement.
+- **AI Dashboard Generator** (`/dashboards`): Full redesign — 6 template cards (CEO Weekly View, SDR Daily Standup, Quarter Review, Marketing ROI, Revenue Forecast, Relationship Health), animated build steps, success state.
+- **Cultural Intelligence** (`/cultural-intelligence`): GCC-native outreach calendar with 5 GCC events (Eid Al-Adha, Saudi/UAE/Kuwait National Day, Ramadan). Each event shows optimal outreach window, blackout period, AI recommendation, and messaging themes. AI Cultural Advisor tab answers culture/etiquette queries. Regional Playbook tab with GCC win-rate statistics.
+
+### Mobile (expo)
+- **Calls Tab**: New `calls.tsx` screen with KPI cards, tab filters by outcome, expandable AI insights per call. `useCalls` hook + `ApiCall` type added to `api.ts`. Calls tab added to both NativeTabLayout and ClassicTabLayout.
+
+### API Server
+- `/campaigns/ai-strategy` (POST): Generates full AI marketing strategy
+- `/campaigns/dormant-message` (POST): Generates personalised dormant lead message
+- `/admin/status` (GET): Returns current DB record counts
+- `/admin/reseed` (POST): Triggers a full database reseed
+
 ## Auto-Seed (Production Data)
 
 `artifacts/api-server/src/lib/autoSeed.ts` runs on every API server cold-start.

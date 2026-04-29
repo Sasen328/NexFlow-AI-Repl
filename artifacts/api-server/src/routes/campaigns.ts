@@ -157,4 +157,67 @@ router.post("/:id/duplicate", async (req, res) => {
   }
 });
 
+// AI Marketing Strategy Builder
+router.post("/ai-strategy", async (req, res) => {
+  try {
+    const { goal, audience, budget, platforms = [] } = req.body;
+    const platformStr = Array.isArray(platforms) ? platforms.join(", ") : "email";
+    const allContacts = await db.select({ id: contacts.id, lead_score: contacts.lead_score, status: contacts.status }).from(contacts).limit(200);
+    const hot = allContacts.filter((c: any) => (c.lead_score ?? 0) >= 80).length;
+    const warm = allContacts.filter((c: any) => (c.lead_score ?? 0) >= 60 && (c.lead_score ?? 0) < 80).length;
+    const cold = allContacts.length - hot - warm;
+
+    const strategy = await aiChat({
+      system: "You are a senior B2B marketing strategist. Return ONLY valid JSON. No markdown, no text outside JSON.",
+      user: `Build a full multi-channel marketing strategy. 
+Goal: ${goal}. Audience: ${audience}. Budget: ${budget}. Platforms: ${platformStr}.
+Contact breakdown: ${hot} hot (score 80+), ${warm} warm (score 60-79), ${cold} cold.
+
+Return JSON:
+{
+  "summary": "2-sentence overview",
+  "segments": [{"name":"segment name","size":number,"channel":"channel","message":"strategy"}],
+  "calendar": [{"day":"Day N","action":"action","channel":"channel id","leads":number}],
+  "budget_breakdown": [{"platform":"name","budget":"$X","reach":number,"est_meetings":number}],
+  "total_est_meetings": number,
+  "total_pipeline": "$X",
+  "roi": "Nx",
+  "next_actions": ["action1","action2","action3","action4"]
+}`,
+      maxTokens: 1200,
+    });
+    const parsed = JSON.parse(strategy.match(/\{[\s\S]*\}/)?.[0] ?? "{}");
+    res.json(parsed);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// AI Dormant Lead Personalized Message
+router.post("/dormant-message", async (req, res) => {
+  try {
+    const { contact, dormant_days = 45 } = req.body;
+    const name = `${contact.first_name ?? ""} ${contact.last_name ?? ""}`.trim();
+    const msg = await aiChat({
+      system: "You are an elite sales copywriter specializing in B2B re-engagement. Return ONLY valid JSON. No markdown.",
+      user: `Create personalized re-engagement messages for: ${name}, ${contact.title ?? ""} at ${contact.company_name ?? ""}. Silent for ${dormant_days}+ days. Lead score: ${contact.lead_score ?? "unknown"}.
+
+Return JSON:
+{
+  "whatsapp_message": "short personal WhatsApp message (max 3 sentences)",
+  "email_subject": "compelling subject line",
+  "email_body": "3-paragraph re-engagement email body",
+  "platform_recommendation": "whatsapp or email or linkedin",
+  "reason": "one sentence reason why",
+  "urgency": "high or medium or low"
+}`,
+      maxTokens: 500,
+    });
+    const parsed = JSON.parse(msg.match(/\{[\s\S]*\}/)?.[0] ?? "{}");
+    res.json(parsed);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
 export default router;

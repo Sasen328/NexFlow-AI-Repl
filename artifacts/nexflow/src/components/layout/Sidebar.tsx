@@ -5,7 +5,7 @@ import {
   Phone, FileText, Bell, BarChart3, Target, Database, Bot,
   ChevronLeft, ChevronRight, ChevronDown, Search, Moon, Sun,
   MessageSquare, Star, Settings, Mail, UserSquare2, FlaskConical,
-  ListIcon, LayoutDashboard, Filter, Megaphone, GitBranch, PhoneCall, Wand2, Layers
+  ListIcon, LayoutDashboard, Filter, Megaphone, GitBranch, PhoneCall, Wand2, Layers, Globe
 } from "lucide-react";
 import { NexFlowLogo, NexFlowWordmark } from "./NexFlowLogo";
 import { useNotifications } from "@/hooks/useApi";
@@ -70,6 +70,7 @@ const NAV_GROUPS = [
     icon: Megaphone,
     items: [
       { icon: Megaphone, label: "Campaigns", href: "/campaigns" },
+      { icon: Globe, label: "Cultural Intelligence", href: "/cultural-intelligence" },
       { icon: Layers, label: "Templates", href: "/templates" },
       { icon: Target, label: "Audiences", href: "/audiences" },
     ],

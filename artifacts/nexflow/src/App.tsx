@@ -44,6 +44,7 @@ import TemplatesPage from "@/pages/templates";
 import AudiencesPage from "@/pages/audiences";
 import ReportsPage from "@/pages/reports";
 import PredictivePage from "@/pages/predictive";
+import CulturalIntelligencePage from "@/pages/cultural-intelligence";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -99,6 +100,7 @@ function AppLayout() {
           <Route path="/audiences" component={AudiencesPage} />
           <Route path="/reports" component={ReportsPage} />
           <Route path="/predictive" component={PredictivePage} />
+          <Route path="/cultural-intelligence" component={CulturalIntelligencePage} />
           <Route component={NotFound} />
         </Switch>
       </main>
