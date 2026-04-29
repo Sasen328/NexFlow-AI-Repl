@@ -48,5 +48,10 @@ externalPort = 3000
 localPort = 19255
 externalPort = 6800
 
+[[ports]]
+localPort = 22742
+externalPort = 3003
+
 [nix]
 channel = "stable-25_05"
+packages = ["fontconfig", "ghostscript", "glib", "harfbuzz", "pango"]

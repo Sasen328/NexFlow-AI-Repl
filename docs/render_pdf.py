@@ -405,6 +405,9 @@ def render_one(md_path: Path) -> Path:
 
 def main() -> None:
     md_files = sorted(p for p in DOCS_DIR.glob("*.md"))
+    business_dir = DOCS_DIR / "business"
+    if business_dir.is_dir():
+        md_files += sorted(p for p in business_dir.glob("*.md"))
     if not md_files:
         print("No markdown files found.")
         return
@@ -412,7 +415,9 @@ def main() -> None:
     for md in md_files:
         try:
             out = render_one(md)
-            print(f"  ✓ {md.name}  ->  {out.name}")
+            rel_in = md.relative_to(DOCS_DIR)
+            rel_out = out.relative_to(DOCS_DIR)
+            print(f"  ✓ {rel_in}  ->  {rel_out}")
         except Exception as e:
             print(f"  ✗ {md.name}  FAILED: {e}")
             raise

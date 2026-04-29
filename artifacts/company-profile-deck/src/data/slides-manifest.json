@@ -1,0 +1,114 @@
+[
+  {
+    "id": "0a8d1c10-cover-nexflow-1111-aaaaaaaaaaaa",
+    "position": 1,
+    "filepath": "src/pages/slides/Cover.tsx",
+    "title": "Cover",
+    "description": "NexFlow — the GCC-native AI CRM",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-whoweare-1111-bbbbbbbbbbbb",
+    "position": 2,
+    "filepath": "src/pages/slides/WhoWeAre.tsx",
+    "title": "Who we are",
+    "description": "Founder origin, region, mandate",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-problem-1111-cccccccccccc",
+    "position": 3,
+    "filepath": "src/pages/slides/Problem.tsx",
+    "title": "The problem",
+    "description": "Why current CRMs fail in the GCC",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-difference-11-dddddddddddd",
+    "position": 4,
+    "filepath": "src/pages/slides/Difference.tsx",
+    "title": "What we do differently",
+    "description": "Four founding pillars",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-marketpain-1-eeeeeeeeeeee",
+    "position": 5,
+    "filepath": "src/pages/slides/MarketPain.tsx",
+    "title": "Market pain points",
+    "description": "Pain → NexFlow response",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-marketvalue-ffffffffffff",
+    "position": 6,
+    "filepath": "src/pages/slides/MarketValue.tsx",
+    "title": "Value generated",
+    "description": "Outcomes for customers who adopt",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-competitive-1-1111aaaa1111",
+    "position": 7,
+    "filepath": "src/pages/slides/Competitive.tsx",
+    "title": "Competitive landscape",
+    "description": "NexFlow vs. global CRMs",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-product-1111-2222bbbb2222",
+    "position": 8,
+    "filepath": "src/pages/slides/Product.tsx",
+    "title": "Product overview",
+    "description": "Eight modules, one platform",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-roleceo-1111-3333cccc3333",
+    "position": 9,
+    "filepath": "src/pages/slides/RoleCEO.tsx",
+    "title": "Role view — CEO",
+    "description": "Pipeline, forecast, and revenue health",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-rolesm-11111-4444dddd4444",
+    "position": 10,
+    "filepath": "src/pages/slides/RoleSalesManager.tsx",
+    "title": "Role view — Sales Manager",
+    "description": "Coaching, capacity, and conversion",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-rolest-11111-5555eeee5555",
+    "position": 11,
+    "filepath": "src/pages/slides/RoleSalesTeam.tsx",
+    "title": "Role view — Sales Team",
+    "description": "One screen for the whole day",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-rolemkt-1111-6666ffff6666",
+    "position": 12,
+    "filepath": "src/pages/slides/RoleMarketing.tsx",
+    "title": "Role view — Marketing",
+    "description": "Campaigns, attribution, segments",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-traction-111-77771a1a7777",
+    "position": 13,
+    "filepath": "src/pages/slides/Traction.tsx",
+    "title": "Traction & roadmap",
+    "description": "Three-year build path",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a8d1c10-closing-111-88882b2b8888",
+    "position": 14,
+    "filepath": "src/pages/slides/Closing.tsx",
+    "title": "Closing",
+    "description": "Vision and contact",
+    "speakerNotes": ""
+  }
+]
