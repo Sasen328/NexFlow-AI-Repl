@@ -4,10 +4,105 @@ import {
   Calendar, Zap, ArrowRight, Coffee, Brain, Target, Users, RefreshCw, ChevronRight,
   Clock, Loader2, CheckSquare, CheckCircle2, Circle, ListTodo, BarChart3,
   Bot, BellRing, TrendingDown, Star, Flame, Mic, FileText, Send, CalendarPlus,
+  type LucideIcon,
 } from "lucide-react";
 import { useDashboard, useContacts, useForgottenLeads, useRegenerateInsights, useCalls, apiFetch } from "@/hooks/useApi";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getRole, type RoleKey } from "@/lib/marketing-auth";
+
+interface PersonaBriefing {
+  /** First-person framing of what the persona is here to do today. */
+  briefing: (totalPipeline: string) => React.ReactNode;
+  /** 4 KPI tiles tuned to the persona's job. */
+  kpis: { label: string; value: string; sub: string; color: string; icon: LucideIcon }[];
+}
+
+const PERSONA_BRIEFINGS: Record<RoleKey, PersonaBriefing> = {
+  sales: {
+    briefing: (tp) => (
+      <>
+        You have <span className="font-bold text-foreground">3 high-intent prospects</span> ready to dial today —
+        combined open pipeline <span className="font-bold text-[#88B8B0]">${tp}</span>. Most urgent:{" "}
+        <span className="font-bold text-foreground">Sara Al-Mansouri</span> — Gulf Ventures just closed a $50M Series B.
+        Your AI Voice Agent qualified <span className="font-bold text-foreground">4 leads</span> overnight — added to your call list.
+        Hit your daily 12-call quota in ~3.2 hours of focus time.
+      </>
+    ),
+    kpis: [
+      { label: "Calls Today",      value: "5",  sub: "3 confirmed",      color: "#88B8B0", icon: Phone },
+      { label: "Hot Signals",      value: "3",  sub: "Last 24h",         color: "#B8B880", icon: Zap },
+      { label: "Quota Progress",   value: "47%", sub: "Of monthly goal", color: "#B8A0C8", icon: Target },
+      { label: "At-Risk Deals",    value: "2",  sub: "$240K exposure",   color: "#C0A0B8", icon: AlertTriangle },
+    ],
+  },
+  manager: {
+    briefing: (tp) => (
+      <>
+        Team forecast for the quarter is <span className="font-bold text-[#88B8B0]">${tp}</span> — currently{" "}
+        <span className="font-bold text-foreground">94% to plan</span>. Coaching priorities: 2 reps with declining
+        connect rates, 1 rep crushing it (study the playbook). <span className="font-bold text-destructive">5 deals
+        flagged at-risk</span> across the team — review with the AI rescue plan attached to each.
+      </>
+    ),
+    kpis: [
+      { label: "Team Pipeline",   value: "$4.8M", sub: "Forecast covered 94%", color: "#88B8B0", icon: TrendingUp },
+      { label: "Reps On Pace",    value: "6 / 8", sub: "2 need coaching",       color: "#B8A0C8", icon: Users },
+      { label: "Stalled > 30d",   value: "12",    sub: "Across all stages",    color: "#C8A880", icon: Clock },
+      { label: "AI Coaching Hits",value: "31",    sub: "Last 7 days",          color: "#B8B880", icon: Brain },
+    ],
+  },
+  ceo: {
+    briefing: (tp) => (
+      <>
+        Quarter-to-date revenue <span className="font-bold text-[#88B8B0]">$2.31M</span>,{" "}
+        <span className="font-bold text-foreground">+18% YoY</span>. Pipeline coverage{" "}
+        <span className="font-bold text-foreground">3.2×</span> against next-quarter target.
+        <span className="font-bold text-destructive"> 1 strategic deal stalled</span> (Aramco Digital — needs your call).
+        AI surfaced 4 market signals worth your attention this morning.
+      </>
+    ),
+    kpis: [
+      { label: "QTD Revenue",       value: "$2.31M", sub: "+18% YoY",           color: "#88B8B0", icon: TrendingUp },
+      { label: "Pipeline Coverage", value: "3.2×",   sub: "Next-Q target",      color: "#B8A0C8", icon: BarChart3 },
+      { label: "Strategic Risk",    value: "1",      sub: "Aramco — call today",color: "#C0A0B8", icon: AlertTriangle },
+      { label: "Market Signals",    value: "4",      sub: "Surfaced this AM",   color: "#B8B880", icon: Zap },
+    ],
+  },
+  admin: {
+    briefing: (tp) => (
+      <>
+        System health is green. <span className="font-bold text-foreground">14 duplicate contacts</span> detected —
+        merge with one click. <span className="font-bold text-foreground">3 automation rules</span> need attention
+        (one is firing too often). PDPL audit log is clean. Open pipeline integrity ${tp}.
+        Tip: the new lead-routing rule is converting <span className="font-bold text-[#88B8B0]">+12%</span> faster.
+      </>
+    ),
+    kpis: [
+      { label: "Data Hygiene",     value: "98%",  sub: "14 dupes to merge",   color: "#88B8B0", icon: CheckCircle2 },
+      { label: "Active Workflows", value: "27",   sub: "1 needs review",      color: "#B8A0C8", icon: Zap },
+      { label: "PDPL Audit",       value: "100%", sub: "All checks passed",   color: "#B8B880", icon: CheckSquare },
+      { label: "Routing Lift",     value: "+12%", sub: "New rule, last 7d",   color: "#C8A880", icon: TrendingUp },
+    ],
+  },
+  marketing: {
+    briefing: (tp) => (
+      <>
+        <span className="font-bold text-foreground">3 campaigns live</span> across LinkedIn, X, Email, and WhatsApp —
+        combined reach <span className="font-bold text-[#88B8B0]">41.3K</span> in the last 7 days.
+        <span className="font-bold text-foreground"> 612 MQLs</span> generated this week,{" "}
+        <span className="font-bold text-[#88B8B0]">+22% WoW</span>. Re-engagement audience of{" "}
+        <span className="font-bold text-foreground">1,840 dormant contacts</span> ready to push — Khaleeji copy already drafted.
+      </>
+    ),
+    kpis: [
+      { label: "Campaigns Live",   value: "3",     sub: "+1 scheduled",        color: "#C8A880", icon: Send },
+      { label: "MQLs This Week",   value: "612",   sub: "+22% WoW",            color: "#88B8B0", icon: Target },
+      { label: "Channel Reach",    value: "41.3K", sub: "Last 7 days",         color: "#B8A0C8", icon: BarChart3 },
+      { label: "Dormant to Push",  value: "1,840", sub: "Re-engagement ready", color: "#B8B880", icon: Zap },
+    ],
+  },
+};
 
 function getTimeOfDay() {
   const h = new Date().getHours();
@@ -102,6 +197,20 @@ export default function CommandCenterPage() {
   const stats = dash?.stats ?? {};
   const totalPipeline = ((stats.totalRevenue ?? 0) / 100).toLocaleString();
 
+  // Re-render whenever the user switches persona from the avatar menu.
+  const [role, setRole] = useState(() => getRole());
+  useEffect(() => {
+    const refresh = () => setRole(getRole());
+    window.addEventListener("nf:role-change", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("nf:role-change", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+  const persona = PERSONA_BRIEFINGS[role.key];
+  const firstName = role.name.split(" ")[0];
+
   const [, navigate] = useLocation();
   const [tab, setTab] = useState<Tab>("overview");
   const [tasks, setTasks] = useState(AUTO_TASKS);
@@ -161,8 +270,8 @@ export default function CommandCenterPage() {
               </div>
               <div>
                 <div className="text-xs text-muted-foreground font-medium">{today} · Riyadh</div>
-                <h1 className="text-3xl font-black text-foreground leading-tight">{tod.greeting}, Admin</h1>
-                <div className="text-sm font-semibold mt-0.5 nf-chameleon-text">Daily Command Center</div>
+                <h1 className="text-3xl font-black text-foreground leading-tight">{tod.greeting}, {firstName}</h1>
+                <div className="text-sm font-semibold mt-0.5 nf-chameleon-text">{role.title} · Daily Command Center</div>
               </div>
             </div>
             <button
@@ -182,25 +291,18 @@ export default function CommandCenterPage() {
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
               <div className="flex-1">
-                <div className="text-xs font-bold text-[#B8A0C8] uppercase tracking-wider mb-1">Your AI Daily Briefing</div>
+                <div className="text-xs font-bold text-[#B8A0C8] uppercase tracking-wider mb-1">
+                  Your AI Daily Briefing · for {role.label}
+                </div>
                 <p className="text-sm text-foreground/85 leading-relaxed">
-                  You have <span className="font-bold text-foreground">3 high-intent prospects</span> ready for outreach today, combined pipeline{" "}
-                  <span className="font-bold text-[#88B8B0]">${totalPipeline}</span>. Most urgent:{" "}
-                  <span className="font-bold text-foreground">Sara Al-Mansouri</span> — Gulf Ventures closed a $50M Series B.{" "}
-                  <span className="font-bold text-destructive">2 deals at risk</span> need attention.
-                  AI Voice Agent handled <span className="font-bold text-foreground">12 conversations</span> overnight — 4 qualified leads added.
+                  {persona.briefing(totalPipeline)}
                 </p>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-            {[
-              { label: "Calls Today", value: "5", sub: "3 confirmed", color: "#88B8B0", icon: Phone },
-              { label: "Hot Signals", value: HOT_SIGNALS.length, sub: "Last 24h", color: "#B8B880", icon: Zap },
-              { label: "AI Sessions", value: "12", sub: "4 qualified", color: "#B8A0C8", icon: Brain },
-              { label: "At-Risk Deals", value: AT_RISK.length, sub: "$240K exposure", color: "#C0A0B8", icon: AlertTriangle },
-            ].map(s => (
+            {persona.kpis.map(s => (
               <div key={s.label} className="rounded-xl p-3 flex items-center gap-3 backdrop-blur-sm" style={{ background: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.7)" }}>
                 <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${s.color}20` }}>
                   <s.icon className="w-4 h-4" style={{ color: s.color }} />
