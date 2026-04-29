@@ -7,6 +7,7 @@ import {
   MessageSquare, Star, Settings, Mail, UserSquare2, FlaskConical,
   ListIcon, LayoutDashboard, Filter, Megaphone, GitBranch, PhoneCall, Wand2, Layers, Globe,
   Calendar, Mic, Briefcase, Headphones, BookOpen,
+  Workflow, ScanLine, Network, Shield,
 } from "lucide-react";
 import { NexFlowLogo, NexFlowWordmark } from "./NexFlowLogo";
 import { useNotifications } from "@/hooks/useApi";
@@ -14,11 +15,14 @@ import { useState, useEffect } from "react";
 
 const SOLO_BOTTOM = { icon: Bell, label: "Notifications", href: "/notifications", badge: true };
 
-// 7-section IA: Home → Sales → Call Center → Marketing → AI Hub → Data Hub → Insights
+// 8-section IA — grouped by daily user intent.
+// "section" splits the sidebar into visible bands: WORK · GROW · INTELLIGENCE · ADMIN.
 const NAV_GROUPS = [
+  // ── WORK ─────────────────────────────────────────────────
   {
     key: "home",
     label: "Home",
+    section: "WORK",
     icon: Sparkles,
     items: [
       { icon: Sparkles,  label: "Command Center", href: "/" },
@@ -29,18 +33,22 @@ const NAV_GROUPS = [
   {
     key: "sales",
     label: "Sales",
+    section: "WORK",
     icon: Briefcase,
     items: [
       { icon: GitBranch,  label: "Pipeline & Deals", href: "/funnel" },
       { icon: Users,      label: "Contacts",         href: "/contacts" },
       { icon: Building2,  label: "Companies",        href: "/companies" },
+      { icon: Network,    label: "Account Hub (ABM)", href: "/accounts" },
       { icon: FileText,   label: "Quotes & CPQ",     href: "/quotes" },
       { icon: TrendingUp, label: "Forecasting",      href: "/forecasting" },
+      { icon: ScanLine,   label: "Card Scanner",     href: "/business-cards" },
     ],
   },
   {
     key: "callcenter",
     label: "Call Center",
+    section: "WORK",
     icon: Headphones,
     items: [
       { icon: LayoutDashboard, label: "Call Dashboard",        href: "/call-list" },
@@ -51,9 +59,12 @@ const NAV_GROUPS = [
       { icon: MessageSquare,   label: "Messages",              href: "/messages" },
     ],
   },
+
+  // ── GROW ─────────────────────────────────────────────────
   {
     key: "marketing",
     label: "Marketing",
+    section: "GROW",
     icon: Megaphone,
     items: [
       { icon: GitBranch,  label: "Sequences",             href: "/sequences" },
@@ -65,38 +76,64 @@ const NAV_GROUPS = [
     ],
   },
   {
+    key: "automation",
+    label: "Automation",
+    section: "GROW",
+    icon: Workflow,
+    items: [
+      { icon: Workflow, label: "Workflow Builder",  href: "/workflows" },
+      { icon: Zap,      label: "Automation Rules",  href: "/automation" },
+      { icon: Wand2,    label: "Agent Builder",     href: "/agents" },
+    ],
+  },
+
+  // ── INTELLIGENCE ─────────────────────────────────────────
+  {
     key: "aihub",
     label: "AI Hub",
+    section: "INTELLIGENCE",
     icon: Bot,
     items: [
       { icon: Star,     label: "Lead Intelligence", href: "/intelligence" },
       { icon: Bot,      label: "AI Workforce",      href: "/ai" },
-      { icon: Wand2,    label: "Agent Builder",     href: "/agents" },
       { icon: Sparkles, label: "Predictive",        href: "/predictive" },
       { icon: Database, label: "Enrichment",        href: "/sourcing" },
       { icon: Zap,      label: "Signals",           href: "/signals" },
     ],
   },
   {
-    key: "datahub",
-    label: "Data Hub",
-    icon: Database,
-    items: [
-      { icon: ListIcon, label: "Lists",            href: "/lists" },
-      { icon: Filter,   label: "Properties",       href: "/properties" },
-      { icon: Target,   label: "Segments",         href: "/segments" },
-      { icon: Zap,      label: "Automation Rules", href: "/automation" },
-    ],
-  },
-  {
     key: "insights",
     label: "Insights",
+    section: "INTELLIGENCE",
     icon: BarChart3,
     items: [
       { icon: LayoutDashboard, label: "Dashboards",       href: "/dashboards" },
       { icon: FileText,        label: "Reports",          href: "/reports" },
       { icon: BarChart3,       label: "Analytics",        href: "/analytics" },
       { icon: UserSquare2,     label: "Team Performance", href: "/team" },
+    ],
+  },
+
+  // ── ADMIN ────────────────────────────────────────────────
+  {
+    key: "datahub",
+    label: "Data Hub",
+    section: "ADMIN",
+    icon: Database,
+    items: [
+      { icon: ListIcon, label: "Lists",      href: "/lists" },
+      { icon: Filter,   label: "Properties", href: "/properties" },
+      { icon: Target,   label: "Segments",   href: "/segments" },
+    ],
+  },
+  {
+    key: "trust",
+    label: "Trust & Admin",
+    section: "ADMIN",
+    icon: Shield,
+    items: [
+      { icon: Shield,   label: "Trust Center", href: "/trust-center" },
+      { icon: Settings, label: "Settings",     href: "/settings" },
     ],
   },
 ];
@@ -234,13 +271,23 @@ export function Sidebar({ collapsed, onCollapse, dark, onDark }: SidebarProps) {
           </div>
         ) : (
           <div className="px-2 space-y-0.5">
-            {NAV_GROUPS.map((group) => {
+            {NAV_GROUPS.map((group, idx) => {
               const isOpen = openSection === group.key;
               const containsActive = group.items.some((i) => isActive(i.href));
               const GroupIcon = group.icon;
+              const prevSection = idx > 0 ? (NAV_GROUPS[idx - 1] as any).section : null;
+              const showSectionHeader = (group as any).section && (group as any).section !== prevSection;
 
               return (
                 <div key={group.key}>
+                  {showSectionHeader && (
+                    <div className={cn(
+                      "px-2.5 text-[9px] font-black tracking-[0.12em] text-muted-foreground/50 uppercase",
+                      idx === 0 ? "pt-0.5 pb-1" : "pt-3 pb-1"
+                    )}>
+                      {(group as any).section}
+                    </div>
+                  )}
                   <button
                     onClick={() => toggleSection(group.key)}
                     className={cn(

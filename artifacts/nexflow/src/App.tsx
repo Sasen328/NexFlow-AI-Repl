@@ -51,6 +51,10 @@ import QuotesPage from "@/pages/quotes";
 import ForecastingPage from "@/pages/forecasting";
 import MeetingsPage from "@/pages/meetings";
 import ConversationIntelligencePage from "@/pages/conversation-intelligence";
+import WorkflowsPage from "@/pages/workflows";
+import BusinessCardsPage from "@/pages/business-cards";
+import AccountsPage from "@/pages/accounts";
+import TrustCenterPage from "@/pages/trust-center";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -113,6 +117,10 @@ function AppLayout() {
           <Route path="/forecasting" component={ForecastingPage} />
           <Route path="/meetings" component={MeetingsPage} />
           <Route path="/conversation-intelligence" component={ConversationIntelligencePage} />
+          <Route path="/workflows" component={WorkflowsPage} />
+          <Route path="/business-cards" component={BusinessCardsPage} />
+          <Route path="/accounts" component={AccountsPage} />
+          <Route path="/trust-center" component={TrustCenterPage} />
           <Route component={NotFound} />
         </Switch>
       </main>
