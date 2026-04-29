@@ -352,7 +352,12 @@ function SingleSectionDropdown({
   );
 }
 
-/* ─── Hierarchical "More" dropdown: left = sections, right = items ── */
+/* ─── Click-driven cascading "More" dropdown ─────────────────────
+   Step 1 — click "More" → primary panel shows section names.
+   Step 2 — click a section → tooltip-style sub-panel pops out to its
+            LEFT (More is the rightmost tab so there's no room on the
+            right) listing that section's sub-tabs.
+   Step 3 — click a sub-tab → navigate.                            */
 
 function MoreDropdown({
   entry, onItemClick, currentPath,
@@ -365,65 +370,43 @@ function MoreDropdown({
     .map((k) => SECTIONS.find((s) => s.key === k))
     .filter((s): s is SectionDef => Boolean(s));
 
-  // Default the right-pane preview to whichever grouped section the user is
-  // currently inside (if any), otherwise the first one.
+  // Pre-select whichever grouped section the user is currently inside, if any.
   const initialKey =
     sections.find((s) =>
       currentPath.startsWith(`/section/${s.key}`) ||
       s.items.some((i) => currentPath === i.href || (i.href !== "/" && currentPath.startsWith(i.href + "/"))),
-    )?.key ?? sections[0]?.key ?? null;
+    )?.key ?? null;
 
-  const [hoveredKey, setHoveredKey] = useState<string | null>(initialKey);
-  const activeSection = sections.find((s) => s.key === hoveredKey) ?? sections[0] ?? null;
+  const [openSectionKey, setOpenSectionKey] = useState<string | null>(initialKey);
+
+  function toggleSection(key: string) {
+    setOpenSectionKey((curr) => (curr === key ? null : key));
+  }
 
   return (
-    // Right-anchored so the panel never clips off the right side of the viewport.
-    <div className="absolute top-full right-0 mt-1 z-50 glass-card rounded-xl border border-border/40 shadow-xl flex w-[560px] overflow-hidden">
-      {/* Left column — section names */}
-      <div className="w-[200px] py-2 border-r border-border/30 bg-muted/15">
-        {sections.map((section) => {
-          const SectionIcon = section.icon;
-          const isHovered = hoveredKey === section.key;
-          return (
-            <Link key={section.key} href={section.defaultHref}>
+    <div className="absolute top-full right-0 mt-1 z-50 flex items-start gap-2">
+      {/* Sub-list flyout (rendered to the LEFT so it never clips) — only
+          shown when a section is selected. */}
+      {openSectionKey && (() => {
+        const section = sections.find((s) => s.key === openSectionKey);
+        if (!section) return null;
+        return (
+          <div className="glass-card rounded-xl border border-border/40 shadow-xl py-2 w-72 max-h-[60vh] overflow-y-auto">
+            <div className="flex items-center gap-2 px-3 pb-2 border-b border-border/30 mb-1">
               <div
-                onMouseEnter={() => setHoveredKey(section.key)}
-                onFocus={() => setHoveredKey(section.key)}
-                onClick={onItemClick}
-                className={cn(
-                  "flex items-center gap-2 mx-1 px-2.5 py-2 rounded-md cursor-pointer transition-colors",
-                  isHovered ? "bg-muted/70" : "hover:bg-muted/40",
-                )}
+                className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
+                style={{ background: `${section.accent}25` }}
               >
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ background: `${section.accent}25` }}
-                >
-                  <SectionIcon className="w-3.5 h-3.5" style={{ color: section.accent }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-semibold text-foreground truncate">
-                    {section.label}
-                  </div>
-                </div>
-                <ChevronRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                <section.icon className="w-3.5 h-3.5" style={{ color: section.accent }} />
               </div>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* Right column — items of the hovered section */}
-      <div className="flex-1 py-2 max-h-[60vh] overflow-y-auto">
-        {activeSection ? (
-          <>
-            <div
-              className="px-3 pb-1.5 text-[10px] font-black uppercase tracking-wider"
-              style={{ color: activeSection.accent }}
-            >
-              {activeSection.label}
+              <div
+                className="text-[11px] font-black uppercase tracking-wider"
+                style={{ color: section.accent }}
+              >
+                {section.label}
+              </div>
             </div>
-            {activeSection.items.map((item) => {
+            {section.items.map((item) => {
               const ItemIcon = item.icon;
               const active =
                 currentPath === item.href ||
@@ -439,9 +422,9 @@ function MoreDropdown({
                   >
                     <div
                       className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                      style={{ background: `${activeSection.accent}20` }}
+                      style={{ background: `${section.accent}20` }}
                     >
-                      <ItemIcon className="w-3.5 h-3.5" style={{ color: activeSection.accent }} />
+                      <ItemIcon className="w-3.5 h-3.5" style={{ color: section.accent }} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className={cn(
@@ -458,10 +441,51 @@ function MoreDropdown({
                 </Link>
               );
             })}
-          </>
-        ) : (
-          <div className="px-3 py-4 text-xs text-muted-foreground">No items.</div>
-        )}
+          </div>
+        );
+      })()}
+
+      {/* Primary section list (always rendered while More is open) */}
+      <div className="glass-card rounded-xl border border-border/40 shadow-xl py-2 w-[220px]">
+        {sections.map((section) => {
+          const SectionIcon = section.icon;
+          const isOpen = openSectionKey === section.key;
+          return (
+            <button
+              key={section.key}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleSection(section.key);
+              }}
+              className={cn(
+                "w-full flex items-center gap-2 mx-0 px-2.5 py-2 rounded-md cursor-pointer transition-colors text-left",
+                isOpen ? "bg-muted/70" : "hover:bg-muted/40",
+              )}
+              aria-haspopup="true"
+              aria-expanded={isOpen}
+            >
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: `${section.accent}25` }}
+              >
+                <SectionIcon className="w-3.5 h-3.5" style={{ color: section.accent }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-semibold text-foreground truncate">
+                  {section.label}
+                </div>
+              </div>
+              <ChevronRight
+                className={cn(
+                  "w-3.5 h-3.5 text-muted-foreground flex-shrink-0 transition-transform",
+                  isOpen && "rotate-180",
+                )}
+              />
+            </button>
+          );
+        })}
       </div>
     </div>
   );
