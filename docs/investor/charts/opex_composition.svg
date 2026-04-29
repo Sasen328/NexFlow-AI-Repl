@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" font-family="Manrope, system-ui, sans-serif">
+  <rect x="0" y="0" width="720" height="360" fill="#F4F2F0"/>
+  <text x="36" y="36" font-size="16" font-weight="700" fill="#3F2E56" letter-spacing="2">YEAR-1 OPERATING COST COMPOSITION — $100,000 BUDGET</text>
+  <text x="36" y="56" font-size="11" fill="#3F2E56" opacity="0.6">Source: financial model sheet 02 · Cost Breakdown. Every line itemised in USD.</text>
+
+  <!-- Stacked bar: total $100K, segments by category -->
+  <!-- bar from x=80 to x=690 (width 610) -->
+  <!-- Team 33.6%, Infrastructure 13.4%, Marketing 6.2%, Legal 4.1%, Tools 2.3%, Ops 0.9%, Buffer 8.87%, undeployed cushion 30.63% -->
+  <!-- We omit "undeployed cushion" since model says total budget = 100K including buffer of 8.87% -->
+  <!-- model OpEx = $69,400 covers the 6 line items + buffer; remaining $30.6K is held as Y1 cash reserve. We label that explicitly. -->
+
+  <g>
+    <!-- Team 33.6% -> width = 0.336 * 610 = 205 -->
+    <rect x="80" y="120" width="205" height="60" fill="#3F2E56"/>
+    <!-- Infra 13.4% -> 82 -->
+    <rect x="285" y="120" width="82" height="60" fill="#7CC8B8"/>
+    <!-- Buffer 8.87% -> 54 -->
+    <rect x="367" y="120" width="54" height="60" fill="#C9A9D6"/>
+    <!-- Marketing 6.2% -> 38 -->
+    <rect x="421" y="120" width="38" height="60" fill="#A26B4F"/>
+    <!-- Legal 4.1% -> 25 -->
+    <rect x="459" y="120" width="25" height="60" fill="#E0C28D"/>
+    <!-- Tools 2.3% -> 14 -->
+    <rect x="484" y="120" width="14" height="60" fill="#9CB4D6"/>
+    <!-- Ops 0.9% -> 6 -->
+    <rect x="498" y="120" width="6" height="60" fill="#7C5E8E"/>
+    <!-- Cash reserve 30.6% -> 187 -->
+    <rect x="504" y="120" width="186" height="60" fill="#3F2E56" fill-opacity="0.12" stroke="#3F2E56" stroke-opacity="0.35" stroke-dasharray="3 3"/>
+  </g>
+
+  <!-- Connector lines + labels -->
+  <g font-size="11" fill="#3F2E56">
+    <!-- Team -->
+    <line x1="182" y1="180" x2="182" y2="220" stroke="#3F2E56" stroke-opacity="0.4"/>
+    <text x="182" y="240" font-weight="700" text-anchor="middle">Team</text>
+    <text x="182" y="256" opacity="0.7" text-anchor="middle">$33.6K · 33.6%</text>
+    <text x="182" y="272" opacity="0.55" text-anchor="middle" font-style="italic">Dev 1 + Dev 2; founder unpaid</text>
+
+    <!-- Infra -->
+    <line x1="326" y1="180" x2="326" y2="200" stroke="#3F2E56" stroke-opacity="0.4"/>
+    <text x="326" y="218" font-weight="700" text-anchor="middle">Infra · APIs</text>
+    <text x="326" y="232" opacity="0.7" text-anchor="middle">$13.4K · 13.4%</text>
+
+    <!-- Buffer -->
+    <line x1="394" y1="180" x2="394" y2="200" stroke="#3F2E56" stroke-opacity="0.4"/>
+    <text x="394" y="252" font-weight="700" text-anchor="middle">Buffer</text>
+    <text x="394" y="266" opacity="0.7" text-anchor="middle">$8.9K · 8.9%</text>
+
+    <!-- Marketing -->
+    <line x1="440" y1="180" x2="440" y2="296" stroke="#3F2E56" stroke-opacity="0.4"/>
+    <text x="440" y="312" font-weight="700" text-anchor="middle">Marketing</text>
+    <text x="440" y="326" opacity="0.7" text-anchor="middle">$6.2K · 6.2%</text>
+
+    <!-- Legal -->
+    <line x1="471" y1="120" x2="471" y2="100" stroke="#3F2E56" stroke-opacity="0.4"/>
+    <text x="471" y="93" font-weight="700" text-anchor="middle">Legal</text>
+    <text x="471" y="80" opacity="0.7" text-anchor="middle">$4.1K · 4.1%</text>
+
+    <!-- Tools + Ops grouped -->
+    <line x1="500" y1="120" x2="540" y2="100" stroke="#3F2E56" stroke-opacity="0.4"/>
+    <text x="556" y="93" font-weight="700">Tools / Ops</text>
+    <text x="556" y="80" opacity="0.7" font-style="italic">$3.2K · 3.2%</text>
+
+    <!-- Cash reserve -->
+    <line x1="597" y1="180" x2="597" y2="220" stroke="#3F2E56" stroke-opacity="0.4" stroke-dasharray="3 3"/>
+    <text x="597" y="240" font-weight="700" text-anchor="middle">Year-1 cash reserve</text>
+    <text x="597" y="256" opacity="0.7" text-anchor="middle">$30.6K · 30.6%</text>
+    <text x="597" y="272" opacity="0.55" text-anchor="middle" font-style="italic">Held against overruns &amp; bridge to seed</text>
+  </g>
+
+  <text x="80" y="113" font-size="10" font-weight="700" fill="#3F2E56" opacity="0.7" letter-spacing="1.5">$100K · 12 MONTHS · DEPLOYED</text>
+</svg>

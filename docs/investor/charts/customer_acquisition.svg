@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" font-family="Manrope, system-ui, sans-serif">
+  <defs>
+    <linearGradient id="ca-fill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#C9A9D6" stop-opacity="0.65"/>
+      <stop offset="100%" stop-color="#C9A9D6" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="720" height="360" fill="#F4F2F0"/>
+  <text x="36" y="36" font-size="16" font-weight="700" fill="#3F2E56" letter-spacing="2">CUSTOMER ACQUISITION CURVE — QUARTERLY ENDING CUSTOMERS</text>
+  <text x="36" y="56" font-size="11" fill="#3F2E56" opacity="0.6">Source: financial model sheet 03 · Revenue Build (quarterly customer cohorts).</text>
+
+  <!-- axes -->
+  <line x1="80" y1="100" x2="80" y2="290" stroke="#3F2E56" stroke-opacity="0.25"/>
+  <line x1="80" y1="290" x2="690" y2="290" stroke="#3F2E56" stroke-opacity="0.25"/>
+  <g font-size="10" fill="#3F2E56" opacity="0.65" text-anchor="end">
+    <text x="74" y="294">0</text>
+    <text x="74" y="246">5,000</text>
+    <text x="74" y="198">10,000</text>
+    <text x="74" y="150">15,000</text>
+    <text x="74" y="104">20,000</text>
+  </g>
+  <g stroke="#3F2E56" stroke-opacity="0.08">
+    <line x1="80" y1="246" x2="690" y2="246"/>
+    <line x1="80" y1="198" x2="690" y2="198"/>
+    <line x1="80" y1="150" x2="690" y2="150"/>
+    <line x1="80" y1="104" x2="690" y2="104"/>
+  </g>
+
+  <!-- year separators -->
+  <line x1="282.5" y1="100" x2="282.5" y2="290" stroke="#3F2E56" stroke-opacity="0.15" stroke-dasharray="2 4"/>
+  <line x1="485" y1="100" x2="485" y2="290" stroke="#3F2E56" stroke-opacity="0.15" stroke-dasharray="2 4"/>
+  <text x="180" y="92" font-size="11" font-weight="700" fill="#3F2E56" text-anchor="middle" opacity="0.7">YEAR 1</text>
+  <text x="385" y="92" font-size="11" font-weight="700" fill="#3F2E56" text-anchor="middle" opacity="0.7">YEAR 2</text>
+  <text x="585" y="92" font-size="11" font-weight="700" fill="#3F2E56" text-anchor="middle" opacity="0.7">YEAR 3</text>
+
+  <!-- 12 quarters: x positions evenly spaced from 130 to 640 -->
+  <!-- customers: 150,400,750,1200,2100,3250,4650,6200,8800,11900,15400,19200 -->
+  <!-- y mapping: 0->290, 20000->104 => slope = -186/20000 = -0.0093 per cust -->
+  <!-- y(150)=288.6 y(400)=286.3 y(750)=283.0 y(1200)=278.8 y(2100)=270.5 y(3250)=259.8 y(4650)=246.8 y(6200)=232.5 y(8800)=208.2 y(11900)=179.3 y(15400)=146.6 y(19200)=111.4 -->
+  <path d="M 130,290 L 130,289 L 175,286 L 220,283 L 265,279 L 320,271 L 375,260 L 430,247 L 485,233 L 540,208 L 595,179 L 640,147 L 685,111 L 685,290 Z" fill="url(#ca-fill)"/>
+  <polyline points="130,289 175,286 220,283 265,279 320,271 375,260 430,247 485,233 540,208 595,179 640,147 685,111" fill="none" stroke="#3F2E56" stroke-width="2.5"/>
+
+  <!-- key dots + labels -->
+  <g>
+    <circle cx="265" cy="279" r="5" fill="#7CC8B8" stroke="#3F2E56" stroke-width="2"/>
+    <text x="265" y="269" font-size="10" font-weight="700" fill="#3F2E56" text-anchor="middle">1,200</text>
+    <circle cx="485" cy="233" r="5" fill="#7CC8B8" stroke="#3F2E56" stroke-width="2"/>
+    <text x="485" y="223" font-size="10" font-weight="700" fill="#3F2E56" text-anchor="middle">6,200</text>
+    <circle cx="685" cy="111" r="6" fill="#C9A9D6" stroke="#3F2E56" stroke-width="2"/>
+    <text x="685" y="100" font-size="11" font-weight="700" fill="#3F2E56" text-anchor="end">19,200</text>
+  </g>
+
+  <!-- quarter labels -->
+  <g font-size="9" fill="#3F2E56" opacity="0.6" text-anchor="middle">
+    <text x="130" y="310">Q1</text>
+    <text x="175" y="310">Q2</text>
+    <text x="220" y="310">Q3</text>
+    <text x="265" y="310">Q4</text>
+    <text x="320" y="310">Q1</text>
+    <text x="375" y="310">Q2</text>
+    <text x="430" y="310">Q3</text>
+    <text x="485" y="310">Q4</text>
+    <text x="540" y="310">Q1</text>
+    <text x="595" y="310">Q2</text>
+    <text x="640" y="310">Q3</text>
+    <text x="685" y="310">Q4</text>
+  </g>
+</svg>

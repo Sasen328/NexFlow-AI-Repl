@@ -1,0 +1,122 @@
+[
+  {
+    "id": "f1c2a8b6-1101-4101-9a01-000000000001",
+    "position": 1,
+    "filepath": "src/pages/slides/Cover.tsx",
+    "title": "Cover",
+    "description": "Title slide — NexFlow pre-seed investor deck.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f1c2a8b6-1102-4101-9a02-000000000002",
+    "position": 2,
+    "filepath": "src/pages/slides/Problem.tsx",
+    "title": "Problem",
+    "description": "GCC sales teams run on WhatsApp and spreadsheets — imported CRMs are not built for the region.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f1c2a8b6-1103-4101-9a03-000000000003",
+    "position": 3,
+    "filepath": "src/pages/slides/Opportunity.tsx",
+    "title": "Opportunity",
+    "description": "GCC CRM TAM/SAM/SOM, with KSA Vision 2030 tailwind.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f1c2a8b6-1104-4101-9a04-000000000004",
+    "position": 4,
+    "filepath": "src/pages/slides/Product.tsx",
+    "title": "Product",
+    "description": "Bilingual, AI-native, WhatsApp-first, sovereign CRM — four-pillar overview.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f1c2a8b6-1105-4101-9a05-000000000005",
+    "position": 5,
+    "filepath": "src/pages/slides/WhyNow.tsx",
+    "title": "Why Now",
+    "description": "Sovereignty mandate, AI inflection, and Vision 2030 budget redirect.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f1c2a8b6-1106-4101-9a06-000000000006",
+    "position": 6,
+    "filepath": "src/pages/slides/BusinessModel.tsx",
+    "title": "Business Model",
+    "description": "Per-seat SaaS pricing — Starter, Growth, Sovereign — with Y1–Y3 ARPU progression.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f1c2a8b6-1107-4101-9a07-000000000007",
+    "position": 7,
+    "filepath": "src/pages/slides/GoToMarket.tsx",
+    "title": "Go-to-Market",
+    "description": "Land in real-estate and clinics; expand to logistics and pro services; scale to enterprise & government.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f1c2a8b6-1108-4101-9a08-000000000008",
+    "position": 8,
+    "filepath": "src/pages/slides/Traction.tsx",
+    "title": "Traction & Roadmap",
+    "description": "MVP shipped, design partners signed, milestones to first paying seats and Y1 exit.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f1c2a8b6-1109-4101-9a09-000000000009",
+    "position": 9,
+    "filepath": "src/pages/slides/Competition.tsx",
+    "title": "Competition & Moat",
+    "description": "Why Salesforce, HubSpot, and Zoho cannot be retrofitted for KSA.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f1c2a8b6-1110-4101-9a0a-000000000010",
+    "position": 10,
+    "filepath": "src/pages/slides/Financials.tsx",
+    "title": "Financials",
+    "description": "Three-year financial plan reconciled to the model — seats, ARPU, ARR, GM, EBITDA, NI.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f1c2a8b6-1111-4101-9a0b-000000000011",
+    "position": 11,
+    "filepath": "src/pages/slides/Team.tsx",
+    "title": "Team",
+    "description": "Founding team, engineering depth, and Vision 2030 advisory bench.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f1c2a8b6-1112-4101-9a0c-000000000012",
+    "position": 12,
+    "filepath": "src/pages/slides/Ask.tsx",
+    "title": "The Ask",
+    "description": "$100K SAFE on $1.5M pre-money; runway, use of funds, and dilution.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f1c2a8b6-1113-4101-9a0d-000000000013",
+    "position": 13,
+    "filepath": "src/pages/slides/ReturnsExit.tsx",
+    "title": "Returns & Exit",
+    "description": "Three exit scenarios with Y3 ARR-multiple math and SAFE MOIC.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f1c2a8b6-1114-4101-9a0e-000000000014",
+    "position": 14,
+    "filepath": "src/pages/slides/Vision.tsx",
+    "title": "Vision",
+    "description": "From CRM wedge to sovereign Revenue OS for the GCC.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f1c2a8b6-1115-4101-9a0f-000000000015",
+    "position": 15,
+    "filepath": "src/pages/slides/Closing.tsx",
+    "title": "Closing",
+    "description": "Closing slide — contact, materials, and round status.",
+    "speakerNotes": ""
+  }
+]

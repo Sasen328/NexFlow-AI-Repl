@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-primary: var(--slide-primary);
+  --color-accent: var(--slide-accent);
+  --color-bg: var(--slide-bg);
+  --color-text: var(--slide-text);
+  --color-muted: var(--slide-muted);
+  --color-lavender: var(--slide-lavender);
+  --color-rose: var(--slide-rose);
+  --color-seafoam: var(--slide-seafoam);
+  --color-sand: var(--slide-sand);
+  --color-mist: var(--slide-mist);
+  --color-olive: var(--slide-olive);
+  --color-ink: var(--slide-text);
+  --font-display: var(--font-display-family);
+  --font-body: var(--font-body-family);
+  --font-serif: var(--font-serif-family);
+}
+
+:root {
+  /* Chameleon DNA palette */
+  --slide-primary: #3E2F4A;
+  --slide-accent: #88B8B0;
+  --slide-bg: #F5F2F6;
+  --slide-text: #3E2F4A;
+  --slide-muted: #8C7E94;
+  --slide-lavender: #B8A0C8;
+  --slide-rose: #C0A0B8;
+  --slide-seafoam: #88B8B0;
+  --slide-sand: #C8A880;
+  --slide-mist: #90B8B8;
+  --slide-olive: #B8B880;
+  --font-display-family: "Manrope", system-ui, sans-serif;
+  --font-body-family: "Manrope", system-ui, sans-serif;
+  --font-serif-family: "Cormorant Garamond", Georgia, serif;
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--slide-bg);
+  color: var(--slide-text);
+  font-family: var(--font-body-family);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.slide {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.slide-viewer {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
