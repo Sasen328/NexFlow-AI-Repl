@@ -22,6 +22,12 @@ NexFlow is an AI-native B2B CRM built as a React + Vite frontend with an Express
 
 New backend routers: `business-cards`, `playbooks`, `activity-capture`, `attribution`, `health-scores`, `redaction`. Express JSON body limit raised to 25mb to accommodate base64-encoded card uploads. `/views` and `/automations` routers updated to coerce flexible client payloads (form-builder `view_type`, lead-routing `trigger:{kind}` object) into the strict schema enums (`object_type`, `automation_trigger`).
 
+### Self-healing seed (added April 29 to fix prod data drift)
+`autoSeed` was previously gated on "skip if any contacts exist", which left production stuck with an old partial seed of 8 contacts after the v3 deploy. Now:
+- Threshold = 30 contacts. If actual count is below threshold (or `force=true`), all known seed tables are TRUNCATEd CASCADE per-table (missing tables in stale schemas are skipped) and the full seed (40 contacts, 20 companies, 30+ deals, 25 calls, 25 activities) reruns.
+- Admin endpoint `POST /api/admin/reseed` (token = `SESSION_SECRET` via `?token=`, `x-admin-token` header, or JSON body) to force a re-seed without redeploying. Returns the new row counts.
+- Removed two legacy unauthenticated/duplicate reseed endpoints (`/reseed` w/o token, `/force-reseed`) found by code review.
+
 ## Major Feature Upgrades (v2 — April 2026)
 
 ### Web (nexflow)

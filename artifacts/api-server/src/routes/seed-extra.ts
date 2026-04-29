@@ -7,8 +7,39 @@ import {
   automation_rules, campaigns, ai_agents, ai_insights,
 } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
+import { autoSeed } from "../lib/autoSeed";
 
 const router = Router();
+
+/**
+ * Force re-seed: wipes known seed tables and re-runs autoSeed.
+ * Auth: pass `?token=…` matching SESSION_SECRET (or `x-admin-token` header).
+ * No token needed if SESSION_SECRET unset (dev convenience).
+ */
+router.post("/reseed", async (req, res) => {
+  const expected = process.env["SESSION_SECRET"];
+  const provided =
+    (req.query["token"] as string | undefined) ??
+    (req.headers["x-admin-token"] as string | undefined) ??
+    (req.body && typeof req.body === "object" ? (req.body as any).token : undefined);
+  if (expected && provided !== expected) {
+    return res.status(401).json({ error: "unauthorized" });
+  }
+  try {
+    await autoSeed(true);
+    const counts: Record<string, number> = {};
+    for (const [name, tbl] of [
+      ["contacts", contacts], ["companies", companies], ["deals", deals],
+      ["users", users], ["campaigns", campaigns], ["ai_agents", ai_agents],
+    ] as const) {
+      const r = await db.select({ c: sql<number>`count(*)` }).from(tbl);
+      counts[name] = Number(r[0]?.c ?? 0);
+    }
+    res.json({ success: true, message: "Reseed complete", counts });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? String(err) });
+  }
+});
 
 router.post("/seed-crm", async (_req, res) => {
   try {
@@ -213,51 +244,8 @@ router.get("/status", async (_req, res) => {
   }
 });
 
-router.post("/reseed", async (_req, res) => {
-  try {
-    const [{ c }] = await db.select({ c: sql<number>`count(*)` }).from(contacts);
-    const contactCount = Number(c);
-    if (contactCount >= 5) {
-      return res.json({ ok: true, skipped: true, reason: `DB already has ${contactCount} contacts — no reseed needed`, contacts: contactCount });
-    }
-    const { autoSeed } = await import("../lib/autoSeed.js");
-    await autoSeed();
-    const [{ c: newCount }] = await db.select({ c: sql<number>`count(*)` }).from(contacts);
-    res.json({ ok: true, skipped: false, contacts: Number(newCount) });
-  } catch (err: any) {
-    res.status(500).json({ error: err?.message ?? "Failed" });
-  }
-});
-
-// Force-reseed: wipes all data then re-runs autoSeed
-router.post("/force-reseed", async (_req, res) => {
-  try {
-    // Delete in FK-safe order
-    await db.execute(sql`DELETE FROM dashboard_widgets`);
-    await db.execute(sql`DELETE FROM dashboards`);
-    await db.execute(sql`DELETE FROM static_list_members`);
-    await db.execute(sql`DELETE FROM static_lists`);
-    await db.execute(sql`DELETE FROM activities`);
-    await db.execute(sql`DELETE FROM calls`);
-    await db.execute(sql`DELETE FROM signals`);
-    await db.execute(sql`DELETE FROM notifications`);
-    await db.execute(sql`DELETE FROM deals`);
-    await db.execute(sql`DELETE FROM automation_rules`);
-    await db.execute(sql`DELETE FROM campaigns`);
-    await db.execute(sql`DELETE FROM ai_agents`);
-    await db.execute(sql`DELETE FROM custom_properties`);
-    await db.execute(sql`DELETE FROM contacts`);
-    await db.execute(sql`DELETE FROM companies`);
-    await db.execute(sql`DELETE FROM users`);
-
-    const { autoSeed } = await import("../lib/autoSeed.js");
-    await autoSeed();
-
-    const [{ c }] = await db.select({ c: sql<number>`count(*)` }).from(contacts);
-    res.json({ ok: true, contacts: Number(c), message: "Database fully reseeded with rich demo data." });
-  } catch (err: any) {
-    res.status(500).json({ error: err?.message ?? "Force-reseed failed" });
-  }
-});
+// NOTE: legacy duplicate /reseed and unauthenticated /force-reseed
+// removed; the canonical, token-guarded /reseed at the top of this file
+// handles both empty-DB and partial-seed cases via autoSeed(force=true).
 
 export default router;

@@ -1,7 +1,11 @@
 /**
  * autoSeed.ts
- * Runs on every cold-start.  Inserts demo data only when the
- * contacts table is empty — fully idempotent.
+ * Runs on every cold-start.  Self-healing:
+ *   • If contacts table is empty → seed everything.
+ *   • If contacts table has < 30 rows → assume a stale/partial seed,
+ *     wipe known seed tables, then reseed.
+ *   • If contacts table has >= 30 rows → skip (already seeded).
+ *   • Pass `force = true` to wipe & reseed unconditionally.
  */
 import { db } from "@workspace/db";
 import {
@@ -13,12 +17,50 @@ import {
 } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
-export async function autoSeed() {
+const EXPECTED_MIN_CONTACTS = 30;
+
+/**
+ * Wipe every table autoSeed (and the demo flow) writes to. Each TRUNCATE
+ * runs independently so a missing table (stale prod schema) doesn't abort
+ * the rest. CASCADE handles dependent rows (tasks, automation_runs, etc).
+ */
+async function wipeAllSeedTables() {
+  const tables = [
+    "dashboard_widgets", "dashboards",
+    "static_list_members", "static_lists",
+    "automation_runs", "automation_rules",
+    "tracking_events", "tracking_links",
+    "campaigns", "ai_agents", "ai_insights",
+    "custom_properties", "saved_views",
+    "notifications", "signals",
+    "tasks", "calls", "activities",
+    "deals", "contacts", "companies", "users",
+  ];
+  for (const t of tables) {
+    try {
+      await db.execute(sql.raw(`TRUNCATE TABLE "${t}" RESTART IDENTITY CASCADE`));
+    } catch (e: any) {
+      console.warn(`[autoSeed] skip wipe of ${t}: ${e?.message ?? e}`);
+    }
+  }
+}
+
+export async function autoSeed(force = false) {
   try {
     const existing = await db.select({ c: sql<number>`count(*)` }).from(contacts);
-    if (Number(existing[0]?.c ?? 0) > 0) return;
+    const n = Number(existing[0]?.c ?? 0);
 
-    console.log("[autoSeed] Empty database detected — seeding demo data…");
+    if (!force && n >= EXPECTED_MIN_CONTACTS) {
+      console.log(`[autoSeed] ${n} contacts present — skipping (already seeded).`);
+      return;
+    }
+
+    if (n > 0) {
+      console.log(`[autoSeed] ${force ? "Force reseed requested" : `Partial seed detected (${n} < ${EXPECTED_MIN_CONTACTS})`} — wiping & reseeding.`);
+      await wipeAllSeedTables();
+    } else {
+      console.log("[autoSeed] Empty database detected — seeding demo data…");
+    }
 
     // ── 1. Users ─────────────────────────────────────────────────────────
     const userRows = await db.insert(users).values([
