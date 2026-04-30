@@ -368,16 +368,16 @@ const ALL_TOP_NAV_ENTRIES: TopNavEntry[] = [
   { key: "markhub",                  label: "MarkHub",              icon: Layers,   sections: ["markhub"] },
 ];
 
-/** Map of role.key → ordered list of TopNavEntry keys to show. */
+/** Map of role.key → ordered list of TopNavEntry keys to show.
+ *
+ *  IMPORTANT: Sales Rep, Sales Manager, and CRM Admin must see EVERYTHING
+ *  (the full default TOP_NAV including DataHub → Enrichment). They are
+ *  intentionally NOT listed here so `getNavForRole` falls back to the
+ *  full TOP_NAV. Only CEO and Marketing are scoped to a curated subset.
+ */
 export const ROLE_NAV: Record<string, string[]> = {
-  // Sales rep — focused on leads + calls.
-  sales:     ["home", "leads", "callcenter"],
-  // Sales Manager / team lead — leads, calls, team performance, data.
-  manager:   ["home", "leads", "callcenter", "insights", "datahub"],
   // CEO — exec dashboards, marketing performance, high-level pipeline.
   ceo:       ["home", "insights", "marketing", "leads"],
-  // CRM Admin — data hygiene + insights, no sales-floor noise.
-  admin:     ["home", "datahub", "insights"],
   // Marketing — ONLY marketing-relevant surfaces.
   marketing: ["home", "tab-campaign-builder", "tab-campaign-performance", "markhub"],
 };
