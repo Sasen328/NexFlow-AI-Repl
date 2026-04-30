@@ -86,7 +86,9 @@ import PublicTrustPage from "@/pages/public-trust";
 import DedupPage from "@/pages/dedup";
 import LeadEnrichPage from "@/pages/lead-enrich";
 import EnrichmentEnginePage from "@/pages/enrichment-engine";
-import SearchHistoryPage from "@/pages/search-history";
+import DataHubAiAnalyticsPage from "@/pages/datahub-ai-analytics";
+import IcpRulesPage from "@/pages/icp-rules";
+import ApprovalsPage from "@/pages/approvals";
 import MarketingAssistantPage from "@/pages/marketing-assistant";
 import MarketingDashboardPage from "@/pages/marketing-dashboard";
 import CampaignBuilderPage from "@/pages/campaign-builder";
@@ -145,11 +147,14 @@ function AppLayout() {
           <Route path="/callcenter/knowledge-base"   component={CallCenterKnowledgeBasePage} />
           <Route path="/callcenter/messages"         component={CallCenterMessagesPage} />
           {/* Data Hub */}
-          <Route path="/datahub"><Redirect to="/datahub/segments" /></Route>
+          <Route path="/datahub"><Redirect to="/datahub/ai-analytics" /></Route>
+          <Route path="/datahub/ai-analytics" component={DataHubAiAnalyticsPage} />
+          <Route path="/datahub/icp-rules"    component={IcpRulesPage} />
           <Route path="/datahub/segments"     component={SegmentsPage} />
           <Route path="/datahub/enrichment"   component={EnrichmentEnginePage} />
           <Route path="/datahub/workforce"    component={AiPage} />
           <Route path="/datahub/signals"      component={SignalsPage} />
+          <Route path="/approvals"            component={ApprovalsPage} />
           {/* Insights */}
           <Route path="/insights/dashboards" component={DashboardsPage} />
           <Route path="/insights/reports"    component={ReportsPage} />
@@ -231,7 +236,8 @@ function AppLayout() {
           <Route path="/dedup" component={DedupPage} />
           <Route path="/lead-enrich" component={LeadEnrichPage} />
           <Route path="/enrichment-engine" component={EnrichmentEnginePage} />
-          <Route path="/search-history" component={SearchHistoryPage} />
+          {/* /search-history is now an internal "Save History" tab in /enrichment-engine — redirect any old deep links straight onto that tab */}
+          <Route path="/search-history"><Redirect to="/enrichment-engine?tab=history" /></Route>
           <Route path="/marketing-assistant" component={MarketingAssistantPage} />
           {/* New Marketing tab structure (overhaul) */}
           <Route path="/marketing-dashboard" component={MarketingDashboardPage} />
