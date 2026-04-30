@@ -4,8 +4,10 @@ import {
   GitMerge, History, ChevronRight, Plus, Check, X, Loader2, Filter,
   Mail, Phone, Linkedin, Briefcase, Globe, TrendingUp, Newspaper,
   Hash, Twitter, Rss, Trash2, RefreshCw, ChevronDown, FileText, Tag,
+  FlaskConical, BrainCircuit,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiFetch } from "@/hooks/useApi";
 
 const SignalsPage = lazy(() => import("./signals"));
 const LeadEnrichPage = lazy(() => import("./lead-enrich"));
@@ -226,6 +228,9 @@ function ProspectingTab({ seed, onConsumeSeed }: { seed: { mode: ProspectMode; q
           </div>
         </div>
       </div>
+
+      {/* AI Research Lab — multi-model live web research */}
+      <AIResearchLab />
 
       {/* Search bar */}
       <div className="glass-card rounded-2xl p-5 space-y-4">
@@ -829,5 +834,272 @@ function Lazy({ children }: { children: React.ReactNode }) {
     }>
       {children}
     </Suspense>
+  );
+}
+
+// ── AI Research Lab — multi-model live web prospect generation ─────────────
+type LabProspect = {
+  first_name: string;
+  last_name: string;
+  title: string;
+  seniority: string;
+  email?: string | null;
+  phone?: string | null;
+  linkedin_url?: string | null;
+  company: { name: string; industry: string; country: string; size: string; website?: string | null };
+  persona: string;
+  pain_points: string[];
+  buying_signals: string[];
+  next_actions: { action: string; reason: string }[];
+  lead_score: number;
+  confidence: number;
+  research_sources: string[];
+  summary: string;
+};
+
+function AIResearchLab() {
+  const [query, setQuery] = useState("");
+  const [region, setRegion] = useState("UAE");
+  const [count, setCount] = useState(5);
+  const [running, setRunning] = useState(false);
+  const [stage, setStage] = useState<string>("");
+  const [result, setResult] = useState<{ prospects: LabProspect[]; pipeline: string[] } | null>(null);
+  const [savedSummary, setSavedSummary] = useState<{ count: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(true);
+
+  const presets = [
+    "CFOs at Series B+ fintechs in UAE",
+    "Heads of Sales at SaaS companies in Saudi Arabia hiring AEs",
+    "VP Engineering at logistics startups in GCC with recent funding",
+    "CMOs at e-commerce brands in Qatar launching in 2026",
+  ];
+
+  const run = async (save: boolean) => {
+    if (!query.trim()) return;
+    setRunning(true);
+    setError(null);
+    setSavedSummary(null);
+    if (!save) setResult(null);
+
+    const stages = save
+      ? ["Perplexity researching the live web…", "Gemini structuring prospect cards…", "Claude refining personas & next actions…", "Saving prospects to your CRM…"]
+      : ["Perplexity researching the live web…", "Gemini structuring prospect cards…", "Claude refining personas & next actions…"];
+    let i = 0;
+    setStage(stages[0]);
+    const tick = setInterval(() => { i = Math.min(i + 1, stages.length - 1); setStage(stages[i]); }, 4500);
+
+    try {
+      const r = (await apiFetch("/prospects/research", {
+        method: "POST",
+        body: JSON.stringify({ query, region, count, save }),
+      })) as any;
+      setResult({ prospects: r.prospects ?? [], pipeline: r.pipeline ?? [] });
+      if (save) setSavedSummary({ count: (r.saved ?? []).length });
+    } catch (e: any) {
+      setError(e?.message ?? "Research failed");
+    } finally {
+      clearInterval(tick);
+      setStage("");
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-violet-300/40 bg-gradient-to-br from-violet-500/10 via-fuchsia-500/5 to-transparent p-5 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 flex-1">
+          <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center flex-shrink-0">
+            <FlaskConical className="w-5 h-5 text-violet-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold">AI Research Lab</span>
+              <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-600/15 text-violet-700 font-bold">live · multi-model</span>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              Real prospects from the live web. <span className="text-foreground font-medium">Perplexity</span> researches → <span className="text-foreground font-medium">Gemini</span> structures → <span className="text-foreground font-medium">Claude</span> refines persona &amp; next actions. Save straight to your CRM with auto-generated buying signals.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="p-1.5 rounded-lg hover:bg-violet-500/10 text-violet-700"
+          aria-label={expanded ? "Collapse" : "Expand"}
+        >
+          <ChevronDown className={cn("w-4 h-4 transition-transform", !expanded && "-rotate-90")} />
+        </button>
+      </div>
+
+      {expanded && (
+        <>
+          <div className="grid lg:grid-cols-[1fr_140px_120px_auto] gap-2">
+            <div className="relative">
+              <BrainCircuit className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-violet-600" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !running && run(false)}
+                disabled={running}
+                placeholder="e.g. Heads of Procurement at Series B+ logistics in KSA hiring AEs"
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-background text-sm"
+              />
+            </div>
+            <select
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              disabled={running}
+              className="px-3 py-2.5 rounded-xl border border-border bg-background text-sm"
+            >
+              <option>UAE</option>
+              <option>KSA</option>
+              <option>Qatar</option>
+              <option>Kuwait</option>
+              <option>Bahrain</option>
+              <option>Oman</option>
+              <option>GCC</option>
+            </select>
+            <select
+              value={count}
+              onChange={(e) => setCount(parseInt(e.target.value))}
+              disabled={running}
+              className="px-3 py-2.5 rounded-xl border border-border bg-background text-sm"
+            >
+              {[3, 5, 8, 10, 15].map((n) => <option key={n} value={n}>{n} prospects</option>)}
+            </select>
+            <button
+              onClick={() => run(false)}
+              disabled={running || !query.trim()}
+              className="px-4 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 disabled:opacity-50 flex items-center gap-2"
+            >
+              {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              Research
+            </button>
+          </div>
+
+          {!running && !result && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground">Try:</span>
+              {presets.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setQuery(p)}
+                  className="text-xs px-2 py-1 rounded-lg border border-violet-200/60 bg-violet-50/50 hover:bg-violet-100/80 text-violet-700"
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {running && stage && (
+            <div className="rounded-xl border border-violet-300/50 bg-violet-50/50 px-4 py-3 flex items-center gap-3">
+              <Loader2 className="w-4 h-4 animate-spin text-violet-700" />
+              <span className="text-sm text-violet-900 font-medium">{stage}</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+              <X className="w-4 h-4" /> {error}
+            </div>
+          )}
+
+          {savedSummary && (
+            <div className="rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-center gap-2">
+              <Check className="w-4 h-4" /> Saved {savedSummary.count} new prospects to your CRM with auto-generated buying signals.
+            </div>
+          )}
+
+          {result && result.prospects.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="text-xs text-muted-foreground">
+                  Pipeline: {result.pipeline.join("  →  ")}
+                </div>
+                <button
+                  onClick={() => run(true)}
+                  disabled={running}
+                  className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {running ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                  Save all {result.prospects.length} to CRM
+                </button>
+              </div>
+              <div className="grid md:grid-cols-2 gap-3">
+                {result.prospects.map((p, i) => (
+                  <ProspectCardPreview key={i} p={p} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {result && result.prospects.length === 0 && !running && (
+            <div className="text-sm text-muted-foreground text-center py-6">
+              Research returned no structured prospects. Try a more specific query.
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function ProspectCardPreview({ p }: { p: LabProspect }) {
+  return (
+    <div className="rounded-xl border border-border bg-background/60 p-4 space-y-3 hover:border-violet-300 transition">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-semibold truncate">{p.first_name} {p.last_name}</div>
+          <div className="text-xs text-muted-foreground truncate">{p.title} · {p.company?.name}</div>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <div className="text-xs font-bold text-violet-700">{p.lead_score}</div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{p.persona}</div>
+        </div>
+      </div>
+      {p.summary && (
+        <div className="text-xs text-foreground/80 line-clamp-3">{p.summary}</div>
+      )}
+      {p.buying_signals?.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Buying signals</div>
+          {p.buying_signals.slice(0, 2).map((s, i) => (
+            <div key={i} className="flex items-start gap-1.5 text-xs text-foreground/80">
+              <Zap className="w-3 h-3 text-amber-500 flex-shrink-0 mt-0.5" />
+              <span className="line-clamp-1">{s}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {p.next_actions?.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Next actions</div>
+          {p.next_actions.slice(0, 2).map((a, i) => (
+            <div key={i} className="flex items-start gap-1.5 text-xs">
+              <span className="px-1.5 py-0.5 rounded bg-violet-100 text-violet-800 text-[10px] font-bold uppercase">{a.action}</span>
+              <span className="text-foreground/70 line-clamp-1">{a.reason}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/50">
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+          <Globe className="w-3 h-3" />
+          <span>{p.company?.country} · {p.company?.size}</span>
+          {p.research_sources?.length > 0 && (
+            <>
+              <span>·</span>
+              <span>{p.research_sources.length} sources</span>
+            </>
+          )}
+        </div>
+        {p.linkedin_url && (
+          <a href={p.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-violet-700 hover:underline flex items-center gap-1">
+            <Linkedin className="w-3 h-3" /> LinkedIn
+          </a>
+        )}
+      </div>
+    </div>
   );
 }
