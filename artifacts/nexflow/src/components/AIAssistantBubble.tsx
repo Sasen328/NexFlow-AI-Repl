@@ -220,6 +220,37 @@ function generateResponse(
   };
 }
 
+/**
+ * Call the real AI backend (`/api/ai/assistant`). Falls back to the local
+ * pattern-matched response if the network fails so the assistant always
+ * answers something instead of going silent.
+ */
+async function fetchAiReply(
+  query: string,
+  ctx: ActionContext,
+): Promise<{ text: string; suggestions?: string[] }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 18_000);
+  try {
+    const r = await fetch("/api/ai/assistant", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        message: query,
+        role: { key: ctx.role.key, name: ctx.role.name, title: ctx.role.title },
+        context: typeof window !== "undefined" ? window.location.pathname : "",
+      }),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = (await r.json()) as { reply?: string; suggestions?: string[] };
+    if (!data?.reply) throw new Error("empty reply");
+    return { text: data.reply, suggestions: data.suggestions };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function greetingFor(role: ReturnType<typeof getRole>): string {
   return `Hi ${role.name.split(" ")[0]}, I'm your NexFlow assistant. Tap the mic to talk, type a question, or pick an action below.`;
 }
@@ -318,22 +349,71 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
         text,
         ts: Date.now(),
       };
-      const reply = generateResponse(text, enabled, { navigate, role });
-      const aiMsg: ChatMessage = {
-        id: `a${Date.now() + 1}`,
-        role: "ai",
-        text: reply.text,
-        ts: Date.now() + 1,
-        matchedAction: reply.matchedAction,
-      };
       setMessages((m) => [...m, userMsg]);
       setInput("");
       setInterim("");
-      // Stagger the reply slightly for a "thinking" feel
-      setTimeout(() => {
-        setMessages((m) => [...m, aiMsg]);
-        if (ttsOn) speak(reply.text);
-      }, 350);
+
+      // Local action triggers (navigation, deep-links) still get to run
+      // first so commands like "open dialer" or "draft email" stay snappy
+      // and never need the network round-trip.
+      const localReply = generateResponse(text, enabled, { navigate, role });
+      const matchedLocal = Boolean(localReply.matchedAction);
+
+      // Insert a "thinking…" placeholder we'll swap in-place once the
+      // real AI response lands. This prevents the chat from looking dead
+      // while the model is generating.
+      const placeholderId = `a${Date.now() + 1}`;
+      setMessages((m) => [
+        ...m,
+        {
+          id: placeholderId,
+          role: "ai",
+          text: matchedLocal ? localReply.text : "Thinking…",
+          ts: Date.now() + 1,
+          matchedAction: localReply.matchedAction,
+        },
+      ]);
+
+      // Speak the local reply immediately if we matched a deep-link action
+      // — those answers are already final.
+      if (matchedLocal && ttsOn) speak(localReply.text);
+
+      // Always call the real model in the background so the assistant
+      // gives a substantive answer even when no local trigger matches.
+      void (async () => {
+        try {
+          const ai = await fetchAiReply(text, { navigate, role });
+          // If we already showed a local action reply (snappy navigation
+          // hint), keep it and append the AI's longer answer as a follow-up
+          // message. Otherwise replace the placeholder in place.
+          if (matchedLocal) {
+            const followId = `a${Date.now() + 2}`;
+            setMessages((m) => [
+              ...m,
+              { id: followId, role: "ai", text: ai.text, ts: Date.now() + 2 },
+            ]);
+            if (ttsOn) speak(ai.text);
+          } else {
+            setMessages((m) =>
+              m.map((msg) => (msg.id === placeholderId ? { ...msg, text: ai.text } : msg)),
+            );
+            if (ttsOn) speak(ai.text);
+          }
+        } catch (err) {
+          // Network / abort fallback — swap the placeholder for the local
+          // best-effort reply so the bubble still feels responsive.
+          if (!matchedLocal) {
+            setMessages((m) =>
+              m.map((msg) =>
+                msg.id === placeholderId
+                  ? { ...msg, text: localReply.text }
+                  : msg,
+              ),
+            );
+            if (ttsOn) speak(localReply.text);
+          }
+        }
+      })();
     },
     [enabled, navigate, role, ttsOn],
   );
