@@ -6,18 +6,22 @@ import {
 import { cn } from "@/lib/utils";
 import { useAgents, useCreate, useAiDraftAgent, useRunAiAgent } from "@/hooks/useApi";
 
+// Default voices for outbound/inbound calls — Gulf Arabic FEMALE (Layla) is the
+// platform default. Faisal is the Gulf Arabic MALE counterpart. English voices
+// are kept as alternates only.
 const VOICES = [
-  { id: "v1", name: "Layla", gender: "Female", language: "Arabic Gulf", style: "Warm, professional", samples: 12 },
-  { id: "v2", name: "Adam", gender: "Male", language: "English Neutral", style: "Confident, clear", samples: 18 },
-  { id: "v3", name: "Noor", gender: "Female", language: "Bilingual AR/EN", style: "Friendly, dynamic", samples: 9 },
-  { id: "v4", name: "Faisal", gender: "Male", language: "Arabic Saudi", style: "Authoritative", samples: 7 },
-  { id: "v5", name: "Reem", gender: "Female", language: "Arabic Levantine", style: "Soft, persuasive", samples: 5 },
-  { id: "v6", name: "Omar", gender: "Male", language: "Arabic Egyptian", style: "Energetic", samples: 4 },
+  { id: "v1", name: "Layla",  gender: "Female", language: "Arabic Gulf",      lang: "ar-SA", style: "Warm, professional",          samples: 12, default: true,  sample: "مرحبا، أنا ليلى من نكسفلو. كيف أقدر أساعدك اليوم؟" },
+  { id: "v4", name: "Faisal", gender: "Male",   language: "Arabic Gulf (KSA)",lang: "ar-SA", style: "Authoritative, calm",         samples: 7,  default: true,  sample: "أهلين، أنا فيصل من نكسفلو. متى يناسبك نتكلم عن العرض؟" },
+  { id: "v3", name: "Noor",   gender: "Female", language: "Bilingual AR/EN",  lang: "ar",    style: "Friendly, dynamic",           samples: 9,  sample: "Hello — I'm Noor. أقدر أكلمك بالعربي أو بالإنجليزي." },
+  { id: "v2", name: "Adam",   gender: "Male",   language: "English Neutral",  lang: "en-US", style: "Confident, clear",            samples: 18, sample: "Hi, this is Adam from NexFlow. Do you have a quick minute?" },
+  { id: "v5", name: "Reem",   gender: "Female", language: "Arabic Levantine", lang: "ar",    style: "Soft, persuasive",            samples: 5,  sample: "مرحبا، أنا ريم. كيف أقدر أخدمك؟" },
+  { id: "v6", name: "Omar",   gender: "Male",   language: "Arabic Egyptian",  lang: "ar-EG", style: "Energetic",                   samples: 4,  sample: "أهلاً، أنا عمر. عامل إيه النهاردة؟" },
 ];
 
 const LIVE_CALLS = [
-  { id: "lc1", agent: "Layla", contact: "Sara Al-Mansouri", company: "Gulf Ventures", duration: 142, sentiment: "positive", phase: "Discovery", transcript: "...exploring AI sales tools for our portfolio..." },
-  { id: "lc2", agent: "Adam", contact: "Tariq Hassan", company: "Inbound caller", duration: 67, sentiment: "neutral", phase: "Qualification", transcript: "...looking for pricing information..." },
+  { id: "lc1", agent: "Layla",  contact: "Sara Al-Mansouri",  company: "Gulf Ventures",  duration: 142, sentiment: "positive", phase: "Discovery",     transcript: "تمام يا أستاذة سارة، خلوني أوضح كيف نكسفلو يساعد فريق المبيعات بالخليج..." },
+  { id: "lc2", agent: "Faisal", contact: "Mohammed Al-Otaibi",company: "Aramco Digital", duration: 198, sentiment: "positive", phase: "Demo",          transcript: "حياك الله أستاذ محمد، عندي عرض تقني خاص بقطاع الطاقة..." },
+  { id: "lc3", agent: "Adam",   contact: "Tariq Hassan",      company: "Inbound caller", duration: 67,  sentiment: "neutral",  phase: "Qualification", transcript: "Sure Tariq, let me ask you a few quick questions to point you to the right plan..." },
 ];
 
 export default function VoiceAgentsPage() {
@@ -28,9 +32,29 @@ export default function VoiceAgentsPage() {
   const { data, isLoading } = useAgents();
   const agents = data?.agents ?? [];
 
+  // Real browser-side TTS using SpeechSynthesis. The voice's language hint
+  // (ar-SA / en-US) is sent so the OS picks the closest male/female voice.
   function playVoice(id: string) {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      setPlayingVoice(id);
+      setTimeout(() => setPlayingVoice(null), 2400);
+      return;
+    }
+    const v = VOICES.find(x => x.id === id);
+    if (!v) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(v.sample);
+    u.lang = v.lang;
+    u.rate = 1.0;
+    u.pitch = v.gender === "Female" ? 1.1 : 0.95;
+    const list = window.speechSynthesis.getVoices();
+    const langMatch = list.filter(s => s.lang.toLowerCase().startsWith(v.lang.toLowerCase().slice(0, 2)));
+    const exact = langMatch.find(s => s.name.toLowerCase().includes(v.gender.toLowerCase())) ?? langMatch[0];
+    if (exact) u.voice = exact;
+    u.onend = () => setPlayingVoice(null);
+    u.onerror = () => setPlayingVoice(null);
     setPlayingVoice(id);
-    setTimeout(() => setPlayingVoice(null), 2400);
+    window.speechSynthesis.speak(u);
   }
 
   return (
@@ -169,15 +193,22 @@ export default function VoiceAgentsPage() {
 
       {tab === "voices" && (
         <div>
-          <p className="text-xs text-muted-foreground mb-3">Production-ready voices fine-tuned for GCC and Arabic markets</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs text-muted-foreground">
+              Production voices for GCC and Arabic markets · default outbound = <strong>Layla (Gulf female)</strong> · default callback = <strong>Faisal (Gulf male)</strong>
+            </p>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {VOICES.map(v => (
-              <div key={v.id} className="glass-card rounded-2xl p-4">
+              <div key={v.id} className={cn("glass-card rounded-2xl p-4", v.default && "ring-1 ring-[#88B8B0]/40")}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-[#B8A0C8]/20 flex items-center justify-center"><Mic className="w-5 h-5 text-[#B8A0C8]" /></div>
                     <div>
-                      <div className="font-bold text-foreground">{v.name}</div>
+                      <div className="font-bold text-foreground flex items-center gap-1.5">
+                        {v.name}
+                        {v.default && <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#88B8B0]/20 text-[#88B8B0] font-bold uppercase tracking-wider">Default</span>}
+                      </div>
                       <div className="text-[10px] text-muted-foreground">{v.gender} · {v.samples} samples</div>
                     </div>
                   </div>
@@ -186,7 +217,8 @@ export default function VoiceAgentsPage() {
                   </button>
                 </div>
                 <div className="text-xs text-muted-foreground mb-1"><Languages className="w-3 h-3 inline mr-1" />{v.language}</div>
-                <div className="text-xs text-foreground/70">{v.style}</div>
+                <div className="text-xs text-foreground/70 mb-2">{v.style}</div>
+                <div className="text-[11px] text-foreground/85 italic px-2 py-1.5 rounded-lg bg-muted/30" dir="auto">"{v.sample}"</div>
               </div>
             ))}
           </div>
