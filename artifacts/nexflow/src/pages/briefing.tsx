@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { getRole, type RoleKey, type RoleProfile } from "@/lib/marketing-auth";
 import MarketingDashboardPage from "@/pages/marketing-dashboard";
 import CulturalIntelligencePage from "@/pages/cultural-intelligence";
+import CEOHomePage from "@/pages/ceo-home";
 import { Globe as GlobeIcon, LayoutDashboard as LayoutDashboardIcon } from "lucide-react";
 
 interface PersonaTask {
@@ -246,6 +247,9 @@ export default function CommandCenterPage() {
 
   if (roleKey === "marketing") {
     return <MarketingHomePage />;
+  }
+  if (roleKey === "ceo") {
+    return <CEOHomePage />;
   }
   return <SalesAndExecHome />;
 }
