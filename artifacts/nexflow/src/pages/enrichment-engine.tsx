@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { apiFetch } from "@/hooks/useApi";
 import { PushToCrm } from "@/components/push-to-crm";
 import { SourcesTab } from "@/components/enrichment/sources-tab";
+import { IntelEnginesTab } from "@/components/enrichment/intel-engines-tab";
 
 const SignalsPage = lazy(() => import("./signals"));
 const LeadEnrichPage = lazy(() => import("./lead-enrich"));
@@ -34,6 +35,7 @@ type Tab =
   | "quick"
   | "cards"
   | "signals"
+  | "engines"
   | "history"
   | "sources";
 
@@ -107,7 +109,7 @@ export default function EnrichmentEnginePage() {
   const initialTab: Tab = (() => {
     if (typeof window === "undefined") return "prospecting";
     const t = new URLSearchParams(window.location.search).get("tab");
-    const valid: Tab[] = ["prospecting", "bulk", "quick", "cards", "signals", "history", "sources"];
+    const valid: Tab[] = ["prospecting", "bulk", "quick", "cards", "signals", "engines", "history", "sources"];
     return (valid as string[]).includes(t ?? "") ? (t as Tab) : "prospecting";
   })();
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -153,6 +155,7 @@ export default function EnrichmentEnginePage() {
         <SubTab active={tab === "quick"}       onClick={() => setTab("quick")}       icon={Sparkles} label="Quick Lead Enrich" />
         <SubTab active={tab === "cards"}       onClick={() => setTab("cards")}       icon={ScanLine} label="Companies Card Scanner" />
         <SubTab active={tab === "signals"}     onClick={() => setTab("signals")}     icon={Zap}      label="Buying Signals" />
+        <SubTab active={tab === "engines"}     onClick={() => setTab("engines")}     icon={BrainCircuit} label="Intel Engines" />
         <SubTab active={tab === "history"}     onClick={() => setTab("history")}     icon={History}  label="Save History" />
         <SubTab active={tab === "sources"}     onClick={() => setTab("sources")}     icon={Database} label="Sources" />
       </div>
@@ -162,6 +165,7 @@ export default function EnrichmentEnginePage() {
       {tab === "quick"       && <Lazy><LeadEnrichPage /></Lazy>}
       {tab === "cards"       && <Lazy><BusinessCardsPage /></Lazy>}
       {tab === "signals"     && <BuyingSignalsTab />}
+      {tab === "engines"     && <IntelEnginesTab />}
       {tab === "history"     && <SearchHistoryTab onRerun={rerunFromHistory} />}
       {tab === "sources"     && <SourcesTab />}
     </div>
