@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 function apiBase() {
   const origin = window.location.origin;
-  return `${origin}/api-server/api`;
+  return `${origin}/api`;
 }
 
 export async function apiFetch(path: string, opts?: RequestInit) {
