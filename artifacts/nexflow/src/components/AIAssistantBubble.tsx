@@ -35,9 +35,10 @@ import {
 import { cn } from "@/lib/utils";
 
 // ─── Storage keys ────────────────────────────────────────────────────
-const STORAGE_POS = "nf:assistant:pos";
-const STORAGE_TTS = "nf:assistant:tts";
+const STORAGE_POS     = "nf:assistant:pos";
+const STORAGE_TTS     = "nf:assistant:tts";
 const STORAGE_ACTIONS = "nf:assistant:actions";
+const STORAGE_LANG    = "nf:assistant:lang";
 
 // ─── Types ───────────────────────────────────────────────────────────
 type ChatMessage = {
@@ -198,6 +199,11 @@ function loadTTS(): boolean {
   return window.localStorage.getItem(STORAGE_TTS) === "1";
 }
 
+function loadLang(): "en" | "ar" {
+  if (typeof window === "undefined") return "en";
+  return window.localStorage.getItem(STORAGE_LANG) === "ar" ? "ar" : "en";
+}
+
 function generateResponse(
   query: string,
   enabled: Set<string>,
@@ -287,6 +293,9 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
   const [position, setPosition] = useState<{ x: number; y: number } | null>(loadPosition);
   const [enabled, setEnabled] = useState<Set<string>>(loadEnabledActions);
   const [ttsOn, setTtsOn] = useState<boolean>(loadTTS);
+  // "en" → en-US STT + English TTS voice
+  // "ar" → ar-AE STT + Gulf Arabic TTS voice (Zariyah female / Tarik male)
+  const [sttLang, setSttLang] = useState<"en" | "ar">(loadLang);
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     { id: "g0", role: "ai", text: greetingFor(role), ts: Date.now() },
@@ -328,6 +337,12 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
       window.localStorage.setItem(STORAGE_TTS, ttsOn ? "1" : "0");
     } catch {/* ignore */}
   }, [ttsOn]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_LANG, sttLang);
+    } catch {/* ignore */}
+  }, [sttLang]);
 
   // Listen for global "open assistant" requests from anywhere in the app
   // (Command Center "Ask AI" button, Predictive page, etc). All "Ask AI"
@@ -397,7 +412,7 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
 
       // Speak the local reply immediately if we matched a deep-link action
       // — those answers are already final.
-      if (matchedLocal && ttsOn) speak(localReply.text);
+      if (matchedLocal && ttsOn) speak(localReply.text, { lang: sttLang === "ar" ? "ar-AE" : "en-US" });
 
       // Always call the real model in the background so the assistant
       // gives a substantive answer even when no local trigger matches.
@@ -413,12 +428,12 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
               ...m,
               { id: followId, role: "ai", text: ai.text, ts: Date.now() + 2 },
             ]);
-            if (ttsOn) speak(ai.text);
+            if (ttsOn) speak(ai.text, { lang: sttLang === "ar" ? "ar-AE" : "en-US" });
           } else {
             setMessages((m) =>
               m.map((msg) => (msg.id === placeholderId ? { ...msg, text: ai.text } : msg)),
             );
-            if (ttsOn) speak(ai.text);
+            if (ttsOn) speak(ai.text, { lang: sttLang === "ar" ? "ar-AE" : "en-US" });
           }
         } catch (err) {
           // Network / abort fallback — swap the placeholder for the local
@@ -431,12 +446,12 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
                   : msg,
               ),
             );
-            if (ttsOn) speak(localReply.text);
+            if (ttsOn) speak(localReply.text, { lang: sttLang === "ar" ? "ar-AE" : "en-US" });
           }
         }
       })();
     },
-    [enabled, navigate, role, ttsOn],
+    [enabled, navigate, role, sttLang, ttsOn],
   );
 
   // Keep the latest submit reachable from outside (window event listener).
@@ -461,6 +476,7 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
     stopSpeaking();
     setVoiceError(null);
     const rec = createRecognizer({
+      lang: sttLang === "ar" ? "ar-AE" : "en-US",
       onUpdate: ({ interim: i, final }) => {
         if (final) {
           setInterim("");
@@ -484,7 +500,7 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
     recognizerRef.current = rec;
     rec.start();
     setListening(true);
-  }, [listening, interim, submit]);
+  }, [listening, interim, sttLang, submit]);
 
   // ─── Native pointer-event drag (replaces framer-motion `drag`) ───
   // Why: framer-motion's drag introduced visible jank on rapid pointer
@@ -830,6 +846,26 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
                         aria-pressed={ttsOn}
                       >
                         {ttsOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                      </button>
+                      {/* AR / EN language toggle — controls both STT and TTS */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          stopSpeaking();
+                          recognizerRef.current?.stop();
+                          setListening(false);
+                          setSttLang(l => l === "en" ? "ar" : "en");
+                        }}
+                        title={sttLang === "ar" ? "Switch to English (EN)" : "Switch to Arabic — Gulf dialect (AR)"}
+                        className={cn(
+                          "h-9 px-2.5 rounded-xl flex items-center justify-center flex-shrink-0 transition-all text-[11px] font-bold tracking-wide",
+                          sttLang === "ar"
+                            ? "bg-[#C8A880] text-white"
+                            : "bg-muted/40 text-foreground hover:bg-muted/60",
+                        )}
+                        aria-label={sttLang === "ar" ? "Active: Arabic (Gulf) — click for English" : "Active: English — click for Arabic (Gulf)"}
+                      >
+                        {sttLang === "ar" ? "عربي" : "EN"}
                       </button>
                       <input
                         type="text"

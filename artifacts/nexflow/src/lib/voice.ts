@@ -8,6 +8,11 @@
  * Both are graceful no-ops in unsupported environments — the assistant UI
  * checks `isSpeechRecognitionSupported()` / `isSpeechSynthesisSupported()`
  * before exposing the toggles.
+ *
+ * Arabic Gulf voices: when lang is "ar-AE" or "ar-SA" the speak() function
+ * prefers known Gulf-dialect voices available in Chromium:
+ *   Female — Zariyah (ar-SA), Hala (ar-AE), Layla (ar-AE)
+ *   Male   — Tarik (ar-SA) or any other ar-SA/ar-AE male voice
  */
 
 export interface RecognitionUpdate {
@@ -46,7 +51,6 @@ export function createRecognizer(opts: {
   r.lang = opts.lang ?? "en-US";
   r.interimResults = true;
   // Single-shot: auto-finalises on natural pause for snappier turn-taking.
-  // Continuous mode adds noticeable delay before `final` results arrive.
   r.continuous = false;
   r.maxAlternatives = 1;
   r.onresult = (event: any) => {
@@ -65,40 +69,74 @@ export function createRecognizer(opts: {
   return {
     isSupported: true,
     start: () => {
-      try {
-        r.start();
-      } catch {
-        // Some browsers throw when start() is called twice in a row — safe to ignore.
-      }
+      try { r.start(); } catch { /* ignore double-start */ }
     },
     stop: () => {
-      try {
-        r.stop();
-      } catch {
-        // ignore
-      }
+      try { r.stop(); } catch { /* ignore */ }
     },
   };
 }
 
+// Known Gulf-Arabic voice name fragments, in preference order.
+// Chromium ships Zariyah (ar-SA female) and Tarik (ar-SA male) on most platforms.
+// macOS/iOS add Layla (ar-AE female). We fall back gracefully.
+const ARABIC_FEMALE_HINTS = ["zariyah", "hala", "layla", "maged"];
+const ARABIC_MALE_HINTS   = ["tarik",   "naayf", "omar", "maged"];
+
+function pickVoice(
+  voices: SpeechSynthesisVoice[],
+  lang: string,
+  gender: "female" | "male" | "any",
+): SpeechSynthesisVoice | undefined {
+  const hints = gender === "female" ? ARABIC_FEMALE_HINTS
+              : gender === "male"   ? ARABIC_MALE_HINTS
+              : [];
+
+  const rootLang = lang.split("-")[0]; // "ar", "en", …
+
+  // 1. Exact lang + name hint
+  for (const hint of hints) {
+    const v = voices.find(v => v.lang === lang && v.name.toLowerCase().includes(hint));
+    if (v) return v;
+  }
+  // 2. Root lang match + name hint (catches "ar-SA" when we ask for "ar-AE")
+  for (const hint of hints) {
+    const v = voices.find(v => v.lang.startsWith(rootLang) && v.name.toLowerCase().includes(hint));
+    if (v) return v;
+  }
+  // 3. Exact lang, any voice
+  const exact = voices.find(v => v.lang === lang);
+  if (exact) return exact;
+  // 4. Root lang, any voice
+  return voices.find(v => v.lang.startsWith(rootLang));
+}
+
 export function speak(
   text: string,
-  opts?: { lang?: string; rate?: number; pitch?: number; onEnd?: () => void },
+  opts?: {
+    lang?: string;
+    rate?: number;
+    pitch?: number;
+    gender?: "female" | "male" | "any";
+    onEnd?: () => void;
+  },
 ): void {
   if (!isSpeechSynthesisSupported() || !text.trim()) return;
   const synth = window.speechSynthesis;
   synth.cancel();
-  // Some Chromium builds need a tick after cancel() before speak() will fire.
   const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = opts?.lang ?? "en-US";
+  const lang = opts?.lang ?? "en-US";
+  utter.lang = lang;
   utter.rate = opts?.rate ?? 1.05;
   utter.pitch = opts?.pitch ?? 1;
   if (opts?.onEnd) utter.onend = () => opts.onEnd?.();
-  // Pick a clearer default voice if available.
+
   const voices = synth.getVoices();
-  const preferred = voices.find((v) => v.lang === utter.lang)
-    ?? voices.find((v) => v.lang.startsWith(utter.lang.split("-")[0]));
+  const isArabic = lang.startsWith("ar");
+  const gender = opts?.gender ?? (isArabic ? "female" : "any");
+  const preferred = pickVoice(voices, lang, gender);
   if (preferred) utter.voice = preferred;
+
   // Defer one micro-tick to dodge the cancel-then-speak race in some browsers.
   setTimeout(() => synth.speak(utter), 0);
 }

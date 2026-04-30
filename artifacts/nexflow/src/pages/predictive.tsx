@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Sparkles, TrendingUp, AlertTriangle, Target, Zap, Brain, RefreshCw, ChevronDown, ArrowUp, ArrowDown } from "lucide-react";
-import { useContacts, useDeals } from "@/hooks/useApi";
+import { useContacts, useDeals, apiFetch } from "@/hooks/useApi";
 import { cn } from "@/lib/utils";
 
 const CHURN_RISKS = [
@@ -31,15 +31,26 @@ const FORECAST_SUMMARY = [
 
 export default function PredictivePage() {
   const [aiQuery, setAiQuery] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
 
-  // The "Ask AI" box on this page is a thin entry point — it dispatches the
-  // typed query to the unified multi-agent assistant bubble (same engine
-  // everywhere in the app). The bubble opens and answers in-place so the
-  // user has one consistent AI surface, not a per-page widget.
-  function runAiQuery() {
+  async function runAiQuery() {
     const text = aiQuery.trim();
-    if (!text) return;
-    window.dispatchEvent(new CustomEvent("nf:open-assistant", { detail: { text } }));
+    if (!text || aiLoading) return;
+    setAiLoading(true);
+    setAiInsight(null);
+    try {
+      const res = await apiFetch("/api/ai/assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, page: "predictive" }),
+      }) as { reply?: string };
+      setAiInsight(res.reply ?? "No response received.");
+    } catch {
+      setAiInsight("Could not reach the AI engine — please try again.");
+    } finally {
+      setAiLoading(false);
+    }
     setAiQuery("");
   }
 
@@ -75,14 +86,23 @@ export default function PredictivePage() {
           />
           <button
             onClick={runAiQuery}
-            disabled={!aiQuery.trim()}
+            disabled={!aiQuery.trim() || aiLoading}
             className="px-4 py-2 rounded-lg nf-chameleon-bg text-white text-sm font-semibold disabled:opacity-50 flex items-center gap-1.5"
           >
-            <Sparkles className="w-3.5 h-3.5" />
+            {aiLoading
+              ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              : <Sparkles className="w-3.5 h-3.5" />}
             Ask AI
           </button>
         </div>
-        <p className="text-[10px] text-muted-foreground mt-2 ml-1">Opens in the AI Assistant — powered by the multi-agent engine.</p>
+        {aiInsight && (
+          <div className="mt-4 p-4 rounded-xl bg-background/70 border border-[#B8A0C8]/30 text-xs text-foreground/85 whitespace-pre-line leading-relaxed">
+            <div className="flex items-center gap-1.5 mb-2 text-[10px] font-semibold text-[#B8A0C8] uppercase tracking-widest">
+              <Sparkles className="w-3 h-3" /> AI Insight
+            </div>
+            {aiInsight}
+          </div>
+        )}
       </div>
 
       {/* Forecast bands */}
