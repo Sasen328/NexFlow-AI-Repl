@@ -689,3 +689,34 @@ export const scraper_cache = pgTable(
 export type EnrichmentSource = typeof enrichment_sources.$inferSelect;
 export type EnrichmentRun = typeof enrichment_runs.$inferSelect;
 export type ScraperCacheRow = typeof scraper_cache.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────
+// Intelligence Engines — Masaar (Saudi CR), ProsEngine (Person/Company),
+// Lead Finder (find people at a company by name)
+// ─────────────────────────────────────────────────────────────────────
+export const engine_runs = pgTable(
+  "engine_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    engine: text("engine").notNull(), // "masaar" | "person_intel" | "company_intel" | "lead_finder"
+    title: text("title").notNull(),   // human label e.g. "CR 1010123456" or "STC · Riyadh"
+    input: jsonb("input").$type<Record<string, unknown>>().notNull(),
+    report: jsonb("report").$type<Record<string, unknown>>(),
+    sources_used: jsonb("sources_used").$type<string[]>().default([]).notNull(),
+    duration_ms: integer("duration_ms").default(0).notNull(),
+    status: text("status").notNull().default("pending"), // "pending" | "ok" | "error"
+    error: text("error"),
+    saved: boolean("saved").default(false).notNull(),
+    tags: text("tags"),
+    notes: text("notes"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    engineIdx: index("engine_runs_engine_idx").on(t.engine),
+    createdIdx: index("engine_runs_created_idx").on(t.created_at),
+    savedIdx: index("engine_runs_saved_idx").on(t.saved),
+  }),
+);
+
+export type EngineRun = typeof engine_runs.$inferSelect;
