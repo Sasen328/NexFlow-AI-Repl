@@ -34,7 +34,7 @@ export type AiProvider = "openai" | "anthropic" | "gemini" | "perplexity" | "aut
 
 const providerModelMap: Record<AiProvider, string> = {
   openai: "openai/gpt-4o-mini",
-  anthropic: "anthropic/claude-3.5-sonnet",
+  anthropic: "anthropic/claude-sonnet-4.6",
   gemini: "google/gemini-2.5-flash",
   perplexity: "perplexity/sonar",
   auto: "openai/gpt-4o-mini",
