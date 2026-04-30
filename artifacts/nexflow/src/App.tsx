@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LivingMesh } from "@/components/layout/LivingMesh";
 import { TopBar } from "@/components/layout/TopBar";
-import { SectionTabStrip } from "@/components/layout/SectionTabStrip";
+import { SectionSidebar } from "@/components/layout/SectionSidebar";
 import { AIAssistantBubble } from "@/components/AIAssistantBubble";
 import { MarketingLayout } from "@/components/marketing/MarketingLayout";
 import WelcomePage from "@/pages/marketing/Welcome";
@@ -102,6 +102,7 @@ import ReportBuilderPage from "@/pages/report-builder";
 import CapabilitiesPage from "@/pages/capabilities";
 import InvestorsPage from "@/pages/investors";
 // ─── New 6-tab IA wrapper pages (Apr 2026 restructure) ──────────────
+import StudioPage from "@/pages/studio";
 import LeadsPipelinePage from "@/pages/leads-pipeline";
 import LeadsListsPage from "@/pages/leads-lists";
 import LeadsResearchPage from "@/pages/leads-research";
@@ -125,9 +126,12 @@ function AppLayout() {
     <div className="min-h-screen bg-background flex flex-col">
       <LivingMesh />
       <TopBar dark={dark} onDark={setDark} />
-      <SectionTabStrip />
-      <main className="flex-1 min-w-0 px-4 sm:px-6 py-6 overflow-y-auto relative z-10 max-w-[1600px] w-full mx-auto">
+      <div className="flex flex-1 min-h-0">
+        <SectionSidebar />
+        <main className="flex-1 min-w-0 px-4 sm:px-6 py-6 overflow-y-auto relative z-10">
         <Switch>
+          {/* Studio — all-in-one workspace (v3) */}
+          <Route path="/studio" component={StudioPage} />
           {/* ─── New 6-tab IA routes (Apr 2026) ─────────────────────
                 Each section has its own URL space. Legacy routes
                 (defined further down) remain registered for back-
@@ -253,7 +257,8 @@ function AppLayout() {
           <Route path="/capabilities" component={CapabilitiesPage} />
           <Route component={NotFound} />
         </Switch>
-      </main>
+        </main>
+      </div>
       <AIAssistantBubble />
     </div>
   );
