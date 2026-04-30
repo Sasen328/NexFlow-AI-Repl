@@ -603,3 +603,89 @@ export const investor_access_log = pgTable(
 );
 
 export type InvestorAccessLogEntry = typeof investor_access_log.$inferSelect;
+
+// ── Enrichment Sources orchestrator ────────────────────────────────────────
+// Configuration row per data source (Hunter, Apollo, Lusha, MAGNiTT,
+// Wathiq, Tadawul, Public Web Scraper, Python Scraper, etc). API keys are
+// stored encrypted via APP-side AES-GCM (or, for now, plain-text in the
+// dev env) — never returned in plain-text from GET routes (only the
+// "is_set" flag is exposed). Priority orders the waterfall.
+export const enrichment_sources = pgTable("enrichment_sources", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // Stable machine key e.g. "hunter", "apollo", "lusha", "magnitt", "web_scraper"
+  source_key: text("source_key").notNull().unique(),
+  // Display name e.g. "Hunter.io"
+  name: text("name").notNull(),
+  // "api" | "scraper" | "gov_registry" | "exchange" | "ai_scraper"
+  kind: text("kind").notNull(),
+  // Whether the source is enabled in the waterfall
+  enabled: boolean("enabled").default(true).notNull(),
+  // Priority — lower runs first. Sources with the same priority run in parallel.
+  priority: integer("priority").default(50).notNull(),
+  // Encrypted-at-rest API key blob (for now: plain JSON in dev). Never return
+  // this in API responses; expose only `key_set: boolean`.
+  api_key_cipher: text("api_key_cipher"),
+  // Free-form per-source config (rate limit, region preferences, account id, etc.)
+  config: jsonb("config").$type<Record<string, unknown>>().default({}).notNull(),
+  // Last time the test endpoint was hit and what it returned
+  last_test_ok: boolean("last_test_ok"),
+  last_test_message: text("last_test_message"),
+  last_test_at: timestamp("last_test_at"),
+  // Cumulative usage counters (cheap snapshot — full audit is enrichment_runs)
+  total_calls: integer("total_calls").default(0).notNull(),
+  total_fields_filled: integer("total_fields_filled").default(0).notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// One row per source-call inside a waterfall run. Used to display per-field
+// source attribution badges in the UI ("email · Hunter", "phone · Lusha").
+export const enrichment_runs = pgTable(
+  "enrichment_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Optional grouping id so multiple source-calls share one waterfall run
+    waterfall_id: uuid("waterfall_id"),
+    source_key: text("source_key").notNull(),
+    // Which lead/contact/company this row was enriching (free-form: not all
+    // runs map to a saved row yet)
+    target_kind: text("target_kind"), // "contact" | "company" | "seed"
+    target_id: text("target_id"),
+    seed: jsonb("seed").$type<Record<string, unknown>>(),
+    // List of fields this source filled, e.g. ["email","linkedin_url"]
+    fields_filled: jsonb("fields_filled").$type<string[]>().default([]).notNull(),
+    // Raw enrichment payload returned by the source (capped to 25KB upstream)
+    payload: jsonb("payload").$type<Record<string, unknown>>(),
+    // Approx USD cost of this call (0 for scrapers, vendor-priced for APIs)
+    cost_usd: doublePrecision("cost_usd").default(0).notNull(),
+    duration_ms: integer("duration_ms").default(0).notNull(),
+    status: text("status").notNull(), // "ok" | "miss" | "error" | "skipped"
+    error: text("error"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    waterfallIdx: index("enrichment_runs_waterfall_idx").on(t.waterfall_id),
+    sourceIdx: index("enrichment_runs_source_idx").on(t.source_key),
+    createdIdx: index("enrichment_runs_created_idx").on(t.created_at),
+  }),
+);
+
+// 24-hour scraper response cache so we don't re-fetch the same URL repeatedly
+export const scraper_cache = pgTable(
+  "scraper_cache",
+  {
+    // Hash of (url + mode)
+    cache_key: text("cache_key").primaryKey(),
+    url: text("url").notNull(),
+    mode: text("mode").notNull(), // "cheerio" | "playwright" | "crawl4ai" | "bs4"
+    payload: jsonb("payload").$type<Record<string, unknown>>(),
+    fetched_at: timestamp("fetched_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    fetchedIdx: index("scraper_cache_fetched_idx").on(t.fetched_at),
+  }),
+);
+
+export type EnrichmentSource = typeof enrichment_sources.$inferSelect;
+export type EnrichmentRun = typeof enrichment_runs.$inferSelect;
+export type ScraperCacheRow = typeof scraper_cache.$inferSelect;

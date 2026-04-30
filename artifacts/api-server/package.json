@@ -12,6 +12,7 @@
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
+    "cheerio": "^1.2.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2",
     "drizzle-orm": "catalog:",
@@ -19,6 +20,9 @@
     "openai": "^4.95.0",
     "pino": "^9",
     "pino-http": "^10",
+    "playwright": "^1.59.1",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "resend": "^4.0.1",
     "zod": "catalog:"
   },
