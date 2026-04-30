@@ -25,9 +25,14 @@ const STAGE_LABEL: Record<string, string> = {
 
 router.get("/", async (req, res) => {
   try {
-    const { stage, limit = "50", offset = "0" } = req.query as Record<string, string>;
+    const { stage, contact_id, company_id, limit = "50", offset = "0" } = req.query as Record<string, string>;
     const lim = Math.min(parseInt(limit), 200);
     const off = parseInt(offset);
+
+    const wheres = [];
+    if (stage) wheres.push(eq(deals.stage, stage as any));
+    if (contact_id) wheres.push(eq(deals.contact_id, contact_id));
+    if (company_id) wheres.push(eq(deals.company_id, company_id));
 
     const results = await db
       .select({
@@ -51,12 +56,15 @@ router.get("/", async (req, res) => {
       .from(deals)
       .leftJoin(contacts, eq(deals.contact_id, contacts.id))
       .leftJoin(companies, eq(deals.company_id, companies.id))
+      .where(wheres.length ? and(...wheres) : undefined)
       .orderBy(desc(deals.created_at))
       .limit(lim)
       .offset(off);
 
-    const total = await db.$count(deals);
-    const [{ total_value }] = await db.select({ total_value: sql<number>`coalesce(sum(value), 0)::int` }).from(deals);
+    const total = wheres.length
+      ? results.length
+      : await db.$count(deals);
+    const [{ total_value }] = await db.select({ total_value: sql<number>`coalesce(sum(value), 0)::int` }).from(deals).where(wheres.length ? and(...wheres) : undefined);
 
     res.json({ deals: results, total, total_value });
   } catch (err) {

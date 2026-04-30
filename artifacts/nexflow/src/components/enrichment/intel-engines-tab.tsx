@@ -249,7 +249,7 @@ function MasaarPanel() {
   async function run() {
     setErr(null); setResult(null); setBusy(true);
     try {
-      const r = await apiFetch("/api/engines/masaar/run", {
+      const r = await apiFetch("/engines/masaar/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -393,7 +393,7 @@ function PersonIntelPanel() {
   async function run() {
     setErr(null); setResult(null); setBusy(true);
     try {
-      const r = await apiFetch("/api/engines/person-intel/run", {
+      const r = await apiFetch("/engines/person-intel/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -566,7 +566,7 @@ function CompanyIntelPanel() {
   async function run() {
     setErr(null); setResult(null); setBusy(true);
     try {
-      const r = await apiFetch("/api/engines/company-intel/run", {
+      const r = await apiFetch("/engines/company-intel/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -732,7 +732,7 @@ function LeadFinderPanel() {
   async function run() {
     setErr(null); setResult(null); setBusy(true);
     try {
-      const r = await apiFetch("/api/engines/lead-finder/run", {
+      const r = await apiFetch("/engines/lead-finder/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -879,7 +879,7 @@ function HistoryPanel() {
       const params = new URLSearchParams();
       if (filter === "saved") params.set("saved", "1");
       else if (filter !== "all") params.set("engine", filter);
-      const r = await apiFetch(`/api/engines/runs?${params.toString()}`);
+      const r = await apiFetch(`/engines/runs?${params.toString()}`);
       const data = await r.json();
       if (!r.ok) throw new Error(data.error ?? "Load failed");
       setRows(data.rows ?? []);
@@ -943,7 +943,7 @@ function RunDetailModal({ id, onClose, onChanged }: { id: string; onClose: () =>
 
   useEffect(() => {
     (async () => {
-      const r = await apiFetch(`/api/engines/runs/${id}`);
+      const r = await apiFetch(`/engines/runs/${id}`);
       const d = await r.json();
       setRow(d.row);
       setBusy(false);
@@ -952,7 +952,7 @@ function RunDetailModal({ id, onClose, onChanged }: { id: string; onClose: () =>
 
   async function toggleSaved() {
     if (!row) return;
-    await apiFetch(`/api/engines/runs/${id}`, {
+    await apiFetch(`/engines/runs/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ saved: !row.saved }),
@@ -963,7 +963,7 @@ function RunDetailModal({ id, onClose, onChanged }: { id: string; onClose: () =>
 
   async function remove() {
     if (!confirm("Delete this run?")) return;
-    await apiFetch(`/api/engines/runs/${id}`, { method: "DELETE" });
+    await apiFetch(`/engines/runs/${id}`, { method: "DELETE" });
     onClose();
     onChanged();
   }
@@ -1055,7 +1055,7 @@ function CollapseCard({ title, children }: { title: string; children: React.Reac
 function SaveBar({ runId }: { runId: string }) {
   const [saved, setSaved] = useState(false);
   async function save() {
-    await apiFetch(`/api/engines/runs/${runId}`, {
+    await apiFetch(`/engines/runs/${runId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ saved: true }),

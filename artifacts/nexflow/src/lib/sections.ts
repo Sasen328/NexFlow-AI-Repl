@@ -76,11 +76,6 @@ export const SECTIONS: SectionDef[] = [
       { icon: Users,      label: "People",         href: "/contacts",       desc: "All contacts · enrich · score · history" },
       { icon: Building2,  label: "Companies",      href: "/companies",      desc: "Accounts · revenue · contacts roster" },
       { icon: GitBranch,  label: "Deals",          href: "/deal-pipeline",  desc: "Kanban pipeline · stages · win/loss" },
-      { icon: Network,    label: "Accounts (ABM)", href: "/accounts",       desc: "Strategic account map · key buying committee" },
-      { icon: TrendingUp, label: "Forecasting",    href: "/forecasting",    desc: "AI-driven revenue forecasts & scenarios" },
-      { icon: Heart,      label: "Health Scores",  href: "/health-scores",  desc: "Account health & churn risk" },
-      { icon: FileText,   label: "Quotes",         href: "/quotes",         desc: "Quotes · CPQ · proposals" },
-      { icon: CreditCard, label: "Quote-to-Cash",  href: "/quote-to-cash",  desc: "Order forms · invoices · payment tracking" },
     ],
   },
 

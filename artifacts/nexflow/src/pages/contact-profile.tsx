@@ -8,10 +8,11 @@ import {
   Briefcase, GraduationCap, Languages, Calendar, Code2, DollarSign,
   Sparkles, ChevronRight, FileText, Database, Bot, ListChecks, Settings2, Check,
   PhoneOutgoing, PhoneIncoming, PhoneMissed, Clock, ChevronDown, ChevronUp,
-  Loader2, StickyNote, TrendingDown, Mic, BookOpen
+  Loader2, StickyNote, TrendingDown, Mic, BookOpen, PenLine, Plus, X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import VoiceCallModal from "@/components/VoiceCallModal";
 
 const ENRICHMENT_SOURCES = [
@@ -61,8 +62,39 @@ export default function ContactProfilePage({ params }: Props) {
 
   // Calls tab removed — call history merged into Engagement. Engagement now
   // shows calls + meetings + notes + AI analysis in one timeline.
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<"overview" | "engagement" | "deals" | "enrichment">("overview");
   const [showCallModal, setShowCallModal] = useState(false);
+
+  // Inline log form for Engagement tab
+  type LogKind = "note" | "meeting" | "call_log";
+  const [logOpen, setLogOpen] = useState<LogKind | null>(null);
+  const [logTitle, setLogTitle] = useState("");
+  const [logBody, setLogBody] = useState("");
+  const [logSaving, setLogSaving] = useState(false);
+  const [expandedTranscripts, setExpandedTranscripts] = useState<Set<string>>(new Set());
+
+  async function saveLog(kind: LogKind) {
+    if (!logTitle.trim() && !logBody.trim()) return;
+    setLogSaving(true);
+    try {
+      const typeMap: Record<LogKind, string> = { note: "note", meeting: "meeting", call_log: "call" };
+      await apiFetch("/activities", {
+        method: "POST",
+        body: JSON.stringify({
+          contact_id: id,
+          type: typeMap[kind],
+          title: logTitle.trim() || (kind === "note" ? "Note" : kind === "meeting" ? "Meeting" : "Call log"),
+          body: logBody.trim() || null,
+          status: "completed",
+        }),
+      });
+      await queryClient.invalidateQueries({ queryKey: ["activities"] });
+      setLogTitle(""); setLogBody(""); setLogOpen(null);
+    } finally {
+      setLogSaving(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -354,7 +386,7 @@ export default function ContactProfilePage({ params }: Props) {
         // sorted newest first. AI analysis card sits above. The old separate
         // "Calls" tab was redundant — every call shows here with summary,
         // outcome and score, and you can click into the dialer for details.
-        type Item = { id: string; kind: "call" | "meeting" | "note" | "activity"; title: string; body?: string | null; meta?: string; ts: number };
+        type Item = { id: string; kind: "call" | "meeting" | "note" | "activity"; title: string; body?: string | null; transcript?: string | null; meta?: string; ts: number };
         const items: Item[] = [];
         for (const c of (calls as any[])) {
           const ts = c.created_at ? new Date(c.created_at).getTime() : 0;
@@ -363,6 +395,7 @@ export default function ContactProfilePage({ params }: Props) {
             kind: "call",
             title: `${(c.direction ?? "outbound").toString().replace(/^./, (s: string) => s.toUpperCase())} call · ${c.outcome ?? "completed"}${c.duration_sec ? ` · ${Math.round(c.duration_sec / 60)} min` : ""}`,
             body: c.summary ?? c.transcript_excerpt ?? null,
+            transcript: c.transcript ?? null,
             meta: c.score != null ? `Score ${c.score}/100` : undefined,
             ts,
           });
@@ -412,6 +445,54 @@ export default function ContactProfilePage({ params }: Props) {
             </div>
 
             {/* Unified timeline */}
+            {/* ── Log action bar ── */}
+            <div className="glass-card rounded-2xl p-4 border-l-4" style={{ borderColor: "#B8A0C8" }}>
+              <div className="flex items-center gap-2 mb-3">
+                <PenLine className="w-4 h-4 text-[#B8A0C8]" />
+                <span className="text-sm font-bold text-foreground">Log activity</span>
+                <span className="text-[10px] text-muted-foreground ml-1">Add a note, meeting or call record — it appears instantly in the timeline below</span>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {([["note","Add Note","#C8A880"], ["meeting","Log Meeting","#88B8B0"], ["call_log","Log Call","#B8A0C8"]] as const).map(([k, label, color]) => (
+                  <button key={k}
+                    onClick={() => setLogOpen(logOpen === k ? null : k)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border"
+                    style={{ background: logOpen === k ? color + "22" : "transparent", borderColor: color + "66", color }}>
+                    <Plus className="w-3 h-3" /> {label}
+                  </button>
+                ))}
+              </div>
+              {logOpen && (
+                <div className="mt-3 space-y-2">
+                  <input
+                    className="w-full text-sm border border-border/40 rounded-lg px-3 py-2 bg-background/70 focus:outline-none focus:ring-2 focus:ring-[#B8A0C8]/30"
+                    placeholder={logOpen === "note" ? "Note title (e.g. Pricing discussed)" : logOpen === "meeting" ? "Meeting title (e.g. Discovery call)" : "Call subject (e.g. Follow-up on proposal)"}
+                    value={logTitle}
+                    onChange={e => setLogTitle(e.target.value)}
+                  />
+                  <textarea
+                    rows={3}
+                    className="w-full text-sm border border-border/40 rounded-lg px-3 py-2 bg-background/70 focus:outline-none focus:ring-2 focus:ring-[#B8A0C8]/30 resize-none"
+                    placeholder={logOpen === "note" ? "Write your note, call transcript, or observations…" : logOpen === "meeting" ? "Agenda, key points, outcomes, next steps…" : "Paste transcript, call summary, or notes from the call…"}
+                    value={logBody}
+                    onChange={e => setLogBody(e.target.value)}
+                  />
+                  <div className="flex items-center gap-2 justify-end">
+                    <button onClick={() => { setLogOpen(null); setLogTitle(""); setLogBody(""); }}
+                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"><X className="w-3 h-3" /> Cancel</button>
+                    <button
+                      onClick={() => saveLog(logOpen)}
+                      disabled={logSaving || (!logTitle.trim() && !logBody.trim())}
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-40 transition-all"
+                      style={{ background: "#B8A0C8" }}>
+                      {logSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                      Save
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="glass-card rounded-2xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -425,12 +506,13 @@ export default function ContactProfilePage({ params }: Props) {
                 </div>
               </div>
               {items.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No engagement yet.</p>
+                <p className="text-sm text-muted-foreground">No engagement yet — use the "Log activity" panel above to add the first entry.</p>
               ) : (
                 <div className="space-y-3 relative">
                   <div className="absolute left-3 top-1 bottom-1 w-px bg-border/30" />
                   {items.map(it => {
                     const { color, Icon, label } = STYLE[it.kind];
+                    const txExpanded = expandedTranscripts.has(it.id);
                     return (
                       <div key={it.id} className="flex items-start gap-3 relative">
                         <div className="w-6 h-6 rounded-full bg-background border-2 flex items-center justify-center flex-shrink-0 z-10" style={{ borderColor: color }}>
@@ -444,6 +526,20 @@ export default function ContactProfilePage({ params }: Props) {
                           {it.body && <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{it.body}</p>}
                           {it.meta && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded font-medium mt-1 inline-block bg-muted/50 text-muted-foreground">{it.meta}</span>
+                          )}
+                          {it.transcript && (
+                            <div className="mt-1.5">
+                              <button
+                                onClick={() => setExpandedTranscripts(s => { const n = new Set(s); txExpanded ? n.delete(it.id) : n.add(it.id); return n; })}
+                                className="flex items-center gap-1 text-[10px] font-bold text-[#B8A0C8] hover:text-[#88B8B0] transition-colors">
+                                <Mic className="w-2.5 h-2.5" />
+                                {txExpanded ? "Hide transcript" : "View transcript"}
+                                <ChevronDown className={cn("w-3 h-3 transition-transform", txExpanded && "rotate-180")} />
+                              </button>
+                              {txExpanded && (
+                                <pre className="mt-1.5 text-[10px] text-muted-foreground bg-muted/30 rounded-lg p-3 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto font-mono border border-border/30">{it.transcript}</pre>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -570,7 +666,7 @@ export default function ContactProfilePage({ params }: Props) {
             company_name: contact.company_name,
           }}
           onClose={() => setShowCallModal(false)}
-          onCallSaved={() => setTab("calls")}
+          onCallSaved={() => setTab("engagement")}
         />
       )}
     </div>
