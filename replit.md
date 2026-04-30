@@ -109,6 +109,41 @@ Legacy routes `/voice-agents`, `/scripts`, `/call-redaction`, `/email`,
 `/messages`, `/whatsapp`, `/conversation-intelligence` remain mounted in
 `App.tsx` for direct deep-links and so the embedded sub-tabs resolve.
 
+## Enrichment section (revised April 2026)
+
+`lib/sections.ts` Enrichment section now exposes only **2** items:
+
+- **Enrichment Workspace** (`/section/enrichment`) — the section landing /
+  dashboard, auto-rendered by `section-hub.tsx` from `CONTENT.enrichment`.
+- **Enrichment Engine** (`/enrichment-engine`) — NEW
+  `pages/enrichment-engine.tsx`. Single consolidated page with 7 sub-tabs:
+  - **Prospecting** — search the seed database by company OR persona;
+    multi-select dropdown of enrichment signals to pull (grouped by Contact /
+    Profile / Company / Buying signals / Social) plus a custom-signal input;
+    company search returns the people-grid with per-row Enrich + Enrich-all.
+    Switching mode clears stale results; the result header reads from the
+    stored mode (not the live mode toggle).
+  - **Buying Signals** — channel-mapping panel (LinkedIn, X, Wamda, MoCI, PR
+    Newswire, Reuters, Argaam, custom RSS) with on/off toggles and an
+    add-channel form, followed by the lazy-loaded existing `SignalsPage` feed.
+  - **Quick Lead Enrich** — lazy-embeds `lead-enrich.tsx`.
+  - **Card Scanner** — lazy-embeds `business-cards.tsx`.
+  - **List Upload** — phase machine `upload → deduping → questionnaire →
+    queued`. After dedup runs, a 5-question droplist (data fields needed,
+    profiling depth, signal pack, dedup-survivor preference, optional batch
+    tag) gates the "Queue for enrichment" action.
+  - **Deduplication** — lazy-embeds `dedup.tsx`.
+  - **Search History** — filterable seed list (All / Company / Person / List /
+    Card scans). Re-run pipes the query back into the matching tab via the
+    parent's `prospectSeed` state and a `useEffect` consumer in
+    `ProspectingTab`. Delete is row-local.
+
+Bulk Enrichment, Quick Enrich Lead, Card Scanner, Buying Signals, and Lead
+Intelligence are **no longer separate nav items**. The standalone routes
+(`/sourcing`, `/signals`, `/lead-enrich`, `/business-cards`, `/dedup`,
+`/intelligence`) remain mounted in `App.tsx` so legacy deep-links resolve and
+so the Engine's lazy embeds work.
+
 ## Workflows
 
 Run via the Replit workflow panel — never `pnpm dev` at root.

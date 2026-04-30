@@ -83,12 +83,8 @@ export const SECTIONS: SectionDef[] = [
     accent: "#B8B880",
     defaultHref: "/section/enrichment",
     items: [
-      { icon: HomeIcon, label: "Enrichment Workspace", href: "/section/enrichment", desc: "AI-curated enrichment overview" },
-      { icon: Database, label: "Bulk Enrichment",     href: "/sourcing",          desc: "Find new leads · Clay-style waterfall" },
-      { icon: Wand2,    label: "Quick Enrich Lead",   href: "/lead-enrich",       desc: "Single-shot AI enrichment" },
-      { icon: ScanLine, label: "Card Scanner",        href: "/business-cards",    desc: "Scan biz cards into CRM" },
-      { icon: Zap,      label: "Buying Signals",      href: "/signals",           desc: "Funding, hiring, intent signals" },
-      { icon: Sparkles, label: "Lead Intelligence",   href: "/intelligence",      desc: "AI scoring & prioritization" },
+      { icon: HomeIcon, label: "Enrichment Workspace", href: "/section/enrichment", desc: "Daily briefing, KPIs & top signals" },
+      { icon: Database, label: "Enrichment Engine",    href: "/enrichment-engine",  desc: "Prospecting · Signals · Lists · Dedup · Cards · History" },
     ],
   },
   {
