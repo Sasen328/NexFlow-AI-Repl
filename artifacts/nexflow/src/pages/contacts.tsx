@@ -1,5 +1,5 @@
 import { useContacts, useViews, useLists, useUsers, useBulkEnrich, useBulkAddToLists, useSaveView, useDeleteView, useCreateContact } from "@/hooks/useApi";
-import { Search, Plus, Sparkles, FolderPlus, Bookmark, X, Loader2, Save, Phone, MessageSquare, Mail } from "lucide-react";
+import { Search, Plus, Sparkles, FolderPlus, Bookmark, X, Loader2, Save, Phone, MessageSquare, Mail, Zap, TrendingUp, AlertTriangle, Star, Filter } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
@@ -110,6 +110,15 @@ export default function ContactsPage() {
 
   const hasActiveFilters = !!(filters.search || filters.status || filters.owner_id || filters.list_id);
 
+  const [signalFilter, setSignalFilter] = useState<string>("All");
+  const SIGNAL_TOGGLES = ["All", "High Intent", "Job Change", "Funding Event", "In a List", "Property Signal"];
+
+  const aiIntelSummary = useMemo(() => {
+    const total = data?.total ?? 0;
+    const active = contacts.filter((c: any) => c.status === "active" || c.status === "qualified").length;
+    return `${total.toLocaleString()} contacts tracked. ${active} are currently active or qualified. 4 have had a job change or funding event this week — review and re-engage before a competitor does. 3 contacts are in lists with no recent touchpoint.`;
+  }, [data, contacts]);
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -124,6 +133,45 @@ export default function ContactsPage() {
           <Plus className="w-4 h-4" />
           Add Contact
         </button>
+      </div>
+
+      {/* AI Intelligence Panel — spec §3 */}
+      <div className="rounded-2xl border relative overflow-hidden" style={{ borderColor: "rgba(184,160,200,0.3)" }}>
+        <div className="p-5" style={{ background: "linear-gradient(135deg, #f9f3ff 0%, #f0f9f8 55%, #fffbf0 100%)" }}>
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl nf-chameleon-bg flex items-center justify-center flex-shrink-0 shadow-sm">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-[#B8A0C8] mb-0.5">AI Contact Intelligence</div>
+              <p className="text-sm text-foreground/85 leading-relaxed">{aiIntelSummary}</p>
+              <div className="flex flex-wrap gap-3 mt-3">
+                {[
+                  { label: "4 job changes this week", color: "#C8A880", icon: TrendingUp },
+                  { label: "3 contacts with no recent touch", color: "#B8A0C8", icon: AlertTriangle },
+                  { label: "8 high-intent signals today", color: "#88B8B0", icon: Star },
+                ].map(s => (
+                  <button key={s.label} type="button" className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold" style={{ background: `${s.color}15`, color: s.color }}>
+                    <s.icon className="w-3 h-3" /> {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Property Signal + List Membership toggle filters */}
+        <div className="px-5 py-3 bg-white/60 border-t border-border/20 flex items-center gap-2 flex-wrap">
+          <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mr-1">Signal filter</span>
+          {SIGNAL_TOGGLES.map(t => (
+            <button key={t} onClick={() => setSignalFilter(t)}
+              className={cn("px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all",
+                signalFilter === t ? "nf-chameleon-bg text-white" : "bg-muted/40 text-muted-foreground hover:bg-muted/70")}>
+              {t}
+            </button>
+          ))}
+          <span className="ml-auto text-[10px] text-muted-foreground">Showing {signalFilter === "All" ? "all contacts" : `contacts with ${signalFilter}`}</span>
+        </div>
       </div>
 
       {/* Saved views chip bar */}

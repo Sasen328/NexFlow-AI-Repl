@@ -117,10 +117,11 @@ export const SECTIONS: SectionDef[] = [
     defaultHref: "/marketing-dashboard",
     items: [
       { icon: LayoutDashboard, label: "Dashboard",            href: "/marketing-dashboard",   desc: "AI analysis · winning points · pain points · how to win" },
-      { icon: Sparkles,        label: "Campaign Builder",     href: "/campaign-builder",      desc: "AI builder · manual upload · publishing · cultural intel" },
-      { icon: GitBranch,       label: "Sequences & Audiences", href: "/sequences-audiences",  desc: "Cadences · templates · segments in one place" },
-      { icon: FileText,        label: "Web Forms",            href: "/web-forms",             desc: "AI form creator + ad-funnel forms" },
-      { icon: Eye,             label: "Campaign Performance", href: "/campaign-performance",  desc: "Per-campaign deep dive · hot lead alerts" },
+      { icon: Sparkles,        label: "Campaign Builder",        href: "/campaign-builder",      desc: "AI builder · manual upload · publishing · cultural intel" },
+      { icon: Wand2,           label: "Email & Message Generator", href: "/email-generator",  desc: "AI-generated Email · WhatsApp · SMS · bilingual GCC-native" },
+      { icon: GitBranch,       label: "Sequences & Audiences",  href: "/sequences-audiences",  desc: "Cadences · templates · segments in one place" },
+      { icon: FileText,        label: "Web Forms",              href: "/web-forms",             desc: "AI form creator + ad-funnel forms" },
+      { icon: Eye,             label: "Campaign Performance",   href: "/campaign-performance",  desc: "Per-campaign deep dive · hot lead alerts" },
     ],
   },
 
@@ -180,6 +181,17 @@ export const SECTIONS: SectionDef[] = [
     defaultHref: "/campaign-performance",
     items: [
       { icon: Eye, label: "Campaign Performance", href: "/campaign-performance", desc: "Per-campaign deep dive · hot lead alerts" },
+    ],
+  },
+  {
+    key: "tab-email-generator",
+    label: "Email & Message Generator",
+    icon: Wand2,
+    tagline: "AI-generated bilingual campaign copy.",
+    accent: "#B8A0C8",
+    defaultHref: "/email-generator",
+    items: [
+      { icon: Wand2, label: "Email & Message Generator", href: "/email-generator", desc: "AI-generated Email, WhatsApp & SMS · bilingual · GCC-native" },
     ],
   },
 
@@ -287,6 +299,7 @@ const LEGACY_PATH_PREFIX_TO_SECTION: Array<[string, string]> = [
 
   ["/marketing-dashboard","marketing"],
   ["/campaign-builder",   "marketing"],
+  ["/email-generator",    "marketing"],
   ["/sequences-audiences","marketing"],
   ["/sequences",          "marketing"],
   ["/web-forms",          "marketing"],
@@ -365,9 +378,10 @@ export function findTopNavBySection(sectionKey: string): TopNavEntry | null {
 const ALL_TOP_NAV_ENTRIES: TopNavEntry[] = [
   ...TOP_NAV,
   // Marketing-only single-page tabs:
-  { key: "tab-campaign-builder",     label: "Campaign Builder",     icon: Sparkles, sections: ["tab-campaign-builder"] },
-  { key: "tab-campaign-performance", label: "Campaign Performance", icon: Eye,      sections: ["tab-campaign-performance"] },
-  { key: "markhub",                  label: "MarkHub",              icon: Layers,   sections: ["markhub"] },
+  { key: "tab-campaign-builder",     label: "Campaign Builder",         icon: Sparkles, sections: ["tab-campaign-builder"] },
+  { key: "tab-campaign-performance", label: "Campaign Performance",     icon: Eye,      sections: ["tab-campaign-performance"] },
+  { key: "tab-email-generator",      label: "Email & Message Generator", icon: Wand2,   sections: ["tab-email-generator"] },
+  { key: "markhub",                  label: "MarkHub",                  icon: Layers,   sections: ["markhub"] },
 ];
 
 /** Map of role.key → ordered list of TopNavEntry keys to show.
@@ -390,7 +404,7 @@ export const ROLE_NAV: Record<string, string[]> = {
   // CRM Admin — full access including Marketing.
   admin:     ["home", "leads", "callcenter", "datahub", "insights", "marketing"],
   // Marketing — ONLY marketing-relevant surfaces.
-  marketing: ["home", "tab-campaign-builder", "tab-campaign-performance", "markhub"],
+  marketing: ["home", "tab-campaign-builder", "tab-email-generator", "tab-campaign-performance", "markhub"],
 };
 
 /** Returns the TopNavEntry list that should be visible for a given role.
