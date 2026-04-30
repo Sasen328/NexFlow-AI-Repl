@@ -502,6 +502,24 @@ function SalesAndExecHome() {
         </div>
       </div>
 
+      {/* ──── Studio entry-point CTA — discoverable from Home ──── */}
+      <Link href="/studio">
+        <div className="group rounded-2xl p-4 border cursor-pointer transition-all hover:shadow-md flex items-center gap-4"
+             style={{ background: "linear-gradient(135deg, #fdf6ff 0%, #f4f0ff 100%)", borderColor: "rgba(184,160,200,0.45)" }}>
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 nf-chameleon-bg shadow-sm">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-foreground">Open Studio</h3>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[#B8A0C8]/20 text-[#B8A0C8] font-bold uppercase tracking-wide">New</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">Your all-in-one workspace — focus list, active subject overview, and Conductor lane.</p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-[#B8A0C8] flex-shrink-0 group-hover:translate-x-0.5 transition-transform" />
+        </div>
+      </Link>
+
       {/* Tab Navigation */}
       <div className="flex gap-1 p-1.5 rounded-2xl w-fit" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(184,160,200,0.2)", backdropFilter: "blur(12px)" }}>
         {TABS.map(t => {
@@ -867,12 +885,11 @@ function SalesAndExecHome() {
       })()}
 
       {/* ──── TO-DO & ALERTS TAB (spec §2.3) ──── */}
+      {/* NOTE: TasksAlertsWireframeBlocks was rendered here before the
+       *  real implementation below, which duplicated every task and alert
+       *  for sales reps. Removed — the real implementation handles all
+       *  personas. */}
       {tab === "todo" && <div id="todo" className="scroll-mt-32" />}
-      {tab === "todo" && role.key === "sales" && (
-        <div className="mb-5">
-          <TasksAlertsWireframeBlocks tasks={tasks} />
-        </div>
-      )}
       {tab === "todo" && (() => {
         const totalCount = tasks.length;
         const doneCount = tasks.filter(t => t.done).length;
@@ -1008,6 +1025,13 @@ function SalesAndExecHome() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {cid && (
+                          <Link href={`/contacts/${cid}`}>
+                            <button type="button" className="px-2 py-1 rounded-lg text-[10px] font-bold border border-[#88B8B0]/40 text-[#88B8B0] hover:bg-[#88B8B0]/10 flex items-center gap-1">
+                              <Users className="w-3 h-3" />Open Lead
+                            </button>
+                          </Link>
+                        )}
                         <button type="button" onClick={() => toggleTask(task.id)}
                           className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-opacity"
                           style={{ background: PRIORITY_COLOR[bucket.key] }}>

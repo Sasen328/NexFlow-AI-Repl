@@ -29,15 +29,24 @@ const BusinessCardsPage = lazy(() => import("./business-cards"));
  * NOTE: List Upload + Dedup is intentionally NOT a tab here — it lives
  * as its own Data Hub sub-nav item at /dedup. Don't add it back.
  */
+/**
+ * Inner tabs — "bulk" and "quick" were two flavours of the same thing
+ * (enrich one lead vs many) and confused users who had to pick between
+ * tabs that did the same job. They're now merged into a single "enrich"
+ * tab with an internal Single ↔ Bulk mode toggle. The legacy `?tab=bulk`
+ * and `?tab=quick` deep links still resolve via the migration in
+ * `initialTab` below.
+ */
 type Tab =
   | "prospecting"
-  | "bulk"
-  | "quick"
+  | "enrich"
   | "cards"
   | "signals"
   | "engines"
   | "history"
   | "sources";
+
+type EnrichMode = "single" | "bulk";
 
 type ProspectMode = "company" | "person";
 
@@ -109,10 +118,18 @@ export default function EnrichmentEnginePage() {
   const initialTab: Tab = (() => {
     if (typeof window === "undefined") return "prospecting";
     const t = new URLSearchParams(window.location.search).get("tab");
-    const valid: Tab[] = ["prospecting", "bulk", "quick", "cards", "signals", "engines", "history", "sources"];
+    // Legacy tab keys map onto the merged "enrich" tab.
+    if (t === "bulk" || t === "quick") return "enrich";
+    const valid: Tab[] = ["prospecting", "enrich", "cards", "signals", "engines", "history", "sources"];
     return (valid as string[]).includes(t ?? "") ? (t as Tab) : "prospecting";
   })();
+  const initialEnrichMode: EnrichMode = (() => {
+    if (typeof window === "undefined") return "bulk";
+    const t = new URLSearchParams(window.location.search).get("tab");
+    return t === "quick" ? "single" : "bulk";
+  })();
   const [tab, setTab] = useState<Tab>(initialTab);
+  const [enrichMode, setEnrichMode] = useState<EnrichMode>(initialEnrichMode);
   const [prospectSeed, setProspectSeed] = useState<{ mode: ProspectMode; query: string } | null>(null);
   const [, navigate] = useLocation();
 
@@ -148,21 +165,45 @@ export default function EnrichmentEnginePage() {
         </div>
       </div>
 
-      {/* Sub-tabs — order is locked by the spec, do not reshuffle */}
+      {/* Sub-tabs — Bulk + Quick merged into one "Enrich" tab w/ mode toggle */}
       <div className="border-b border-border flex items-center gap-1 overflow-x-auto" role="tablist">
         <SubTab active={tab === "prospecting"} onClick={() => setTab("prospecting")} icon={Search}   label="Prospecting" />
-        <SubTab active={tab === "bulk"}        onClick={() => setTab("bulk")}        icon={Upload}   label="Bulk Enrichment" />
-        <SubTab active={tab === "quick"}       onClick={() => setTab("quick")}       icon={Sparkles} label="Quick Lead Enrich" />
-        <SubTab active={tab === "cards"}       onClick={() => setTab("cards")}       icon={ScanLine} label="Companies Card Scanner" />
+        <SubTab active={tab === "enrich"}      onClick={() => setTab("enrich")}      icon={Sparkles} label="Enrich" />
+        <SubTab active={tab === "cards"}       onClick={() => setTab("cards")}       icon={ScanLine} label="Card Scanner" />
         <SubTab active={tab === "signals"}     onClick={() => setTab("signals")}     icon={Zap}      label="Buying Signals" />
         <SubTab active={tab === "engines"}     onClick={() => setTab("engines")}     icon={BrainCircuit} label="Intel Engines" />
-        <SubTab active={tab === "history"}     onClick={() => setTab("history")}     icon={History}  label="Save History" />
         <SubTab active={tab === "sources"}     onClick={() => setTab("sources")}     icon={Database} label="Sources" />
+        <SubTab active={tab === "history"}     onClick={() => setTab("history")}     icon={History}  label="History" />
       </div>
 
       {tab === "prospecting" && <ProspectingTab seed={prospectSeed} onConsumeSeed={() => setProspectSeed(null)} />}
-      {tab === "bulk"        && <BulkEnrichmentTab />}
-      {tab === "quick"       && <Lazy><LeadEnrichPage /></Lazy>}
+      {tab === "enrich" && (
+        <div className="space-y-4">
+          <div className="inline-flex p-1 rounded-xl bg-muted/40 border border-border/40">
+            <button
+              type="button"
+              onClick={() => setEnrichMode("single")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                enrichMode === "single" ? "nf-chameleon-bg text-white" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Single lead
+            </button>
+            <button
+              type="button"
+              onClick={() => setEnrichMode("bulk")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                enrichMode === "bulk" ? "nf-chameleon-bg text-white" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Upload className="w-3.5 h-3.5" /> Bulk upload
+            </button>
+          </div>
+          {enrichMode === "single" ? <Lazy><LeadEnrichPage /></Lazy> : <BulkEnrichmentTab />}
+        </div>
+      )}
       {tab === "cards"       && <Lazy><BusinessCardsPage /></Lazy>}
       {tab === "signals"     && <BuyingSignalsTab />}
       {tab === "engines"     && <IntelEnginesTab />}

@@ -26,6 +26,9 @@ export interface SectionItem {
   label: string;
   href: string;
   desc: string;
+  /** Optional group header rendered above this item in the sidebar.
+   *  Items sharing the same group label are visually clustered. */
+  group?: string;
 }
 
 export interface SectionDef {
@@ -67,13 +70,14 @@ export const SECTIONS: SectionDef[] = [
     icon: GitBranch,
     tagline: "People, Companies, Deals, Accounts — one entry, internal tabs.",
     accent: "#88B8B0",
-    defaultHref: "/contacts",
+    defaultHref: "/leads/pipeline",
     items: [
+      { icon: BarChart3,  label: "Pipeline Planning", href: "/leads/pipeline", desc: "Funnel · gap analysis · AI suggestions · deal stages" },
       { icon: Users,      label: "People",         href: "/contacts",       desc: "All contacts · enrich · score · history" },
       { icon: Building2,  label: "Companies",      href: "/companies",      desc: "Accounts · revenue · contacts roster" },
       { icon: GitBranch,  label: "Deals",          href: "/deal-pipeline",  desc: "Kanban pipeline · stages · win/loss" },
       { icon: Network,    label: "Accounts (ABM)", href: "/accounts",       desc: "Strategic account map · key buying committee" },
-      { icon: BarChart3,  label: "Forecasting",    href: "/forecasting",    desc: "AI-driven revenue forecasts & scenarios" },
+      { icon: TrendingUp, label: "Forecasting",    href: "/forecasting",    desc: "AI-driven revenue forecasts & scenarios" },
       { icon: Heart,      label: "Health Scores",  href: "/health-scores",  desc: "Account health & churn risk" },
       { icon: FileText,   label: "Quotes",         href: "/quotes",         desc: "Quotes · CPQ · proposals" },
       { icon: CreditCard, label: "Quote-to-Cash",  href: "/quote-to-cash",  desc: "Order forms · invoices · payment tracking" },
@@ -85,17 +89,18 @@ export const SECTIONS: SectionDef[] = [
     key: "callcenter",
     label: "Comms",
     icon: MessageSquare,
-    tagline: "Unified inbox, dialer, voice agents, knowledge base.",
+    tagline: "WhatsApp + Email inbox, dialer, command center.",
     accent: "#C0A0B8",
     defaultHref: "/callcenter/messages",
     items: [
-      { icon: Inbox,           label: "Unified Inbox",       href: "/callcenter/messages",       desc: "All incoming — WhatsApp + Email + chat in one place" },
+      // Channels — direct conversation surfaces
+      { icon: MessageSquare,   label: "WhatsApp",            href: "/callcenter/messages",       desc: "Unified inbox — WhatsApp + Email threads in one place" },
       { icon: Phone,           label: "Dialer",              href: "/power-dialer",              desc: "Outbound calls — Manual · Auto-dial · AI Agent" },
       { icon: Phone,           label: "Calls & Transcripts", href: "/callcenter/calls",          desc: "History · transcripts · scoring · sentiment" },
-      { icon: Bot,             label: "AI Voice Agent",      href: "/callcenter/agent",          desc: "Automated callers · settings & deployments" },
-      { icon: MessageSquare,   label: "WhatsApp",            href: "/whatsapp",                  desc: "WhatsApp campaigns & broadcasts" },
-      { icon: Layers,          label: "Templates",           href: "/templates",                 desc: "Reusable scripts · email · WhatsApp templates" },
-      { icon: BookOpen,        label: "Knowledge Base",      href: "/callcenter/knowledge-base", desc: "Talk tracks · objections · playbooks" },
+      // Command Center — automation & content infrastructure
+      { icon: Bot,             label: "AI Voice Agent",      href: "/callcenter/agent",          desc: "Automated callers · settings & deployments", group: "Command Center" },
+      { icon: Layers,          label: "Templates",           href: "/templates",                 desc: "Reusable scripts · email · WhatsApp templates",  group: "Command Center" },
+      { icon: BookOpen,        label: "Knowledge Base",      href: "/callcenter/knowledge-base", desc: "Talk tracks · objections · playbooks",           group: "Command Center" },
     ],
   },
 
@@ -105,14 +110,14 @@ export const SECTIONS: SectionDef[] = [
     key: "datahub",
     label: "★ Enrichment",
     icon: Database,
-    tagline: "Engine · Data Providers · Find New Leads · Dedup · AI Workforce.",
+    tagline: "Engine · Dedup · Segments · AI Workforce.",
     accent: "#B8A0C8",
     defaultHref: "/enrichment-engine",
     items: [
-      { icon: BrainCircuit,    label: "Engine",            href: "/enrichment-engine",    desc: "The waterfall orchestrator · Masaar · ProsEngine · Lead Finder" },
-      { icon: Wand2,           label: "Quick Enrich",      href: "/lead-enrich",          desc: "Paste a lead → fill fields in seconds" },
-      { icon: Database,        label: "Data Providers",    href: "/datahub/ai-analytics", desc: "(was Sources) · Hunter · Apollo · MAGNiTT · Lusha · Wathiq…" },
-      { icon: Compass,         label: "Find New Leads",    href: "/sourcing",             desc: "(was Sourcing) · prospect net-new accounts" },
+      // Engine is the single hub: Prospecting / Bulk / Quick / Cards / Signals /
+      // Intel Engines / Sources / History all live as INNER tabs there. We
+      // intentionally do not duplicate those as sidebar entries.
+      { icon: BrainCircuit,    label: "Engine",            href: "/enrichment-engine",    desc: "The waterfall · Prospecting · Enrich · Sources · Intel Engines · Signals" },
       { icon: FileSpreadsheet, label: "Dedup",             href: "/dedup",                desc: "List Upload · duplicate detection · auto-merge" },
       { icon: Target,          label: "Segments",          href: "/datahub/segments",     desc: "Dynamic segments, filters, smart lists" },
       { icon: Bot,             label: "AI Workforce",      href: "/datahub/workforce",    desc: "Custom AI agents, prompts & scoring" },
