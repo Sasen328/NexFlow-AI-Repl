@@ -1,6 +1,6 @@
 import "./_group.css";
 import {
-  Home as HomeIcon, Users, MessageSquare, BarChart3,
+  Home as HomeIcon, Users, MessageSquare,
   Sparkles, Mic, MicOff, Volume2, PhoneOff, Phone,
   Mail, MessageCircle, Bell, Check, Edit3, X,
   ChevronRight, Clock, Lightbulb,
@@ -11,7 +11,6 @@ function MiniRail() {
     { id: "home", label: "Home", icon: HomeIcon },
     { id: "crm", label: "CRM", icon: Users, active: true },
     { id: "comms", label: "Comms", icon: MessageSquare },
-    { id: "insights", label: "Insights", icon: BarChart3 },
   ];
   return (
     <aside

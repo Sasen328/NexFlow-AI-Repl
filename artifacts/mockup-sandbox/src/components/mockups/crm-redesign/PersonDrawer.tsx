@@ -1,13 +1,13 @@
 import "./_group.css";
 import {
-  Home as HomeIcon, Users, MessageSquare, BarChart3,
+  Home as HomeIcon, Users, MessageSquare,
   Search, Sparkles, X, Phone, Mail, Calendar,
   FileText, ChevronRight, CornerDownLeft, ArrowRight,
   CircleDot,
 } from "lucide-react";
 
 function MiniRail() {
-  const items = [HomeIcon, Users, MessageSquare, BarChart3];
+  const items = [HomeIcon, Users, MessageSquare];
   return (
     <aside
       className="flex flex-col justify-between"
@@ -33,7 +33,7 @@ function MiniRail() {
                 }}
               >
                 <Icon size={15} strokeWidth={1.6} />
-                <span style={{ fontSize: 13 }}>{["Home","CRM","Comms","Insights"][i]}</span>
+                <span style={{ fontSize: 13 }}>{["Home","CRM","Comms"][i]}</span>
                 {isActive && <div style={{ width: 4, height: 4, borderRadius: 999, background: "var(--rd-accent)", marginLeft: "auto" }} />}
               </div>
             );

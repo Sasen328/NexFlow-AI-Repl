@@ -1,8 +1,8 @@
 import "./_group.css";
 import {
-  Home as HomeIcon, Users, MessageSquare, BarChart3, Settings,
-  Search, Command, Sparkles, ChevronRight, Phone, Mail, Calendar,
-  ArrowUpRight, CircleDot, MoreHorizontal,
+  Home as HomeIcon, Users, MessageSquare, Settings,
+  Search, Sparkles, ChevronRight, Phone, Mail, Calendar,
+  ArrowUpRight, CircleDot, MoreHorizontal, Plus, Compass,
 } from "lucide-react";
 
 function Rail({ active = "home" }: { active?: string }) {
@@ -10,7 +10,6 @@ function Rail({ active = "home" }: { active?: string }) {
     { id: "home", label: "Home", icon: HomeIcon },
     { id: "crm", label: "CRM", icon: Users },
     { id: "comms", label: "Comms", icon: MessageSquare },
-    { id: "insights", label: "Insights", icon: BarChart3 },
   ];
   return (
     <aside
@@ -23,15 +22,8 @@ function Rail({ active = "home" }: { active?: string }) {
     >
       <div>
         <div className="flex items-center gap-2 mb-10 px-1.5">
-          <div
-            className="rd-display"
-            style={{ fontSize: 22, color: "var(--rd-ink)", lineHeight: 1 }}
-          >
-            nx
-          </div>
-          <span style={{ fontSize: 12, color: "var(--rd-mute)", letterSpacing: "0.04em" }}>
-            NEXFLOW
-          </span>
+          <div className="rd-display" style={{ fontSize: 22, color: "var(--rd-ink)", lineHeight: 1 }}>nx</div>
+          <span style={{ fontSize: 12, color: "var(--rd-mute)", letterSpacing: "0.04em" }}>NEXFLOW</span>
         </div>
         <nav className="flex flex-col gap-1">
           {items.map((it) => {
@@ -42,8 +34,7 @@ function Rail({ active = "home" }: { active?: string }) {
                 key={it.id}
                 className="flex items-center gap-3 cursor-pointer"
                 style={{
-                  padding: "8px 10px",
-                  borderRadius: 8,
+                  padding: "8px 10px", borderRadius: 8,
                   color: isActive ? "var(--rd-ink)" : "var(--rd-mute)",
                   background: isActive ? "var(--rd-cream)" : "transparent",
                   fontWeight: isActive ? 500 : 400,
@@ -51,38 +42,19 @@ function Rail({ active = "home" }: { active?: string }) {
               >
                 <Icon size={15} strokeWidth={1.6} />
                 <span style={{ fontSize: 13 }}>{it.label}</span>
-                {isActive && (
-                  <div
-                    style={{
-                      width: 4, height: 4, borderRadius: 999,
-                      background: "var(--rd-accent)", marginLeft: "auto",
-                    }}
-                  />
-                )}
+                {isActive && <div style={{ width: 4, height: 4, borderRadius: 999, background: "var(--rd-accent)", marginLeft: "auto" }} />}
               </div>
             );
           })}
         </nav>
       </div>
       <div className="flex flex-col gap-3 px-1.5">
-        <div
-          className="flex items-center gap-2"
-          style={{ color: "var(--rd-mute)", fontSize: 12 }}
-        >
+        <div className="flex items-center gap-2" style={{ color: "var(--rd-mute)", fontSize: 12 }}>
           <Settings size={14} strokeWidth={1.6} />
           <span>Settings</span>
         </div>
         <div className="flex items-center gap-2.5">
-          <div
-            className="flex items-center justify-center"
-            style={{
-              width: 28, height: 28, borderRadius: 999,
-              background: "var(--rd-accent)",
-              color: "#fff", fontSize: 11, fontWeight: 500,
-            }}
-          >
-            SK
-          </div>
+          <div className="flex items-center justify-center" style={{ width: 28, height: 28, borderRadius: 999, background: "var(--rd-accent)", color: "#fff", fontSize: 11, fontWeight: 500 }}>SK</div>
           <div style={{ fontSize: 12 }}>
             <div style={{ color: "var(--rd-ink)" }}>Sara Khalid</div>
             <div style={{ color: "var(--rd-mute)", fontSize: 11 }}>Sales Rep</div>
@@ -95,25 +67,26 @@ function Rail({ active = "home" }: { active?: string }) {
 
 function Topbar() {
   return (
-    <div
-      className="flex items-center justify-between"
-      style={{ padding: "20px 36px 0 36px" }}
-    >
+    <div className="flex items-center justify-between" style={{ padding: "20px 36px 0 36px" }}>
       <div className="flex items-center gap-2" style={{ color: "var(--rd-mute)", fontSize: 12 }}>
-        <span>Tuesday</span>
-        <span>·</span>
-        <span>Apr 30, 2026</span>
-        <span>·</span>
-        <span>Dubai 09:14</span>
+        <span>Tuesday</span><span>·</span><span>Apr 30, 2026</span><span>·</span><span>Dubai 09:14</span>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
+        <button
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "6px 12px", borderRadius: 999,
+            background: "var(--rd-card)", border: "1px solid var(--rd-cream)",
+            color: "var(--rd-ink)", fontSize: 12, fontWeight: 500, cursor: "pointer",
+          }}
+        >
+          <Compass size={12} strokeWidth={1.8} style={{ color: "var(--rd-accent)" }} />
+          360° AI Analysis
+          <ChevronRight size={11} strokeWidth={1.8} style={{ color: "var(--rd-mute)" }} />
+        </button>
         <div
           className="flex items-center gap-2"
-          style={{
-            padding: "6px 10px",
-            borderRadius: 8, border: "1px solid var(--rd-cream)",
-            background: "var(--rd-card)", color: "var(--rd-mute)", fontSize: 12,
-          }}
+          style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid var(--rd-cream)", background: "var(--rd-card)", color: "var(--rd-mute)", fontSize: 12 }}
         >
           <Search size={13} strokeWidth={1.6} />
           <span>Search anything</span>
@@ -126,46 +99,75 @@ function Topbar() {
 
 function ConductorBubble({ count = 3 }: { count?: number }) {
   return (
-    <div
-      style={{
-        position: "absolute", bottom: 24, right: 28, zIndex: 50,
-        display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8,
-      }}
-    >
-      <div
-        className="rd-card flex items-center gap-2"
-        style={{
-          padding: "6px 10px 6px 8px",
-          fontSize: 11, color: "var(--rd-ink-2)",
-          boxShadow: "var(--rd-shadow-lift)",
-        }}
-      >
+    <div style={{ position: "absolute", bottom: 24, right: 28, zIndex: 50, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+      <div className="rd-card flex items-center gap-2" style={{ padding: "6px 10px 6px 8px", fontSize: 11, color: "var(--rd-ink-2)", boxShadow: "var(--rd-shadow-lift)" }}>
         <CircleDot size={10} style={{ color: "var(--rd-accent)" }} strokeWidth={2} />
         <span>{count} need you</span>
       </div>
       <div
         className="rd-pulse flex items-center justify-center"
-        style={{
-          width: 52, height: 52, borderRadius: 999,
-          background: "var(--rd-ink)",
-          color: "var(--rd-sand)", cursor: "pointer",
-          boxShadow: "var(--rd-shadow-lift)",
-          position: "relative",
-        }}
+        style={{ width: 52, height: 52, borderRadius: 999, background: "var(--rd-ink)", color: "var(--rd-sand)", cursor: "pointer", boxShadow: "var(--rd-shadow-lift)", position: "relative" }}
       >
         <Sparkles size={20} strokeWidth={1.5} />
-        <div
-          style={{
-            position: "absolute", top: -2, right: -2,
-            width: 18, height: 18, borderRadius: 999,
-            background: "var(--rd-accent)", color: "#fff",
-            fontSize: 10, fontWeight: 600,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            border: "2px solid var(--rd-sand)",
-          }}
-        >
+        <div style={{ position: "absolute", top: -2, right: -2, width: 18, height: 18, borderRadius: 999, background: "var(--rd-accent)", color: "#fff", fontSize: 10, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid var(--rd-sand)" }}>
           {count}
         </div>
+      </div>
+    </div>
+  );
+}
+
+type Task = {
+  time: string; who: string; role: string; action: string; hint: string;
+  icon: any; tone: "accent" | "amber" | "sage"; done?: boolean;
+};
+
+function TaskRow({ t, last }: { t: Task; last: boolean }) {
+  const Icon = t.icon;
+  const dotColor = t.tone === "accent" ? "var(--rd-accent)" : t.tone === "amber" ? "var(--rd-amber)" : "var(--rd-sage)";
+  return (
+    <div
+      className="grid items-start"
+      style={{
+        gridTemplateColumns: "22px 48px 1fr auto",
+        gap: 14,
+        padding: "12px 16px",
+        borderBottom: last ? "none" : "1px solid var(--rd-cream)",
+        cursor: "pointer",
+      }}
+    >
+      {/* Checkbox */}
+      <div style={{ paddingTop: 2 }}>
+        <div
+          style={{
+            width: 16, height: 16, borderRadius: 999,
+            border: `1.5px solid ${t.done ? "var(--rd-sage)" : "var(--rd-mute-2)"}`,
+            background: t.done ? "var(--rd-sage)" : "transparent",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          {t.done && <div style={{ width: 5, height: 5, background: "#fff", borderRadius: 999 }} />}
+        </div>
+      </div>
+      {/* Time */}
+      <div className="rd-mono" style={{ fontSize: 11, color: "var(--rd-mute)", paddingTop: 3 }}>{t.time}</div>
+      {/* Body */}
+      <div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span style={{ fontSize: 13, color: "var(--rd-ink)", fontWeight: 500, textDecoration: t.done ? "line-through" : "none" }}>{t.action}</span>
+          <span style={{ fontSize: 11.5, color: "var(--rd-mute)" }}>·</span>
+          <span style={{ fontSize: 12, color: "var(--rd-ink-2)" }}>{t.who}</span>
+          <span style={{ fontSize: 11.5, color: "var(--rd-mute)" }}>{t.role}</span>
+          <Icon size={11} strokeWidth={1.8} style={{ color: dotColor, marginLeft: 2 }} />
+        </div>
+        <div style={{ fontSize: 11.5, color: "var(--rd-mute)", marginTop: 3, fontStyle: "italic" }}>
+          <Sparkles size={9} className="inline" style={{ color: "var(--rd-accent)", marginRight: 5, marginBottom: 1 }} strokeWidth={1.8} />
+          {t.hint}
+        </div>
+      </div>
+      <div className="flex items-center gap-2" style={{ paddingTop: 2 }}>
+        <button style={{ padding: "4px 10px", borderRadius: 7, background: "transparent", border: "1px solid var(--rd-cream)", fontSize: 11.5, color: "var(--rd-ink-2)", cursor: "pointer" }}>Open</button>
+        <MoreHorizontal size={14} style={{ color: "var(--rd-mute-2)" }} />
       </div>
     </div>
   );
@@ -177,44 +179,14 @@ export function Home() {
     { label: "Today's commitments", value: "5", note: "from Conductor" },
     { label: "Overdue follow-ups", value: "2", note: "needs attention", warn: true },
   ];
-  const upNext = [
-    {
-      time: "10:00",
-      who: "Khaled Al-Mansoori",
-      role: "CTO · Aramco Digital",
-      action: "Discovery call",
-      hint: "Yesterday's blocker: Q2 budget. Bring the pilot ROI doc.",
-      icon: Phone,
-      tone: "accent",
-    },
-    {
-      time: "11:30",
-      who: "Layla Hamadi",
-      role: "VP Operations · Maersk MENA",
-      action: "Send pricing follow-up",
-      hint: "Composer drafted it. Awaiting your approval.",
-      icon: Mail,
-      tone: "amber",
-    },
-    {
-      time: "14:00",
-      who: "Faisal Al-Otaibi",
-      role: "Director · STC Solutions",
-      action: "Calendar nudge",
-      hint: "Silent 6 days. Listener flagged risk. Coach suggests 1-line check-in.",
-      icon: Calendar,
-      tone: "sage",
-    },
-    {
-      time: "16:30",
-      who: "Mariam Bouazizi",
-      role: "Founder · Tabby Africa",
-      action: "Quote review",
-      hint: "Dispatcher built v3. Margin stays at 38%. Open?",
-      icon: ArrowUpRight,
-      tone: "accent",
-    },
+
+  const tasks: Task[] = [
+    { time: "10:00", who: "Khaled Al-Mansoori", role: "· CTO Aramco Digital",  action: "Discovery call",         hint: "Yesterday's blocker: Q2 budget. Bring the pilot ROI doc.",            icon: Phone,         tone: "accent" },
+    { time: "11:30", who: "Layla Hamadi",       role: "· VP Ops Maersk MENA",  action: "Send pricing follow-up", hint: "Composer drafted it. Awaiting your approval.",                        icon: Mail,          tone: "amber" },
+    { time: "14:00", who: "Faisal Al-Otaibi",   role: "· Director STC",        action: "Calendar nudge",         hint: "Silent 6 days. Listener flagged risk. Coach suggests 1-line check-in.", icon: Calendar,    tone: "sage" },
+    { time: "16:30", who: "Mariam Bouazizi",    role: "· Founder Tabby Africa",action: "Quote review",           hint: "Dispatcher built v3. Margin stays at 38%. Open?",                     icon: ArrowUpRight,  tone: "accent" },
   ];
+  const done: Task = { time: "08:30", who: "Omar Habibi", role: "· Careem", action: "Slack standup recap", hint: "Posted to #ksa-deals at 08:34.", icon: MessageSquare, tone: "sage", done: true };
 
   return (
     <div className="rd-root flex" style={{ minHeight: "100vh", height: "100vh", overflow: "hidden", position: "relative" }}>
@@ -233,14 +205,7 @@ export function Home() {
 
         {/* Conductor brief hero card */}
         <section style={{ padding: "16px 36px 0 36px" }}>
-          <div
-            className="rd-card"
-            style={{
-              padding: "22px 24px",
-              background:
-                "linear-gradient(135deg, #FFFFFF 0%, #FBF9F4 60%, #F4DACD 220%)",
-            }}
-          >
+          <div className="rd-card" style={{ padding: "22px 24px", background: "linear-gradient(135deg, #FFFFFF 0%, #FBF9F4 60%, #F4DACD 220%)" }}>
             <div className="flex items-center gap-2 mb-3" style={{ color: "var(--rd-mute)", fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase" }}>
               <Sparkles size={12} strokeWidth={1.8} style={{ color: "var(--rd-accent)" }} />
               Conductor Brief · synced 7 min ago
@@ -251,24 +216,10 @@ export function Home() {
                   Khaled is the keystone today. He'll close the Aramco pilot if you address the Q2 budget objection in the first 5 minutes.
                 </div>
                 <div className="flex flex-wrap gap-2 mt-4">
-                  <button
-                    style={{
-                      background: "var(--rd-ink)", color: "var(--rd-sand)",
-                      padding: "8px 14px", borderRadius: 9,
-                      fontSize: 12.5, fontWeight: 500,
-                      display: "inline-flex", alignItems: "center", gap: 6, border: 0, cursor: "pointer",
-                    }}
-                  >
-                    Run morning playbook
-                    <ChevronRight size={14} strokeWidth={2} />
+                  <button style={{ background: "var(--rd-ink)", color: "var(--rd-sand)", padding: "8px 14px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 6, border: 0, cursor: "pointer" }}>
+                    Run morning playbook <ChevronRight size={14} strokeWidth={2} />
                   </button>
-                  <button
-                    style={{
-                      background: "transparent", color: "var(--rd-ink)",
-                      padding: "8px 14px", borderRadius: 9,
-                      fontSize: 12.5, border: "1px solid var(--rd-cream)", cursor: "pointer",
-                    }}
-                  >
+                  <button style={{ background: "transparent", color: "var(--rd-ink)", padding: "8px 14px", borderRadius: 9, fontSize: 12.5, border: "1px solid var(--rd-cream)", cursor: "pointer" }}>
                     Open all 3 in drawer
                   </button>
                 </div>
@@ -278,24 +229,15 @@ export function Home() {
                   Yesterday's commitments
                 </div>
                 {[
-                  { ok: true, txt: "Send Q1 case study to Khaled" },
-                  { ok: true, txt: "Confirm pricing tier with Layla" },
+                  { ok: true,  txt: "Send Q1 case study to Khaled" },
+                  { ok: true,  txt: "Confirm pricing tier with Layla" },
                   { ok: false, txt: "Schedule pilot kickoff with Faisal" },
                 ].map((c, i) => (
                   <div key={i} className="flex items-center gap-2.5" style={{ padding: "5px 0", fontSize: 12.5 }}>
-                    <div
-                      style={{
-                        width: 14, height: 14, borderRadius: 999,
-                        border: "1.5px solid " + (c.ok ? "var(--rd-sage)" : "var(--rd-mute-2)"),
-                        background: c.ok ? "var(--rd-sage)" : "transparent",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                      }}
-                    >
+                    <div style={{ width: 14, height: 14, borderRadius: 999, border: "1.5px solid " + (c.ok ? "var(--rd-sage)" : "var(--rd-mute-2)"), background: c.ok ? "var(--rd-sage)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {c.ok && <div style={{ width: 4, height: 4, background: "#fff", borderRadius: 999 }} />}
                     </div>
-                    <span style={{ color: c.ok ? "var(--rd-mute)" : "var(--rd-ink)", textDecoration: c.ok ? "line-through" : "none" }}>
-                      {c.txt}
-                    </span>
+                    <span style={{ color: c.ok ? "var(--rd-mute)" : "var(--rd-ink)", textDecoration: c.ok ? "line-through" : "none" }}>{c.txt}</span>
                   </div>
                 ))}
               </div>
@@ -308,88 +250,52 @@ export function Home() {
           <div className="grid grid-cols-3 gap-4">
             {stats.map((s) => (
               <div key={s.label} className="rd-card" style={{ padding: "18px 20px" }}>
-                <div style={{ fontSize: 11, color: "var(--rd-mute)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                  {s.label}
-                </div>
+                <div style={{ fontSize: 11, color: "var(--rd-mute)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{s.label}</div>
                 <div className="rd-display flex items-baseline gap-2 mt-1">
                   <span style={{ fontSize: 36, lineHeight: 1, color: "var(--rd-ink)" }}>{s.value}</span>
                 </div>
-                <div
-                  style={{
-                    fontSize: 11, marginTop: 8,
-                    color: s.warn ? "var(--rd-accent)" : "var(--rd-mute)",
-                  }}
-                >
-                  {s.note}
-                </div>
+                <div style={{ fontSize: 11, marginTop: 8, color: s.warn ? "var(--rd-accent)" : "var(--rd-mute)" }}>{s.note}</div>
               </div>
             ))}
           </div>
         </section>
 
-        {/* Up Next timeline */}
+        {/* TASKS — to-do list style */}
         <section style={{ padding: "28px 36px 100px 36px" }}>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-baseline gap-3">
-              <h2 className="rd-display" style={{ fontSize: 22, color: "var(--rd-ink)" }}>Up next</h2>
-              <span style={{ color: "var(--rd-mute)", fontSize: 12 }}>4 priorities · ordered by Conductor</span>
+              <h2 className="rd-display" style={{ fontSize: 22, color: "var(--rd-ink)" }}>Today's tasks</h2>
+              <span style={{ color: "var(--rd-mute)", fontSize: 12 }}>1 done · 4 to go · ordered by Conductor</span>
             </div>
-            <button style={{ background: "transparent", border: 0, color: "var(--rd-mute)", fontSize: 12, cursor: "pointer" }}>
-              View all <ChevronRight size={11} className="inline" />
-            </button>
+            <div className="flex items-center gap-2" style={{ fontSize: 11.5, color: "var(--rd-mute)" }}>
+              <span>View:</span>
+              <span style={{ color: "var(--rd-ink)", fontWeight: 500 }}>Today</span>
+              <span>·</span>
+              <span>Tomorrow</span>
+              <span>·</span>
+              <span>Week</span>
+            </div>
           </div>
-          <div className="rd-card" style={{ padding: 6 }}>
-            {upNext.map((u, i) => {
-              const Icon = u.icon;
-              const dotColor = u.tone === "accent" ? "var(--rd-accent)" : u.tone === "amber" ? "var(--rd-amber)" : "var(--rd-sage)";
-              return (
-                <div
-                  key={i}
-                  className="flex items-start gap-4"
-                  style={{
-                    padding: "14px 16px",
-                    borderBottom: i < upNext.length - 1 ? "1px solid var(--rd-cream)" : "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  <div
-                    className="rd-mono"
-                    style={{ fontSize: 11, color: "var(--rd-mute)", paddingTop: 2, minWidth: 36 }}
-                  >
-                    {u.time}
-                  </div>
-                  <div
-                    style={{
-                      width: 8, height: 8, borderRadius: 999, background: dotColor,
-                      marginTop: 6, flexShrink: 0,
-                    }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div className="flex items-center gap-2">
-                      <span style={{ fontSize: 13.5, color: "var(--rd-ink)", fontWeight: 500 }}>{u.who}</span>
-                      <span style={{ fontSize: 11.5, color: "var(--rd-mute)" }}>· {u.role}</span>
-                    </div>
-                    <div style={{ fontSize: 12, color: "var(--rd-ink-2)", marginTop: 2 }}>
-                      <Icon size={11} strokeWidth={1.8} className="inline" style={{ marginRight: 6, color: dotColor }} />
-                      {u.action}
-                    </div>
-                    <div style={{ fontSize: 12, color: "var(--rd-mute)", marginTop: 4, fontStyle: "italic" }}>
-                      {u.hint}
-                    </div>
-                  </div>
-                  <button
-                    style={{
-                      padding: "5px 10px", borderRadius: 8,
-                      background: "transparent", border: "1px solid var(--rd-cream)",
-                      fontSize: 11.5, color: "var(--rd-ink-2)", cursor: "pointer",
-                    }}
-                  >
-                    Open
-                  </button>
-                  <MoreHorizontal size={14} style={{ color: "var(--rd-mute-2)", marginTop: 4 }} />
-                </div>
-              );
-            })}
+          <div className="rd-card">
+            {/* Done section */}
+            <div style={{ padding: "8px 16px 4px 16px", fontSize: 10.5, color: "var(--rd-mute-2)", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--rd-cream)" }}>
+              Done · 1
+            </div>
+            <TaskRow t={done} last={false} />
+            {/* Up next section */}
+            <div style={{ padding: "10px 16px 4px 16px", fontSize: 10.5, color: "var(--rd-mute-2)", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--rd-cream)", borderTop: "1px solid var(--rd-cream)" }}>
+              Up next · 4
+            </div>
+            {tasks.map((t, i) => <TaskRow key={i} t={t} last={i === tasks.length - 1} />)}
+            {/* Add task row */}
+            <div
+              className="flex items-center gap-2"
+              style={{ padding: "11px 16px", borderTop: "1px solid var(--rd-cream)", fontSize: 12.5, color: "var(--rd-mute)", cursor: "pointer" }}
+            >
+              <Plus size={13} strokeWidth={2} />
+              <span>Add task</span>
+              <span className="rd-mono ml-auto" style={{ fontSize: 10, color: "var(--rd-mute-2)" }}>N</span>
+            </div>
           </div>
         </section>
       </main>
