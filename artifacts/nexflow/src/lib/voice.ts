@@ -45,7 +45,10 @@ export function createRecognizer(opts: {
   const r = new Ctor();
   r.lang = opts.lang ?? "en-US";
   r.interimResults = true;
-  r.continuous = true;
+  // Single-shot: auto-finalises on natural pause for snappier turn-taking.
+  // Continuous mode adds noticeable delay before `final` results arrive.
+  r.continuous = false;
+  r.maxAlternatives = 1;
   r.onresult = (event: any) => {
     let interim = "";
     let final = "";
@@ -83,13 +86,21 @@ export function speak(
   opts?: { lang?: string; rate?: number; pitch?: number; onEnd?: () => void },
 ): void {
   if (!isSpeechSynthesisSupported() || !text.trim()) return;
-  window.speechSynthesis.cancel();
+  const synth = window.speechSynthesis;
+  synth.cancel();
+  // Some Chromium builds need a tick after cancel() before speak() will fire.
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = opts?.lang ?? "en-US";
-  utter.rate = opts?.rate ?? 1;
+  utter.rate = opts?.rate ?? 1.05;
   utter.pitch = opts?.pitch ?? 1;
   if (opts?.onEnd) utter.onend = () => opts.onEnd?.();
-  window.speechSynthesis.speak(utter);
+  // Pick a clearer default voice if available.
+  const voices = synth.getVoices();
+  const preferred = voices.find((v) => v.lang === utter.lang)
+    ?? voices.find((v) => v.lang.startsWith(utter.lang.split("-")[0]));
+  if (preferred) utter.voice = preferred;
+  // Defer one micro-tick to dodge the cancel-then-speak race in some browsers.
+  setTimeout(() => synth.speak(utter), 0);
 }
 
 export function stopSpeaking(): void {
