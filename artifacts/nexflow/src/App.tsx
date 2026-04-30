@@ -43,6 +43,10 @@ import PropertiesPage from "@/pages/properties";
 import ListsPage from "@/pages/lists";
 import ListDetailPage from "@/pages/list-detail";
 import FunnelPage from "@/pages/funnel";
+import PipelinePage from "@/pages/pipeline";
+import DealPipelinePage from "@/pages/deal-pipeline";
+import CrmDashboardPage from "@/pages/crm-dashboard";
+import EngagementPage from "@/pages/engagement";
 import CallListPage from "@/pages/call-list";
 import DashboardsPage from "@/pages/dashboards";
 import DashboardDetailPage from "@/pages/dashboard-detail";
@@ -125,6 +129,10 @@ function AppLayout() {
           <Route path="/lists/:id" component={ListDetailPage} />
           <Route path="/properties" component={PropertiesPage} />
           <Route path="/funnel" component={FunnelPage} />
+          <Route path="/pipeline" component={PipelinePage} />
+          <Route path="/deal-pipeline" component={DealPipelinePage} />
+          <Route path="/crm-dashboard" component={CrmDashboardPage} />
+          <Route path="/engagement" component={EngagementPage} />
           <Route path="/dashboards" component={DashboardsPage} />
           <Route path="/dashboards/:id" component={DashboardDetailPage} />
           <Route path="/insights" component={InsightsPage} />

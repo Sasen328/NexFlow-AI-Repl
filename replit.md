@@ -38,6 +38,42 @@ user push a single composition to LinkedIn / X / Instagram / Facebook /
 WhatsApp / Email / SMS in one click. The Composer modal is fully accessible
 (`role="dialog"`, `aria-modal`, focus trap, Escape to close, focus restoration).
 
+## CRM section structure (revised April 2026)
+
+`lib/sections.ts` defines section nav. CRM section now has, in order:
+
+- CRM Workspace (`/section/crm`) — workspace landing page (auto-rendered by `section-hub.tsx`)
+- CRM Dashboard (`/crm-dashboard`) — KPIs + AI briefing + lead-stage strip + quick actions
+- Pipeline (`/pipeline`) — pre-SAL lead funnel + AI gap analysis + stuck leads + drill-down panel
+- Deal Pipeline (`/deal-pipeline`) — wraps existing `DealsPage` kanban with AI stage analysis header
+- Contacts
+- Engagement Activities (`/engagement`) — sub-tabs (All / Calls / Meetings) reusing `ActivitiesPage` / `CallsPage` / `MeetingsPage` + channel quick-jump
+- Companies & Accounts (`/companies`) — internal tab switcher: Companies grid (beefed-up with employees, funding stage, deals count, last engagement) + Account Hub (embeds `AccountsPage`)
+- Forecasting
+
+Quotes & CPQ and Health Scores moved to "Data Tools / More".
+CRM, Contact Center, and Enrichment all `defaultHref` to `/section/{key}`
+with a "Workspace Home" first item that points back to the section landing.
+
+`/funnel`, `/deals`, `/accounts`, `/activities`, `/calls`, `/meetings`
+are kept as aliases so legacy links and the old hubs still resolve.
+
+## Home: Daily Briefing + Command Center
+
+`pages/briefing.tsx` (mounted at `/briefing` and shown as Home) now has just
+two tabs:
+
+- **Daily Briefing** — AI summary, performance KPIs, agenda, signals,
+  re-engagement opportunities, "Next Best Action" call cards.
+- **Command Center** — `CommandLauncher` action grid (Log Call Note, Send
+  WhatsApp, Send Email, Schedule Follow-up, AI Voice Call, Coaching Session,
+  Generate List, Scoring & Gaps Report) followed by the AI tasks list and AI
+  insights.
+
+Action launcher buttons either deep-link (`/voice-agents`, `/coaching`,
+`/lists`, `/pipeline`) or POST a synthetic activity to `/activities` so the
+launcher is instantly demoable.
+
 ## Workflows
 
 Run via the Replit workflow panel — never `pnpm dev` at root.
