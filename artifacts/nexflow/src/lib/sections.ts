@@ -6,6 +6,7 @@ import {
   UserSquare2, ListIcon, Filter, FileSpreadsheet, Settings, MoreHorizontal,
   BrainCircuit,
   Send, Share2, MessageSquare, Home as HomeIcon, AlertCircle, Search,
+  Compass, Inbox,
   type LucideIcon,
 } from "lucide-react";
 
@@ -50,7 +51,8 @@ export const SECTIONS: SectionDef[] = [
     accent: "#B8A0C8",
     defaultHref: "/home",
     items: [
-      { icon: Sparkles,  label: "Daily Briefing",     href: "/home",              desc: "AI-generated overview of your day" },
+      { icon: Sparkles,  label: "Command Center",     href: "/home",              desc: "360° AI Analysis · morning brief · today's calendar · tasks · AI assistant" },
+      { icon: Compass,   label: "Studio",             href: "/enrichment-engine", desc: "All-in-one workspace · where you actually work" },
       { icon: BarChart3, label: "Performance",        href: "/home#performance",  desc: "Live KPIs and trend strip" },
       { icon: ListIcon,  label: "To-Do & Alerts",     href: "/home#todo",         desc: "AI-prioritised tasks for today" },
       { icon: Activity,  label: "Insights Dashboard", href: "/home#insights",     desc: "Lead insights + news + AI summary" },
@@ -61,11 +63,11 @@ export const SECTIONS: SectionDef[] = [
   // The key remains "leads" to keep ROLE_NAV / legacy deep links working.
   {
     key: "leads",
-    label: "CRM",
-    icon: Briefcase,
-    tagline: "Dashboard, pipelines, deals, contacts, companies, forecasting.",
+    label: "Pipeline",
+    icon: GitBranch,
+    tagline: "Pipelines, deals, contacts, companies, forecasting — one entry, internal tabs.",
     accent: "#88B8B0",
-    defaultHref: "/crm-dashboard",
+    defaultHref: "/funnel",
     items: [
       { icon: LayoutDashboard, label: "Dashboard",             href: "/crm-dashboard",     desc: "AI summary · winning tactics · pipeline flows" },
       { icon: GitBranch,       label: "Pipeline",              href: "/pipeline",          desc: "Pre-SAL funnel — MQL → SAL1 → SAL2" },
@@ -86,20 +88,22 @@ export const SECTIONS: SectionDef[] = [
   // ─── 3. Call Center (rename of Contact Center) ────────────────────
   {
     key: "callcenter",
-    label: "Call Center",
-    icon: Headphones,
-    tagline: "Voice, AI agents, knowledge, and messages.",
+    label: "Comms",
+    icon: MessageSquare,
+    tagline: "Unified inbox, dialer, voice agents, knowledge base.",
     accent: "#C0A0B8",
-    defaultHref: "/callcenter/dashboard",
+    defaultHref: "/callcenter/messages",
     items: [
-      { icon: LayoutDashboard, label: "Dashboard",            href: "/callcenter/dashboard",      desc: "Today's calls, heatmap, leaderboard, predictive" },
-      { icon: Phone,           label: "Power Dialer",         href: "/power-dialer",              desc: "Live dialer · Manual · Auto-dial · AI Agent · live transcript + coach" },
-      { icon: Phone,           label: "Calls & Transcripts",  href: "/callcenter/calls",          desc: "Call scoring, live coaching, objection handler" },
-      { icon: Activity,        label: "Conversation Intel",   href: "/calls",                     desc: "Conversation intelligence · sentiment · keywords" },
+      { icon: Inbox,           label: "Unified Inbox",        href: "/callcenter/messages",       desc: "All incoming streams — WhatsApp + Email + chat in one place" },
+      { icon: Phone,           label: "Dialer",               href: "/power-dialer",              desc: "Start outbound calls — Manual · Auto-dial · AI Agent" },
+      { icon: Phone,           label: "Calls & Transcripts",  href: "/callcenter/calls",          desc: "History + AI notes · scoring · objection handler" },
+      { icon: Bot,             label: "AI Voice Agent",       href: "/callcenter/agent",          desc: "Automated callers · settings & deployments" },
+      { icon: Activity,        label: "Conversation Intel",   href: "/calls",                     desc: "What was said · sentiment · keywords" },
+      { icon: MessageSquare,   label: "WhatsApp",             href: "/whatsapp",                  desc: "WhatsApp inbox & campaigns" },
+      { icon: Mail,            label: "Email",                href: "/email",                     desc: "Email inbox & threads" },
+      { icon: Layers,          label: "Templates",            href: "/templates",                 desc: "Reusable scripts/snippets" },
+      { icon: BookOpen,        label: "Knowledge Base",       href: "/callcenter/knowledge-base", desc: "Talk tracks · scripts · objections · playbooks" },
       { icon: Send,            label: "Post-Call Automation", href: "/post-call-automation",      desc: "Auto WhatsApp · Email · follow-up tasks after every call" },
-      { icon: Bot,             label: "AI Voice Agent",       href: "/callcenter/agent",          desc: "Voice agent settings & deployments" },
-      { icon: BookOpen,        label: "Knowledge Base",       href: "/callcenter/knowledge-base", desc: "Scripts · Objections · Playbooks · Company insights" },
-      { icon: MessageSquare,   label: "Messages",             href: "/callcenter/messages",       desc: "WhatsApp + Email in one inbox" },
       { icon: Settings,        label: "Cloud Center Setup",   href: "/contact-center-setup",      desc: "Settings + Knowledge for AI Voice Agent" },
     ],
   },
@@ -108,24 +112,26 @@ export const SECTIONS: SectionDef[] = [
   // Key remains "datahub" so ROLE_NAV / legacy deep links keep working.
   {
     key: "datahub",
-    label: "Data Hub",
+    label: "★ Enrichment",
     icon: Database,
-    tagline: "AI Analytics · Enrichment Engine · List Upload · Segments · AI Workforce.",
-    accent: "#B8B880",
-    defaultHref: "/datahub/ai-analytics",
+    tagline: "Engine · Data Providers · Find New Leads · Dedup · AI Workforce.",
+    accent: "#B8A0C8",
+    defaultHref: "/enrichment-engine",
     items: [
-      { icon: BrainCircuit,    label: "AI Analytics",            href: "/datahub/ai-analytics", desc: "Live AI insights & autonomous action toggles" },
-      { icon: Database,        label: "Enrichment Engine",       href: "/enrichment-engine",    desc: "Prospecting · bulk · quick · cards · signals · save history" },
-      { icon: FileSpreadsheet, label: "List Upload + Dedup",     href: "/dedup",                desc: "Upload CSVs · auto-dedup · enrich" },
-      { icon: Target,          label: "Segments",                href: "/datahub/segments",     desc: "Dynamic segments, filters, smart lists" },
-      { icon: Bot,             label: "AI Workforce",            href: "/datahub/workforce",    desc: "Custom AI agents, prompts & scoring" },
+      { icon: BrainCircuit,    label: "Engine",            href: "/enrichment-engine",    desc: "The waterfall orchestrator · Masaar · ProsEngine · Lead Finder" },
+      { icon: Wand2,           label: "Quick Enrich",      href: "/lead-enrich",          desc: "Paste a lead → fill fields in seconds" },
+      { icon: Database,        label: "Data Providers",    href: "/datahub/ai-analytics", desc: "(was Sources) · Hunter · Apollo · MAGNiTT · Lusha · Wathiq…" },
+      { icon: Compass,         label: "Find New Leads",    href: "/sourcing",             desc: "(was Sourcing) · prospect net-new accounts" },
+      { icon: FileSpreadsheet, label: "Dedup",             href: "/dedup",                desc: "List Upload · duplicate detection · auto-merge" },
+      { icon: Target,          label: "Segments",          href: "/datahub/segments",     desc: "Dynamic segments, filters, smart lists" },
+      { icon: Bot,             label: "AI Workforce",      href: "/datahub/workforce",    desc: "Custom AI agents, prompts & scoring" },
     ],
   },
 
   // ─── 5. Marketing (kept from prior overhaul) ──────────────────────
   {
     key: "marketing",
-    label: "Marketing",
+    label: "Growth",
     icon: Megaphone,
     tagline: "AI-powered campaigns from seed → publish → measure.",
     accent: "#C8A880",
@@ -258,12 +264,12 @@ export interface TopNavEntry {
 }
 
 export const TOP_NAV: TopNavEntry[] = [
-  { key: "home",       label: "Home",        icon: Sparkles,    sections: ["home"] },
-  { key: "leads",      label: "Leads",       icon: Briefcase,   sections: ["leads"] },
-  { key: "callcenter", label: "Call Center", icon: Headphones,  sections: ["callcenter"] },
-  { key: "datahub",    label: "Data Hub",    icon: Database,    sections: ["datahub"] },
-  { key: "marketing",  label: "Marketing",   icon: Megaphone,   sections: ["marketing"] },
-  { key: "insights",   label: "Insights",    icon: BarChart3,   sections: ["insights"] },
+  { key: "home",       label: "Home",         icon: Sparkles,      sections: ["home"] },
+  { key: "leads",      label: "Pipeline",     icon: GitBranch,     sections: ["leads"] },
+  { key: "callcenter", label: "Comms",        icon: MessageSquare, sections: ["callcenter"] },
+  { key: "datahub",    label: "★ Enrichment", icon: Database,      sections: ["datahub"] },
+  { key: "marketing",  label: "Growth",       icon: Megaphone,     sections: ["marketing"] },
+  { key: "insights",   label: "Insights",     icon: BarChart3,     sections: ["insights"] },
 ];
 
 // ─── Legacy path → section key remap ────────────────────────────────
