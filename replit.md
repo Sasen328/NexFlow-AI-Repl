@@ -30,13 +30,49 @@ Public routes: `/`, `/welcome`, `/about`, `/pricing`, `/signin`, `/signup`,
 `/investors`. Everything else falls through to `ProtectedAppLayout` in
 `App.tsx`, which redirects to `/signin` when `isSignedIn()` is false.
 
-## Marketing section (in-app)
+## Marketing section (in-app, overhaul April 2026)
 
-`lib/sections.ts` defines the Marketing tab. Meetings and Quote-to-Cash were
-removed; a new "Channels & Publishing" page (`pages/channels.tsx`) lets the
-user push a single composition to LinkedIn / X / Instagram / Facebook /
-WhatsApp / Email / SMS in one click. The Composer modal is fully accessible
-(`role="dialog"`, `aria-modal`, focus trap, Escape to close, focus restoration).
+`lib/sections.ts` Marketing tab collapsed from 9 items to 6:
+
+- **Marketing Workspace** (`/section/marketing`) — landing page
+- **Marketing Dashboard** (`/marketing-dashboard`, `pages/marketing-dashboard.tsx`)
+  — KPI tiles, AI 3-up analysis (Winning / Pain / How-to-Win) calling
+  `/api/marketing/assistant-chat` with strict-JSON extraction & sample
+  fallback, Cultural Intelligence alert banner, Hot Lead Alerts strip
+  with Call/Email/WhatsApp CTAs.
+- **Campaign Builder** (`/campaign-builder`, `pages/campaign-builder.tsx`)
+  — 4 sub-tabs:
+  - *Sales Funnel* — leads-by-stage tiles + segment cards with "AI Build" CTA
+  - *AI Builder* — 6-step wizard. Real AI calls:
+    `/api/marketing/assistant-chat` for key messages + per-channel variants
+    (LinkedIn / X / IG / FB / WhatsApp / Email / SMS each in their own tone),
+    `/api/marketing/generate-image` for the campaign visual. Cultural
+    Intelligence toggle injects GCC tone (Khaleeji aesthetic, Arabic-first,
+    Sun-Wed mornings). Per-output Refresh re-runs the API.
+  - *Manual Builder* — campaign basics, key messages, body copy, file uploads.
+  - *Publishing* — channel picker (7 channels) + datetime schedule + publish;
+    POSTs to `/api/marketing/publish/:campaignId` (sample id synthesises
+    results so the flow is demoable end-to-end).
+- **Sequences & Audiences** (`/sequences-audiences`,
+  `pages/sequences-audiences.tsx`) — 3 sub-tabs lazy-embedding existing
+  `SequencesPage` / `TemplatesPage` / `AudiencesPage`.
+- **Web Forms** (`/web-forms`, `pages/web-forms.tsx`) — adds AI Form Creator
+  (calls `/assistant-chat` with a strict-JSON prompt to draft fields) and
+  Predictive Analysis card (health grade, predicted open / conv rate,
+  pricing & channel suggestions). Templates chip strip. Existing edit /
+  embed / submissions list preserved.
+- **Campaign Performance** (`/campaign-performance`,
+  `pages/campaign-performance.tsx`) — campaign dropdown selector. Per
+  campaign: status + channels published, 7-KPI grid, ROI strip, hot-lead
+  URGENT banner with "Alert rep" CTA, AI improvement suggestions card with
+  Re-analyse button (calls `/assistant-chat`), benchmark bars.
+
+All AI calls extract JSON via `reply.match(/\{[\s\S]*\}/)` and fall back to
+sample data when the AI provider isn't configured or returns unparseable
+output, so the Marketing UI is fully demoable in any environment.
+
+Legacy routes kept for back-compat: `/campaigns`, `/channels`, `/sequences`,
+`/templates`, `/audiences`, `/cultural-intelligence`, `/marketing-assistant`.
 
 ## CRM section structure (revised April 2026)
 

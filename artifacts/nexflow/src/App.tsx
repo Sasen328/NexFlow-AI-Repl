@@ -87,6 +87,10 @@ import DedupPage from "@/pages/dedup";
 import LeadEnrichPage from "@/pages/lead-enrich";
 import EnrichmentEnginePage from "@/pages/enrichment-engine";
 import MarketingAssistantPage from "@/pages/marketing-assistant";
+import MarketingDashboardPage from "@/pages/marketing-dashboard";
+import CampaignBuilderPage from "@/pages/campaign-builder";
+import SequencesAudiencesPage from "@/pages/sequences-audiences";
+import CampaignPerformancePage from "@/pages/campaign-performance";
 import PowerDialerPage from "@/pages/power-dialer";
 import AccountSettingsPage from "@/pages/account-settings";
 import PermissionsPage from "@/pages/permissions";
@@ -182,6 +186,11 @@ function AppLayout() {
           <Route path="/lead-enrich" component={LeadEnrichPage} />
           <Route path="/enrichment-engine" component={EnrichmentEnginePage} />
           <Route path="/marketing-assistant" component={MarketingAssistantPage} />
+          {/* New Marketing tab structure (overhaul) */}
+          <Route path="/marketing-dashboard" component={MarketingDashboardPage} />
+          <Route path="/campaign-builder" component={CampaignBuilderPage} />
+          <Route path="/sequences-audiences" component={SequencesAudiencesPage} />
+          <Route path="/campaign-performance" component={CampaignPerformancePage} />
           <Route path="/power-dialer" component={PowerDialerPage} />
           <Route path="/account-settings" component={AccountSettingsPage} />
           <Route path="/account-settings/:section" component={AccountSettingsPage} />
