@@ -150,8 +150,12 @@ Tailor approach_strategy.recommended_approach and sample_message specifically to
   if (provider !== "fallback") sourcesUsed.push(`synthesis:${provider}`);
 
   // Make sure intelligence_notes.data_sources reflects what actually fired
-  if (!report.intelligence_notes) (report as any).intelligence_notes = EMPTY_PERSON.intelligence_notes;
-  report.intelligence_notes.data_sources = Array.from(new Set([...(report.intelligence_notes.data_sources ?? []), ...sourcesUsed]));
+  if (!report.intelligence_notes) {
+    report.intelligence_notes = { ...EMPTY_PERSON.intelligence_notes };
+  }
+  report.intelligence_notes.data_sources = Array.from(
+    new Set([...(report.intelligence_notes.data_sources ?? []), ...sourcesUsed]),
+  );
 
   return { report, sourcesUsed };
 }
