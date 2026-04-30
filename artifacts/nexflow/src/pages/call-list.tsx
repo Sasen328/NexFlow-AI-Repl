@@ -1,9 +1,9 @@
-import { useCallList, useLogCall, useAutoAdvanceStages, useAnalytics } from "@/hooks/useApi";
+import { useCallList, useLogCall, useAutoAdvanceStages, useAnalytics, useCalls } from "@/hooks/useApi";
 import { Link } from "wouter";
 import {
   Phone, Sparkles, Flame, Snowflake, RotateCw, TrendingUp, Clock, Zap,
   Check, X, SkipForward, Loader2, BarChart3, Target, Users, ArrowUpRight,
-  ArrowDownRight, Brain, Filter, ChevronDown
+  ArrowDownRight, Brain, Filter, ChevronDown, PhoneOff, AlertTriangle
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,17 @@ const CATEGORY_META: Record<string, { icon: any; color: string; label: string; d
   warm: { icon: Sparkles, color: "#B8A0C8", label: "Warm", desc: "Active in pipeline" },
   retry: { icon: RotateCw, color: "#90B8B8", label: "Retry", desc: "No answer recently — try again" },
   cold: { icon: Snowflake, color: "#88B8B0", label: "Cold", desc: "Lower priority but worth a touch" },
+  failure: { icon: PhoneOff, color: "#C0A0B8", label: "Failure", desc: "Attempted calls that didn't connect — needs recovery action" },
+};
+
+const FAILURE_REASON_LABELS: Record<string, string> = {
+  no_answer: "No answer",
+  voicemail: "Voicemail (no callback)",
+  busy: "Line busy",
+  wrong_number: "Wrong number",
+  failed: "Call failed",
+  dropped: "Dropped mid-call",
+  not_connected: "Not connected",
 };
 
 const OUTCOMES = [
@@ -53,6 +64,7 @@ type MetricTab = "today" | "week" | "month";
 export default function CallCenterIntelligencePage() {
   const { data, isLoading } = useCallList();
   const { data: analyticsData } = useAnalytics();
+  const { data: callsData } = useCalls({ limit: "200" });
   const autoAdvance = useAutoAdvanceStages();
   const [logging, setLogging] = useState<any | null>(null);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
@@ -255,13 +267,22 @@ export default function CallCenterIntelligencePage() {
       {/* Category filter */}
       <div className="flex items-center gap-2 flex-wrap">
         <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-        {["all", "hot", "warm", "retry", "cold"].map(cat => (
-          <button key={cat} onClick={() => setCatFilter(cat)}
-            className={cn("px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-all",
-              catFilter === cat ? "nf-chameleon-bg text-white" : "bg-muted/40 text-muted-foreground hover:text-foreground")}>
-            {cat}
-          </button>
-        ))}
+        {["all", "hot", "warm", "retry", "cold", "failure"].map(cat => {
+          const isActive = catFilter === cat;
+          const isFailure = cat === "failure";
+          return (
+            <button key={cat} onClick={() => setCatFilter(cat)}
+              className={cn("px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-all flex items-center gap-1.5",
+                isActive
+                  ? (isFailure ? "bg-[#C0A0B8] text-white" : "nf-chameleon-bg text-white")
+                  : (isFailure
+                    ? "bg-[#C0A0B8]/10 text-[#A07090] border border-[#C0A0B8]/30 hover:bg-[#C0A0B8]/20"
+                    : "bg-muted/40 text-muted-foreground hover:text-foreground"))}>
+              {isFailure && <PhoneOff className="w-3 h-3" />}
+              {cat}
+            </button>
+          );
+        })}
       </div>
 
       {/* Call list */}
@@ -269,6 +290,72 @@ export default function CallCenterIntelligencePage() {
         <div className="space-y-3">{Array(4).fill(0).map((_, i) => <div key={i} className="h-32 glass-card rounded-2xl animate-pulse" />)}</div>
       ) : (
         <div className="space-y-5">
+          {(catFilter === "all" || catFilter === "failure") && (() => {
+            const FAILURE_STATUSES = new Set(["no_answer", "voicemail", "busy", "wrong_number", "failed", "dropped", "not_connected"]);
+            const failures = ((callsData?.calls ?? []) as any[])
+              .filter((c) => FAILURE_STATUSES.has(c.status) || FAILURE_STATUSES.has(c.outcome))
+              .filter((c) => !skipped.has(c.id) && !done.has(c.id))
+              .slice(0, 12);
+            if (!failures.length) return null;
+            const meta = CATEGORY_META.failure;
+            const Icon = meta.icon;
+            return (
+              <div key="failure">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <Icon className="w-4 h-4" style={{ color: meta.color }} />
+                  <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">{meta.label}</h2>
+                  <span className="text-xs text-muted-foreground">· {failures.length} · {meta.desc}</span>
+                </div>
+                <div className="grid md:grid-cols-2 gap-3">
+                  {failures.map((c: any) => {
+                    const reason = FAILURE_REASON_LABELS[c.outcome ?? c.status] ?? "Failed connect";
+                    const attempts = c.retry_count ?? c.attempts ?? 1;
+                    const contactId = c.contact_id ?? c.id;
+                    const contactName = c.contact_name ?? (`${c.first_name ?? ""} ${c.last_name ?? ""}`.trim() || "Unknown contact");
+                    const initials = contactName.split(" ").map((w: string) => w[0]).slice(0, 2).join("");
+                    return (
+                      <div key={c.id} className="glass-card rounded-2xl p-4 group hover:shadow-md transition-all border border-[#C0A0B8]/30 bg-[#C0A0B8]/5">
+                        <div className="flex items-start gap-3">
+                          <Link href={`/contacts/${contactId}`}>
+                            <div className="w-10 h-10 rounded-full bg-[#C0A0B8] text-white text-xs font-bold flex items-center justify-center flex-shrink-0 cursor-pointer">
+                              {initials || "?"}
+                            </div>
+                          </Link>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <Link href={`/contacts/${contactId}`}>
+                                <div className="font-semibold text-foreground text-sm truncate hover:text-[#A07090] cursor-pointer">{contactName}</div>
+                              </Link>
+                              <div className="flex items-center gap-1 text-[10px] font-bold text-[#A07090] bg-[#C0A0B8]/15 px-1.5 py-0.5 rounded-md">
+                                <AlertTriangle className="w-3 h-3" />
+                                {attempts}x
+                              </div>
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">{c.company_name ?? c.company ?? "—"}</div>
+                            <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground flex-wrap">
+                              <span className="flex items-center gap-1 text-[#A07090] font-semibold"><PhoneOff className="w-3 h-3" />{reason}</span>
+                              {c.last_attempt_at && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(c.last_attempt_at).toLocaleDateString()}</span>}
+                              {c.agent_name && <span>· {c.agent_name}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border/20">
+                          <button onClick={() => setLogging({ id: contactId, first_name: contactName.split(" ")[0], last_name: contactName.split(" ").slice(1).join(" "), company_name: c.company_name, title: c.title })}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#C0A0B8] text-white text-xs font-semibold hover:opacity-90">
+                            <RotateCw className="w-3 h-3" /> Retry call
+                          </button>
+                          <button onClick={() => skip(c.id)}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-muted/50 text-muted-foreground text-xs font-medium hover:bg-muted">
+                            <SkipForward className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
           {(["hot", "warm", "retry", "cold"] as const).filter(c => catFilter === "all" || catFilter === c).map(cat => {
             const items = (data?.categories?.[cat] ?? []).filter((c: any) => !skipped.has(c.id) && !done.has(c.id));
             if (!items.length) return null;
@@ -332,7 +419,7 @@ export default function CallCenterIntelligencePage() {
       )}
 
       {logging && (
-        <LogCallModal contact={logging} onClose={() => setLogging(null)} onLogged={(id) => { setDone(new Set([...done, id])); setLogging(null); }} />
+        <LogCallModal contact={logging} onClose={() => setLogging(null)} onLogged={(id: string) => { setDone(new Set([...done, id])); setLogging(null); }} />
       )}
     </div>
   );

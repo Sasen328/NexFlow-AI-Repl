@@ -66,7 +66,9 @@ export const SECTIONS: SectionDef[] = [
     defaultHref: "/leads/pipeline",
     items: [
       { icon: GitBranch,    label: "Pipeline & Deals", href: "/leads/pipeline",   desc: "Lead funnel + post-SAL deal stages in one view" },
-      { icon: Users,        label: "Lists",            href: "/leads/lists",      desc: "Contacts, companies, static & dynamic lists" },
+      { icon: Users,        label: "Contacts",         href: "/contacts",         desc: "All people · enrich · score · history" },
+      { icon: Building2,    label: "Companies",        href: "/companies",        desc: "Account hub · revenue · contacts roster" },
+      { icon: ListIcon,     label: "Lists",            href: "/leads/lists",      desc: "Static & dynamic lists, campaign audiences" },
       { icon: Search,       label: "Research",         href: "/leads/research",   desc: "Account & contact research with AI signals" },
       { icon: AlertCircle,  label: "Forgotten Leads",  href: "/leads/forgotten",  desc: "Idle 90+ days but with a fresh signal" },
     ],
@@ -370,14 +372,20 @@ const ALL_TOP_NAV_ENTRIES: TopNavEntry[] = [
 
 /** Map of role.key → ordered list of TopNavEntry keys to show.
  *
- *  IMPORTANT: Sales Rep, Sales Manager, and CRM Admin must see EVERYTHING
- *  (the full default TOP_NAV including DataHub → Enrichment). They are
- *  intentionally NOT listed here so `getNavForRole` falls back to the
- *  full TOP_NAV. Only CEO and Marketing are scoped to a curated subset.
+ *  IMPORTANT: Sales Manager and CRM Admin must see EVERYTHING (full
+ *  TOP_NAV including DataHub → Enrichment). They are intentionally
+ *  NOT listed here so `getNavForRole` falls back to the full TOP_NAV.
+ *  Sales Rep is scoped to remove the full Marketing module — they
+ *  instead get a curated Campaign Briefing widget on /home that
+ *  surfaces hot leads who clicked / interacted with campaigns.
+ *  CEO and Marketing are scoped to their own curated surfaces.
  */
 export const ROLE_NAV: Record<string, string[]> = {
   // CEO — exec dashboards, marketing performance, high-level pipeline.
   ceo:       ["home", "insights", "marketing", "leads"],
+  // Sales Rep — daily operating surfaces only. NO Marketing module.
+  // Campaign briefing & hot-lead signals appear inside /home.
+  sales:     ["home", "leads", "callcenter", "insights"],
   // Marketing — ONLY marketing-relevant surfaces.
   marketing: ["home", "tab-campaign-builder", "tab-campaign-performance", "markhub"],
 };
