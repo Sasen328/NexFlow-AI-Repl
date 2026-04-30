@@ -249,17 +249,14 @@ function MasaarPanel() {
   async function run() {
     setErr(null); setResult(null); setBusy(true);
     try {
-      const r = await apiFetch("/engines/masaar/run", {
+      const data = await apiFetch("/engines/masaar/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           crNumber: crNumber.trim() || undefined,
           nameEn: nameEn.trim() || undefined,
           nameAr: nameAr.trim() || undefined,
         }),
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error ?? "Run failed");
       setResult(data);
     } catch (e: any) {
       setErr(e?.message ?? "Run failed");
@@ -393,9 +390,8 @@ function PersonIntelPanel() {
   async function run() {
     setErr(null); setResult(null); setBusy(true);
     try {
-      const r = await apiFetch("/engines/person-intel/run", {
+      const data = await apiFetch("/engines/person-intel/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
           company: company.trim() || undefined,
@@ -410,8 +406,6 @@ function PersonIntelPanel() {
           } : undefined,
         }),
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error ?? "Run failed");
       setResult(data);
     } catch (e: any) {
       setErr(e?.message ?? "Run failed");
@@ -566,9 +560,8 @@ function CompanyIntelPanel() {
   async function run() {
     setErr(null); setResult(null); setBusy(true);
     try {
-      const r = await apiFetch("/engines/company-intel/run", {
+      const data = await apiFetch("/engines/company-intel/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           companyName: companyName.trim(),
           website: website.trim() || undefined,
@@ -578,8 +571,6 @@ function CompanyIntelPanel() {
           sellerContext: sellerProduct ? { product: sellerProduct.trim() } : undefined,
         }),
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error ?? "Run failed");
       setResult(data);
     } catch (e: any) { setErr(e?.message ?? "Run failed"); }
     finally { setBusy(false); }
@@ -732,9 +723,8 @@ function LeadFinderPanel() {
   async function run() {
     setErr(null); setResult(null); setBusy(true);
     try {
-      const r = await apiFetch("/engines/lead-finder/run", {
+      const data = await apiFetch("/engines/lead-finder/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           companyName: companyName.trim(),
           website: website.trim() || undefined,
@@ -744,8 +734,6 @@ function LeadFinderPanel() {
           count: Number(count) || 10,
         }),
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error ?? "Run failed");
       setResult(data);
     } catch (e: any) { setErr(e?.message ?? "Run failed"); }
     finally { setBusy(false); }
@@ -879,9 +867,7 @@ function HistoryPanel() {
       const params = new URLSearchParams();
       if (filter === "saved") params.set("saved", "1");
       else if (filter !== "all") params.set("engine", filter);
-      const r = await apiFetch(`/engines/runs?${params.toString()}`);
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error ?? "Load failed");
+      const data = await apiFetch(`/engines/runs?${params.toString()}`);
       setRows(data.rows ?? []);
     } catch (e: any) { setErr(e?.message ?? "Load failed"); }
     finally { setBusy(false); }
