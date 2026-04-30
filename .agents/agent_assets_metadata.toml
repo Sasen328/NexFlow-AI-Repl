@@ -95,3 +95,9 @@ id = "av0PsRGNId4y_N4rlicQo"
 uri = "file://artifacts/company-profile-deck/COMPANY_PROFILE.md"
 type = "text"
 title = "NexFlow Company Profile"
+
+[[outputs]]
+id = "kUyRLREFK1SsGQ-UZreHA"
+uri = "file://attached_assets/nexflow-redesign.zip"
+type = "unspecified"
+title = "NexFlow — Calm OS Redesign · Tour HTML"
