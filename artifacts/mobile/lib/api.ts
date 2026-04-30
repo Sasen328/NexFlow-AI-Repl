@@ -264,7 +264,10 @@ export function useCalls(params?: { contact_id?: string; limit?: number }) {
     : "";
   return useQuery({
     queryKey: ["calls", params],
-    queryFn: () => apiFetch<{ calls: ApiCall[] }>(`/calls${qs}`),
+    queryFn: async () => {
+      const r = await apiFetch<any>(`/calls${qs}`);
+      return Array.isArray(r) ? { calls: r as ApiCall[] } : (r as { calls: ApiCall[] });
+    },
     staleTime: 30_000,
   });
 }
@@ -274,6 +277,107 @@ export function useForgottenLeads() {
     queryKey: ["forgotten-leads"],
     queryFn: () => apiFetch<{ leads: any[]; summary: string | null }>("/ai/forgotten-leads"),
     staleTime: 120_000,
+  });
+}
+
+// ---------- Signals (per-contact) ----------
+export type ApiSignal = {
+  id: string;
+  contact_id: string | null;
+  contact_name?: string | null;
+  company_name?: string | null;
+  title: string;
+  body: string | null;
+  score: number;
+  type: string | null;
+  source?: string | null;
+  created_at?: string;
+};
+
+export function useSignals(params?: { contact_id?: string; limit?: number }) {
+  const qs = params
+    ? "?" +
+      new URLSearchParams(
+        Object.fromEntries(
+          Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]),
+        ),
+      ).toString()
+    : "";
+  return useQuery({
+    queryKey: ["signals", params],
+    queryFn: async () => {
+      const r = await apiFetch<any>(`/signals${qs}`);
+      return Array.isArray(r) ? { signals: r as ApiSignal[] } : (r as { signals: ApiSignal[] });
+    },
+    staleTime: 60_000,
+  });
+}
+
+// ---------- Contact lists ----------
+export type ApiList = { id: string; name: string; color?: string | null; smart?: boolean };
+
+export function useContactLists(contactId?: string) {
+  return useQuery({
+    queryKey: ["contact", contactId, "lists"],
+    queryFn: () => apiFetch<{ lists: ApiList[] }>(`/contacts/${contactId}/lists`),
+    enabled: !!contactId,
+    staleTime: 60_000,
+  });
+}
+
+// ---------- Custom properties ----------
+export type ApiProperty = {
+  id: string;
+  object_type: string;
+  key: string;
+  label: string;
+  type: string;
+  options?: string[] | null;
+};
+export type ApiPropertyValue = { id: string; property_id: string; entity_id: string; value: any };
+
+export function useProperties(objectType: string) {
+  return useQuery({
+    queryKey: ["properties", objectType],
+    queryFn: () => apiFetch<{ properties: ApiProperty[] }>(`/properties?object_type=${objectType}`),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function usePropertyValues(entityId?: string) {
+  return useQuery({
+    queryKey: ["property-values", entityId],
+    queryFn: () => apiFetch<{ values: ApiPropertyValue[] }>(`/properties/values/${entityId}`),
+    enabled: !!entityId,
+    staleTime: 60_000,
+  });
+}
+
+export function useUpsertPropertyValue() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { property_id: string; entity_id: string; value: any }) =>
+      apiPost<ApiPropertyValue>("/properties/values", input),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["property-values", vars.entity_id] });
+    },
+  });
+}
+
+// ---------- Contact AI overview ----------
+export type ContactOverviewResult = {
+  summary?: string;
+  engagement_score?: number;
+  strengths?: string[];
+  risks?: string[];
+  talking_points?: string[];
+  recommendations?: Array<{ priority?: string; title?: string; rationale?: string }>;
+};
+
+export function useContactOverview() {
+  return useMutation({
+    mutationFn: (contactId: string) =>
+      apiPost<ContactOverviewResult>(`/ai/contacts/${contactId}/overview`, {}),
   });
 }
 
