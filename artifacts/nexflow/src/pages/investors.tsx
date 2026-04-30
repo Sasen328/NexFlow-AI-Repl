@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 
 async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
-  const url = `${window.location.origin}/api-server/api${path}`;
+  const url = `${window.location.origin}/api${path}`;
   const res = await fetch(url, {
     credentials: "include",
     headers: { "Content-Type": "application/json", ...(opts.headers ?? {}) },
@@ -284,7 +284,7 @@ function UnlockedView({ onLogout }: { onLogout: () => void }) {
   }
 
   function downloadHref(slug: string): string {
-    return `${window.location.origin}/api-server/api/investors/download/${slug}`;
+    return `${window.location.origin}/api/investors/download/${slug}`;
   }
 
   return (
