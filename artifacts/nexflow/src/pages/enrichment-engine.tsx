@@ -5,7 +5,7 @@ import {
   GitMerge, History, ChevronRight, Plus, Check, X, Loader2, Filter,
   Mail, Phone, Linkedin, Briefcase, Globe, TrendingUp, Newspaper,
   Hash, Twitter, Rss, Trash2, RefreshCw, ChevronDown, FileText, Tag,
-  FlaskConical, BrainCircuit,
+  FlaskConical, BrainCircuit, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/hooks/useApi";

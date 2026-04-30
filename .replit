@@ -11,6 +11,27 @@ env = { "CI" = "true" }
 [workflows]
 runButton = "Project"
 
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Enrichment Scraper"
+
+[[workflows.workflow]]
+name = "Enrichment Scraper"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/enrichment-scraper run dev"
+waitForPort = 8000
+
+[workflows.workflow.metadata]
+outputType = "console"
+
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
@@ -19,6 +40,10 @@ integrations = ["resend:1.0.0"]
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[[ports]]
+localPort = 8000
+externalPort = 3001
 
 [[ports]]
 localPort = 8080
@@ -62,4 +87,4 @@ externalPort = 8008
 
 [nix]
 channel = "stable-25_05"
-packages = ["fontconfig", "ghostscript", "glib", "harfbuzz", "pango"]
+packages = ["fontconfig", "ghostscript", "glib", "harfbuzz", "libxcrypt", "pango", "xcodebuild", "zlib"]

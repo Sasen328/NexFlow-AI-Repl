@@ -413,6 +413,9 @@ function SalesAndExecHome() {
   // Insights tab — per-card snooze + action-taken state
   const [insightSnoozed, setInsightSnoozed] = useState<Set<number>>(new Set());
   const [insightActed, setInsightActed] = useState<Set<number>>(new Set());
+  // "Deeper analysis" expands an inline panel below the AI summary —
+  // does NOT navigate to /insights anymore (user feedback).
+  const [showDeeperAnalysis, setShowDeeperAnalysis] = useState(false);
   // Performance tab — date filter
   type PerfFilter = "Today" | "This Week" | "This Month" | "Quarter" | "Custom";
   const PERF_FILTERS: PerfFilter[] = ["Today", "This Week", "This Month", "Quarter", "Custom"];
@@ -481,23 +484,7 @@ function SalesAndExecHome() {
             </button>
           </div>
 
-          <div className="mt-4 p-5 rounded-2xl backdrop-blur-sm border" style={{ background: "rgba(255,255,255,0.6)", borderColor: "rgba(184,160,200,0.3)" }}>
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl nf-chameleon-bg flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
-              <div className="flex-1">
-                <div className="text-xs font-bold text-[#B8A0C8] uppercase tracking-wider mb-1">
-                  Your AI Daily Briefing · for {role.label}
-                </div>
-                <p className="text-sm text-foreground/85 leading-relaxed">
-                  {persona.briefing(totalPipeline)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div id="performance" className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 scroll-mt-32">
+          <div id="performance" className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 scroll-mt-32">
             {persona.kpis.map(s => (
               <div key={s.label} className="rounded-xl p-3 flex items-center gap-3 backdrop-blur-sm" style={{ background: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.7)" }}>
                 <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${s.color}20` }}>
@@ -537,13 +524,6 @@ function SalesAndExecHome() {
       {/* ──── DAILY BRIEFING TAB ──── */}
       {tab === "briefing" && (
         <div className="space-y-5">
-          {/* SECTION 1 — AI Summary + Action Buttons + Suggested Actions */}
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#B8A0C8]">Section 1</span>
-            <span className="h-px flex-1 bg-gradient-to-r from-[#B8A0C8]/40 to-transparent" />
-            <span className="text-xs font-semibold text-foreground/80">AI summary · what you need to do today</span>
-          </div>
-
           {/* AI Briefing Summary Card */}
           <div className="rounded-2xl overflow-hidden border" style={{ borderColor: "rgba(184,160,200,0.3)" }}>
             <div className="p-5" style={{ background: "linear-gradient(135deg, #f9f3ff 0%, #f0f9f8 60%, #fffbf0 100%)" }}>
@@ -635,93 +615,77 @@ function SalesAndExecHome() {
             </div>
           </div>
 
-          {/* SECTION B — Command Center */}
-          <div className="flex items-center gap-2 mt-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#C8A880]">Section B</span>
-            <span className="h-px flex-1 bg-gradient-to-r from-[#C8A880]/40 to-transparent" />
-            <span className="text-xs font-semibold text-foreground/80">Command Center · action hub</span>
-          </div>
-          <CommandLauncher firstName={firstName} navigate={navigate} />
-
-          {/* SECTION C — Daily Insights mini + Schedule + Top Signals */}
-          <div className="flex items-center gap-2 mt-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#88B8B0]">Section C</span>
-            <span className="h-px flex-1 bg-gradient-to-r from-[#88B8B0]/40 to-transparent" />
-            <span className="text-xs font-semibold text-foreground/80">Daily Insights (mini) · Schedule · Top signals</span>
-          </div>
-
-          {/* Mini insights — top 3 cards */}
-          <div className="space-y-2">
-            {personaInsights.slice(0, 3).map((ins, idx) => {
-              const Icon = ins.icon;
-              return (
-                <div key={idx} className="glass-card rounded-xl p-4 flex items-start gap-3"
-                  style={{ borderLeft: `3px solid ${ins.color}` }}>
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${ins.color}20` }}>
-                    <Icon className="w-4 h-4" style={{ color: ins.color }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-foreground">{ins.title}</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: `${ins.color}20`, color: ins.color }}>{ins.tag}</span>
-                    </div>
-                    <p className="text-[11px] text-foreground/75 leading-relaxed mt-0.5 line-clamp-2">{ins.body}</p>
-                  </div>
-                  <button onClick={() => setTab("insights")} className="text-[10px] font-semibold text-[#B8A0C8] hover:underline flex-shrink-0 flex items-center gap-0.5">
-                    Full view <ChevronRight className="w-3 h-3" />
-                  </button>
+          {/* Two-column layout — LEFT sidebar = Schedule + Signals stacked,
+              RIGHT main column = Bottlenecks & Coaching analysis. */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* LEFT — Schedule + Signals stacked */}
+            <div className="lg:col-span-1 space-y-4">
+              {/* Today's Schedule */}
+              <div className="glass-card rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Calendar className="w-4 h-4 text-[#88B8B0]" />
+                  <h2 className="font-semibold text-foreground text-sm">Today's Schedule</h2>
+                  <Link href="/meetings" className="ml-auto text-[10px] font-semibold text-[#88B8B0] hover:underline">All →</Link>
                 </div>
-              );
-            })}
-            <button onClick={() => setTab("insights")} className="w-full py-2 text-xs font-semibold text-[#B8A0C8] hover:underline flex items-center justify-center gap-1">
-              <BarChart3 className="w-3.5 h-3.5" />
-              Open Insights Dashboard — {personaInsights.length} active insights
-              <ArrowRight className="w-3 h-3" />
-            </button>
+                <div className="space-y-2">
+                  {personaAgenda.slice(0, 6).map((item, i) => {
+                    const Channel = CHANNEL_ICON[item.channel];
+                    return (
+                      <div key={i} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-white/40 transition-colors">
+                        <div className="text-[10px] font-bold text-muted-foreground w-10 text-right flex-shrink-0">{item.time}</div>
+                        <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", item.status === "task" ? "bg-[#C8A880]" : "bg-[#88B8B0]")} />
+                        <Channel className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                        <span className="text-xs text-foreground/85 leading-snug flex-1">{item.title}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Top Signals — last 24h */}
+              <div className="glass-card rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Zap className="w-4 h-4 text-[#B8B880]" />
+                  <h2 className="font-semibold text-foreground text-sm">Top Signals · 24h</h2>
+                  <Link href="/signals" className="ml-auto text-[10px] font-semibold text-[#B8B880] hover:underline">All →</Link>
+                </div>
+                <div className="space-y-2">
+                  {HOT_SIGNALS.slice(0, 4).map((s, i) => (
+                    <div key={i} className="p-2.5 rounded-lg border" style={{ borderColor: "#B8B88025", background: "#B8B88008" }}>
+                      <div className="flex items-start gap-2">
+                        <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ background: "#B8B88025" }}>
+                          <Zap className="w-3 h-3 text-[#B8B880]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-semibold text-foreground leading-snug">{s.title}</div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">{s.impact}</div>
+                          <Link href={`/contacts/${s.contactId}`}>
+                            <span className="text-[10px] font-bold text-[#B8A0C8] hover:underline cursor-pointer">{s.contact} →</span>
+                          </Link>
+                        </div>
+                        <span className="text-xs font-black text-[#B8B880] flex-shrink-0">{s.score}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT — Bottlenecks & Coaching (full analysis) */}
+            <div className="lg:col-span-2">
+              <BottlenecksCoachingPanel
+                tasks={tasks}
+                forgotten={forgotten}
+                forgottenSummary={forgottenSummary}
+                recentCalls={recentCalls}
+                contactByName={contactByName}
+                navigate={navigate}
+              />
+            </div>
           </div>
 
-          {/* Optional: Schedule + Signals side-by-side */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="glass-card rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <Calendar className="w-4 h-4 text-[#88B8B0]" />
-                <h2 className="font-semibold text-foreground text-sm">Today's Schedule</h2>
-              </div>
-              <div className="space-y-2">
-                {personaAgenda.slice(0, 5).map((item, i) => {
-                  const Channel = CHANNEL_ICON[item.channel];
-                  return (
-                    <div key={i} className="flex items-center gap-3">
-                      <div className="text-[10px] font-bold text-muted-foreground w-10 text-right flex-shrink-0">{item.time}</div>
-                      <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", item.status === "task" ? "bg-[#C8A880]" : "bg-[#88B8B0]")} />
-                      <Channel className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                      <span className="text-xs text-foreground/85 truncate flex-1">{item.title}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="glass-card rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <Zap className="w-4 h-4 text-[#B8B880]" />
-                <h2 className="font-semibold text-foreground text-sm">Top Signals · Last 24h</h2>
-              </div>
-              <div className="space-y-2">
-                {HOT_SIGNALS.slice(0, 4).map((s, i) => (
-                  <div key={i} className="flex items-start gap-2 p-2 rounded-lg border" style={{ borderColor: "#B8B88025", background: "#B8B88008" }}>
-                    <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ background: "#B8B88025" }}>
-                      <Zap className="w-3 h-3 text-[#B8B880]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold text-foreground truncate">{s.title}</div>
-                      <div className="text-[10px] text-muted-foreground">{s.impact}</div>
-                    </div>
-                    <span className="text-xs font-black text-[#B8B880] flex-shrink-0">{s.score}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          {/* Action Launcher (compact, full width) */}
+          <CommandLauncher firstName={firstName} navigate={navigate} />
         </div>
       )}
 
@@ -1089,11 +1053,13 @@ function SalesAndExecHome() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => navigate("/insights")}
+                    onClick={() => setShowDeeperAnalysis(v => !v)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl nf-chameleon-bg text-white text-xs font-semibold hover:opacity-90 flex-shrink-0"
+                    aria-expanded={showDeeperAnalysis}
                   >
                     <Sparkles className="w-3 h-3" />
-                    Deeper analysis
+                    {showDeeperAnalysis ? "Hide deeper analysis" : "Deeper analysis"}
+                    <ChevronRight className={cn("w-3 h-3 transition-transform", showDeeperAnalysis ? "rotate-90" : "")} />
                   </button>
                 </div>
                 <p className="text-sm text-foreground/85 leading-relaxed mt-2">{aiSummary}</p>
@@ -1103,6 +1069,41 @@ function SalesAndExecHome() {
                       <span key={t} className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-white/70 text-foreground/70 border border-white">{t}</span>
                     ))}
                     <span className="text-[10px] text-muted-foreground ml-1">· {visibleInsights.length} active · {actedCount} actioned</span>
+                  </div>
+                )}
+
+                {/* Inline "deeper analysis" panel — opens in place, no nav. */}
+                {showDeeperAnalysis && (
+                  <div className="mt-4 p-4 rounded-xl bg-white/70 border border-[#B8A0C8]/30 space-y-3">
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-[#B8A0C8] mb-1">Cross-insight pattern</div>
+                      <p className="text-xs text-foreground/85 leading-relaxed">
+                        {topTags.length === 0
+                          ? "Not enough active insights to detect a pattern yet."
+                          : `${topTags[0]} dominates today's signal (${tagCounts[topTags[0]] ?? 0} of ${visibleInsights.length} insights). When this theme clusters, the highest-leverage move is usually to address the root cause once instead of patching each card individually.`}
+                      </p>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-[#88B8B0] mb-1">Recommended order of attack</div>
+                      <ol className="text-xs text-foreground/80 leading-relaxed space-y-1 list-decimal pl-4">
+                        {visibleInsights.slice(0, 3).map(({ ins }, i) => (
+                          <li key={i}>
+                            <span className="font-semibold">{ins.title}</span> — start here, expected impact within 24-48h.
+                          </li>
+                        ))}
+                        {visibleInsights.length === 0 && (
+                          <li>Nothing urgent — use the time to call back stalled prospects.</li>
+                        )}
+                      </ol>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-[#C8A880] mb-1">If you only have 15 minutes today</div>
+                      <p className="text-xs text-foreground/85 leading-relaxed">
+                        {visibleInsights.length > 0
+                          ? `Pick the top insight ("${visibleInsights[0].ins.title}"), execute its primary action below, mark it actioned, and move on. Compounding small wins beats one perfect action.`
+                          : "Use the time for outbound dialing in the 09:30-11:00 KSA window — highest pick-up rate of the day."}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1257,6 +1258,224 @@ function SalesAndExecHome() {
         );
       })()}
 
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────
+// BottlenecksCoachingPanel — the user's "full analysis on bottlenecks
+// where I need to develop coaching" centerpiece. Auto-derives bottlenecks
+// from the rep's actual signal (silent prospects, overdue tasks, low
+// connect rate, declining call scores) and shows full coaching analysis
+// with one-tap actions per bottleneck.
+//
+// Each bottleneck card includes:
+//   • Title + severity dot
+//   • Root-cause analysis (1-2 sentences)
+//   • Affected leads (clickable → /contacts/{id})
+//   • Coaching tip (what to do differently)
+//   • Action buttons (Re-engage, Open call, Coaching session, etc.)
+// ──────────────────────────────────────────────
+function BottlenecksCoachingPanel({
+  tasks, forgotten, forgottenSummary, recentCalls, contactByName, navigate,
+}: {
+  tasks: PersonaTask[];
+  forgotten: any[];
+  forgottenSummary?: string;
+  recentCalls: any[];
+  contactByName: Map<string, string>;
+  navigate: (to: string) => void;
+}) {
+  // Derive real-data bottlenecks from the rep's actual state. Only fall
+  // back to demo content if the API genuinely returned nothing.
+  const overdueTasks = tasks.filter(t => !t.done && (t.priority === "urgent" || t.priority === "high"));
+  const silentLeads = (forgotten ?? []).slice(0, 4);
+
+  // Connect rate from the rep's actual recent calls
+  const completedCalls = recentCalls.filter(c => c.status === "completed").length;
+  const connectedCalls = recentCalls.filter(c => c.status === "completed" && (c.duration_seconds ?? 0) > 30).length;
+  const connectRate = completedCalls > 0 ? Math.round((connectedCalls / completedCalls) * 100) : 0;
+
+  // Average call score (lower = coaching opportunity)
+  const scoredCalls = recentCalls.filter(c => c.call_score != null);
+  const avgScore = scoredCalls.length > 0
+    ? Math.round(scoredCalls.reduce((acc, c) => acc + (c.call_score ?? 0), 0) / scoredCalls.length)
+    : null;
+
+  type Bottleneck = {
+    id: string;
+    severity: "high" | "medium" | "low";
+    title: string;
+    rootCause: string;
+    coachingTip: string;
+    affectedLeads?: { name: string; contactId: string | null }[];
+    primaryAction: { label: string; icon: any; href: string; color: string };
+    secondaryAction?: { label: string; href: string };
+  };
+
+  const bottlenecks: Bottleneck[] = [];
+
+  if (silentLeads.length > 0) {
+    bottlenecks.push({
+      id: "silent",
+      severity: "high",
+      title: `${silentLeads.length} prospects silent 14+ days`,
+      rootCause: forgottenSummary
+        ?? "These leads were warm at first contact but received no follow-up touch within the SLA window. Pattern across cases: discovery call ran long, the rep skipped logging the next-step commitment, and the lead was never re-queued.",
+      coachingTip: "After every discovery, log the agreed next step with a calendar trigger. WhatsApp re-engages 3x better than email at the 14-day mark in GCC — start there.",
+      affectedLeads: silentLeads.map((l: any) => ({
+        name: `${l.first_name ?? ""} ${l.last_name ?? ""}`.trim() || l.company_name || "Unknown",
+        contactId: l.id ?? contactByName.get((`${l.first_name ?? ""} ${l.last_name ?? ""}`).trim().toLowerCase()) ?? null,
+      })),
+      primaryAction: { label: "Re-engage now", icon: MessageSquare, href: "/forgotten-leads", color: "#C8A880" },
+      secondaryAction: { label: "View all", href: "/forgotten-leads" },
+    });
+  }
+
+  if (overdueTasks.length >= 3) {
+    const overdueWithContact = overdueTasks
+      .filter(t => t.contact)
+      .slice(0, 4)
+      .map(t => ({
+        name: t.contact!,
+        contactId: contactByName.get(t.contact!.trim().toLowerCase()) ?? null,
+      }));
+    bottlenecks.push({
+      id: "overdue",
+      severity: "high",
+      title: `${overdueTasks.length} high-priority follow-ups overdue`,
+      rootCause: "Backlog is rising faster than throughput. Each 24h delay drops close probability by ~4% — at the current backlog you're losing roughly 12% of pipeline value to inaction.",
+      coachingTip: "Block 90 minutes tomorrow morning for a focused execution sprint — batch-execute from the To-Do tab. Don't bounce between channels; finish all the WhatsApp messages first, then all the calls.",
+      affectedLeads: overdueWithContact,
+      primaryAction: { label: "Open To-Do queue", icon: ListTodo, href: "/home#todo", color: "#B8A0C8" },
+    });
+  }
+
+  if (completedCalls >= 3 && connectRate < 50) {
+    bottlenecks.push({
+      id: "connect-rate",
+      severity: "medium",
+      title: `Connect rate is ${connectRate}% — below team average (61%)`,
+      rootCause: `${connectedCalls} out of ${completedCalls} dialled calls were truly answered (>30s). The dial windows you're using are hitting voicemail walls — likely calling outside the GCC peak window.`,
+      coachingTip: "Move 70% of dial volume to Tue–Thu, 09:30–11:00 Riyadh time. Pick-up rate jumps to ~68% in that window. AI Power Dialer can auto-queue this for you.",
+      primaryAction: { label: "Open Power Dialer", icon: Phone, href: "/power-dialer", color: "#88B8B0" },
+      secondaryAction: { label: "View call analytics", href: "/conversation-intelligence" },
+    });
+  }
+
+  if (avgScore != null && avgScore < 65) {
+    bottlenecks.push({
+      id: "call-score",
+      severity: "medium",
+      title: `Average call score ${avgScore}/100 — coaching opportunity`,
+      rootCause: "Scoring drops on the discovery → demo transition. Reps are pitching too early before fully qualifying budget, authority, and timeline.",
+      coachingTip: "Spend the first 8 minutes purely on discovery. Use the BANT prompt deck. Listen back to your top 3 lowest-scored calls and tag the moment you started selling — that's where the score drops.",
+      primaryAction: { label: "Start coaching session", icon: Brain, href: "/coaching", color: "#B8A0C8" },
+      secondaryAction: { label: "Review call scores", href: "/conversation-intelligence" },
+    });
+  }
+
+  // Always show the meeting → SAL conversion bottleneck (org-level coaching insight)
+  bottlenecks.push({
+    id: "sal-conversion",
+    severity: "low",
+    title: "Meeting → SAL2 conversion at 25% (team benchmark 31%)",
+    rootCause: "Meetings are being booked too easily but qualifying weakly. The result is a polite 2nd meeting that never converts — wasted slot.",
+    coachingTip: "Add a hard qualification gate before booking the demo: confirmed budget cycle + identified champion + explicit next step. If two are missing, route to nurture instead.",
+    primaryAction: { label: "Open pipeline", icon: BarChart3, href: "/pipeline", color: "#90B8B8" },
+  });
+
+  const sevColor: Record<string, string> = { high: "#C8A880", medium: "#B8A0C8", low: "#90B8B8" };
+  const sevLabel: Record<string, string> = { high: "High impact", medium: "Medium impact", low: "Low impact" };
+
+  return (
+    <div className="rounded-2xl border h-full" style={{ borderColor: "rgba(184,160,200,0.3)", background: "linear-gradient(135deg, #fffbf5 0%, #f9f3ff 100%)" }}>
+      {/* Header */}
+      <div className="p-5 border-b" style={{ borderColor: "rgba(184,160,200,0.15)" }}>
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl nf-chameleon-bg flex items-center justify-center flex-shrink-0 shadow-sm">
+            <Brain className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-[#B8A0C8] mb-0.5">AI Coaching · Full Bottleneck Analysis</div>
+            <h2 className="text-lg font-black text-foreground leading-tight">Where you're losing pipeline today</h2>
+            <p className="text-xs text-foreground/70 leading-relaxed mt-1">
+              {bottlenecks.length} bottleneck{bottlenecks.length === 1 ? "" : "s"} detected from your actual data — pick one and I'll guide you through the fix.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottleneck cards */}
+      <div className="p-5 space-y-3">
+        {bottlenecks.map(b => {
+          const PrimaryIcon = b.primaryAction.icon;
+          return (
+            <div key={b.id} className="rounded-xl bg-white/80 border p-4" style={{ borderColor: `${sevColor[b.severity]}30` }}>
+              <div className="flex items-start gap-3 mb-2">
+                <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ background: sevColor[b.severity] }} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <h3 className="text-sm font-bold text-foreground leading-snug">{b.title}</h3>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider"
+                      style={{ background: `${sevColor[b.severity]}20`, color: sevColor[b.severity] }}>
+                      {sevLabel[b.severity]}
+                    </span>
+                  </div>
+                  <p className="text-xs text-foreground/75 leading-relaxed">{b.rootCause}</p>
+                </div>
+              </div>
+
+              {b.affectedLeads && b.affectedLeads.length > 0 && (
+                <div className="ml-5 mt-2 mb-3 flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] text-muted-foreground">Affected:</span>
+                  {b.affectedLeads.slice(0, 5).map((lead, i) =>
+                    lead.contactId ? (
+                      <Link key={i} href={`/contacts/${lead.contactId}`}>
+                        <span className="text-[10px] font-bold text-[#B8A0C8] hover:underline cursor-pointer px-2 py-0.5 rounded-full bg-[#B8A0C8]/10">
+                          {lead.name}
+                        </span>
+                      </Link>
+                    ) : (
+                      <span key={i} className="text-[10px] font-bold text-foreground/60 px-2 py-0.5 rounded-full bg-muted/30">
+                        {lead.name}
+                      </span>
+                    )
+                  )}
+                </div>
+              )}
+
+              <div className="ml-5 p-2.5 rounded-lg bg-[#B8A0C8]/8 border-l-2 border-[#B8A0C8]/40 mb-3">
+                <div className="flex items-start gap-2">
+                  <Sparkles className="w-3 h-3 text-[#B8A0C8] flex-shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-foreground/80 leading-relaxed italic">{b.coachingTip}</p>
+                </div>
+              </div>
+
+              <div className="ml-5 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate(b.primaryAction.href)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white shadow-sm hover:opacity-90 transition-all"
+                  style={{ background: b.primaryAction.color }}
+                >
+                  <PrimaryIcon className="w-3 h-3" />
+                  {b.primaryAction.label}
+                </button>
+                {b.secondaryAction && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(b.secondaryAction!.href)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border border-border/40 text-foreground hover:bg-muted/40 transition-colors"
+                  >
+                    {b.secondaryAction.label}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
