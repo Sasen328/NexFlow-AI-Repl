@@ -34,19 +34,19 @@ title = "Abstract person avatar 3"
 id = "0n5CRH83xHGEr6QWWmxct"
 uri = "file://artifacts/nexflow/public/NexFlow_Icon_1024.png"
 type = "image"
-title = "NexFlow Icon — 1024×1024 (494 KB)"
+title = "NexFlow Icon — Square (1024px)"
 
 [[outputs]]
 id = "r-OkmOS69kP9h0bRLOpzN"
 uri = "file://artifacts/nexflow/public/NexFlow_Icon_512.png"
 type = "image"
-title = "NexFlow Icon — 512×512 (183 KB)"
+title = "NexFlow Icon — Square (512px)"
 
 [[outputs]]
 id = "wUEDo71g6_WVgulziHWq6"
 uri = "file://artifacts/nexflow/public/NexFlow_Logo_Full_3200.png"
 type = "image"
-title = "NexFlow Full Logo — 3200×1800 (870 KB)"
+title = "NexFlow Logo — Full (3200px, hi-res)"
 
 [[outputs]]
 id = "3UH7B5ugYGnSXI6InLkNy"
@@ -173,3 +173,21 @@ id = "eFiv4w96-Eaa23apFVNpv"
 uri = "file://docs/11-video-script.md"
 type = "text"
 title = "11 — Video Script (AR + EN)"
+
+[[outputs]]
+id = "Y6C8cjz_fOvZPbSdgB8ux"
+uri = "file://artifacts/nexflow/public/NexFlow_Icon_2048.png"
+type = "image"
+title = "NexFlow Icon — Square (2048px)"
+
+[[outputs]]
+id = "dphVHhN4lin-G3w_hOiVa"
+uri = "file://artifacts/nexflow/public/logo_full.png"
+type = "image"
+title = "NexFlow Logo — Full (standard)"
+
+[[outputs]]
+id = "7ksBcrMkVyfCXT-6mXxVD"
+uri = "file://artifacts/nexflow/public/logo_mark.png"
+type = "image"
+title = "NexFlow Logo Mark — Diamond only"
