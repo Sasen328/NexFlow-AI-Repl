@@ -1,13 +1,12 @@
 import "./_group.css";
 
 /**
- * NAVIGATION v2 — addressing user feedback on v1:
- *  ✗→✓  Home is "360° AI Analysis" (Performance + Daily Insights + To-Dos absorbed inside)
- *  ✗→✓  Dialer is TOP-LEVEL in Comms (was tucked under "More")
- *  ✗→✓  Enrichment gets its own section (was buried in Data & Insights)
- *  ✗→✓  CRM collapsed to ONE entry "Pipeline" with internal tabs (was 9 separate items)
- *  ✗→✓  Top bar adds: Lead picker (1-click to any lead) + +New + To-do count + ⌘K
- *  Every existing route still reachable. Duplicate to-do pages consolidated visually.
+ * NAVIGATION v3 — fixing v2 feedback:
+ *  ✓ Studio brought back top-level under Home (was missing)
+ *  ✓ Knowledge Base pulled up to Comms top-level (was in More)
+ *  ✓ Meetings clarified (renamed + moved out of Comms — meetings ≠ messages)
+ *  ✓ Enrichment disambiguated: Sources → "Data Providers", Sourcing → "Find New Leads"
+ *  Carries forward v2: 360 AI home, Dialer top-level, Pipeline-as-one, top bar with lead picker
  */
 
 const TOP_BAR = [
@@ -21,17 +20,21 @@ const TOP_BAR = [
 
 const SECTIONS = [
   {
-    name: "Home", count: 1, color: "var(--rd-accent)",
+    name: "Home", count: 2, color: "var(--rd-accent)",
     items: [
       {
-        t: "360° AI Analysis", h: "/home", from: "the actual home", isHome: true,
+        t: "360° AI Analysis", h: "/home", from: "morning brief · read-only", isHome: true,
         absorbs: [
           "Performance dashboard (was /dashboard) → Performance panel inside",
           "Daily Insights (was /insights) → Insights panel inside",
           "Today's tasks (was /activities, /call-list, /approvals) → unified Task Tray",
           "AI Assistant (was /assistant) → embedded as side rail",
           "Briefing (was /briefing) → kept as the page itself",
+          "Today's meetings (was /meetings) → schedule panel inside",
         ],
+      },
+      {
+        t: "Studio", h: "/studio", from: "all-in-one workspace · where you actually work", isNew: true, fixed: true,
       },
     ],
   },
@@ -48,24 +51,24 @@ const SECTIONS = [
     name: "Comms", count: 9, color: "var(--rd-sage)",
     items: [
       { t: "Unified Inbox", h: "/comms", from: "NEW · all incoming streams", isNew: true },
-      { t: "Dialer", h: "/power-dialer", from: "TOP-LEVEL (was buried)", fixed: true },
-      { t: "Calls & Transcripts", h: "/calls", from: "" },
-      { t: "AI Voice Agent", h: "/voice-agents", from: "" },
-      { t: "Conversation Intel", h: "/conversation-intelligence", from: "" },
+      { t: "Dialer", h: "/power-dialer", from: "start outbound calls", fixed: true },
+      { t: "Calls & Transcripts", h: "/calls", from: "history + AI notes" },
+      { t: "AI Voice Agent", h: "/voice-agents", from: "automated callers" },
+      { t: "Conversation Intel", h: "/conversation-intelligence", from: "what was said" },
       { t: "WhatsApp", h: "/whatsapp", from: "" },
       { t: "Email", h: "/email", from: "" },
-      { t: "Templates", h: "/templates", from: "" },
-      { t: "Meetings", h: "/meetings", from: "" },
+      { t: "Templates", h: "/templates", from: "reusable scripts/snippets" },
+      { t: "Knowledge Base", h: "/scripts", from: "talk tracks · pulled up from More", fixed: true },
     ],
   },
   {
     name: "Enrichment", count: 5, color: "var(--rd-accent)", emphasis: true,
     items: [
-      { t: "Engine", h: "/datahub/enrichment", from: "the orchestrator", fixed: true },
-      { t: "Quick Enrich", h: "/lead-enrich", from: "" },
-      { t: "Sources", h: "/datahub/enrichment?tab=sources", from: "data providers (Hunter, Apollo, MAGNiTT…)" },
-      { t: "Sourcing", h: "/sourcing", from: "find new leads" },
-      { t: "Dedup", h: "/dedup", from: "" },
+      { t: "Engine", h: "/datahub/enrichment", from: "the waterfall orchestrator", fixed: true },
+      { t: "Quick Enrich", h: "/lead-enrich", from: "paste a lead → fill fields" },
+      { t: "Data Providers", h: "/datahub/enrichment?tab=sources", from: "(was 'Sources') · Hunter, Apollo, MAGNiTT, Lusha…", fixed: true },
+      { t: "Find New Leads", h: "/sourcing", from: "(was 'Sourcing') · prospect net-new accounts", fixed: true },
+      { t: "Dedup", h: "/dedup", from: "duplicate detection" },
     ],
   },
   {
@@ -120,10 +123,10 @@ export default function NavigationV2() {
     <div className="rd-root" style={{ minHeight: "100vh", background: "var(--rd-sand)", padding: "26px 32px" }}>
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-          <span className="rd-pill" style={{ background: "var(--rd-accent-soft)", color: "var(--rd-accent)" }}>nav · v2</span>
-          <span className="rd-pill" style={{ background: "var(--rd-cream-2)", color: "var(--rd-mute)" }}>fixes 5/5 from your feedback</span>
+          <span className="rd-pill" style={{ background: "var(--rd-accent-soft)", color: "var(--rd-accent)" }}>nav · v3</span>
+          <span className="rd-pill" style={{ background: "var(--rd-cream-2)", color: "var(--rd-mute)" }}>4 v2-fixes applied · Studio back · KB up · Meetings clarified · Enrichment renamed</span>
         </div>
-        <div className="rd-display" style={{ fontSize: 28, lineHeight: 1.1 }}>Navigation v2 — your fixes applied</div>
+        <div className="rd-display" style={{ fontSize: 28, lineHeight: 1.1 }}>Navigation v3 — your fixes applied</div>
       </div>
 
       {/* TOP BAR */}
@@ -222,28 +225,41 @@ export default function NavigationV2() {
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
           <div className="rd-card" style={{ padding: 18, background: "var(--rd-card)" }}>
-            <div className="rd-display" style={{ fontSize: 17, marginBottom: 12 }}>What I fixed (your 5 points)</div>
+            <div className="rd-display" style={{ fontSize: 17, marginBottom: 12 }}>v3 — your 4 new fixes</div>
 
-            <Fix num="1" title="Home = '360° AI Analysis' (one entry, not three)">
-              Performance dashboard, Daily Insights, and the Today's-tasks duplicates (Activities, Call list, Approvals, Assistant) all become <b>panels inside</b> the 360 view — not separate sidebar items. You land on one page that shows everything that matters this morning.
+            <Fix num="A" title="Studio is back — top-level under Home, next to 360° AI Analysis">
+              You were right — I dropped it. Now <b>Home has 2 entries</b>: <b>360° AI Analysis</b> (your morning brief, read-only) and <b>Studio</b> (the all-in-one workspace where you actually do the work). One is "what's happening", the other is "what I'm working on".
             </Fix>
 
-            <Fix num="2" title="CRM collapsed to ONE entry called 'Pipeline'">
-              Inside Pipeline, view tabs switch between People · Companies · Deals · Accounts · Forecasting · Quotes · Health Scores · Quote-to-Cash. Same 8 surfaces, but in <b>one workspace</b> instead of 8 sidebar items. Goes from cluttered list → one verb.
-              <div style={{ marginTop: 6, fontSize: 11.5, color: "var(--rd-mute)" }}>If you'd rather split it into 2 entries (Pipeline + Accounts), say the word.</div>
+            <Fix num="B" title="Knowledge Base pulled up to Comms top-level">
+              Was hidden in "More" in v2. Now sits at the bottom of Comms next to Templates — the natural place: <b>Templates</b> = pre-written messages, <b>Knowledge Base</b> = talk tracks, FAQs, objection handlers. Both are "stuff a rep grabs mid-conversation".
             </Fix>
 
-            <Fix num="3" title="Dialer is TOP-LEVEL in Comms (no longer hidden)">
-              Second item, right under Inbox. One click → start dialing. Knowledge Base, Power Dialer, Call Redaction were the only things tucked under "More" before — Dialer is now its own thing.
+            <Fix num="C" title="Meetings — moved out of Comms, surfaced where they belong">
+              You're right — Meetings ≠ messages. So:
+              <ul style={{ margin: "6px 0 0 0", paddingLeft: 18, lineHeight: 1.6 }}>
+                <li><b>Today's meetings</b> live in the <b>360° AI Analysis</b> morning panel (calendar strip)</li>
+                <li><b>Per-lead meeting history</b> lives inside the lead's profile (Pipeline → People tab)</li>
+                <li><b>Schedule a meeting</b> = quick action from <b>+ New</b> in the top bar</li>
+              </ul>
+              Meetings as a sidebar item disappears — but every meeting interaction stays accessible.
             </Fix>
 
-            <Fix num="4" title="Enrichment gets its OWN section">
-              Engine · Quick Enrich · Sources · Sourcing · Dedup. Five items, top-level, marked with ★. Was buried under "Data & Insights" in v1 — now a first-class section because it's the engine of the whole CRM.
+            <Fix num="D" title="Enrichment disambiguated — no more 'Sources vs Sourcing' confusion">
+              You spotted the duplication. Renamed:
+              <ul style={{ margin: "6px 0 0 0", paddingLeft: 18, lineHeight: 1.6 }}>
+                <li><b>Sources → Data Providers</b> = the paid integrations (Hunter, Apollo, MAGNiTT, Lusha, Wathiq…) you connect with API keys</li>
+                <li><b>Sourcing → Find New Leads</b> = prospecting net-new companies/people based on criteria (ICP-driven)</li>
+              </ul>
+              Now they're clearly different: <i>Data Providers</i> = "where data comes from when enriching", <i>Find New Leads</i> = "go find people I don't know about yet".
             </Fix>
 
-            <Fix num="5" title="Top bar = 'any lead in 1 click' + quick create + task count">
-              Lead picker pill (⌘L) sits next to ⌘K. Type a name → jump. <b>+ New</b> creates a lead/deal/note/call inline. <b>"7 tasks today"</b> opens an inline tray (no page jump). All of this lives <b>above</b> the sidebar, on every page.
-            </Fix>
+            <div style={{ marginTop: 14, padding: "10px 12px", background: "var(--rd-cream-2)", borderRadius: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--rd-mute)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Carried forward from v2 (still applied)</div>
+              <div style={{ fontSize: 11.5, color: "var(--rd-ink-2)", lineHeight: 1.6 }}>
+                Home = 360° AI absorbing dashboard/insights/tasks/assistant · Pipeline = ONE entry with internal tabs · Dialer top-level in Comms · Enrichment own section · Top bar with Lead picker (⌘L), + New, task count, ⌘K
+              </div>
+            </div>
           </div>
 
           {/* DEDUP MAP */}
