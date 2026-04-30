@@ -8,6 +8,7 @@ const TABS = [
   { key: "home",    label: "Home",            href: "/welcome" },
   { key: "about",   label: "What is NexFlow", href: "/about" },
   { key: "pricing", label: "Pricing Plan",    href: "/pricing" },
+  { key: "brand",   label: "Brand Kit",       href: "/brand" },
 ];
 
 export function MarketingTopBar() {

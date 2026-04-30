@@ -12,6 +12,7 @@ import { MarketingLayout } from "@/components/marketing/MarketingLayout";
 import WelcomePage from "@/pages/marketing/Welcome";
 import AboutPage from "@/pages/marketing/About";
 import PricingPage from "@/pages/marketing/Pricing";
+import BrandPage from "@/pages/marketing/Brand";
 import AuthPage from "@/pages/marketing/Auth";
 import { useState } from "react";
 
@@ -297,6 +298,7 @@ function RootRoutes() {
       <Route path="/welcome">    <MarketingRoute><WelcomePage /></MarketingRoute></Route>
       <Route path="/about">      <MarketingRoute><AboutPage /></MarketingRoute></Route>
       <Route path="/pricing">    <MarketingRoute><PricingPage /></MarketingRoute></Route>
+      <Route path="/brand">      <MarketingRoute><BrandPage /></MarketingRoute></Route>
       <Route path="/signin">     <MarketingRoute><AuthPage mode="signin" /></MarketingRoute></Route>
       <Route path="/signup">     <MarketingRoute><AuthPage mode="signup" /></MarketingRoute></Route>
       <Route component={ProtectedAppLayout} />
