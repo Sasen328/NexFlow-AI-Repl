@@ -26,9 +26,8 @@ const NAV_GROUPS = [
     section: "WORK",
     icon: Sparkles,
     items: [
-      { icon: Sparkles,  label: "Command Center", href: "/" },
+      { icon: Sparkles,  label: "Command Center", href: "/home" },
       { icon: Activity,  label: "Daily Insights", href: "/insights" },
-      { icon: Bot,       label: "AI Assistant",   href: "/assistant" },
     ],
   },
   {

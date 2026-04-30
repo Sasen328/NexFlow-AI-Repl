@@ -154,7 +154,7 @@ const AI_INSIGHTS = [
 const PRIORITY_COLOR: Record<string, string> = { urgent: "#C8A880", high: "#B8A0C8", normal: "#88B8B0", low: "#90B8B8" };
 const PRIORITY_BG: Record<string, string> = { urgent: "#C8A88020", high: "#B8A0C820", normal: "#88B8B020", low: "#90B8B820" };
 
-type Tab = "overview" | "tasks" | "insights" | "assistant";
+type Tab = "overview" | "tasks" | "insights";
 
 export default function CommandCenterPage() {
   const { data: dash } = useDashboard();
@@ -214,9 +214,15 @@ export default function CommandCenterPage() {
   const [, navigate] = useLocation();
   const [tab, setTab] = useState<Tab>("overview");
   const [tasks, setTasks] = useState(AUTO_TASKS);
-  const [aiInput, setAiInput] = useState("");
   const [refreshingBriefing, setRefreshingBriefing] = useState(false);
   const [briefingRefreshedAt, setBriefingRefreshedAt] = useState<Date | null>(null);
+  // Collapsible secondary sections in Overview (start collapsed for scannability)
+  const [showAllRecall, setShowAllRecall] = useState(false);
+  const [showAllSignals, setShowAllSignals] = useState(false);
+  // Insights tab — per-card snooze + action-taken state
+  const [insightSnoozed, setInsightSnoozed] = useState<Set<number>>(new Set());
+  const [insightActed, setInsightActed] = useState<Set<number>>(new Set());
+
   function handleRefreshBriefing() {
     setRefreshingBriefing(true);
     setTimeout(() => {
@@ -224,32 +230,15 @@ export default function CommandCenterPage() {
       setBriefingRefreshedAt(new Date());
     }, 800);
   }
-  const [aiMessages, setAiMessages] = useState([
-    { role: "ai", text: "Good morning! I've analyzed your pipeline, signals, and overnight AI agent activity. You have 3 urgent actions today. How can I help you prioritize?" },
-  ]);
 
   function toggleTask(id: string) {
     setTasks(ts => ts.map(t => t.id === id ? { ...t, done: !t.done } : t));
-  }
-
-  function sendAiMessage() {
-    if (!aiInput.trim()) return;
-    const userMsg = { role: "user", text: aiInput };
-    setAiMessages(m => [...m, userMsg]);
-    setAiInput("");
-    setTimeout(() => {
-      setAiMessages(m => [...m, {
-        role: "ai",
-        text: `Great question. Based on your current pipeline data and today's signals, here's what I recommend: focus on Sara Al-Mansouri first (funding signal + high score), then tackle the 2 overdue follow-ups before noon. This sequence optimizes your probability of 3 conversions today. Want me to draft the outreach messages?`
-      }]);
-    }, 900);
   }
 
   const TABS = [
     { k: "overview" as Tab, label: "Overview", icon: BarChart3 },
     { k: "tasks" as Tab, label: "Tasks", icon: ListTodo, badge: tasks.filter(t => !t.done && t.priority === "urgent").length },
     { k: "insights" as Tab, label: "Insights", icon: Sparkles },
-    { k: "assistant" as Tab, label: "AI Assistant", icon: Bot },
   ];
 
   return (
@@ -376,7 +365,7 @@ export default function CommandCenterPage() {
                   </p>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {forgotten.slice(0, 6).map((l: any, i: number) => {
+                  {forgotten.slice(0, showAllRecall ? 9 : 3).map((l: any, i: number) => {
                     const priorityScore = Math.round(Number(l.lead_score) * 0.9 + 5);
                     const signals = ["Wealth signal", "Job change", "Site visits", "Email opens", "Follow-up missed"][i % 5];
                     return (
@@ -404,6 +393,16 @@ export default function CommandCenterPage() {
                     );
                   })}
                 </div>
+                {forgotten.length > 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllRecall((s) => !s)}
+                    className="mt-2 text-[11px] font-semibold text-[#C8A880] hover:underline flex items-center gap-1"
+                  >
+                    {showAllRecall ? "Show less" : `Show ${Math.min(forgotten.length - 3, 6)} more`}
+                    <ChevronRight className={cn("w-3 h-3 transition-transform", showAllRecall && "rotate-90")} />
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -540,7 +539,7 @@ export default function CommandCenterPage() {
                 <Link href="/signals"><span className="text-xs text-[#B8A0C8] hover:underline cursor-pointer">All signals →</span></Link>
               </div>
               <div className="space-y-2">
-                {HOT_SIGNALS.map((s, i) => (
+                {HOT_SIGNALS.slice(0, showAllSignals ? HOT_SIGNALS.length : 3).map((s, i) => (
                   <div key={i} className="flex items-start gap-3 p-3 rounded-xl border" style={{ borderColor: "#B8B88025", background: "#B8B88008" }}>
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "#B8B88025" }}>
                       <Zap className="w-4 h-4 text-[#B8B880]" />
@@ -560,6 +559,16 @@ export default function CommandCenterPage() {
                   </div>
                 ))}
               </div>
+              {HOT_SIGNALS.length > 3 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllSignals((s) => !s)}
+                  className="mt-2 text-[11px] font-semibold text-[#B8B880] hover:underline flex items-center gap-1"
+                >
+                  {showAllSignals ? "Show less" : `Show ${HOT_SIGNALS.length - 3} more`}
+                  <ChevronRight className={cn("w-3 h-3 transition-transform", showAllSignals && "rotate-90")} />
+                </button>
+              )}
             </div>
 
             {/* Quick Actions */}
@@ -589,20 +598,78 @@ export default function CommandCenterPage() {
       )}
 
       {/* ──── TASKS TAB ──── */}
-      {tab === "tasks" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-foreground">AI-Generated Tasks</h2>
-              <p className="text-sm text-muted-foreground">Auto-generated from pipeline activity, signals, and commitments</p>
+      {tab === "tasks" && (() => {
+        const totalCount = tasks.length;
+        const doneCount = tasks.filter(t => t.done).length;
+        const openCount = totalCount - doneCount;
+        const urgentOpen = tasks.filter(t => !t.done && t.priority === "urgent").length;
+        const highOpen   = tasks.filter(t => !t.done && t.priority === "high").length;
+        const normalOpen = tasks.filter(t => !t.done && t.priority === "normal").length;
+        const lowOpen    = tasks.filter(t => !t.done && t.priority === "low").length;
+        const completionPct = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
+        const nextUp = tasks.find(t => !t.done && t.priority === "urgent")
+          ?? tasks.find(t => !t.done);
+        const aiSummary = openCount === 0
+          ? `Inbox zero. You've cleared all ${totalCount} AI-generated tasks today — well done.`
+          : `${openCount} of ${totalCount} tasks open · ${urgentOpen} urgent. Knock out ${nextUp ? `"${nextUp.label.split(" ").slice(0, 6).join(" ")}…"` : "the urgent items"} first to keep momentum.`;
+        const buckets: { key: "urgent"|"high"|"normal"|"low"; label: string; open: number }[] = [
+          { key: "urgent", label: "Urgent",  open: urgentOpen },
+          { key: "high",   label: "High",    open: highOpen },
+          { key: "normal", label: "Normal",  open: normalOpen },
+          { key: "low",    label: "Low",     open: lowOpen },
+        ];
+        return (
+        <div className="space-y-5">
+          {/* AI summary header */}
+          <div className="rounded-2xl p-5 border relative overflow-hidden"
+               style={{ background: "linear-gradient(135deg, rgba(184,160,200,0.10), rgba(136,184,176,0.10))", borderColor: "rgba(184,160,200,0.3)" }}>
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl nf-chameleon-bg flex items-center justify-center flex-shrink-0 shadow-sm">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] uppercase tracking-wider font-bold text-[#B8A0C8] mb-0.5">AI Task Summary</div>
+                <p className="text-sm text-foreground/85 leading-relaxed">{aiSummary}</p>
+              </div>
+              <div className="hidden sm:flex flex-col items-end flex-shrink-0">
+                <div className="text-2xl font-black text-foreground leading-none">{completionPct}%</div>
+                <div className="text-[10px] text-muted-foreground">complete</div>
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="font-bold text-foreground">{tasks.filter(t => t.done).length}</span>/{tasks.length} complete
+            <div className="w-full h-1.5 rounded-full bg-white/40 overflow-hidden mt-4">
+              <div className="h-full nf-chameleon-bg transition-all" style={{ width: `${completionPct}%` }} />
             </div>
           </div>
 
-          <div className="w-full h-2 rounded-full bg-muted/40 overflow-hidden">
-            <div className="h-full nf-chameleon-bg transition-all" style={{ width: `${tasks.filter(t => t.done).length / tasks.length * 100}%` }} />
+          {/* Priority scorecards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {buckets.map((b) => (
+              <div key={b.key} className="glass-card rounded-2xl p-4 border-l-4" style={{ borderLeftColor: PRIORITY_COLOR[b.key] }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">{b.label}</div>
+                    <div className="text-2xl font-black text-foreground leading-tight mt-1">{b.open}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{b.open === 1 ? "task open" : "tasks open"}</div>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: PRIORITY_BG[b.key], color: PRIORITY_COLOR[b.key] }}>
+                    {b.key === "urgent" ? <Flame className="w-5 h-5" />
+                      : b.key === "high" ? <TrendingUp className="w-5 h-5" />
+                      : b.key === "normal" ? <ListTodo className="w-5 h-5" />
+                      : <Clock className="w-5 h-5" />}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Section divider */}
+          <div className="flex items-center justify-between pt-1">
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <CheckSquare className="w-4 h-4 text-[#88B8B0]" /> Today's task list
+            </h2>
+            <div className="text-xs text-muted-foreground">
+              <span className="font-bold text-foreground">{doneCount}</span>/{totalCount} complete
+            </div>
           </div>
 
           {(["urgent", "high", "normal", "low"] as const).map(priority => {
@@ -687,106 +754,132 @@ export default function CommandCenterPage() {
             );
           })}
         </div>
-      )}
+        );
+      })()}
 
       {/* ──── INSIGHTS TAB ──── */}
-      {tab === "insights" && (
+      {tab === "insights" && (() => {
+        const visibleInsights = AI_INSIGHTS
+          .map((ins, idx) => ({ ins, idx }))
+          .filter(({ idx }) => !insightSnoozed.has(idx));
+        const actedCount = insightActed.size;
+        return (
         <div className="space-y-4">
-          <div>
-            <h2 className="text-lg font-bold text-foreground">AI Insights · Today</h2>
-            <p className="text-sm text-muted-foreground">Auto-generated from pipeline, calls, signals, and team activity</p>
-          </div>
-          <div className="space-y-3">
-            {AI_INSIGHTS.map((insight, i) => {
-              const Icon = insight.icon;
-              return (
-                <div key={i} className="glass-card rounded-2xl p-5 flex items-start gap-4"
-                  style={{ borderLeft: `4px solid ${insight.color}` }}>
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${insight.color}20` }}>
-                    <Icon className="w-5 h-5" style={{ color: insight.color }} />
+          {/* AI summary header */}
+          <div className="rounded-2xl p-5 border relative overflow-hidden"
+               style={{ background: "linear-gradient(135deg, rgba(184,160,200,0.10), rgba(200,168,128,0.10))", borderColor: "rgba(184,160,200,0.3)" }}>
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl nf-chameleon-bg flex items-center justify-center flex-shrink-0 shadow-sm">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div>
+                    <h2 className="text-lg font-bold text-foreground">AI Insights · Today</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Auto-generated from pipeline, calls, signals, and team activity. {visibleInsights.length} active · {actedCount} actioned today.</p>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-sm font-bold text-foreground">{insight.title}</h3>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: `${insight.color}20`, color: insight.color }}>{insight.tag}</span>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/insights")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl nf-chameleon-bg text-white text-xs font-semibold hover:opacity-90 flex-shrink-0"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    Deeper analysis
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Insight cards with action buttons */}
+          <div className="space-y-3">
+            {visibleInsights.length === 0 ? (
+              <div className="glass-card rounded-2xl p-8 text-center text-sm text-muted-foreground">
+                You've reviewed every insight for now. Fresh ones will appear as new data lands.
+              </div>
+            ) : visibleInsights.map(({ ins, idx }) => {
+              const Icon = ins.icon;
+              const acted = insightActed.has(idx);
+              return (
+                <div key={idx} className="glass-card rounded-2xl p-5"
+                  style={{ borderLeft: `4px solid ${ins.color}` }}>
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${ins.color}20` }}>
+                      <Icon className="w-5 h-5" style={{ color: ins.color }} />
                     </div>
-                    <p className="text-sm text-foreground/80 leading-relaxed">{insight.body}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <h3 className="text-sm font-bold text-foreground">{ins.title}</h3>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: `${ins.color}20`, color: ins.color }}>{ins.tag}</span>
+                        {acted && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-[#88B8B0]/20 text-[#88B8B0] flex items-center gap-1">
+                            <CheckCircle2 className="w-2.5 h-2.5" /> Actioned
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-foreground/80 leading-relaxed">{ins.body}</p>
+                    </div>
+                  </div>
+                  {/* Action buttons */}
+                  <div className="flex flex-wrap gap-2 mt-4 pl-14">
+                    <button
+                      type="button"
+                      onClick={() => setInsightActed((s) => new Set([...s, idx]))}
+                      disabled={acted}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all",
+                        acted
+                          ? "bg-[#88B8B0]/15 text-[#88B8B0] border-[#88B8B0]/30 cursor-default"
+                          : "text-white border-transparent hover:opacity-90 shadow-sm",
+                      )}
+                      style={!acted ? { background: ins.color } : undefined}
+                    >
+                      {acted ? <CheckCircle2 className="w-3 h-3" /> : <Zap className="w-3 h-3" />}
+                      {acted ? "Action taken" : "Take action"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/insights")}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border border-border/30 text-foreground hover:bg-muted/40 transition-colors"
+                    >
+                      <ArrowRight className="w-3 h-3" />
+                      View related
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/messages")}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border border-border/30 text-foreground hover:bg-muted/40 transition-colors"
+                    >
+                      <FileText className="w-3 h-3" />
+                      Create task
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInsightSnoozed((s) => new Set([...s, idx]))}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border border-border/30 text-muted-foreground hover:bg-muted/40 transition-colors ml-auto"
+                      title="Snooze for today"
+                    >
+                      <Clock className="w-3 h-3" />
+                      Snooze
+                    </button>
                   </div>
                 </div>
               );
             })}
           </div>
-          <div className="glass-card rounded-2xl p-5 text-center">
+
+          {insightSnoozed.size > 0 && (
             <button
               type="button"
-              onClick={() => navigate("/insights")}
-              className="flex items-center gap-2 mx-auto px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90"
+              onClick={() => setInsightSnoozed(new Set())}
+              className="text-[11px] text-muted-foreground hover:text-foreground mx-auto block"
             >
-              <Sparkles className="w-4 h-4" />
-              Generate deeper analysis
+              Restore {insightSnoozed.size} snoozed insight{insightSnoozed.size === 1 ? "" : "s"}
             </button>
-            <p className="text-xs text-muted-foreground mt-2">AI will analyze the last 30 days of pipeline and call data</p>
-          </div>
+          )}
         </div>
-      )}
-
-      {/* ──── AI ASSISTANT TAB ──── */}
-      {tab === "assistant" && (
-        <div className="flex flex-col h-[600px]">
-          <div className="glass-card rounded-2xl flex flex-col h-full">
-            <div className="p-4 border-b border-border/20 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl nf-chameleon-bg flex items-center justify-center">
-                <Bot className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-bold text-foreground">NexFlow AI Assistant</div>
-                <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#88B8B0] inline-block" />
-                  Online · Analyzing your pipeline
-                </div>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {aiMessages.map((msg, i) => (
-                <div key={i} className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "justify-start")}>
-                  {msg.role === "ai" && (
-                    <div className="w-7 h-7 rounded-full nf-chameleon-bg flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <Sparkles className="w-3.5 h-3.5 text-white" />
-                    </div>
-                  )}
-                  <div className={cn("max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
-                    msg.role === "user" ? "nf-chameleon-bg text-white rounded-br-sm" : "bg-muted/40 text-foreground rounded-bl-sm")}>
-                    {msg.text}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="p-4 border-t border-border/20">
-              <div className="flex items-center gap-2">
-                <input
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border/40 text-sm outline-none text-foreground focus:border-[#B8A0C8]"
-                  placeholder="Ask about your pipeline, leads, next actions…"
-                  value={aiInput}
-                  onChange={e => setAiInput(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && sendAiMessage()}
-                />
-                <button onClick={sendAiMessage} disabled={!aiInput.trim()}
-                  className="px-4 py-2.5 rounded-xl nf-chameleon-bg text-white text-sm font-semibold disabled:opacity-50 hover:opacity-90">
-                  Send
-                </button>
-              </div>
-              <div className="flex gap-2 mt-2 flex-wrap">
-                {["Who should I call first today?", "Which deals are at risk?", "Draft follow-up for Sara"].map(s => (
-                  <button key={s} onClick={() => { setAiInput(s); }}
-                    className="text-[11px] px-2.5 py-1 rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-colors">
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

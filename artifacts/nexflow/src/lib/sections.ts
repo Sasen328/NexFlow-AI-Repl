@@ -39,7 +39,6 @@ export const SECTIONS: SectionDef[] = [
     items: [
       { icon: Sparkles, label: "Command Center", href: "/home",      desc: "Daily briefing & priorities" },
       { icon: Activity, label: "Daily Insights",  href: "/insights",  desc: "AI insights for your day" },
-      { icon: Bot,      label: "AI Assistant",    href: "/assistant", desc: "Chat with NexFlow AI" },
     ],
   },
   {
