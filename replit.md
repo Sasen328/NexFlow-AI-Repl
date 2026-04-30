@@ -184,3 +184,47 @@ so the Engine's lazy embeds work.
 
 Run via the Replit workflow panel — never `pnpm dev` at root.
 `artifacts/nexflow: web` is the main app; restart it after Vite-relevant changes.
+
+## IA restructure (April 2026 — 6-tab rebuild)
+
+`lib/sections.ts` was rebuilt around 6 top-level tabs (down from the prior
+mix of CRM / Contact Center / Enrichment / Data Tools):
+
+1. **Home**         (`/home`) — Daily Briefing + KPI strip + To-Do (anchor `#performance`, `#todo`)
+2. **Leads**        (`/leads/*`) — was "CRM"
+   - `/leads/pipeline` (Pipeline + Deals merged), `/leads/lists` (List View + Static Lists),
+     `/leads/research`, `/leads/forgotten` (90d-no-contact + signal)
+3. **Call Center**  (`/callcenter/*`) — was "Contact Center"
+   - `/callcenter/dashboard`, `/callcenter/calls`, `/callcenter/agent`,
+     `/callcenter/knowledge-base` (Scripts · Objections · Playbooks · Company),
+     `/callcenter/messages` (WhatsApp + Email merged)
+4. **Data Hub**     (`/datahub/*`) — Enrichment + Data Tools merged
+   - `/datahub/segments`, `/datahub/enrichment`, `/datahub/workforce` (AI),
+     `/datahub/signals`
+5. **Marketing**    (unchanged tab; existing routes preserved)
+6. **Insights**     (`/insights/*`)
+   - `/insights/dashboards`, `/insights/reports`,
+     `/insights/team` (Team Performance · YTD/Inception/Custom),
+     `/insights/predictive`
+
+`SECTIONS_WITHOUT_DASHBOARD` in `SectionTabStrip.tsx` suppresses the auto-injected
+Dashboard tab for sections whose first item already IS the dashboard
+(callcenter/insights), and for the redundant CRM Workspace tile.
+`LEGACY_PATH_PREFIX_TO_SECTION` + `findSectionByRoute` in `sections.ts` keep all
+old `/contacts`, `/deals`, `/calls`, `/email`, `/whatsapp`, `/segments`,
+`/signals`, `/dashboards`, `/reports`, `/predictive`, `/sourcing`, `/lead-enrich`
+routes resolving to the correct new tab so the side strip stays highlighted on
+deep-link entry.
+
+## Bug fixes (April 2026)
+
+- **Logo** — `src/assets/logo_mark.png` and `logo_full.png` replaced with the
+  attached diamond logo (TopBar reads from these paths).
+- **AI Assistant bubble drag** — rewritten on raw pointer events (not
+  framer-motion `drag`/`PanInfo`). 6px dead-zone, `setPointerCapture`,
+  snap-to-nearest-edge on release, clamp on resize, persisted at
+  `nf:assistant:pos`. Eliminates the jank where the bubble drifted off-axis.
+- **Add Contact** — backend `POST /api/contacts` now rejects missing
+  `firstName`/`lastName` with a 400 instead of swallowing the error; frontend
+  modal surfaces the inline error and, on success, navigates to
+  `/contacts/:id` so the just-created record is visible.

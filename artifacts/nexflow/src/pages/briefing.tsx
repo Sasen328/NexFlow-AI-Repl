@@ -148,7 +148,7 @@ const AI_INSIGHTS = [
   { icon: AlertTriangle, color: "#C8A880", title: "SLA breach risk: 2 follow-ups overdue", body: "Khalid Al-Hamdan and Layla Hassan both had follow-up commitments from last week that haven't been actioned. Every 24h of delay drops close probability by ~4%.", tag: "Alerts" },
   { icon: Star, color: "#B8A0C8", title: "Best time to call this week", body: "Based on historical pick-up rates in KSA and UAE, Tuesday–Thursday between 09:30–11:00 AM Riyadh time has the highest connection rate (68% vs 41% average).", tag: "Analytics" },
   { icon: Flame, color: "#C0A0B8", title: "AI Agent overnight results", body: "The voice AI agent ran 12 sessions overnight. 4 leads qualified (32% rate). 2 are hot enough to add to today's call list. Recommend: call Nora Al-Faisal first.", tag: "AI" },
-  { icon: BarChart3, color: "#B8B880", title: "Team velocity is up 18% WoW", body: "Call volume, email opens, and WhatsApp reply rates are all trending up this week. Keep momentum — you're on track to hit 112% of monthly pipeline target.", tag: "Performance" },
+  { icon: BarChart3, color: "#B8B880", title: "Team velocity is up 18% WoW", body: "Call volume, email opens, and WhatsApp reply rates are all trending up this week. Keep momentum — you're on track to hit 112% of monthly pipeline target.", tag: "Performance", anchor: "performance" },
 ];
 
 const PRIORITY_COLOR: Record<string, string> = { urgent: "#C8A880", high: "#B8A0C8", normal: "#88B8B0", low: "#90B8B8" };
@@ -213,6 +213,27 @@ export default function CommandCenterPage() {
 
   const [, navigate] = useLocation();
   const [tab, setTab] = useState<Tab>("briefing");
+
+  // ─── Hash routing for /home#performance and /home#todo ──────────
+  // The new top-bar tab strip points its Performance / To-Do entries
+  // at /home with an anchor. We honour both: switch the inner tab if
+  // needed, then scroll the anchor into view.
+  useEffect(() => {
+    function applyHash() {
+      const hash = window.location.hash.replace(/^#/, "");
+      if (!hash) return;
+      if (hash === "todo") setTab("command");
+      else setTab("briefing");
+      // Defer so the new tab content is in the DOM before we scroll.
+      requestAnimationFrame(() => {
+        const el = document.getElementById(hash);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, []);
   const [tasks, setTasks] = useState(AUTO_TASKS);
   const [refreshingBriefing, setRefreshingBriefing] = useState(false);
   const [briefingRefreshedAt, setBriefingRefreshedAt] = useState<Date | null>(null);
@@ -289,7 +310,7 @@ export default function CommandCenterPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+          <div id="performance" className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 scroll-mt-32">
             {persona.kpis.map(s => (
               <div key={s.label} className="rounded-xl p-3 flex items-center gap-3 backdrop-blur-sm" style={{ background: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.7)" }}>
                 <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${s.color}20` }}>
@@ -600,6 +621,7 @@ export default function CommandCenterPage() {
       {tab === "command" && (
         <CommandLauncher firstName={firstName} navigate={navigate} />
       )}
+      {tab === "command" && <div id="todo" className="scroll-mt-32" />}
       {tab === "command" && (() => {
         const totalCount = tasks.length;
         const doneCount = tasks.filter(t => t.done).length;

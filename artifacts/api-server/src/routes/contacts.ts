@@ -67,22 +67,31 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
-    const body = req.body;
+    const body = req.body ?? {};
+    const first_name = (body.first_name ?? "").toString().trim();
+    const last_name = (body.last_name ?? "").toString().trim();
+    if (!first_name || !last_name) {
+      return res.status(400).json({
+        error: "first_name and last_name are required",
+        field: !first_name ? "first_name" : "last_name",
+      });
+    }
     const [contact] = await db.insert(contacts).values({
-      first_name: body.first_name,
-      last_name: body.last_name,
-      email: body.email,
-      phone: body.phone,
-      title: body.title,
+      first_name,
+      last_name,
+      email: body.email || null,
+      phone: body.phone || null,
+      title: body.title || null,
       company_id: body.company_id || null,
+      owner_id: body.owner_id || null,
       status: body.status || "new",
-      notes: body.notes,
+      notes: body.notes || null,
       tags: body.tags || [],
       org_id: "default",
     }).returning();
     res.status(201).json(contact);
   } catch (err) {
-    req.log.error(err);
+    req.log.error({ err }, "Failed to create contact");
     res.status(500).json({ error: "Failed to create contact" });
   }
 });

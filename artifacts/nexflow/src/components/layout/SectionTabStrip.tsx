@@ -5,13 +5,19 @@ import { findSectionByRoute, SECTIONS, type SectionDef } from "@/lib/sections";
 
 /**
  * Renders a horizontally-scrollable tab strip for the section the current
- * route belongs to. Each section starts with a "Dashboard" tab pointing at
- * its section hub (`/section/<key>`), followed by every sub-tab. Sections
- * that already include their own dashboard-like first tab (Home → Command
- * Center, Contact Center → Call Dashboard) skip the extra Dashboard to
- * avoid duplication.
+ * route belongs to. For sections whose first item already IS a dashboard
+ * (e.g. Home → Daily Briefing, Call Center → Dashboard, Insights →
+ * Dashboards), we skip injecting the auto "Dashboard" tab to avoid the
+ * "three Dashboards in CRM" duplication bug.
+ *
+ * For sections that don't already have one, we still inject a "Dashboard"
+ * tab pointing at /section/<key>.
  */
-const SECTIONS_WITHOUT_DASHBOARD = new Set(["home", "callcenter"]);
+const SECTIONS_WITHOUT_DASHBOARD = new Set([
+  "home", "callcenter", "leads", "datahub", "marketing", "insights",
+  // Legacy keys whose first item already opens a dashboard-like page
+  "crm",
+]);
 
 export function SectionTabStrip() {
   const [location] = useLocation();
@@ -48,8 +54,8 @@ function SectionTabStripInner({ section, location }: { section: SectionDef; loca
             <span className="text-[13px] font-bold text-foreground">{section.label}</span>
           </div>
 
-          {/* Dashboard tab — every section except Home gets one. Home's
-              Command Center sub-tab IS its dashboard. */}
+          {/* Dashboard tab — only for sections that don't already have one as
+              their first item. */}
           {showDashboard && (
             <Link href={dashboardHref}>
               <button
@@ -77,9 +83,10 @@ function SectionTabStripInner({ section, location }: { section: SectionDef; loca
           {/* Item tabs */}
           {section.items.map((item) => {
             const ItemIcon = item.icon;
+            const itemPath = item.href.split("#")[0];
             const active =
-              location === item.href ||
-              (item.href !== "/" && location.startsWith(item.href + "/"));
+              location === itemPath ||
+              (itemPath !== "/" && location.startsWith(itemPath + "/"));
             return (
               <Link key={item.href} href={item.href}>
                 <button
