@@ -8,7 +8,7 @@ import {
 import { NexFlowLogo } from "./NexFlowLogo";
 import { useNotifications } from "@/hooks/useApi";
 import {
-  SECTIONS, TOP_NAV, findSectionByRoute, findTopNavBySection,
+  SECTIONS, getNavForRole, findSectionByRoute, findTopNavBySection,
   type SectionDef, type TopNavEntry,
 } from "@/lib/sections";
 import { ROLE_LIST, getRole, setRole, setSignedIn } from "@/lib/marketing-auth";
@@ -109,7 +109,7 @@ export function TopBar({ dark, onDark }: TopBarProps) {
           className="flex items-center gap-1 flex-1 flex-wrap"
           aria-label="Primary"
         >
-          {TOP_NAV.map((entry) => (
+          {getNavForRole(currentRole.key).map((entry) => (
             <TopNavButton
               key={entry.key}
               entry={entry}
@@ -400,6 +400,15 @@ function SingleSectionDropdown({
 }) {
   const section = SECTIONS.find((s) => s.key === entry.sections[0]);
   if (!section) return null;
+  // Hide the dropdown when the section is just a single-page tab shell
+  // (one item that simply re-points at defaultHref). The tab itself
+  // already navigates there on click — a dropdown of one is just noise.
+  if (
+    section.items.length <= 1 &&
+    section.items[0]?.href.split("#")[0] === section.defaultHref.split("#")[0]
+  ) {
+    return null;
+  }
 
   return (
     <div className="absolute top-full left-0 mt-1 z-50 glass-card rounded-xl border border-border/40 shadow-xl py-2 w-72">

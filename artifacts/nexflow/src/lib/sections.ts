@@ -138,6 +138,49 @@ export const SECTIONS: SectionDef[] = [
     ],
   },
 
+  // ─── MarkHub (marketing-only bundled tab) ─────────────────────────
+  {
+    key: "markhub",
+    label: "MarkHub",
+    icon: Layers,
+    tagline: "Templates, sequences, audiences, and web forms — one hub.",
+    accent: "#C8A880",
+    defaultHref: "/templates",
+    items: [
+      { icon: FileText,   label: "Templates",  href: "/templates",           desc: "Email/WhatsApp/SMS message templates" },
+      { icon: GitBranch,  label: "Sequences",  href: "/sequences-audiences", desc: "Cadences and multi-touch journeys" },
+      { icon: Users,      label: "Audiences",  href: "/audiences",           desc: "Segments and target lists" },
+      { icon: FileText,   label: "Web Forms",  href: "/web-forms",           desc: "AI form creator + ad-funnel forms" },
+    ],
+  },
+
+  // ─── Single-page tab shells (used by per-role TOP_NAVs) ──────────
+  // These exist so a TopNavEntry can point at one page (no real
+  // dropdown). SingleSectionDropdown hides itself when items.length
+  // === 1 AND the item's href matches defaultHref.
+  {
+    key: "tab-campaign-builder",
+    label: "Campaign Builder",
+    icon: Sparkles,
+    tagline: "AI-powered campaign builder.",
+    accent: "#C8A880",
+    defaultHref: "/campaign-builder",
+    items: [
+      { icon: Sparkles, label: "Campaign Builder", href: "/campaign-builder", desc: "AI builder · manual upload · publishing" },
+    ],
+  },
+  {
+    key: "tab-campaign-performance",
+    label: "Campaign Performance",
+    icon: Eye,
+    tagline: "Per-campaign deep dive.",
+    accent: "#88B8B0",
+    defaultHref: "/campaign-performance",
+    items: [
+      { icon: Eye, label: "Campaign Performance", href: "/campaign-performance", desc: "Per-campaign deep dive · hot lead alerts" },
+    ],
+  },
+
   // ─── Settings (gear icon in avatar menu — NOT in TOP_NAV) ─────────
   {
     key: "settings",
@@ -309,4 +352,45 @@ export function findSectionByRoute(pathname: string): SectionDef | null {
 /** Returns the TopNavEntry that owns the given section key. */
 export function findTopNavBySection(sectionKey: string): TopNavEntry | null {
   return TOP_NAV.find((t) => t.sections.includes(sectionKey)) ?? null;
+}
+
+/* ─── Per-persona top nav scopes ────────────────────────────────────
+   Each persona sees ONLY the tabs they need. The role-scoped tabs are
+   built from a mix of the standard six TOP_NAV entries and a handful
+   of role-specific shells (Campaign Builder, Campaign Performance,
+   MarkHub) defined in SECTIONS above. */
+
+const ALL_TOP_NAV_ENTRIES: TopNavEntry[] = [
+  ...TOP_NAV,
+  // Marketing-only single-page tabs:
+  { key: "tab-campaign-builder",     label: "Campaign Builder",     icon: Sparkles, sections: ["tab-campaign-builder"] },
+  { key: "tab-campaign-performance", label: "Campaign Performance", icon: Eye,      sections: ["tab-campaign-performance"] },
+  { key: "markhub",                  label: "MarkHub",              icon: Layers,   sections: ["markhub"] },
+];
+
+/** Map of role.key → ordered list of TopNavEntry keys to show. */
+export const ROLE_NAV: Record<string, string[]> = {
+  // Sales rep — focused on leads + calls.
+  sales:     ["home", "leads", "callcenter"],
+  // Sales Manager / team lead — leads, calls, team performance, data.
+  manager:   ["home", "leads", "callcenter", "insights", "datahub"],
+  // CEO — exec dashboards, marketing performance, high-level pipeline.
+  ceo:       ["home", "insights", "marketing", "leads"],
+  // CRM Admin — data hygiene + insights, no sales-floor noise.
+  admin:     ["home", "datahub", "insights"],
+  // Marketing — ONLY marketing-relevant surfaces.
+  marketing: ["home", "tab-campaign-builder", "tab-campaign-performance", "markhub"],
+};
+
+/** Returns the TopNavEntry list that should be visible for a given role.
+ *  Falls back to the full six-tab nav for unknown roles. */
+export function getNavForRole(roleKey: string): TopNavEntry[] {
+  const keys = ROLE_NAV[roleKey];
+  if (!keys) return TOP_NAV;
+  const out: TopNavEntry[] = [];
+  for (const k of keys) {
+    const entry = ALL_TOP_NAV_ENTRIES.find((e) => e.key === k);
+    if (entry) out.push(entry);
+  }
+  return out;
 }

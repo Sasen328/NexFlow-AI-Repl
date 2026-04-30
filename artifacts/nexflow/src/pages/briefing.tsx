@@ -10,6 +10,7 @@ import { useDashboard, useContacts, useForgottenLeads, useRegenerateInsights, us
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { getRole, type RoleKey } from "@/lib/marketing-auth";
+import MarketingDashboardPage from "@/pages/marketing-dashboard";
 
 interface PersonaTask {
   id: string;
@@ -977,6 +978,26 @@ export default function CommandCenterPage() {
         </div>
         );
       })()}
+
+      {/* ── Marketing-only embedded dashboard ──────────────────────
+          Marketing's Home tab includes the marketing dashboard inline
+          (KPIs, AI 3-up analysis, hot leads, quick nav) so they don't
+          have to leave Home to see campaign health. */}
+      {role.key === "marketing" && (
+        <div className="mt-8 border-t border-border/30 pt-6">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="px-2 py-0.5 rounded-full bg-[#C8A880]/15 border border-[#C8A880]/40">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#C8A880]">
+                Marketing Pulse
+              </span>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              Live campaign performance — embedded from your dashboard
+            </span>
+          </div>
+          <MarketingDashboardPage />
+        </div>
+      )}
     </div>
   );
 }
