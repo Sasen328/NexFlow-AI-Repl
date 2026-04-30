@@ -1,20 +1,19 @@
 .rd-root {
-  /* Original Studio palette — sand/cream editorial feel. Reverted from a
-     chameleon re-skin that the user disliked. Studio is intentionally
-     its own visual island; what made it clash before was the duplicate
-     top header, which has been removed in studio.tsx. */
-  --rd-sand: #F7F4ED;
-  --rd-sand-2: #FBF9F4;
-  --rd-cream: #E8E2D5;
-  --rd-cream-2: #EFEADE;
-  --rd-ink: #1F1B16;
-  --rd-ink-2: #3B342C;
-  --rd-mute: #8A8175;
-  --rd-mute-2: #A89F92;
-  --rd-accent: #B8A0C8;
+  /* Studio uses the NexFlow chameleon brand palette — same off-white surface,
+     lavender accent, and sage as the rest of the CRM. The previous sand/cream
+     palette made Studio look like a different product. */
+  --rd-sand: #fdfcff;       /* page surface — almost white w/ lavender hint */
+  --rd-sand-2: #faf8fd;     /* secondary surface */
+  --rd-cream: #ebe6f1;      /* divider / border */
+  --rd-cream-2: #f4f0f8;    /* subtle hover surface */
+  --rd-ink: #1f1b2e;        /* primary text */
+  --rd-ink-2: #3b3450;      /* secondary text */
+  --rd-mute: #8a8499;       /* muted text */
+  --rd-mute-2: #aaa3bd;     /* very muted */
+  --rd-accent: #B8A0C8;     /* chameleon lavender */
   --rd-accent-soft: #EFE6F4;
-  --rd-sage: #7A8F76;
-  --rd-sage-soft: #DBE3D5;
+  --rd-sage: #88B8B0;       /* matches app sage */
+  --rd-sage-soft: #d9ece9;
   --rd-card: #FFFFFF;
 
   background: var(--rd-sand);

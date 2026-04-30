@@ -8,7 +8,7 @@ import {
   Briefcase, GraduationCap, Languages, Calendar, Code2, DollarSign,
   Sparkles, ChevronRight, FileText, Database, Bot, ListChecks, Settings2, Check,
   PhoneOutgoing, PhoneIncoming, PhoneMissed, Clock, ChevronDown, ChevronUp,
-  Loader2, StickyNote, TrendingDown, Mic
+  Loader2, StickyNote, TrendingDown, Mic, BookOpen
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -59,7 +59,9 @@ export default function ContactProfilePage({ params }: Props) {
   const deals = dealsData?.deals ?? [];
   const signals = signalsData?.signals ?? [];
 
-  const [tab, setTab] = useState<"overview" | "engagement" | "calls" | "deals" | "enrichment">("overview");
+  // Calls tab removed — call history merged into Engagement. Engagement now
+  // shows calls + meetings + notes + AI analysis in one timeline.
+  const [tab, setTab] = useState<"overview" | "engagement" | "deals" | "enrichment">("overview");
   const [showCallModal, setShowCallModal] = useState(false);
 
   if (isLoading) {
@@ -141,20 +143,23 @@ export default function ContactProfilePage({ params }: Props) {
           </div>
         </div>
 
-        {/* Action bar */}
+        {/* Action bar — every channel routes to its dedicated surface so the
+            rep works in one consistent place per channel (no in-page modals).
+            AI Voice Agent removed from contact actions per product feedback —
+            it lives in /callcenter/agent, not on every contact card. */}
         <div className="flex flex-wrap items-center gap-2 pt-4 mt-4 border-t border-border/20">
-          <button onClick={() => setShowCallModal(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90 transition-opacity">
+          <Link href={`/power-dialer?contact=${id}`}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90 transition-opacity no-underline">
             <Phone className="w-3.5 h-3.5" /> Call
-          </button>
-          <button onClick={() => setShowCallModal(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors">
-            <Bot className="w-3.5 h-3.5 text-[#B8A0C8]" /> AI Voice Agent
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors">
+          </Link>
+          <Link href={`/email-generator?contact=${id}`}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors no-underline">
             <Mail className="w-3.5 h-3.5" /> Email
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors">
+          </Link>
+          <Link href={`/callcenter/messages?contact=${id}`}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors no-underline">
             <MessageSquare className="w-3.5 h-3.5 text-[#88B8B0]" /> WhatsApp
-          </button>
+          </Link>
           <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 text-foreground text-sm font-medium hover:bg-muted/70 transition-colors">
             <Linkedin className="w-3.5 h-3.5 text-[#0A66C2]" /> LinkedIn
           </button>
@@ -173,8 +178,7 @@ export default function ContactProfilePage({ params }: Props) {
       <div className="flex gap-1 p-1 rounded-xl bg-muted/40 w-fit flex-wrap">
         {[
           { k: "overview",    label: "Overview" },
-          { k: "engagement",  label: "Engagement" },
-          { k: "calls",       label: `Calls (${calls.length})` },
+          { k: "engagement",  label: `Engagement (${activities.length + calls.length})` },
           { k: "deals",       label: `Deals (${deals.length})` },
           { k: "enrichment",  label: "Enrichment" },
         ].map(t => (
@@ -345,59 +349,112 @@ export default function ContactProfilePage({ params }: Props) {
         </div>
       )}
 
-      {tab === "engagement" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <div className="glass-card rounded-2xl p-5">
-            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-muted-foreground" />
-              Activity Timeline
-            </h3>
-            {activities.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No activities yet</p>
-            ) : (
-              <div className="space-y-3 relative">
-                <div className="absolute left-3 top-1 bottom-1 w-px bg-border/30" />
-                {activities.map((a: any) => (
-                  <div key={a.id} className="flex items-start gap-3 relative">
-                    <div className="w-6 h-6 rounded-full bg-background border-2 border-[#B8A0C8] flex items-center justify-center flex-shrink-0 z-10">
-                      <Activity className="w-3 h-3 text-[#B8A0C8]" />
-                    </div>
-                    <div className="flex-1 min-w-0 pb-2">
-                      <div className="text-sm font-semibold text-foreground">{a.title}</div>
-                      {a.body && <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{a.body}</p>}
-                      <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium mt-1 inline-block",
-                        a.status === "completed" ? "bg-[#88B8B0]/15 text-[#88B8B0]" : "bg-[#C8A880]/15 text-[#C8A880]")}>
-                        {a.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+      {tab === "engagement" && (() => {
+        // Unified engagement timeline: calls + meetings + notes + activities,
+        // sorted newest first. AI analysis card sits above. The old separate
+        // "Calls" tab was redundant — every call shows here with summary,
+        // outcome and score, and you can click into the dialer for details.
+        type Item = { id: string; kind: "call" | "meeting" | "note" | "activity"; title: string; body?: string | null; meta?: string; ts: number };
+        const items: Item[] = [];
+        for (const c of (calls as any[])) {
+          const ts = c.created_at ? new Date(c.created_at).getTime() : 0;
+          items.push({
+            id: `c-${c.id}`,
+            kind: "call",
+            title: `${(c.direction ?? "outbound").toString().replace(/^./, (s: string) => s.toUpperCase())} call · ${c.outcome ?? "completed"}${c.duration_sec ? ` · ${Math.round(c.duration_sec / 60)} min` : ""}`,
+            body: c.summary ?? c.transcript_excerpt ?? null,
+            meta: c.score != null ? `Score ${c.score}/100` : undefined,
+            ts,
+          });
+        }
+        for (const a of (activities as any[])) {
+          const ts = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const t = (a.type ?? "").toLowerCase();
+          const kind: Item["kind"] = t.includes("meeting") ? "meeting" : t.includes("note") ? "note" : "activity";
+          items.push({
+            id: `a-${a.id}`,
+            kind,
+            title: a.title ?? a.subject ?? (kind === "note" ? "Note" : kind === "meeting" ? "Meeting" : "Activity"),
+            body: a.body ?? a.description ?? null,
+            meta: a.status,
+            ts,
+          });
+        }
+        items.sort((x, y) => y.ts - x.ts);
+        const counts = {
+          call: items.filter(i => i.kind === "call").length,
+          meeting: items.filter(i => i.kind === "meeting").length,
+          note: items.filter(i => i.kind === "note").length,
+          activity: items.filter(i => i.kind === "activity").length,
+        };
+        const STYLE: Record<Item["kind"], { color: string; Icon: typeof Activity; label: string }> = {
+          call:     { color: "#B8A0C8", Icon: Phone,    label: "Call"     },
+          meeting:  { color: "#88B8B0", Icon: Calendar, label: "Meeting"  },
+          note:     { color: "#C8A880", Icon: BookOpen, label: "Note"     },
+          activity: { color: "#9AA0B8", Icon: Activity, label: "Activity" },
+        };
+        return (
+          <div className="space-y-5">
+            {/* AI analysis summary across all engagement */}
+            <div className="rounded-2xl p-5 border relative overflow-hidden" style={{ background: "linear-gradient(135deg, #f9f3ff 0%, #f0f9f8 70%, #fffbf0 100%)", borderColor: "rgba(184,160,200,0.3)" }}>
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl nf-chameleon-bg flex items-center justify-center flex-shrink-0 shadow-sm"><Sparkles className="w-5 h-5 text-white" /></div>
+                <div className="flex-1">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-[#B8A0C8] mb-0.5">AI Engagement Analysis</div>
+                  <h3 className="text-base font-black text-foreground mb-1">All touchpoints with {contact.first_name ?? "this contact"}</h3>
+                  <p className="text-xs text-foreground/80 leading-relaxed">
+                    {items.length === 0
+                      ? "No engagement yet. Start with a call or note to build the timeline."
+                      : `${items.length} touchpoints — ${counts.call} call${counts.call === 1 ? "" : "s"}, ${counts.meeting} meeting${counts.meeting === 1 ? "" : "s"}, ${counts.note} note${counts.note === 1 ? "" : "s"}, ${counts.activity} other. Most recent first.`}
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
-          <div className="glass-card rounded-2xl p-5">
-            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Phone className="w-4 h-4 text-muted-foreground" />
-              Call History
-            </h3>
-            {calls.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No calls yet</p>
-            ) : (
-              <div className="space-y-2">
-                {calls.map((c: any) => (
-                  <div key={c.id} className="p-3 rounded-xl bg-muted/30">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-foreground capitalize">{c.direction} · {c.outcome ?? "completed"}</span>
-                      {c.score && <span className="text-xs font-bold text-[#88B8B0]">{c.score}/100</span>}
-                    </div>
-                    {c.summary && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{c.summary}</p>}
-                  </div>
-                ))}
+            </div>
+
+            {/* Unified timeline */}
+            <div className="glass-card rounded-2xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-muted-foreground" />
+                  Engagement Timeline
+                </h3>
+                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <span className="px-2 py-0.5 rounded-full bg-[#B8A0C8]/15 text-[#B8A0C8] font-semibold">{counts.call} calls</span>
+                  <span className="px-2 py-0.5 rounded-full bg-[#88B8B0]/15 text-[#88B8B0] font-semibold">{counts.meeting} meetings</span>
+                  <span className="px-2 py-0.5 rounded-full bg-[#C8A880]/15 text-[#C8A880] font-semibold">{counts.note} notes</span>
+                </div>
               </div>
-            )}
+              {items.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No engagement yet.</p>
+              ) : (
+                <div className="space-y-3 relative">
+                  <div className="absolute left-3 top-1 bottom-1 w-px bg-border/30" />
+                  {items.map(it => {
+                    const { color, Icon, label } = STYLE[it.kind];
+                    return (
+                      <div key={it.id} className="flex items-start gap-3 relative">
+                        <div className="w-6 h-6 rounded-full bg-background border-2 flex items-center justify-center flex-shrink-0 z-10" style={{ borderColor: color }}>
+                          <Icon className="w-3 h-3" style={{ color }} />
+                        </div>
+                        <div className="flex-1 min-w-0 pb-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color }}>{label}</span>
+                            <span className="text-sm font-semibold text-foreground">{it.title}</span>
+                          </div>
+                          {it.body && <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{it.body}</p>}
+                          {it.meta && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-medium mt-1 inline-block bg-muted/50 text-muted-foreground">{it.meta}</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {tab === "deals" && (
         <div className="space-y-3">
@@ -424,10 +481,6 @@ export default function ContactProfilePage({ params }: Props) {
             ))
           )}
         </div>
-      )}
-
-      {tab === "calls" && (
-        <CallsTab contact={contact} calls={calls} />
       )}
 
       {tab === "enrichment" && (
