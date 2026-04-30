@@ -10,7 +10,24 @@
 import type { Connector, EnrichResult, Field } from "../types.js";
 import { fetchJSON, pickNeeded, extractDomain } from "./_common.js";
 
-const SIDECAR_URL = process.env["ENRICHMENT_SCRAPER_URL"] ?? "http://localhost:80/scraper";
+// Default to localhost:8000 (the sidecar's dev port). In production deploys
+// where the sidecar is NOT co-located with api-server, the operator MUST set
+// ENRICHMENT_SCRAPER_URL to an internal/private service URL — otherwise we
+// disable the connector below to avoid silently hitting the wrong host.
+const SIDECAR_URL = process.env["ENRICHMENT_SCRAPER_URL"] ?? "http://localhost:8000/scraper";
+const SHARED_SECRET = process.env["SCRAPER_SHARED_SECRET"] ?? "";
+const IS_PROD = process.env["NODE_ENV"] === "production";
+const HAS_EXPLICIT_URL = !!process.env["ENRICHMENT_SCRAPER_URL"];
+
+const authHeaders: Record<string, string> = SHARED_SECRET
+  ? { "X-Sidecar-Token": SHARED_SECRET }
+  : {};
+
+function disabledForProd(): boolean {
+  // In production we require the operator to explicitly point us at the
+  // sidecar. localhost is almost certainly wrong there.
+  return IS_PROD && !HAS_EXPLICIT_URL;
+}
 
 interface SidecarExtractResponse {
   ok: boolean;
@@ -32,12 +49,23 @@ export const pythonScraperConnector: Connector = {
   source_key: "python_scraper",
 
   async test() {
-    const r = await fetchJSON<{ ok: boolean; version?: string }>(`${SIDECAR_URL}/health`, {}, 4_000);
+    if (disabledForProd()) {
+      return {
+        ok: false,
+        message: "Disabled in production: set ENRICHMENT_SCRAPER_URL to enable.",
+      };
+    }
+    const r = await fetchJSON<{ ok: boolean; version?: string }>(
+      `${SIDECAR_URL}/health`,
+      { headers: authHeaders },
+      4_000,
+    );
     if (!r.ok) return { ok: false, message: r.error ?? "Sidecar unreachable" };
     return { ok: true, message: `Sidecar v${r.data?.version ?? "?"} reachable` };
   },
 
   async enrich({ seed, alreadyFilled }): Promise<EnrichResult> {
+    if (disabledForProd()) return { status: "skipped", fields: {} };
     const domain = extractDomain(seed);
     if (!domain) return { status: "skipped", fields: {} };
     const url = `https://${domain}`;
@@ -46,13 +74,18 @@ export const pythonScraperConnector: Connector = {
       `${SIDECAR_URL}/extract`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({ url, mode: "crawl4ai" }),
       },
       20_000,
     );
     if (!r.ok) {
       return { status: "error", fields: {}, error: r.error ?? "sidecar error" };
+    }
+    // The sidecar sets body-level ok:false for robots-blocked / fetch-failed
+    // cases (HTTP 200 still). Surface those as soft errors instead of "miss".
+    if (r.data && r.data.ok === false) {
+      return { status: "error", fields: {}, error: r.data.error ?? "sidecar refused" };
     }
 
     const s = r.data?.structured;

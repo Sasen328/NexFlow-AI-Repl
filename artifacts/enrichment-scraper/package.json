@@ -1,0 +1,11 @@
+{
+  "name": "@workspace/enrichment-scraper",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Python FastAPI sidecar for AI-assisted public-web extraction (NexFlow waterfall orchestrator).",
+  "scripts": {
+    "dev": "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --reload --app-dir artifacts/enrichment-scraper",
+    "start": "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --app-dir artifacts/enrichment-scraper",
+    "install-deps": "python -m pip install --upgrade -r artifacts/enrichment-scraper/requirements.txt"
+  }
+}
