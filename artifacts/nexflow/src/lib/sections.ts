@@ -56,21 +56,29 @@ export const SECTIONS: SectionDef[] = [
     ],
   },
 
-  // ─── 2. Leads (rename of CRM) ─────────────────────────────────────
+  // ─── 2. CRM (per spec §03, §08 — was "Leads") ─────────────────────
+  // The key remains "leads" to keep ROLE_NAV / legacy deep links working.
   {
     key: "leads",
-    label: "Leads",
+    label: "CRM",
     icon: Briefcase,
-    tagline: "Pipeline, deals, lists, research.",
+    tagline: "Dashboard, pipelines, deals, contacts, companies, forecasting.",
     accent: "#88B8B0",
-    defaultHref: "/leads/pipeline",
+    defaultHref: "/crm-dashboard",
     items: [
-      { icon: GitBranch,    label: "Pipeline & Deals", href: "/leads/pipeline",   desc: "Lead funnel + post-SAL deal stages in one view" },
-      { icon: Users,        label: "Contacts",         href: "/contacts",         desc: "All people · enrich · score · history" },
-      { icon: Building2,    label: "Companies",        href: "/companies",        desc: "Account hub · revenue · contacts roster" },
-      { icon: ListIcon,     label: "Lists",            href: "/leads/lists",      desc: "Static & dynamic lists, campaign audiences" },
-      { icon: Search,       label: "Research",         href: "/leads/research",   desc: "Account & contact research with AI signals" },
-      { icon: AlertCircle,  label: "Forgotten Leads",  href: "/leads/forgotten",  desc: "Idle 90+ days but with a fresh signal" },
+      { icon: LayoutDashboard, label: "Dashboard",             href: "/crm-dashboard",     desc: "AI summary · winning tactics · pipeline flows" },
+      { icon: GitBranch,       label: "Pipeline",              href: "/pipeline",          desc: "Pre-SAL funnel — MQL → SAL1 → SAL2" },
+      { icon: TrendingUp,      label: "Deals Pipeline",        href: "/deal-pipeline",     desc: "Post-SAL deal stages · auto-generated for SAL2" },
+      { icon: Users,           label: "Contacts",              href: "/contacts",          desc: "All people · enrich · score · history" },
+      { icon: Activity,        label: "Engagement Activities", href: "/engagement",        desc: "Calls · meetings · emails · WhatsApp — unified timeline" },
+      { icon: Building2,       label: "Companies",             href: "/companies",         desc: "Account hub · revenue · contacts roster" },
+      { icon: Network,         label: "Account Hub",           href: "/accounts",          desc: "Strategic account map (sub of Companies)" },
+      { icon: BarChart3,       label: "Forecasting",           href: "/forecasting",       desc: "AI-driven revenue forecasts & scenarios" },
+      { icon: Heart,           label: "Health Score",          href: "/health-scores",     desc: "Account health & churn risk" },
+      { icon: ListIcon,        label: "Lists",                 href: "/leads/lists",       desc: "Static & dynamic lists, campaign audiences" },
+      { icon: Search,          label: "Research",              href: "/leads/research",    desc: "Account & contact research with AI signals" },
+      { icon: AlertCircle,     label: "Forgotten Leads",       href: "/leads/forgotten",   desc: "Idle 90+ days but with a fresh signal" },
+      { icon: MoreHorizontal,  label: "Quotes & CPQ",          href: "/quotes",            desc: "Demoted — quotes, CPQ, document tracking" },
     ],
   },
 
@@ -88,25 +96,32 @@ export const SECTIONS: SectionDef[] = [
       { icon: Phone,           label: "Calls & Transcripts",  href: "/callcenter/calls",          desc: "Call scoring, live coaching, objection handler" },
       { icon: Activity,        label: "Conversation Intel",   href: "/calls",                     desc: "Conversation intelligence · sentiment · keywords" },
       { icon: Send,            label: "Post-Call Automation", href: "/post-call-automation",      desc: "Auto WhatsApp · Email · follow-up tasks after every call" },
-      { icon: Bot,             label: "AI Agent",             href: "/callcenter/agent",          desc: "Voice agent settings & deployments" },
+      { icon: Bot,             label: "AI Voice Agent",       href: "/callcenter/agent",          desc: "Voice agent settings & deployments" },
       { icon: BookOpen,        label: "Knowledge Base",       href: "/callcenter/knowledge-base", desc: "Scripts · Objections · Playbooks · Company insights" },
       { icon: MessageSquare,   label: "Messages",             href: "/callcenter/messages",       desc: "WhatsApp + Email in one inbox" },
+      { icon: Settings,        label: "Cloud Center Setup",   href: "/contact-center-setup",      desc: "Settings + Knowledge for AI Voice Agent" },
     ],
   },
 
-  // ─── 4. Data Hub (merge Enrichment + Data Tools) ──────────────────
+  // ─── 4. Enrichment Engine (per spec §05, §08 — was "Data Hub") ────
+  // Key remains "datahub" so ROLE_NAV / legacy deep links keep working.
   {
     key: "datahub",
-    label: "Data Hub",
+    label: "Enrichment Engine",
     icon: Database,
-    tagline: "Segments, enrichment, AI workforce, signals.",
+    tagline: "Bulk · Quick · Card scan · Lists · Signals · Search history.",
     accent: "#B8B880",
-    defaultHref: "/datahub/segments",
+    defaultHref: "/enrichment-engine",
     items: [
-      { icon: Target,   label: "Segments",     href: "/datahub/segments",   desc: "Dynamic segments, filters, smart lists" },
-      { icon: Database, label: "Enrichment",   href: "/datahub/enrichment", desc: "Waterfall enrichment + buying signals" },
-      { icon: Bot,      label: "AI Workforce", href: "/datahub/workforce",  desc: "Custom AI agents, prompts & scoring" },
-      { icon: Zap,      label: "Signals",      href: "/datahub/signals",    desc: "Funding, hiring, intent, news" },
+      { icon: LayoutDashboard, label: "Dashboard",        href: "/enrichment-engine", desc: "Unified enrichment workspace + AI summary" },
+      { icon: Database,        label: "Bulk Enrichment",  href: "/datahub/enrichment", desc: "Waterfall enrichment for lists & accounts" },
+      { icon: Wand2,           label: "Quick Lead Enrich", href: "/lead-enrich",      desc: "On-demand single-record enrichment" },
+      { icon: ScanLine,        label: "Card Scanner",     href: "/business-cards",    desc: "OCR business cards → enriched contacts" },
+      { icon: FileSpreadsheet, label: "List Upload + Dedup", href: "/dedup",          desc: "Upload CSVs · auto-dedup · enrich" },
+      { icon: Zap,             label: "Buying Signals",   href: "/datahub/signals",   desc: "Funding · hiring · intent · public news" },
+      { icon: Search,          label: "Search History",   href: "/search-history",    desc: "Every enrichment run, filterable & re-runnable" },
+      { icon: Target,          label: "Segments",         href: "/datahub/segments",  desc: "Dynamic segments, filters, smart lists" },
+      { icon: Bot,             label: "AI Workforce",     href: "/datahub/workforce", desc: "Custom AI agents, prompts & scoring" },
     ],
   },
 
@@ -125,6 +140,7 @@ export const SECTIONS: SectionDef[] = [
       { icon: GitBranch,       label: "Sequences & Audiences",  href: "/sequences-audiences",  desc: "Cadences · templates · segments in one place" },
       { icon: FileText,        label: "Web Forms",              href: "/web-forms",             desc: "AI form creator + ad-funnel forms" },
       { icon: Eye,             label: "Campaign Performance",   href: "/campaign-performance",  desc: "Per-campaign deep dive · hot lead alerts" },
+      { icon: Globe,           label: "Cultural Intelligence",  href: "/cultural-intelligence", desc: "GCC cultural lens + dashboard alerts" },
     ],
   },
 

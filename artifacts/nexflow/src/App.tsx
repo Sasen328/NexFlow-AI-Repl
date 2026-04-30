@@ -86,6 +86,7 @@ import PublicTrustPage from "@/pages/public-trust";
 import DedupPage from "@/pages/dedup";
 import LeadEnrichPage from "@/pages/lead-enrich";
 import EnrichmentEnginePage from "@/pages/enrichment-engine";
+import SearchHistoryPage from "@/pages/search-history";
 import MarketingAssistantPage from "@/pages/marketing-assistant";
 import MarketingDashboardPage from "@/pages/marketing-dashboard";
 import CampaignBuilderPage from "@/pages/campaign-builder";
@@ -230,6 +231,7 @@ function AppLayout() {
           <Route path="/dedup" component={DedupPage} />
           <Route path="/lead-enrich" component={LeadEnrichPage} />
           <Route path="/enrichment-engine" component={EnrichmentEnginePage} />
+          <Route path="/search-history" component={SearchHistoryPage} />
           <Route path="/marketing-assistant" component={MarketingAssistantPage} />
           {/* New Marketing tab structure (overhaul) */}
           <Route path="/marketing-dashboard" component={MarketingDashboardPage} />
