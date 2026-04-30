@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LivingMesh } from "@/components/layout/LivingMesh";
 import { TopBar } from "@/components/layout/TopBar";
 import { SectionTabStrip } from "@/components/layout/SectionTabStrip";
+import { AIAssistantBubble } from "@/components/AIAssistantBubble";
 import { MarketingLayout } from "@/components/marketing/MarketingLayout";
 import WelcomePage from "@/pages/marketing/Welcome";
 import AboutPage from "@/pages/marketing/About";
@@ -33,7 +34,7 @@ import AiPage from "@/pages/ai";
 import IntelligencePage from "@/pages/intelligence";
 import WhatsAppPage from "@/pages/whatsapp";
 import AutomationPage from "@/pages/automation";
-import AssistantPage from "@/pages/assistant";
+import { Redirect } from "wouter";
 import TeamPage from "@/pages/team";
 import EmailPage from "@/pages/email";
 import SourcingPage from "@/pages/sourcing";
@@ -135,7 +136,7 @@ function AppLayout() {
           <Route path="/ai" component={AiPage} />
           <Route path="/intelligence" component={IntelligencePage} />
           <Route path="/automation" component={AutomationPage} />
-          <Route path="/assistant" component={AssistantPage} />
+          <Route path="/assistant">{() => <Redirect to="/home" />}</Route>
           <Route path="/team" component={TeamPage} />
           <Route path="/messages" component={MessagesPage} />
           <Route path="/templates" component={TemplatesPage} />
@@ -176,6 +177,7 @@ function AppLayout() {
           <Route component={NotFound} />
         </Switch>
       </main>
+      <AIAssistantBubble />
     </div>
   );
 }

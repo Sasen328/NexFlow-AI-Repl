@@ -1,7 +1,8 @@
 import { useDailyInsights, useInsights, useRegenerateInsights, useInsightsTrend } from "@/hooks/useApi";
-import { Sparkles, AlertTriangle, TrendingUp, Info, Flame, RefreshCw, Loader2, EyeOff } from "lucide-react";
+import { Sparkles, AlertTriangle, TrendingUp, Info, Flame, RefreshCw, Loader2, EyeOff, ArrowRight, Zap } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
 const SEVERITY: any = {
@@ -19,6 +20,7 @@ export default function InsightsPage() {
   const { data: history } = useInsights();
   const { data: trendData } = useInsightsTrend();
   const regen = useRegenerateInsights();
+  const [, navigate] = useLocation();
   const [filterCat, setFilterCat] = useState<string | null>(null);
   const [filterSev, setFilterSev] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
@@ -54,6 +56,55 @@ export default function InsightsPage() {
   }, [trendData]);
   const trendMax = Math.max(...trendStrip.map(d => d.count), 1);
 
+  // ─── AI summary derived from today's items ────────────────────────────
+  const summary = useMemo(() => {
+    const counts = { critical: 0, warning: 0, opportunity: 0, info: 0 } as Record<string, number>;
+    todayItems.forEach((i: any) => {
+      counts[i.severity] = (counts[i.severity] ?? 0) + 1;
+    });
+    const total = todayItems.length;
+    const topCritical = todayItems.find((i: any) => i.severity === "critical")
+      ?? todayItems.find((i: any) => i.severity === "warning");
+    const topOpp = todayItems.find((i: any) => i.severity === "opportunity");
+
+    let headline: string;
+    if (total === 0) {
+      headline = "Generating today's bottom line…";
+    } else if (counts.critical > 0) {
+      headline = `${counts.critical} critical issue${counts.critical === 1 ? "" : "s"} need your attention today.`;
+    } else if (counts.warning > 0) {
+      headline = `${counts.warning} warning${counts.warning === 1 ? "" : "s"} to review · ${counts.opportunity} opportunit${counts.opportunity === 1 ? "y" : "ies"} to lean into.`;
+    } else if (counts.opportunity > 0) {
+      headline = `Calm day. ${counts.opportunity} opportunit${counts.opportunity === 1 ? "y" : "ies"} are worth chasing.`;
+    } else {
+      headline = `${total} insight${total === 1 ? "" : "s"} on deck. Pipeline is steady.`;
+    }
+
+    const recs: { label: string; tone: "danger" | "ok" | "neutral"; onClick: () => void }[] = [];
+    if (topCritical) {
+      recs.push({
+        label: `Address: ${topCritical.title.length > 60 ? topCritical.title.slice(0, 57) + "…" : topCritical.title}`,
+        tone: topCritical.severity === "critical" ? "danger" : "neutral",
+        onClick: () => setFilterSev(topCritical.severity),
+      });
+    }
+    if (topOpp) {
+      recs.push({
+        label: `Lean into: ${topOpp.title.length > 60 ? topOpp.title.slice(0, 57) + "…" : topOpp.title}`,
+        tone: "ok",
+        onClick: () => setFilterSev("opportunity"),
+      });
+    }
+    if (counts.critical + counts.warning >= 3) {
+      recs.push({
+        label: "Block 30 min for triage — multiple risk signals",
+        tone: "neutral",
+        onClick: () => setFilterCat("risk"),
+      });
+    }
+    return { headline, counts, total, recs };
+  }, [todayItems]);
+
   async function regenerate() {
     setBusy(true);
     try {
@@ -79,6 +130,85 @@ export default function InsightsPage() {
           {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
           Regenerate today
         </button>
+      </div>
+
+      {/* AI Summary hero — Today's Bottom Line */}
+      <div className="rounded-3xl p-5 sm:p-6 border relative overflow-hidden"
+           style={{ background: "linear-gradient(135deg, rgba(184,160,200,0.12), rgba(136,184,176,0.10), rgba(200,168,128,0.10))", borderColor: "rgba(184,160,200,0.3)" }}>
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 right-0 w-56 h-56 rounded-full blur-3xl opacity-25" style={{ background: "radial-gradient(circle, #B8A0C8, transparent)" }} />
+          <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full blur-3xl opacity-15" style={{ background: "radial-gradient(circle, #88B8B0, transparent)" }} />
+        </div>
+        <div className="relative">
+          <div className="flex items-start gap-3 mb-3">
+            <div className="w-10 h-10 rounded-2xl nf-chameleon-bg flex items-center justify-center flex-shrink-0 shadow-sm">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] uppercase tracking-wider font-bold text-[#B8A0C8]">Today's Bottom Line</div>
+              <p className="text-base sm:text-lg font-bold text-foreground leading-snug mt-0.5">{summary.headline}</p>
+            </div>
+          </div>
+
+          {/* Stat chips */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {(["critical", "warning", "opportunity", "info"] as const).map((sev) => {
+              const count = summary.counts[sev] ?? 0;
+              if (count === 0) return null;
+              const meta = SEVERITY[sev];
+              return (
+                <button
+                  key={sev}
+                  type="button"
+                  onClick={() => setFilterSev(filterSev === sev ? null : sev)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors",
+                    filterSev === sev ? "ring-2 ring-offset-1 ring-offset-background" : "",
+                  )}
+                  style={{
+                    background: meta.color + "15",
+                    borderColor: meta.color + "55",
+                    color: meta.color,
+                  }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} />
+                  {count} {meta.label.toLowerCase()}
+                </button>
+              );
+            })}
+            {summary.total > 0 && (
+              <span className="text-[11px] text-muted-foreground self-center ml-1">
+                · {summary.total} insight{summary.total === 1 ? "" : "s"} total
+              </span>
+            )}
+          </div>
+
+          {/* Recommendations */}
+          {summary.recs.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Recommended next moves</div>
+              {summary.recs.map((rec, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={rec.onClick}
+                  className={cn(
+                    "w-full flex items-center gap-2 p-2.5 rounded-xl border text-left text-xs hover:shadow-sm transition-all group",
+                    rec.tone === "danger" ? "bg-[#C8A880]/10 border-[#C8A880]/30 text-foreground"
+                    : rec.tone === "ok" ? "bg-[#88B8B0]/10 border-[#88B8B0]/30 text-foreground"
+                    : "bg-white/40 border-border/40 text-foreground",
+                  )}
+                >
+                  {rec.tone === "danger" ? <AlertTriangle className="w-3.5 h-3.5 text-[#C8A880] flex-shrink-0" />
+                    : rec.tone === "ok" ? <Zap className="w-3.5 h-3.5 text-[#88B8B0] flex-shrink-0" />
+                    : <Info className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
+                  <span className="flex-1 font-medium">{rec.label}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 14-day trend strip */}
