@@ -82,13 +82,13 @@ function ScopeToggle({ value, onChange }: { value: Scope; onChange: (s: Scope) =
   );
 }
 
-function Header({ scope, setScope, source }: { scope: Scope; setScope: (s: Scope) => void; source?: string }) {
+function Header({ scope, setScope, source, title, eyebrow, subtitle }: { scope: Scope; setScope: (s: Scope) => void; source?: string; title: string; eyebrow: string; subtitle: string }) {
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="space-y-1">
         <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
-          Sales Rep · Home
+          {eyebrow}
           {source === "ai" && (
             <Badge className="bg-primary/10 text-primary hover:bg-primary/15">
               <Brain className="mr-1 h-3 w-3" /> Live · Claude
@@ -96,10 +96,10 @@ function Header({ scope, setScope, source }: { scope: Scope; setScope: (s: Scope
           )}
         </div>
         <h1 className="text-[26px] font-bold tracking-tight leading-tight">
-          360° AI Analysis
+          {title}
         </h1>
         <p className="text-xs text-muted-foreground">
-          Three views: Daily, YTD, Monthly — picked from one analysis brain.
+          {subtitle}
         </p>
       </div>
       <ScopeToggle value={scope} onChange={setScope} />
@@ -511,9 +511,25 @@ function NewsRow({ data, loading }: { data: Analysis | null; loading: boolean })
   );
 }
 
-export default function Briefing360AIAnalysis() {
-  const [scope, setScope] = useState<Scope>("daily");
-  const [mode, setMode] = useState<Mode>("command-center");
+interface Briefing360Props {
+  defaultScope?: Scope;
+  defaultMode?: Mode;
+  title?: string;
+  eyebrow?: string;
+  subtitle?: string;
+  caption?: string;
+}
+
+export default function Briefing360AIAnalysis({
+  defaultScope = "daily",
+  defaultMode = "command-center",
+  title = "360° AI Analysis",
+  eyebrow = "Sales Rep · Home",
+  subtitle = "Three views: Daily, YTD, Monthly — picked from one analysis brain.",
+  caption = "DAILY BRIEFING · 360° AI ANALYSIS",
+}: Briefing360Props = {}) {
+  const [scope, setScope] = useState<Scope>(defaultScope);
+  const [mode, setMode] = useState<Mode>(defaultMode);
   const [data, setData] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -550,11 +566,11 @@ export default function Briefing360AIAnalysis() {
 
   return (
     <div className="mx-auto w-full max-w-[980px] space-y-3.5">
-      <Header scope={scope} setScope={setScope} source={data?._source} />
+      <Header scope={scope} setScope={setScope} source={data?._source} title={title} eyebrow={eyebrow} subtitle={subtitle} />
 
       <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
         <Target className="h-3 w-3" />
-        DAILY BRIEFING · 360° AI ANALYSIS
+        {caption}
       </div>
 
       <div className="grid grid-cols-3 gap-3">

@@ -442,9 +442,9 @@ function SalesAndExecHome() {
   }
 
   const TABS = [
-    { k: "briefing"    as Tab, label: "Daily Briefing",    icon: Sparkles },
-    { k: "performance" as Tab, label: "Performance",        icon: TrendingUp },
-    { k: "todo"        as Tab, label: "To-Do & Alerts",     icon: ListTodo, badge: tasks.filter(t => !t.done && t.priority === "urgent").length },
+    { k: "briefing"    as Tab, label: role.key === "sales" ? "360° AI Analysis" : "Daily Briefing", icon: Sparkles },
+    { k: "performance" as Tab, label: role.key === "sales" ? "Performance · 360°"  : "Performance",   icon: TrendingUp },
+    { k: "todo"        as Tab, label: role.key === "sales" ? "Tasks & Alerts · 360°" : "To-Do & Alerts", icon: ListTodo, badge: tasks.filter(t => !t.done && t.priority === "urgent").length },
     { k: "insights"    as Tab, label: "Insights Dashboard", icon: BarChart3, badge: personaInsights.length },
   ];
 
@@ -522,10 +522,32 @@ function SalesAndExecHome() {
         })}
       </div>
 
-      {/* ──── DAILY BRIEFING TAB ──── */}
-      {tab === "briefing" && role.key === "sales" && (
+      {/* ──── 360° AI ANALYSIS — sales rep gets the new experience for all 3 tabs ──── */}
+      {role.key === "sales" && tab === "briefing" && (
         <div className="space-y-5">
           <Briefing360AIAnalysis />
+        </div>
+      )}
+      {role.key === "sales" && tab === "performance" && (
+        <div className="space-y-5">
+          <Briefing360AIAnalysis
+            defaultScope="ytd"
+            title="Performance · 360° AI Analysis"
+            eyebrow="Sales Rep · Performance"
+            subtitle="YTD performance picked apart by Claude — bottlenecks, momentum, and what to fix next."
+            caption="PERFORMANCE · 360° AI ANALYSIS"
+          />
+        </div>
+      )}
+      {role.key === "sales" && tab === "todo" && (
+        <div className="space-y-5">
+          <Briefing360AIAnalysis
+            defaultMode="tasks"
+            title="Tasks & Alerts · 360° AI Analysis"
+            eyebrow="Sales Rep · Tasks & Alerts"
+            subtitle="AI-prioritized tasks, alerts, and bottlenecks blocking your day — built from one analysis brain."
+            caption="TASKS & ALERTS · 360° AI ANALYSIS"
+          />
         </div>
       )}
       {tab === "briefing" && role.key !== "sales" && (
