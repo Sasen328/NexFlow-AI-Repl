@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { BarChart3, Download, Plus, TrendingUp, Users, Phone, Target, Calendar, ChevronDown, Sparkles, RefreshCw, Filter } from "lucide-react";
-import { useAnalytics } from "@/hooks/useApi";
+import { BarChart3, Download, Plus, TrendingUp, Users, Phone, Target, Calendar, ChevronDown, Sparkles, RefreshCw, Filter, Wand2, X, Loader2 } from "lucide-react";
+import { apiFetch, useAnalytics } from "@/hooks/useApi";
 import { cn } from "@/lib/utils";
 
 const REPORT_TEMPLATES = [
@@ -61,6 +61,25 @@ export default function ReportsPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiReport, setAiReport] = useState("");
   const [runningReport, setRunningReport] = useState<string | null>(null);
+
+  // ── Napkin AI visual summary state.
+  const [napkin, setNapkin] = useState<{ open: boolean; title: string; loading: boolean; url?: string; error?: string }>({
+    open: false, title: "", loading: false,
+  });
+  async function visualizeReport(r: typeof REPORT_TEMPLATES[number]) {
+    setNapkin({ open: true, title: `${r.name} — Visual Summary`, loading: true });
+    try {
+      const prompt = `Create a clean executive visual summary for the "${r.name}" (${r.category}) report covering ${dateRange}.\n\nKey metrics to visualise:\n${r.metrics.map((m, i) => `${i + 1}. ${m}`).join("\n")}\n\nContext: ${r.description}\n\nUse a professional diagram style suitable for a GCC B2B sales leadership briefing.`;
+      const res: any = await apiFetch("/napkin/generate-visual", {
+        method: "POST",
+        body: JSON.stringify({ prompt, style: "professional", format: "png", aspect_ratio: "16:9" }),
+      });
+      if (res?.url) setNapkin({ open: true, title: `${r.name} — Visual Summary`, loading: false, url: res.url });
+      else setNapkin({ open: true, title: `${r.name} — Visual Summary`, loading: false, error: res?.error ?? "Napkin returned no image." });
+    } catch (e: any) {
+      setNapkin({ open: true, title: `${r.name} — Visual Summary`, loading: false, error: e?.message ?? "Napkin request failed." });
+    }
+  }
 
   const categories = Array.from(new Set(REPORT_TEMPLATES.map(r => r.category)));
   const filtered = category ? REPORT_TEMPLATES.filter(r => r.category === category) : REPORT_TEMPLATES;
@@ -197,6 +216,13 @@ export default function ReportsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    onClick={() => visualizeReport(r)}
+                    className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-[#C8A880]/40 text-[#C8A880] hover:bg-[#C8A880]/10 text-[10px] font-bold"
+                    title="Generate visual summary (Napkin AI)"
+                  >
+                    <Wand2 className="w-3 h-3" /> Visualize
+                  </button>
                   <button className="p-1.5 rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground transition-colors" title="Download">
                     <Download className="w-3.5 h-3.5" />
                   </button>
@@ -224,6 +250,46 @@ export default function ReportsPage() {
           );
         })}
       </div>
+
+      {/* ── Napkin AI visual summary modal ─────────────────── */}
+      {napkin.open && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6"
+          onClick={() => setNapkin({ open: false, title: "", loading: false })}
+        >
+          <div
+            className="glass-card rounded-2xl border border-[#C8A880]/40 max-w-3xl w-full max-h-[85vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-border/30">
+              <Wand2 className="w-4 h-4 text-[#C8A880]" />
+              <div className="text-sm font-bold">{napkin.title}</div>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border border-[#C8A880]/40 text-[#C8A880] bg-[#C8A880]/10">Napkin AI</span>
+              <button
+                className="ml-auto p-1 rounded hover:bg-muted/50"
+                onClick={() => setNapkin({ open: false, title: "", loading: false })}
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5">
+              {napkin.loading ? (
+                <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#C8A880]" />
+                  <div className="text-sm">Napkin AI is sketching your visual summary…</div>
+                </div>
+              ) : napkin.error ? (
+                <div className="py-12 text-sm text-[#C0A0B8] text-center">{napkin.error}</div>
+              ) : napkin.url ? (
+                <a href={napkin.url} target="_blank" rel="noopener noreferrer">
+                  <img src={napkin.url} alt={napkin.title} className="w-full rounded-xl border border-border/30 bg-white" />
+                </a>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

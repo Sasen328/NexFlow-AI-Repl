@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import {
   LayoutDashboard, Sparkles, AlertTriangle, Flame, Globe, TrendingUp, TrendingDown,
   Megaphone, Send, Eye, MousePointerClick, Trophy, Target, Lightbulb, Phone,
-  ArrowRight, RefreshCw, Loader2, MessageSquare, Mail,
+  ArrowRight, RefreshCw, Loader2, MessageSquare, Mail, Wand2, X,
 } from "lucide-react";
 import { apiFetch } from "@/hooks/useApi";
 
@@ -57,6 +57,25 @@ export default function MarketingDashboardPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSource, setAiSource] = useState<"sample" | "live">("sample");
   const [hotLeads] = useState<HotLead[]>(FALLBACK_HOT_LEADS);
+
+  // ── Napkin AI visualizer state (per-card "Visualize" button on the 3-up).
+  const [napkin, setNapkin] = useState<{ open: boolean; title: string; loading: boolean; url?: string; error?: string }>({
+    open: false, title: "", loading: false,
+  });
+  async function visualize(title: string, items: string[]) {
+    setNapkin({ open: true, title, loading: true });
+    try {
+      const prompt = `Create a clear ${title.toLowerCase()} visual for a GCC B2B marketing executive briefing.\n\n${items.map((x, i) => `${i + 1}. ${x}`).join("\n")}\n\nUse a clean, professional diagram style suitable for an executive deck.`;
+      const r: any = await apiFetch("/napkin/generate-visual", {
+        method: "POST",
+        body: JSON.stringify({ prompt, style: "professional", format: "png", aspect_ratio: "16:9" }),
+      });
+      if (r?.url) setNapkin({ open: true, title, loading: false, url: r.url });
+      else setNapkin({ open: true, title, loading: false, error: r?.error ?? "Napkin returned no image." });
+    } catch (e: any) {
+      setNapkin({ open: true, title, loading: false, error: e?.message ?? "Napkin request failed." });
+    }
+  }
 
   useEffect(() => {
     // Pull live analytics totals to seed KPI tiles
@@ -192,14 +211,17 @@ Focus on the GCC region (KSA, UAE, Qatar) and B2B SaaS context.`,
         <AnalysisCard
           icon={Trophy} title="Winning Points" tone="up" accent="#88B8B0"
           items={analysis.winning_points} loading={aiLoading}
+          onVisualize={() => visualize("Winning Points", analysis.winning_points)}
         />
         <AnalysisCard
           icon={Target} title="Pain Points" tone="down" accent="#C0A0B8"
           items={analysis.pain_points} loading={aiLoading}
+          onVisualize={() => visualize("Pain Points", analysis.pain_points)}
         />
         <AnalysisCard
           icon={Lightbulb} title="How to Win" tone="action" accent="#C8A880"
           items={analysis.how_to_win} loading={aiLoading}
+          onVisualize={() => visualize("How to Win", analysis.how_to_win)}
         />
       </div>
       <div className="text-[11px] text-muted-foreground flex items-center gap-2 ml-1">
@@ -266,6 +288,46 @@ Focus on the GCC region (KSA, UAE, Qatar) and B2B SaaS context.`,
         <QuickNav href="/web-forms" icon={MousePointerClick} label="Web Forms" desc="Capture leads from any site"/>
         <QuickNav href="/campaign-performance" icon={TrendingUp} label="Campaign Performance" desc="Per-campaign deep dive"/>
       </div>
+
+      {/* ── Napkin AI visualization modal ─────────────────── */}
+      {napkin.open && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6"
+          onClick={() => setNapkin({ open: false, title: "", loading: false })}
+        >
+          <div
+            className="glass-card rounded-2xl border border-[#C8A880]/40 max-w-3xl w-full max-h-[85vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-border/30">
+              <Wand2 className="w-4 h-4 text-[#C8A880]"/>
+              <div className="text-sm font-bold">{napkin.title}</div>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border border-[#C8A880]/40 text-[#C8A880] bg-[#C8A880]/10">Napkin AI</span>
+              <button
+                className="ml-auto p-1 rounded hover:bg-muted/50"
+                onClick={() => setNapkin({ open: false, title: "", loading: false })}
+                aria-label="Close"
+              >
+                <X className="w-4 h-4"/>
+              </button>
+            </div>
+            <div className="p-5">
+              {napkin.loading ? (
+                <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#C8A880]"/>
+                  <div className="text-sm">Napkin AI is sketching your visual…</div>
+                </div>
+              ) : napkin.error ? (
+                <div className="py-12 text-sm text-[#C0A0B8] text-center">{napkin.error}</div>
+              ) : napkin.url ? (
+                <a href={napkin.url} target="_blank" rel="noopener noreferrer">
+                  <img src={napkin.url} alt={napkin.title} className="w-full rounded-xl border border-border/30 bg-white"/>
+                </a>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -291,16 +353,27 @@ function KpiTile({ icon: Icon, label, value, delta, deltaUp, accent }: any) {
   );
 }
 
-function AnalysisCard({ icon: Icon, title, tone, accent, items, loading }: any) {
+function AnalysisCard({ icon: Icon, title, tone, accent, items, loading, onVisualize }: any) {
   return (
     <div className="glass-card rounded-2xl p-4 border border-border/30 relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-10" style={{ background: accent, filter: "blur(30px)" }}/>
-      <div className="flex items-center gap-2 mb-3">
+      {/* Decorative blur orb — must not eat clicks on the Visualize button */}
+      <div className="pointer-events-none absolute top-0 right-0 w-32 h-32 rounded-full opacity-10" style={{ background: accent, filter: "blur(30px)" }}/>
+      <div className="relative flex items-center gap-2 mb-3">
         <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${accent}25` }}>
           <Icon className="w-4 h-4" style={{ color: accent }}/>
         </div>
         <div className="text-sm font-bold">{title}</div>
         {tone === "action" && <span className="px-1.5 py-0.5 rounded bg-[#C8A880]/20 text-[#C8A880] text-[9px] font-bold uppercase border border-[#C8A880]/40">Plan</span>}
+        {onVisualize && (
+          <button
+            onClick={onVisualize}
+            disabled={loading || !items?.length}
+            className="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border border-[#C8A880]/40 text-[#C8A880] hover:bg-[#C8A880]/10 disabled:opacity-40"
+            title="Generate a visual diagram from these points (Napkin AI)"
+          >
+            <Wand2 className="w-3 h-3"/> Visualize
+          </button>
+        )}
       </div>
       {loading ? (
         <div className="space-y-2">
