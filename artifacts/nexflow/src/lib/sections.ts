@@ -55,7 +55,6 @@ export const SECTIONS: SectionDef[] = [
     defaultHref: "/home",
     items: [
       { icon: Sparkles,  label: "Command Center",     href: "/home",              desc: "360° AI Analysis · morning brief · today's calendar · tasks · AI assistant" },
-      { icon: Compass,   label: "Studio",             href: "/studio",            desc: "All-in-one workspace · where you actually work" },
       { icon: BarChart3, label: "Performance",        href: "/home#performance",  desc: "Live KPIs and trend strip" },
       { icon: ListIcon,  label: "To-Do & Alerts",     href: "/home#todo",         desc: "AI-prioritised tasks for today" },
       { icon: Activity,  label: "Insights Dashboard", href: "/home#insights",     desc: "Lead insights + news + AI summary" },
@@ -84,18 +83,19 @@ export const SECTIONS: SectionDef[] = [
     key: "callcenter",
     label: "Comms",
     icon: MessageSquare,
-    tagline: "Dashboard · WhatsApp · Dialer · Calls · Command Center.",
+    tagline: "Dashboard · Dialer · Calls · AI Text · Command Center.",
     accent: "#C0A0B8",
-    // Landing on WhatsApp made the section feel like a messaging app. The
-    // dashboard is the proper overview surface (KPIs, queues, AI insights).
+    // Landing on the dashboard (KPIs, queues, AI insights), then the channels
+    // ordered as the rep flows through them: Dialer → Calls & Transcripts →
+    // AI Text (was WhatsApp; AI auto-replies + push-to-WhatsApp/Email todos).
     defaultHref: "/callcenter/dashboard",
     items: [
       // Overview surface — KPIs / queues / AI insights / live status
       { icon: BarChart3,       label: "Dashboard",           href: "/callcenter/dashboard",      desc: "Comms overview — KPIs · queues · AI insights · live status" },
-      // Channels — direct conversation surfaces
-      { icon: MessageSquare,   label: "WhatsApp",            href: "/callcenter/messages",       desc: "Unified inbox — WhatsApp + Email threads in one place" },
+      // Channels — direct conversation surfaces (call-first ordering)
       { icon: Phone,           label: "Dialer",              href: "/power-dialer",              desc: "Outbound calls — Manual · Auto-dial · AI Agent" },
-      { icon: Phone,           label: "Calls & Transcripts", href: "/callcenter/calls",          desc: "History · transcripts · scoring · sentiment" },
+      { icon: Phone,           label: "Calls & Transcripts", href: "/callcenter/calls",          desc: "History · transcripts · scoring · sentiment — pushed to lead timeline" },
+      { icon: MessageSquare,   label: "AI Text",             href: "/callcenter/messages",       desc: "AI-driven WhatsApp + Email — auto-reply, push-to-todo, bilingual" },
       // Command Center — automation & content infrastructure
       { icon: Bot,             label: "AI Voice Agent",      href: "/callcenter/agent",          desc: "Automated callers · settings & deployments", group: "Command Center" },
       { icon: Layers,          label: "Templates",           href: "/templates",                 desc: "Reusable scripts · email · WhatsApp templates",  group: "Command Center" },

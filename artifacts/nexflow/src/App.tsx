@@ -102,7 +102,6 @@ import ReportBuilderPage from "@/pages/report-builder";
 import CapabilitiesPage from "@/pages/capabilities";
 import InvestorsPage from "@/pages/investors";
 // ─── New 6-tab IA wrapper pages (Apr 2026 restructure) ──────────────
-import StudioPage from "@/pages/studio";
 import LeadsPipelinePage from "@/pages/leads-pipeline";
 import LeadsListsPage from "@/pages/leads-lists";
 import LeadsResearchPage from "@/pages/leads-research";
@@ -130,8 +129,6 @@ function AppLayout() {
         <SectionSidebar />
         <main className="flex-1 min-w-0 px-4 sm:px-6 py-6 overflow-y-auto relative z-10">
         <Switch>
-          {/* Studio — all-in-one workspace (v3) */}
-          <Route path="/studio" component={StudioPage} />
           {/* ─── New 6-tab IA routes (Apr 2026) ─────────────────────
                 Each section has its own URL space. Legacy routes
                 (defined further down) remain registered for back-
