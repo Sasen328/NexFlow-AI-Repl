@@ -74,6 +74,41 @@ Action launcher buttons either deep-link (`/voice-agents`, `/coaching`,
 `/lists`, `/pipeline`) or POST a synthetic activity to `/activities` so the
 launcher is instantly demoable.
 
+## Contact Center section (revised April 2026)
+
+`lib/sections.ts` Contact Center now has 5 items (in order):
+
+- **Workspace** (`/section/callcenter`) — section landing
+- **Power Dialer** (`/power-dialer`) — `pages/power-dialer.tsx`. Three modes
+  (Manual / Auto-Dial / AI Agent), pre-call brief w/ score-based tips, ringing
+  → connected → ended phases, live streaming transcript (TRANSCRIPT_SCRIPT mock
+  played line-by-line), `LiveCoachPanel` sidebar with objection detection, and
+  a post-call AI panel that one-click pushes a call note + follow-up task +
+  reminder + WhatsApp draft + email draft. AI Agent mode calls
+  `/power-dialer/voice-agent-call` then renders the live transcript view.
+  Auto-dial mode auto-logs voicemail/no-answer outcomes and advances the queue.
+- **Calls & Transcripts** (`/calls`) — `CallsPage` wraps the original call
+  scoring view (`CallScoringView`) with two top-level tabs: "Call Scoring &
+  Action Plans" and "Conversation Intel" (lazy-loads
+  `pages/conversation-intelligence.tsx`).
+- **Post-Call Automation** (`/post-call-automation`) — NEW
+  `pages/post-call-automation.tsx`. Sub-tabs: Approval Queue (AI-drafted
+  WhatsApp/Email cards with Approve / Edit / Reject and Arabic RTL support),
+  Cadence Rules (toggleable triggers like "Call · No answer → AI WhatsApp"),
+  and embedded Email / WhatsApp / Unified Inbox tabs that lazy-load existing
+  pages.
+- **Call Dashboard** (`/call-analytics`)
+- **Contact Center Setup** (`/contact-center-setup`) — NEW
+  `pages/contact-center-setup.tsx`. Sub-tabs: Overview (3 health cards + voice
+  library + AI agent authority toggles), AI Voice Agent (lazy-embeds
+  `voice-agents.tsx`), Knowledge Base (lazy-embeds `scripts.tsx`'s
+  `KnowledgeBasePage`), Guardrails & Redaction (lazy-embeds
+  `call-redaction.tsx`).
+
+Legacy routes `/voice-agents`, `/scripts`, `/call-redaction`, `/email`,
+`/messages`, `/whatsapp`, `/conversation-intelligence` remain mounted in
+`App.tsx` for direct deep-links and so the embedded sub-tabs resolve.
+
 ## Workflows
 
 Run via the Replit workflow panel — never `pnpm dev` at root.

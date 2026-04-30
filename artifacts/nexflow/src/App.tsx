@@ -66,6 +66,8 @@ import QuotesPage from "@/pages/quotes";
 import ForecastingPage from "@/pages/forecasting";
 import MeetingsPage from "@/pages/meetings";
 import ConversationIntelligencePage from "@/pages/conversation-intelligence";
+import PostCallAutomationPage from "@/pages/post-call-automation";
+import ContactCenterSetupPage from "@/pages/contact-center-setup";
 import WorkflowsPage from "@/pages/workflows";
 import BusinessCardsPage from "@/pages/business-cards";
 import AccountsPage from "@/pages/accounts";
@@ -133,6 +135,8 @@ function AppLayout() {
           <Route path="/deal-pipeline" component={DealPipelinePage} />
           <Route path="/crm-dashboard" component={CrmDashboardPage} />
           <Route path="/engagement" component={EngagementPage} />
+          <Route path="/post-call-automation" component={PostCallAutomationPage} />
+          <Route path="/contact-center-setup" component={ContactCenterSetupPage} />
           <Route path="/dashboards" component={DashboardsPage} />
           <Route path="/dashboards/:id" component={DashboardDetailPage} />
           <Route path="/insights" component={InsightsPage} />

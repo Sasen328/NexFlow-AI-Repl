@@ -4,11 +4,56 @@ import {
   Play, TrendingUp, TrendingDown, AlertCircle, CheckCircle2, ChevronDown,
   ChevronUp, Activity, X, Loader2, Sparkles, MessageSquare, Mic, Volume2,
   BookOpen, Shield, Wand2, ToggleLeft, ToggleRight, Copy, Check, Star,
-  Filter, Search, Bot, Plus
+  Filter, Search, Bot, Plus, Target, BarChart3
 } from "lucide-react";
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { cn } from "@/lib/utils";
 import VoiceCallModal from "@/components/VoiceCallModal";
+
+const ConversationIntelligencePage = lazy(() => import("./conversation-intelligence"));
+
+type TopTab = "scoring" | "intel";
+
+export default function CallsPage() {
+  const [topTab, setTopTab] = useState<TopTab>("scoring");
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-1 border-b border-border">
+        <button
+          onClick={() => setTopTab("scoring")}
+          className={cn(
+            "px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2",
+            topTab === "scoring"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Target className="w-4 h-4" />
+          Call Scoring & Action Plans
+        </button>
+        <button
+          onClick={() => setTopTab("intel")}
+          className={cn(
+            "px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2",
+            topTab === "intel"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <BarChart3 className="w-4 h-4" />
+          Conversation Intel
+        </button>
+      </div>
+      {topTab === "scoring" ? (
+        <CallScoringView />
+      ) : (
+        <Suspense fallback={<div className="flex items-center justify-center py-16 text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin" /></div>}>
+          <ConversationIntelligencePage />
+        </Suspense>
+      )}
+    </div>
+  );
+}
 
 const SENTIMENT_CONFIG = (score: number | null) => {
   if (score === null) return null;
@@ -62,7 +107,7 @@ const VOICE_LIBRARY = [
 
 type CoachTab = "coaching" | "objections" | "scripts" | "voice";
 
-export default function CallsPage() {
+function CallScoringView() {
   const { data, isLoading } = useCalls();
   const { data: scriptsData } = useScripts();
   const calls = data?.calls ?? [];
@@ -377,6 +422,20 @@ export default function CallsPage() {
       </div>
 
       {openCall && <CallDetailModal call={openCall} onClose={() => setOpenCall(null)} />}
+
+      {showCallModal && (
+        <VoiceCallModal
+          contact={callModalContact ?? {
+            id: "general",
+            first_name: "New",
+            last_name: "Prospect",
+            title: "Decision Maker",
+            company_name: "",
+          }}
+          onClose={() => setShowCallModal(false)}
+          onCallSaved={() => setShowCallModal(false)}
+        />
+      )}
     </div>
   );
 }
@@ -493,20 +552,6 @@ function CallDetailModal({ call, onClose }: { call: any; onClose: () => void }) 
           </div>
         )}
       </div>
-
-      {showCallModal && (
-        <VoiceCallModal
-          contact={callModalContact ?? {
-            id: "general",
-            first_name: "New",
-            last_name: "Prospect",
-            title: "Decision Maker",
-            company_name: "",
-          }}
-          onClose={() => setShowCallModal(false)}
-          onCallSaved={() => setShowCallModal(false)}
-        />
-      )}
     </div>
   );
 }
