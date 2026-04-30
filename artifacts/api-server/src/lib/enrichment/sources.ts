@@ -27,16 +27,37 @@ import { wathiqConnector } from "./connectors/wathiq.js";
 import { tadawulConnector } from "./connectors/tadawul.js";
 import { webScraperConnector } from "./connectors/web-scraper.js";
 import { pythonScraperConnector } from "./connectors/python-scraper.js";
+// AI orchestration (OpenRouter)
+import {
+  openrouterSearchConnector,
+  openrouterExtractorConnector,
+  openrouterComposerConnector,
+} from "./connectors/openrouter-ai.js";
+// Free / no-key / open-data sources
+import { gleifConnector } from "./connectors/gleif.js";
+import { opencorporatesConnector } from "./connectors/opencorporates.js";
+import { wikidataConnector } from "./connectors/wikidata.js";
+import { clearbitLogoConnector } from "./connectors/clearbit-logo.js";
+import { githubOrgConnector } from "./connectors/github-org.js";
+import { wappalyzerConnector } from "./connectors/wappalyzer.js";
+import { emailPermutatorConnector } from "./connectors/email-permutator.js";
+// SaaS stubs (real APIs but require user-pasted keys)
+import {
+  zoominfoConnector, cognismConnector, seamlessConnector, kasprConnector,
+  datanyzeConnector, signalhireConnector, proxycurlConnector, lead411Connector,
+  prospeoConnector, clearbitDeprecatedConnector, salesintelConnector, swordfishConnector,
+  adaptConnector, leadgibbonConnector, linkedinSalesNavConnector, explorumConnector, vibeConnector,
+} from "./connectors/saas-stubs.js";
 
 export interface RegistryEntry {
   source_key: string;
   name: string;
-  kind: "api" | "scraper" | "gov_registry" | "exchange" | "ai_scraper";
+  kind: "api" | "scraper" | "gov_registry" | "exchange" | "ai_scraper" | "ai_search" | "ai_extractor" | "ai_composer" | "open_data" | "manual";
   default_priority: number;
   default_enabled: boolean;
   connector: Connector;
   meta: {
-    category: "western_api" | "gcc_native" | "scraper" | "ai_sidecar";
+    category: "western_api" | "gcc_native" | "scraper" | "ai_sidecar" | "ai_orchestration" | "open_data" | "manual";
     blurb: string;
     fields: string[];
     gcc_coverage: "high" | "medium" | "low" | "n/a";
@@ -277,6 +298,293 @@ export const REGISTRY: RegistryEntry[] = [
       needs_key: false,
       region_badge: "🇸🇦🇦🇪 GCC exchanges",
       rate_hint: "Web scrape · 10/min",
+    },
+  },
+  // ──────────────────────────────────────────────────────────────────
+  // OPEN DATA / NO-KEY SOURCES — run cheap, run early
+  // ──────────────────────────────────────────────────────────────────
+  {
+    source_key: "openrouter_search",
+    name: "AI Search (Perplexity)",
+    kind: "ai_search",
+    default_priority: 5,
+    default_enabled: true,
+    connector: openrouterSearchConnector,
+    meta: {
+      category: "ai_orchestration",
+      blurb: "Perplexity Sonar via OpenRouter — finds the official domain for fuzzy / Arabic / GCC-local company names. Replaces the old DuckDuckGo HTML scrape.",
+      fields: ["company_domain"],
+      gcc_coverage: "high",
+      pricing: "~$0.001/lookup (OpenRouter)",
+      docs_url: "https://openrouter.ai/perplexity/sonar",
+      needs_key: false,
+      region_badge: "Global · GCC-aware",
+      rate_hint: "OpenRouter env-keyed",
+    },
+  },
+  {
+    source_key: "openrouter_extractor",
+    name: "AI Extractor (Gemini)",
+    kind: "ai_extractor",
+    default_priority: 12,
+    default_enabled: true,
+    connector: openrouterExtractorConnector,
+    meta: {
+      category: "ai_orchestration",
+      blurb: "Gemini 2.5 Flash via OpenRouter — turns scraped HTML into structured fields (industry, size, founded year, tech stack). Far better than regex.",
+      fields: ["company_name", "company_description", "company_industry", "company_country", "company_size", "company_founded_year", "company_tech_stack", "linkedin_url", "twitter_handle"],
+      gcc_coverage: "high",
+      pricing: "~$0.0005/page (OpenRouter)",
+      docs_url: "https://openrouter.ai/google/gemini-2.5-flash",
+      needs_key: false,
+      region_badge: "Global",
+      rate_hint: "OpenRouter env-keyed",
+    },
+  },
+  {
+    source_key: "gleif",
+    name: "GLEIF (LEI Registry)",
+    kind: "open_data",
+    default_priority: 18,
+    default_enabled: true,
+    connector: gleifConnector,
+    meta: {
+      category: "open_data",
+      blurb: "Global Legal Entity Identifier Foundation — free, authoritative for every GCC corp with international banking (Aramco, Emirates NBD, ADNOC, STC, QNB).",
+      fields: ["company_name", "company_country", "company_isin", "company_founded_year"],
+      gcc_coverage: "high",
+      pricing: "Free, no key",
+      docs_url: "https://www.gleif.org/en/lei-data/gleif-api",
+      needs_key: false,
+      region_badge: "Global · GCC strong",
+      rate_hint: "Free public API",
+    },
+  },
+  {
+    source_key: "opencorporates",
+    name: "OpenCorporates",
+    kind: "open_data",
+    default_priority: 28,
+    default_enabled: true,
+    connector: opencorporatesConnector,
+    meta: {
+      category: "open_data",
+      blurb: "200M+ companies across 130+ jurisdictions including UAE Federal, DIFC, ADGM, KSA, Qatar, Bahrain, Kuwait, Oman. Free tier needs no key.",
+      fields: ["company_name", "company_cr_number", "company_country", "company_founded_year", "company_industry"],
+      gcc_coverage: "high",
+      pricing: "Free tier · paid for higher rate",
+      docs_url: "https://opencorporates.com/api_accounts/new",
+      needs_key: false,
+      key_label: "API Token (optional)",
+      region_badge: "Global · GCC strong",
+      rate_hint: "~50/day free",
+    },
+  },
+  {
+    source_key: "wikidata",
+    name: "Wikidata",
+    kind: "open_data",
+    default_priority: 32,
+    default_enabled: true,
+    connector: wikidataConnector,
+    meta: {
+      category: "open_data",
+      blurb: "Open structured knowledge graph. Best for any well-known public company — fills founded year, headcount band, official site, headquarters.",
+      fields: ["company_name", "company_description", "company_country", "company_size", "company_founded_year", "company_domain"],
+      gcc_coverage: "medium",
+      pricing: "Free, no key",
+      docs_url: "https://www.wikidata.org/wiki/Wikidata:Data_access",
+      needs_key: false,
+      region_badge: "Global",
+      rate_hint: "Free public API",
+    },
+  },
+  {
+    source_key: "clearbit_logo",
+    name: "Clearbit Logo CDN",
+    kind: "open_data",
+    default_priority: 34,
+    default_enabled: true,
+    connector: clearbitLogoConnector,
+    meta: {
+      category: "open_data",
+      blurb: "Free company logo CDN — instant, no key. Falls back gracefully when domain unknown.",
+      fields: ["company_logo_url"],
+      gcc_coverage: "high",
+      pricing: "Free, no key",
+      docs_url: "https://clearbit.com/logo",
+      needs_key: false,
+      region_badge: "Global",
+      rate_hint: "Unmetered",
+    },
+  },
+  {
+    source_key: "github_org",
+    name: "GitHub Org / User",
+    kind: "open_data",
+    default_priority: 36,
+    default_enabled: true,
+    connector: githubOrgConnector,
+    meta: {
+      category: "open_data",
+      blurb: "Catches dev-tools / fintech / AI companies with an open-source presence — strong hiring signal indicator.",
+      fields: ["company_description", "company_country", "twitter_handle", "company_domain", "company_founded_year", "hiring_signals"],
+      gcc_coverage: "medium",
+      pricing: "Free · optional PAT for higher rate",
+      docs_url: "https://docs.github.com/en/rest",
+      needs_key: false,
+      key_label: "Personal Access Token (optional)",
+      region_badge: "Global",
+      rate_hint: "60/hr unauth · 5000/hr auth",
+    },
+  },
+  {
+    source_key: "wappalyzer",
+    name: "Wappalyzer (Tech Stack)",
+    kind: "open_data",
+    default_priority: 38,
+    default_enabled: true,
+    connector: wappalyzerConnector,
+    meta: {
+      category: "open_data",
+      blurb: "Open-source tech stack fingerprinting applied to the company homepage — detects CRM, analytics, payment, framework. Includes GCC-relevant payment processors (PayTabs, Tap, HyperPay).",
+      fields: ["company_tech_stack"],
+      gcc_coverage: "high",
+      pricing: "Free, runs locally",
+      docs_url: "https://github.com/wappalyzer/wappalyzer",
+      needs_key: false,
+      region_badge: "Global · GCC payments",
+      rate_hint: "Local fingerprint match",
+    },
+  },
+  {
+    source_key: "email_permutator",
+    name: "Email Permutator",
+    kind: "open_data",
+    default_priority: 60,
+    default_enabled: true,
+    connector: emailPermutatorConnector,
+    meta: {
+      category: "open_data",
+      blurb: "Generates the most-likely email pattern (first.last@domain) when nothing else found one. Marked unverified — Hunter or Prospeo will validate downstream.",
+      fields: ["email", "email_verified"],
+      gcc_coverage: "medium",
+      pricing: "Free, runs locally",
+      needs_key: false,
+      region_badge: "Global",
+      rate_hint: "Instant",
+    },
+  },
+  // ──────────────────────────────────────────────────────────────────
+  // SAAS STUBS — registered so the user can plug a key any time
+  // ──────────────────────────────────────────────────────────────────
+  {
+    source_key: "zoominfo", name: "ZoomInfo", kind: "api",
+    default_priority: 70, default_enabled: false, connector: zoominfoConnector,
+    meta: { category: "western_api", blurb: "Largest enterprise contact DB. Strong on US/EU; thin on local GCC SMBs but solid on GCC subsidiaries of multinationals.", fields: ["company_name", "company_industry", "company_size", "company_revenue"], gcc_coverage: "medium", pricing: "Enterprise only ($15k+/yr)", docs_url: "https://api-docs.zoominfo.com/", needs_key: true, key_label: "Bearer Token", region_badge: "Global", rate_hint: "Account-tiered" },
+  },
+  {
+    source_key: "cognism", name: "Cognism", kind: "api",
+    default_priority: 72, default_enabled: false, connector: cognismConnector,
+    meta: { category: "western_api", blurb: "GDPR-compliant Western contact DB with strong EMEA coverage. Decent for GCC sales targeting EU-based decision makers.", fields: ["company_name", "company_industry", "company_size", "linkedin_url"], gcc_coverage: "medium", pricing: "Subscription (sales-led)", docs_url: "https://docs.cognism.com/", needs_key: true, key_label: "API Key", region_badge: "EMEA strong", rate_hint: "60/min" },
+  },
+  {
+    source_key: "seamless", name: "Seamless.AI", kind: "api",
+    default_priority: 74, default_enabled: false, connector: seamlessConnector,
+    meta: { category: "western_api", blurb: "AI-powered contact finder. Free tier available. Western-tilted but useful for cross-border GCC enrichment.", fields: ["email", "phone", "title", "linkedin_url"], gcc_coverage: "low", pricing: "Free tier · $147+/mo", docs_url: "https://api.seamless.ai/", needs_key: true, key_label: "Bearer Token", region_badge: "Global", rate_hint: "Plan-tiered" },
+  },
+  {
+    source_key: "kaspr", name: "Kaspr", kind: "api",
+    default_priority: 76, default_enabled: false, connector: kasprConnector,
+    meta: { category: "western_api", blurb: "EU-based LinkedIn-derived contact finder. Strong on EMEA; can hit GCC LinkedIn profiles with EU links.", fields: ["email", "phone", "title"], gcc_coverage: "low", pricing: "€49+/mo", docs_url: "https://www.kaspr.io/api", needs_key: true, key_label: "X-API-Key", region_badge: "EMEA", rate_hint: "Plan-tiered" },
+  },
+  {
+    source_key: "datanyze", name: "Datanyze (ZoomInfo)", kind: "api",
+    default_priority: 78, default_enabled: false, connector: datanyzeConnector,
+    meta: { category: "western_api", blurb: "Tech-stack discovery (now part of ZoomInfo). Detects CRM, marketing tools, frameworks for any company by domain.", fields: ["company_tech_stack", "company_size"], gcc_coverage: "medium", pricing: "$29+/mo (legacy)", docs_url: "https://www.datanyze.com/", needs_key: true, key_label: "Bearer Token", region_badge: "Global", rate_hint: "Plan-tiered" },
+  },
+  {
+    source_key: "signalhire", name: "SignalHire", kind: "api",
+    default_priority: 80, default_enabled: false, connector: signalhireConnector,
+    meta: { category: "western_api", blurb: "Contact finder with email + mobile. Reasonable global coverage including GCC.", fields: ["email", "phone", "linkedin_url", "title"], gcc_coverage: "medium", pricing: "$49+/mo · $0.39/contact", docs_url: "https://www.signalhire.com/api", needs_key: true, key_label: "API Key", region_badge: "Global", rate_hint: "100/min" },
+  },
+  {
+    source_key: "proxycurl", name: "Proxycurl (LinkedIn)", kind: "api",
+    default_priority: 82, default_enabled: false, connector: proxycurlConnector,
+    meta: { category: "western_api", blurb: "ToS-safe LinkedIn data API. Powers Clay, Apollo, etc. under the hood. Best legal way to get LinkedIn profile + employer data at scale.", fields: ["linkedin_url", "title", "company_name", "company_country"], gcc_coverage: "high", pricing: "Pay-as-you-go ~$0.01/lookup", docs_url: "https://nubela.co/proxycurl/docs", needs_key: true, key_label: "Bearer Token", region_badge: "Global · LinkedIn", rate_hint: "300/min" },
+  },
+  {
+    source_key: "lead411", name: "Lead411", kind: "api",
+    default_priority: 84, default_enabled: false, connector: lead411Connector,
+    meta: { category: "western_api", blurb: "B2B contact + intent-data provider. Strong on US tech; thin GCC.", fields: ["company_name", "company_industry", "company_size", "company_revenue"], gcc_coverage: "low", pricing: "$99+/mo", docs_url: "https://lead411.com/api/", needs_key: true, key_label: "Bearer Token", region_badge: "US strong", rate_hint: "Plan-tiered" },
+  },
+  {
+    source_key: "prospeo", name: "Prospeo", kind: "api",
+    default_priority: 86, default_enabled: false, connector: prospeoConnector,
+    meta: { category: "western_api", blurb: "Email finder + verifier. Cheap, simple. Pairs well with the email permutator above for verification.", fields: ["email", "email_verified"], gcc_coverage: "medium", pricing: "Free 75 credits · $39+/mo", docs_url: "https://prospeo.io/api", needs_key: true, key_label: "X-KEY", region_badge: "Global", rate_hint: "60/min" },
+  },
+  {
+    source_key: "salesintel", name: "SalesIntel", kind: "api",
+    default_priority: 88, default_enabled: false, connector: salesintelConnector,
+    meta: { category: "western_api", blurb: "Human-verified B2B data, US-strong. Thin on GCC but useful for US-based decision makers at GCC subsidiaries.", fields: ["company_name", "company_size", "company_revenue"], gcc_coverage: "low", pricing: "Subscription", docs_url: "https://salesintel.io/api/", needs_key: true, key_label: "X-API-KEY", region_badge: "US strong", rate_hint: "Plan-tiered" },
+  },
+  {
+    source_key: "swordfish", name: "Swordfish", kind: "api",
+    default_priority: 90, default_enabled: false, connector: swordfishConnector,
+    meta: { category: "western_api", blurb: "Specializes in mobile phone numbers for hard-to-find execs. US strong, decent GCC executive coverage.", fields: ["email", "phone"], gcc_coverage: "medium", pricing: "$99+/mo", docs_url: "https://swordfish.ai/api", needs_key: true, key_label: "api_key", region_badge: "Global · mobiles", rate_hint: "60/min" },
+  },
+  {
+    source_key: "clearbit", name: "Clearbit (deprecated)", kind: "api",
+    default_priority: 92, default_enabled: false, connector: clearbitDeprecatedConnector,
+    meta: { category: "western_api", blurb: "HubSpot acquired Clearbit and the old Enrichment API is winding down. Stub kept in case you have legacy keys.", fields: ["company_name", "company_industry", "company_size", "company_logo_url"], gcc_coverage: "low", pricing: "Discontinued (legacy keys only)", docs_url: "https://dashboard.clearbit.com/docs", needs_key: true, key_label: "Bearer Token", region_badge: "Legacy", rate_hint: "Sunset" },
+  },
+  // ── Manual / no-public-API tools — registered so they show in the UI
+  //    with clear status; they never run automatically.
+  {
+    source_key: "linkedin_sales_nav", name: "LinkedIn Sales Navigator", kind: "manual",
+    default_priority: 99, default_enabled: false, connector: linkedinSalesNavConnector,
+    meta: { category: "manual", blurb: "No public API. Use via Sales Nav search export → CSV upload to Bulk Enrichment, OR plug Proxycurl above for LinkedIn data via API.", fields: [], gcc_coverage: "high", pricing: "$99/mo (LinkedIn license)", needs_key: false, region_badge: "Manual export", rate_hint: "Manual / browser" },
+  },
+  {
+    source_key: "adapt", name: "Adapt", kind: "manual",
+    default_priority: 99, default_enabled: false, connector: adaptConnector,
+    meta: { category: "manual", blurb: "No public REST API — Chrome extension only. Use via browser then export CSV.", fields: [], gcc_coverage: "low", pricing: "Free / paid plans", needs_key: false, region_badge: "Manual export", rate_hint: "Browser only" },
+  },
+  {
+    source_key: "leadgibbon", name: "LeadGibbon", kind: "manual",
+    default_priority: 99, default_enabled: false, connector: leadgibbonConnector,
+    meta: { category: "manual", blurb: "Chrome extension, no public API. Manual workflow only.", fields: [], gcc_coverage: "low", pricing: "$49+/mo", needs_key: false, region_badge: "Manual export", rate_hint: "Browser only" },
+  },
+  {
+    source_key: "explorum", name: "Explorium", kind: "manual",
+    default_priority: 99, default_enabled: false, connector: explorumConnector,
+    meta: { category: "manual", blurb: "Enterprise data signals platform — partner-led integration only, not a self-serve API.", fields: [], gcc_coverage: "medium", pricing: "Enterprise", needs_key: false, region_badge: "Enterprise", rate_hint: "Partner-led" },
+  },
+  {
+    source_key: "vibe_prospecting", name: "Vibe Prospecting", kind: "manual",
+    default_priority: 99, default_enabled: false, connector: vibeConnector,
+    meta: { category: "manual", blurb: "No public API documented. Manual workflow.", fields: [], gcc_coverage: "low", pricing: "Subscription", needs_key: false, region_badge: "Manual", rate_hint: "Manual" },
+  },
+  // ──────────────────────────────────────────────────────────────────
+  // FINAL PASS — AI Composer always runs LAST
+  // ──────────────────────────────────────────────────────────────────
+  {
+    source_key: "openrouter_composer",
+    name: "AI Composer (Claude)",
+    kind: "ai_composer",
+    default_priority: 95,
+    default_enabled: true,
+    connector: openrouterComposerConnector,
+    meta: {
+      category: "ai_orchestration",
+      blurb: "Claude 3.5 Sonnet via OpenRouter — final synthesis pass. Takes everything every other source filled and writes a polished narrative description, recent-news inference, and hiring signal. Frontend output flows from this connector.",
+      fields: ["company_description", "news_recent", "hiring_signals"],
+      gcc_coverage: "high",
+      pricing: "~$0.003/lead (OpenRouter)",
+      docs_url: "https://openrouter.ai/anthropic/claude-3.5-sonnet",
+      needs_key: false,
+      region_badge: "Global · runs last",
+      rate_hint: "OpenRouter env-keyed",
     },
   },
 ];
