@@ -1,15 +1,22 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { signals, contacts, companies } from "@workspace/db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 
 const router = Router();
 
 router.get("/", async (req, res) => {
   try {
-    const { type, status, limit = "50", offset = "0" } = req.query as Record<string, string>;
+    const { type, status, contact_id, company_id, limit = "50", offset = "0" } =
+      req.query as Record<string, string>;
     const lim = Math.min(parseInt(limit), 200);
     const off = parseInt(offset);
+
+    const wheres: any[] = [];
+    if (type) wheres.push(eq(signals.type, type as any));
+    if (status) wheres.push(eq(signals.status, status as any));
+    if (contact_id) wheres.push(eq(signals.contact_id, contact_id));
+    if (company_id) wheres.push(eq(signals.company_id, company_id));
 
     const results = await db
       .select({
@@ -30,6 +37,7 @@ router.get("/", async (req, res) => {
       .from(signals)
       .leftJoin(contacts, eq(signals.contact_id, contacts.id))
       .leftJoin(companies, eq(signals.company_id, companies.id))
+      .where(wheres.length > 0 ? and(...wheres) : undefined)
       .orderBy(desc(signals.score), desc(signals.created_at))
       .limit(lim)
       .offset(off);
