@@ -4,6 +4,7 @@ import {
   Calendar, Zap, ArrowRight, Coffee, Brain, Target, Users, RefreshCw, ChevronRight,
   Clock, Loader2, CheckSquare, CheckCircle2, Circle, ListTodo, BarChart3,
   Bot, BellRing, TrendingDown, Star, Flame, Mic, FileText, Send, CalendarPlus,
+  Activity,
   type LucideIcon,
 } from "lucide-react";
 import { useDashboard, useContacts, useForgottenLeads, useRegenerateInsights, useCalls, apiFetch } from "@/hooks/useApi";
@@ -222,7 +223,7 @@ const AI_INSIGHTS = [
 const PRIORITY_COLOR: Record<string, string> = { urgent: "#C8A880", high: "#B8A0C8", normal: "#88B8B0", low: "#90B8B8" };
 const PRIORITY_BG: Record<string, string> = { urgent: "#C8A88020", high: "#B8A0C820", normal: "#88B8B020", low: "#90B8B820" };
 
-type Tab = "briefing" | "command";
+type Tab = "briefing" | "command" | "insights";
 
 // ──────────────────────────────────────────────
 // CommandCenterPage — thin role router for /home.
@@ -326,6 +327,7 @@ function SalesAndExecHome() {
       const hash = window.location.hash.replace(/^#/, "");
       if (!hash) return;
       if (hash === "todo") setTab("command");
+      else if (hash === "insights") setTab("insights");
       else setTab("briefing");
       // Defer so the new tab content is in the DOM before we scroll.
       requestAnimationFrame(() => {
@@ -371,6 +373,7 @@ function SalesAndExecHome() {
   const TABS = [
     { k: "briefing" as Tab, label: "Daily Briefing", icon: Sparkles },
     { k: "command" as Tab, label: "Command Center", icon: Zap, badge: tasks.filter(t => !t.done && t.priority === "urgent").length },
+    { k: "insights" as Tab, label: "Daily Insights", icon: Activity, badge: personaInsights.length },
   ];
 
   // Marketing persona is routed earlier by CommandCenterPage to
@@ -466,6 +469,63 @@ function SalesAndExecHome() {
       {/* ──── DAILY BRIEFING TAB ──── */}
       {tab === "briefing" && (
         <div className="space-y-5">
+          {/* SECTION 1 — What you need to do today (suggested actions) */}
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#B8A0C8]">Section 1</span>
+            <span className="h-px flex-1 bg-gradient-to-r from-[#B8A0C8]/40 to-transparent" />
+            <span className="text-xs font-semibold text-foreground/80">What you need to do today</span>
+          </div>
+
+          {/* Suggested actions panel — clickable next-best-actions derived from AI tasks */}
+          <div className="rounded-2xl p-5 border" style={{ background: "linear-gradient(135deg, #f9f3ff, #f0f9f8)", borderColor: "rgba(184,160,200,0.3)" }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl nf-chameleon-bg flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-foreground">Suggested next actions</h2>
+                  <p className="text-[11px] text-muted-foreground">AI ranked your top 4 actions for today — tap to act</p>
+                </div>
+              </div>
+              <button onClick={() => setTab("command")} className="text-[11px] font-semibold text-[#B8A0C8] hover:underline flex items-center gap-1">
+                Open Command Center <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              {tasks.filter(t => !t.done).slice(0, 4).map((t) => {
+                const cid = t.contact ? findContactId(t.contact) : null;
+                const href = cid ? `/contacts/${cid}` : "/home#todo";
+                const color = PRIORITY_COLOR[t.priority] ?? "#B8A0C8";
+                const bg = PRIORITY_BG[t.priority] ?? "#B8A0C820";
+                return (
+                  <Link key={t.id} href={href}>
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/60 hover:bg-white border border-white/80 transition-all cursor-pointer group">
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: bg }}>
+                        <Zap className="w-4 h-4" style={{ color }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-foreground truncate">{t.label}</div>
+                        <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide" style={{ background: bg, color }}>{t.priority}</span>
+                          <span>· {t.due}</span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* SECTION 2 — Performance & Schedule */}
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#88B8B0]">Section 2</span>
+            <span className="h-px flex-1 bg-gradient-to-r from-[#88B8B0]/40 to-transparent" />
+            <span className="text-xs font-semibold text-foreground/80">Performance · Schedule · Tasks · Top signals</span>
+          </div>
+
           {/* Re-Engagement Opportunities */}
           {forgotten.length > 0 && (
             <div className="rounded-2xl p-5 relative overflow-hidden border"
@@ -897,26 +957,39 @@ function SalesAndExecHome() {
         );
       })()}
 
-      {/* ──── INSIGHTS (rendered inside Command Center) ──── */}
-      {tab === "command" && (() => {
+      {/* ──── DAILY INSIGHTS TAB ──── */}
+      {tab === "insights" && (() => {
         const visibleInsights = personaInsights
           .map((ins, idx) => ({ ins, idx }))
           .filter(({ idx }) => !insightSnoozed.has(idx));
         const actedCount = insightActed.size;
+        // AI summary analysis across all insights — pulls 2-3 themes
+        const tagCounts = visibleInsights.reduce<Record<string, number>>((m, { ins }) => {
+          m[ins.tag] = (m[ins.tag] ?? 0) + 1;
+          return m;
+        }, {});
+        const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t);
+        const aiSummary = visibleInsights.length === 0
+          ? "All caught up — no fresh insights to act on right now."
+          : `${visibleInsights.length} active insight${visibleInsights.length === 1 ? "" : "s"}${actedCount > 0 ? `, ${actedCount} already actioned today` : ""}. Recurring themes: ${topTags.join(" · ")}. Focus first on the highest-impact card below.`;
         return (
         <div className="space-y-4">
-          {/* AI summary header */}
-          <div className="rounded-2xl p-5 border relative overflow-hidden"
-               style={{ background: "linear-gradient(135deg, rgba(184,160,200,0.10), rgba(200,168,128,0.10))", borderColor: "rgba(184,160,200,0.3)" }}>
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl nf-chameleon-bg flex items-center justify-center flex-shrink-0 shadow-sm">
-                <Sparkles className="w-4 h-4 text-white" />
+          {/* AI summary header — refined */}
+          <div className="rounded-2xl p-6 border relative overflow-hidden"
+               style={{ background: "linear-gradient(135deg, #f9f3ff 0%, #f0f9f8 50%, #fff8f0 100%)", borderColor: "rgba(184,160,200,0.35)" }}>
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl opacity-25" style={{ background: "radial-gradient(circle, #B8A0C8, transparent)" }} />
+              <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full blur-2xl opacity-20" style={{ background: "radial-gradient(circle, #88B8B0, transparent)" }} />
+            </div>
+            <div className="relative flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl nf-chameleon-bg flex items-center justify-center flex-shrink-0 shadow-sm">
+                <Sparkles className="w-5 h-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div>
-                    <h2 className="text-lg font-bold text-foreground">AI Insights · Today</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">Auto-generated from pipeline, calls, signals, and team activity. {visibleInsights.length} active · {actedCount} actioned today.</p>
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-[#B8A0C8] mb-0.5">AI summary · today's insights</div>
+                    <h2 className="text-xl font-black text-foreground">Daily Insights</h2>
                   </div>
                   <button
                     type="button"
@@ -927,6 +1000,15 @@ function SalesAndExecHome() {
                     Deeper analysis
                   </button>
                 </div>
+                <p className="text-sm text-foreground/85 leading-relaxed mt-2">{aiSummary}</p>
+                {topTags.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                    {topTags.map((t) => (
+                      <span key={t} className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-white/70 text-foreground/70 border border-white">{t}</span>
+                    ))}
+                    <span className="text-[10px] text-muted-foreground ml-1">· {visibleInsights.length} active · {actedCount} actioned</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
