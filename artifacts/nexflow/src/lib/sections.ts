@@ -68,10 +68,12 @@ export const SECTIONS: SectionDef[] = [
     accent: "#88B8B0",
     defaultHref: "/command-center",
     items: [
-      { icon: Users,      label: "People",          href: "/contacts",       desc: "All contacts · enrich · score · history" },
+      { icon: Sparkles,   label: "Command Center",  href: "/command-center", desc: "Live scorecards · push actions to any contact · search & jump", group: "Command" },
+      { icon: Users,      label: "Contacts",        href: "/contacts",       desc: "All contacts · enrich · score · history" },
       { icon: Building2,  label: "Companies",       href: "/companies",      desc: "Accounts · revenue · contacts roster" },
       { icon: GitBranch,  label: "Deals",           href: "/deal-pipeline",  desc: "Kanban pipeline · stages · win/loss" },
-      { icon: Sparkles,   label: "Command Center",  href: "/command-center", desc: "Generate lead lists · push automations · log calls · schedule follow-ups", group: "Automation" },
+      { icon: GitBranch,  label: "Sequences",       href: "/sequences-audiences", desc: "Multi-touch cadences · automation rules · templates", group: "Automation" },
+      { icon: Layers,     label: "Templates",       href: "/templates",      desc: "Reusable email · WhatsApp · script templates", group: "Automation" },
     ],
   },
 
@@ -415,15 +417,16 @@ const ALL_TOP_NAV_ENTRIES: TopNavEntry[] = [
  *  CEO and Marketing are scoped to their own curated surfaces.
  */
 export const ROLE_NAV: Record<string, string[]> = {
-  // CEO — exec dashboards, marketing performance, high-level pipeline.
-  ceo:       ["home", "insights", "marketing", "leads"],
-  // Sales Rep — daily operating surfaces. NO Marketing module.
-  sales:     ["home", "leads", "callcenter", "datahub", "insights"],
-  // Sales Manager — same as Sales Rep + team insights. NO Marketing.
-  manager:   ["home", "leads", "callcenter", "datahub", "insights"],
-  // CRM Admin — full access including Marketing.
-  admin:     ["home", "leads", "callcenter", "datahub", "insights", "marketing"],
-  // Marketing — ONLY marketing-relevant surfaces.
+  // CEO — minimal exec view. ONLY home (executive dashboard) + insights.
+  // High-level data is delivered IN those surfaces, not via more tabs.
+  ceo:       ["home", "insights"],
+  // EVERY operational role sees the SAME six tabs in the SAME order.
+  // Common tabs must look identical across users — only CEO and Marketing
+  // get curated narrower views.
+  sales:     ["home", "leads", "callcenter", "datahub", "marketing", "insights"],
+  manager:   ["home", "leads", "callcenter", "datahub", "marketing", "insights"],
+  admin:     ["home", "leads", "callcenter", "datahub", "marketing", "insights"],
+  // Marketing — only marketing-relevant surfaces.
   marketing: ["home", "tab-campaign-builder", "tab-email-generator", "tab-campaign-performance", "markhub"],
 };
 

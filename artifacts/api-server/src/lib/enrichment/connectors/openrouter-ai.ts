@@ -28,6 +28,24 @@ function openrouterReady(): boolean {
   );
 }
 
+/**
+ * SSRF guard — blocks attempts to fetch internal/private IPs or non-public
+ * hosts via a crafted seed.domain. Allows only public DNS hostnames.
+ */
+function isSafePublicHost(host: string): boolean {
+  const h = host.toLowerCase().trim();
+  if (!h) return false;
+  if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) return false;
+  // Block bare IP literals — only allow domain names.
+  if (/^[0-9.]+$/.test(h)) return false;
+  if (/^\[?[0-9a-f:]+\]?$/i.test(h)) return false;
+  // Block well-known cloud metadata + link-local + loopback hostnames.
+  if (h === "metadata.google.internal" || h === "metadata") return false;
+  // Require at least one dot (a TLD) — rejects single-label intranet names.
+  if (!h.includes(".")) return false;
+  return true;
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // 1. AI SEARCH — Perplexity-powered domain finder
 // ─────────────────────────────────────────────────────────────────────
@@ -166,6 +184,8 @@ export const openrouterExtractorConnector: Connector = {
     if (candidates.every(f => alreadyFilled.has(f))) {
       return { status: "skipped", fields: {} };
     }
+
+    if (!isSafePublicHost(domain)) return { status: "miss", fields: {} };
 
     try {
       const ctrl = new AbortController();
