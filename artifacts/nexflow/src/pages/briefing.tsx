@@ -17,6 +17,7 @@ import CulturalIntelligencePage from "@/pages/cultural-intelligence";
 import CEOHomePage from "@/pages/ceo-home";
 import { Globe as GlobeIcon, LayoutDashboard as LayoutDashboardIcon } from "lucide-react";
 import Briefing360AIAnalysis from "@/components/briefing-360";
+import { PerformanceWireframeBlocks, TasksAlertsWireframeBlocks } from "@/components/briefing-tab-extras";
 
 interface PersonaTask {
   id: string;
@@ -443,8 +444,8 @@ function SalesAndExecHome() {
 
   const TABS = [
     { k: "briefing"    as Tab, label: role.key === "sales" ? "360° AI Analysis" : "Daily Briefing", icon: Sparkles },
-    { k: "performance" as Tab, label: role.key === "sales" ? "Performance · 360°"  : "Performance",   icon: TrendingUp },
-    { k: "todo"        as Tab, label: role.key === "sales" ? "Tasks & Alerts · 360°" : "To-Do & Alerts", icon: ListTodo, badge: tasks.filter(t => !t.done && t.priority === "urgent").length },
+    { k: "performance" as Tab, label: "Performance",        icon: TrendingUp },
+    { k: "todo"        as Tab, label: "To-Do & Alerts",     icon: ListTodo, badge: tasks.filter(t => !t.done && t.priority === "urgent").length },
     { k: "insights"    as Tab, label: "Insights Dashboard", icon: BarChart3, badge: personaInsights.length },
   ];
 
@@ -522,32 +523,10 @@ function SalesAndExecHome() {
         })}
       </div>
 
-      {/* ──── 360° AI ANALYSIS — sales rep gets the new experience for all 3 tabs ──── */}
+      {/* ──── DAILY BRIEFING — sales rep gets the 360° AI Analysis experience ──── */}
       {role.key === "sales" && tab === "briefing" && (
         <div className="space-y-5">
           <Briefing360AIAnalysis />
-        </div>
-      )}
-      {role.key === "sales" && tab === "performance" && (
-        <div className="space-y-5">
-          <Briefing360AIAnalysis
-            defaultScope="ytd"
-            title="Performance · 360° AI Analysis"
-            eyebrow="Sales Rep · Performance"
-            subtitle="YTD performance picked apart by Claude — bottlenecks, momentum, and what to fix next."
-            caption="PERFORMANCE · 360° AI ANALYSIS"
-          />
-        </div>
-      )}
-      {role.key === "sales" && tab === "todo" && (
-        <div className="space-y-5">
-          <Briefing360AIAnalysis
-            defaultMode="tasks"
-            title="Tasks & Alerts · 360° AI Analysis"
-            eyebrow="Sales Rep · Tasks & Alerts"
-            subtitle="AI-prioritized tasks, alerts, and bottlenecks blocking your day — built from one analysis brain."
-            caption="TASKS & ALERTS · 360° AI ANALYSIS"
-          />
         </div>
       )}
       {tab === "briefing" && role.key !== "sales" && (
@@ -718,6 +697,11 @@ function SalesAndExecHome() {
       )}
 
       {/* ──── PERFORMANCE TAB (spec §2.2) ──── */}
+      {tab === "performance" && role.key === "sales" && (
+        <div className="mb-5">
+          <PerformanceWireframeBlocks />
+        </div>
+      )}
       {tab === "performance" && (() => {
         const MULT: Record<string, number> = { "Today": 0.15, "This Week": 1, "This Month": 4.2, "Quarter": 13, "Custom": 1.5 };
         const m = MULT[perfFilter] ?? 1;
@@ -884,6 +868,11 @@ function SalesAndExecHome() {
 
       {/* ──── TO-DO & ALERTS TAB (spec §2.3) ──── */}
       {tab === "todo" && <div id="todo" className="scroll-mt-32" />}
+      {tab === "todo" && role.key === "sales" && (
+        <div className="mb-5">
+          <TasksAlertsWireframeBlocks tasks={tasks} />
+        </div>
+      )}
       {tab === "todo" && (() => {
         const totalCount = tasks.length;
         const doneCount = tasks.filter(t => t.done).length;
