@@ -11,11 +11,44 @@ import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { getRole, type RoleKey } from "@/lib/marketing-auth";
 
+interface PersonaTask {
+  id: string;
+  priority: "urgent" | "high" | "normal" | "low";
+  label: string;
+  due: string;
+  contact: string | null;
+  source: string;
+  done: boolean;
+}
+interface PersonaAgendaItem {
+  time: string;
+  title: string;
+  channel: string;
+  status: string;
+}
+interface PersonaInsight {
+  icon: LucideIcon;
+  color: string;
+  title: string;
+  body: string;
+  tag: string;
+  anchor?: string;
+}
 interface PersonaBriefing {
   /** First-person framing of what the persona is here to do today. */
   briefing: (totalPipeline: string) => React.ReactNode;
   /** 4 KPI tiles tuned to the persona's job. */
   kpis: { label: string; value: string; sub: string; color: string; icon: LucideIcon }[];
+  /**
+   * Persona-specific Today's To-Do queue. When omitted, the shared sales-rep
+   * default (AUTO_TASKS) is used so we don't have to author 5 lists for personas
+   * whose work is genuinely the same.
+   */
+  tasks?: PersonaTask[];
+  /** Persona-specific calendar / agenda for today. Defaults to TODAY_AGENDA. */
+  agenda?: PersonaAgendaItem[];
+  /** Persona-specific AI insights feed. Defaults to AI_INSIGHTS. */
+  insights?: PersonaInsight[];
 }
 
 const PERSONA_BRIEFINGS: Record<RoleKey, PersonaBriefing> = {
@@ -101,8 +134,39 @@ const PERSONA_BRIEFINGS: Record<RoleKey, PersonaBriefing> = {
       { label: "Channel Reach",    value: "41.3K", sub: "Last 7 days",         color: "#B8A0C8", icon: BarChart3 },
       { label: "Dormant to Push",  value: "1,840", sub: "Re-engagement ready", color: "#B8B880", icon: Zap },
     ],
+    tasks: [
+      { id: "mt1", priority: "urgent", label: "Launch Ramadan re-engagement to 1,840 dormant contacts", due: "Today · 10:00", contact: null, source: "Calendar", done: false },
+      { id: "mt2", priority: "high",   label: "Approve LinkedIn carousel for Q2 KSA enterprise push",   due: "Today · 12:00", contact: null, source: "Campaign Builder", done: false },
+      { id: "mt3", priority: "high",   label: "Review WhatsApp broadcast Khaleeji copy variants",        due: "Today",         contact: null, source: "AI", done: false },
+      { id: "mt4", priority: "normal", label: "Refresh segment: Aramco Digital + 12 sub-companies",      due: "Today · 14:00", contact: null, source: "Segments", done: false },
+      { id: "mt5", priority: "normal", label: "Cultural alert — fix Friday afternoon send times on 3 active campaigns", due: "This week", contact: null, source: "AI", done: false },
+      { id: "mt6", priority: "normal", label: "Re-allocate $4K from FB Ads → LinkedIn Sponsored Content", due: "This week", contact: null, source: "AI", done: false },
+      { id: "mt7", priority: "low",    label: "Pre-warm second sending domain (deliverability rotation)", due: "This week", contact: null, source: "Marketing Ops", done: false },
+    ],
+    agenda: [
+      { time: "09:30", title: "Marketing standup · Channel performance review",     channel: "voice",    status: "upcoming" },
+      { time: "11:00", title: "Approve creative · Q2 GCC enterprise push",          channel: "email",    status: "task" },
+      { time: "13:00", title: "Walk-through with Sales · MQL → SQL handoff SLA",    channel: "voice",    status: "upcoming" },
+      { time: "15:00", title: "Send Ramadan campaign · 1,840 dormant contacts",     channel: "whatsapp", status: "task" },
+      { time: "16:30", title: "Performance review · Campaign Performance dashboard", channel: "voice",   status: "upcoming" },
+    ],
+    insights: [
+      { icon: TrendingUp,    color: "#88B8B0", title: "LinkedIn long-form is converting 4.2× the org average",
+        body: "Your Q3 thought-leadership series is your highest-yield channel. Recommend doubling cadence and reallocating $4K from underperforming Facebook Ads.", tag: "Channel" },
+      { icon: AlertTriangle, color: "#C8A880", title: "Cold email reply rate dropped 22% in 14 days",
+        body: "Sender reputation is degrading — pre-warm a second sending domain and rotate over 7 days to recover deliverability before the Q2 launch.", tag: "Deliverability" },
+      { icon: Star,          color: "#B8A0C8", title: "WhatsApp opens at 71% within 30 minutes",
+        body: "Strongest channel for time-sensitive offers in the GCC. Use for the Ramadan re-engagement to 1,840 dormants — Khaleeji copy is drafted and ready.", tag: "Channel" },
+      { icon: Flame,         color: "#C0A0B8", title: "Cultural mismatch on 3 active campaigns",
+        body: "'Q4 GCC Push' and 'Riyadh Roadshow' use English-only copy and Friday afternoon send times that conflict with prayer schedules. Switch to Arabic-first variants & Sun–Wed mornings.", tag: "Cultural" },
+      { icon: BarChart3,     color: "#B8B880", title: "MQL volume up 22% WoW",
+        body: "612 MQLs this week. Conversion-by-channel report shows LinkedIn + WhatsApp are responsible for 68% of growth — keep momentum.", tag: "Performance", anchor: "performance" },
+    ],
   },
 };
+
+/** Shared default task/agenda/insight constants are defined below; persona overrides
+ * above point at the same shape so we can swap in role-specific lists transparently. */
 
 function getTimeOfDay() {
   const h = new Date().getHours();
@@ -234,7 +298,16 @@ export default function CommandCenterPage() {
     window.addEventListener("hashchange", applyHash);
     return () => window.removeEventListener("hashchange", applyHash);
   }, []);
-  const [tasks, setTasks] = useState(AUTO_TASKS);
+  // Persona-aware Today's To-Do, Today's Schedule, and AI Insights feed.
+  // The persona's overrides (if defined in PERSONA_BRIEFINGS) take precedence;
+  // otherwise we fall back to the shared sales-rep defaults so we never break
+  // personas that genuinely share the same daily work.
+  const personaTasks   = persona.tasks   ?? AUTO_TASKS;
+  const personaAgenda  = persona.agenda  ?? TODAY_AGENDA;
+  const personaInsights = persona.insights ?? AI_INSIGHTS;
+  const [tasks, setTasks] = useState(personaTasks);
+  // When the persona changes (avatar menu switch), swap in their task list.
+  useEffect(() => { setTasks(personaTasks); }, [role.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const [refreshingBriefing, setRefreshingBriefing] = useState(false);
   const [briefingRefreshedAt, setBriefingRefreshedAt] = useState<Date | null>(null);
   // Collapsible secondary sections in Overview (start collapsed for scannability)
@@ -508,7 +581,7 @@ export default function CommandCenterPage() {
                 <h2 className="font-semibold text-foreground">Today's Schedule</h2>
               </div>
               <div className="space-y-2.5">
-                {TODAY_AGENDA.map((item, i) => {
+                {personaAgenda.map((item, i) => {
                   const Channel = CHANNEL_ICON[item.channel];
                   return (
                     <div key={i} className="flex items-start gap-3 group">
@@ -783,7 +856,7 @@ export default function CommandCenterPage() {
 
       {/* ──── INSIGHTS (rendered inside Command Center) ──── */}
       {tab === "command" && (() => {
-        const visibleInsights = AI_INSIGHTS
+        const visibleInsights = personaInsights
           .map((ins, idx) => ({ ins, idx }))
           .filter(({ idx }) => !insightSnoozed.has(idx));
         const actedCount = insightActed.size;

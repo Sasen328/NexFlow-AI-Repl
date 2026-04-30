@@ -28,6 +28,7 @@ export const ROLES: Record<RoleKey, RoleProfile> = {
     title: "Account Executive · KSA Enterprise",
     accent: "#88B8B0",
     blurb: "Power-dial top leads, close deals, never log a call manually.",
+    // Sales reps start their day with the briefing → call list.
     landingHref: "/home",
   },
   manager: {
@@ -39,6 +40,7 @@ export const ROLES: Record<RoleKey, RoleProfile> = {
     title: "Head of Sales · Gulf Region",
     accent: "#B8A0C8",
     blurb: "Forecast, coach, and rescue at-risk deals across the team.",
+    // Managers start with the team briefing (KPIs are coaching-tuned).
     landingHref: "/home",
   },
   ceo: {
@@ -50,7 +52,8 @@ export const ROLES: Record<RoleKey, RoleProfile> = {
     title: "Chief Executive Officer",
     accent: "#C0A0B8",
     blurb: "Revenue, market signals, board-ready answers in one place.",
-    landingHref: "/home",
+    // CEO drops straight into the executive dashboards view.
+    landingHref: "/insights/dashboards",
   },
   admin: {
     key: "admin",
@@ -61,7 +64,8 @@ export const ROLES: Record<RoleKey, RoleProfile> = {
     title: "Head of RevOps & CRM Administration",
     accent: "#C8A880",
     blurb: "Data hygiene, automations, dedup, and lead routing.",
-    landingHref: "/home",
+    // Admin lands on Data Hub segments — closest to data-hygiene work.
+    landingHref: "/datahub/segments",
   },
   marketing: {
     key: "marketing",
@@ -72,7 +76,8 @@ export const ROLES: Record<RoleKey, RoleProfile> = {
     title: "Director of Marketing",
     accent: "#B8B880",
     blurb: "Run multi-channel campaigns and reactivate dormant leads.",
-    landingHref: "/home",
+    // Marketing lands on the campaign-centric dashboard, not the sales briefing.
+    landingHref: "/marketing-dashboard",
   },
 };
 

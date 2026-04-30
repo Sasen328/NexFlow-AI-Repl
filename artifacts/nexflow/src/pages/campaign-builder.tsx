@@ -193,6 +193,9 @@ type AiState = {
   imageUrl: string | null;
   imageB64: string | null;
   imagePrompt: string;
+  /** Napkin AI diagram (Step 5b — instructional / explainer visual). */
+  diagramUrl: string | null;
+  diagramPrompt: string;
 };
 
 const DEFAULT_AI_STATE: AiState = {
@@ -208,11 +211,13 @@ const DEFAULT_AI_STATE: AiState = {
   imageUrl: null,
   imageB64: null,
   imagePrompt: "",
+  diagramUrl: null,
+  diagramPrompt: "",
 };
 
 function AiBuilderTab({ cultural, onPublish }: { cultural: boolean; onPublish: () => void }) {
   const [s, setS] = useState<AiState>(DEFAULT_AI_STATE);
-  const [loading, setLoading] = useState<{ messages?: boolean; variant?: Channel; image?: boolean }>({});
+  const [loading, setLoading] = useState<{ messages?: boolean; variant?: Channel; image?: boolean; diagram?: boolean }>({});
   const [error, setError] = useState<string>("");
   const [openStep, setOpenStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
 
@@ -334,6 +339,35 @@ Return ONLY the final ${meta.label} copy as plain text. No JSON, no preamble, no
     }
   }
 
+  /* ── Step 5b: Generate diagram via Napkin AI ────────────
+   * Napkin specialises in instructional / explainer visuals (flow diagrams,
+   * comparison charts, sequence visuals). Pairs well with DALL-E (which is
+   * better at hero photography) inside the same Step-5 panel.
+   */
+  async function generateDiagram() {
+    setLoading((l) => ({ ...l, diagram: true }));
+    setError("");
+    try {
+      const basePrompt = s.imagePrompt || `Diagram for marketing campaign "${s.campaignName || segment.name}". Audience: ${segment.persona}. Goal: ${s.goal}. Show a clear flow from awareness → engagement → conversion across the chosen channels.`;
+      const r: any = await apiFetch("/napkin/generate-visual", {
+        method: "POST",
+        body: JSON.stringify({
+          prompt: basePrompt,
+          style: cultural ? "professional" : "tech",
+          format: "png",
+          aspect_ratio: "16:9",
+        }),
+      });
+      if (r?.url) setS((cur) => ({ ...cur, diagramUrl: r.url, diagramPrompt: basePrompt }));
+      else if (r?.ai_disabled) setError("Napkin AI isn't configured. Add NAPKIN_AI_API to enable diagrams.");
+      else setError(r?.error ?? "Diagram generation returned no URL.");
+    } catch (e: any) {
+      setError(e?.message ?? "Diagram generation failed.");
+    } finally {
+      setLoading((l) => ({ ...l, diagram: false }));
+    }
+  }
+
   const allChannels: Channel[] = ["email", "linkedin", "whatsapp", "x", "instagram", "facebook", "sms"];
 
   return (
@@ -434,13 +468,13 @@ Return ONLY the final ${meta.label} copy as plain text. No JSON, no preamble, no
 
         <Step
           num={5} title="Generate visuals" open={openStep === 5}
-          onToggle={() => setOpenStep(5)} done={!!s.imageUrl || !!s.imageB64}
+          onToggle={() => setOpenStep(5)} done={!!s.imageUrl || !!s.imageB64 || !!s.diagramUrl}
         >
           <div className="space-y-2">
             <textarea
               value={s.imagePrompt}
               onChange={(e) => setS({ ...s, imagePrompt: e.target.value })}
-              placeholder="(Optional) Tweak the image prompt — leave blank for AI auto-prompt"
+              placeholder="(Optional) Tweak the prompt — leave blank for AI auto-prompt"
               rows={2}
               className="w-full text-xs px-2 py-1.5 rounded border border-border/40 bg-transparent"
             />
@@ -450,8 +484,21 @@ Return ONLY the final ${meta.label} copy as plain text. No JSON, no preamble, no
               className="w-full px-3 py-2 rounded-lg text-xs font-bold text-white nf-chameleon-bg flex items-center justify-center gap-1 disabled:opacity-50"
             >
               {loading.image ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <ImageIcon className="w-3.5 h-3.5"/>}
-              {s.imageUrl || s.imageB64 ? "Re-generate image" : "Generate image with AI"}
+              {s.imageUrl || s.imageB64 ? "Re-generate hero image" : "Generate hero image (DALL-E)"}
             </button>
+            {/* Napkin AI — instructional / explainer diagram. Complements the
+                hero image above with a flow / comparison / sequence visual. */}
+            <button
+              onClick={generateDiagram}
+              disabled={loading.diagram}
+              className="w-full px-3 py-2 rounded-lg text-xs font-bold border border-[#C8A880]/50 bg-[#C8A880]/10 text-[#C8A880] hover:bg-[#C8A880]/15 flex items-center justify-center gap-1 disabled:opacity-50"
+            >
+              {loading.diagram ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Wand2 className="w-3.5 h-3.5"/>}
+              {s.diagramUrl ? "Re-generate diagram" : "Generate diagram (Napkin AI)"}
+            </button>
+            <p className="text-[10px] text-muted-foreground leading-tight">
+              Hero image = photographic creative for ads. Diagram = explainer / flow visual for LinkedIn carousels & decks.
+            </p>
           </div>
         </Step>
 
@@ -574,7 +621,7 @@ Return ONLY the final ${meta.label} copy as plain text. No JSON, no preamble, no
           </div>
           {!s.imageUrl && !s.imageB64 ? (
             <div className="text-xs text-muted-foreground py-12 text-center border border-dashed border-border/40 rounded-xl">
-              Click "Generate image with AI" on the left to create the campaign hero image.
+              Click "Generate hero image (DALL-E)" on the left to create the campaign hero.
             </div>
           ) : (
             <div className="relative">
@@ -585,6 +632,38 @@ Return ONLY the final ${meta.label} copy as plain text. No JSON, no preamble, no
               />
               {s.imagePrompt && (
                 <div className="text-[11px] text-muted-foreground mt-2 italic">Prompt: {s.imagePrompt}</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Napkin diagram preview ─────────────────────── */}
+        <div className="glass-card rounded-2xl p-4 border border-[#C8A880]/30">
+          <div className="flex items-center gap-2 mb-3">
+            <Wand2 className="w-4 h-4 text-[#C8A880]"/>
+            <div className="text-sm font-bold">Diagram</div>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border border-[#C8A880]/40 text-[#C8A880] bg-[#C8A880]/10">Napkin AI</span>
+            {s.diagramUrl && (
+              <button onClick={generateDiagram} disabled={loading.diagram} className="ml-auto text-xs text-[#C8A880] hover:underline flex items-center gap-1">
+                {loading.diagram ? <Loader2 className="w-3 h-3 animate-spin"/> : <RefreshCw className="w-3 h-3"/>} Re-roll
+              </button>
+            )}
+          </div>
+          {!s.diagramUrl ? (
+            <div className="text-xs text-muted-foreground py-10 text-center border border-dashed border-[#C8A880]/30 rounded-xl">
+              Click "Generate diagram (Napkin AI)" on the left for an explainer / flow visual — perfect for LinkedIn carousels and pitch decks.
+            </div>
+          ) : (
+            <div className="relative">
+              <a href={s.diagramUrl} target="_blank" rel="noopener noreferrer">
+                <img
+                  src={s.diagramUrl}
+                  alt="Napkin AI diagram"
+                  className="w-full max-h-[420px] object-contain rounded-xl border border-[#C8A880]/30 bg-white"
+                />
+              </a>
+              {s.diagramPrompt && (
+                <div className="text-[11px] text-muted-foreground mt-2 italic">Prompt: {s.diagramPrompt}</div>
               )}
             </div>
           )}

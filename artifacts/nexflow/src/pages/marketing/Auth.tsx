@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Mail, Lock, User, Building2, ArrowRight, Sparkles, Check, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { signInAs, ROLE_LIST, type RoleKey } from "@/lib/marketing-auth";
+import { signInAs, ROLES, ROLE_LIST, type RoleKey } from "@/lib/marketing-auth";
 import { NexFlowLogo } from "@/components/layout/NexFlowLogo";
 
 interface AuthPageProps {
@@ -15,7 +15,9 @@ export default function AuthPage({ mode }: AuthPageProps) {
 
   function pickRole(role: RoleKey) {
     signInAs(role);
-    navigate("/home");
+    // Each persona has its own natural landing page (e.g. CEO → /insights/dashboards,
+    // Marketing → /marketing-dashboard). See ROLES.landingHref in marketing-auth.ts.
+    navigate(ROLES[role].landingHref);
   }
 
   function onSubmit(e: React.FormEvent) {
@@ -24,7 +26,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
     setTimeout(() => {
       // Default new submissions to the Sales rep persona.
       signInAs("sales");
-      navigate("/home");
+      navigate(ROLES.sales.landingHref);
     }, 400);
   }
 
