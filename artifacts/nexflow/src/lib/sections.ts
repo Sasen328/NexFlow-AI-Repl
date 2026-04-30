@@ -4,6 +4,7 @@ import {
   Zap, Mic, BookOpen, Mail, Megaphone, Calendar, Layers, Target, Eye,
   CreditCard, Globe, Workflow, Wand2, Route, Database, BookText, BarChart3,
   UserSquare2, ListIcon, Filter, FileSpreadsheet, Settings, MoreHorizontal,
+  BrainCircuit,
   Send, Share2, MessageSquare, Home as HomeIcon, AlertCircle, Search,
   type LucideIcon,
 } from "lucide-react";
@@ -107,21 +108,17 @@ export const SECTIONS: SectionDef[] = [
   // Key remains "datahub" so ROLE_NAV / legacy deep links keep working.
   {
     key: "datahub",
-    label: "Enrichment Engine",
+    label: "Data Hub",
     icon: Database,
-    tagline: "Bulk · Quick · Card scan · Lists · Signals · Search history.",
+    tagline: "AI Analytics · Enrichment Engine · List Upload · Segments · AI Workforce.",
     accent: "#B8B880",
-    defaultHref: "/enrichment-engine",
+    defaultHref: "/datahub/ai-analytics",
     items: [
-      { icon: LayoutDashboard, label: "Dashboard",        href: "/enrichment-engine", desc: "Unified enrichment workspace + AI summary" },
-      { icon: Database,        label: "Bulk Enrichment",  href: "/datahub/enrichment", desc: "Waterfall enrichment for lists & accounts" },
-      { icon: Wand2,           label: "Quick Lead Enrich", href: "/lead-enrich",      desc: "On-demand single-record enrichment" },
-      { icon: ScanLine,        label: "Card Scanner",     href: "/business-cards",    desc: "OCR business cards → enriched contacts" },
-      { icon: FileSpreadsheet, label: "List Upload + Dedup", href: "/dedup",          desc: "Upload CSVs · auto-dedup · enrich" },
-      { icon: Zap,             label: "Buying Signals",   href: "/datahub/signals",   desc: "Funding · hiring · intent · public news" },
-      { icon: Search,          label: "Search History",   href: "/search-history",    desc: "Every enrichment run, filterable & re-runnable" },
-      { icon: Target,          label: "Segments",         href: "/datahub/segments",  desc: "Dynamic segments, filters, smart lists" },
-      { icon: Bot,             label: "AI Workforce",     href: "/datahub/workforce", desc: "Custom AI agents, prompts & scoring" },
+      { icon: BrainCircuit,    label: "AI Analytics",            href: "/datahub/ai-analytics", desc: "Live AI insights & autonomous action toggles" },
+      { icon: Database,        label: "Enrichment Engine",       href: "/enrichment-engine",    desc: "Prospecting · bulk · quick · cards · signals · save history" },
+      { icon: FileSpreadsheet, label: "List Upload + Dedup",     href: "/dedup",                desc: "Upload CSVs · auto-dedup · enrich" },
+      { icon: Target,          label: "Segments",                href: "/datahub/segments",     desc: "Dynamic segments, filters, smart lists" },
+      { icon: Bot,             label: "AI Workforce",            href: "/datahub/workforce",    desc: "Custom AI agents, prompts & scoring" },
     ],
   },
 

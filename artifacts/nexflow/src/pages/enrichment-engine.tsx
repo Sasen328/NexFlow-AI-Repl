@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import {
   Database, Search, Building2, Users, Sparkles, Zap, Upload, ScanLine,
   GitMerge, History, ChevronRight, Plus, Check, X, Loader2, Filter,
@@ -8,19 +9,30 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/hooks/useApi";
+import { PushToCrm } from "@/components/push-to-crm";
 
 const SignalsPage = lazy(() => import("./signals"));
 const LeadEnrichPage = lazy(() => import("./lead-enrich"));
 const BusinessCardsPage = lazy(() => import("./business-cards"));
-const DedupPage = lazy(() => import("./dedup"));
 
+/**
+ * Internal tab order — locked by spec v2 (April 2026):
+ *   1. Prospecting
+ *   2. Bulk Enrichment
+ *   3. Quick Lead Enrich
+ *   4. Companies Card Scanner
+ *   5. Buying Signals
+ *   6. Save History (was "Search History")
+ *
+ * NOTE: List Upload + Dedup is intentionally NOT a tab here — it lives
+ * as its own Data Hub sub-nav item at /dedup. Don't add it back.
+ */
 type Tab =
   | "prospecting"
-  | "signals"
+  | "bulk"
   | "quick"
   | "cards"
-  | "lists"
-  | "dedup"
+  | "signals"
   | "history";
 
 type ProspectMode = "company" | "person";
@@ -88,15 +100,26 @@ const SIGNAL_CHOICES = ["None", "Buying intent only", "Hiring + funding", "Full 
 const SURVIVOR_PREF = ["Most recent", "Most engaged (lead score)", "Most complete profile", "Manual pick"];
 
 export default function EnrichmentEnginePage() {
-  const [tab, setTab] = useState<Tab>("prospecting");
+  // Honour ?tab=history (and similar) so deep links like the legacy
+  // /search-history redirect can land directly on the right tab.
+  const initialTab: Tab = (() => {
+    if (typeof window === "undefined") return "prospecting";
+    const t = new URLSearchParams(window.location.search).get("tab");
+    const valid: Tab[] = ["prospecting", "bulk", "quick", "cards", "signals", "history"];
+    return (valid as string[]).includes(t ?? "") ? (t as Tab) : "prospecting";
+  })();
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [prospectSeed, setProspectSeed] = useState<{ mode: ProspectMode; query: string } | null>(null);
+  const [, navigate] = useLocation();
 
   function rerunFromHistory(item: SearchHistoryItem) {
     if (item.type === "company" || item.type === "person") {
       setProspectSeed({ mode: item.type, query: item.query });
       setTab("prospecting");
     } else if (item.type === "list") {
-      setTab("lists");
+      // Lists tab was promoted to a top-level Data Hub page (/dedup).
+      // Re-running a list-history entry now opens the dedup uploader.
+      navigate("/dedup");
     } else if (item.type === "card") {
       setTab("cards");
     }
@@ -121,23 +144,21 @@ export default function EnrichmentEnginePage() {
         </div>
       </div>
 
-      {/* Sub-tabs */}
+      {/* Sub-tabs — order is locked by the spec, do not reshuffle */}
       <div className="border-b border-border flex items-center gap-1 overflow-x-auto" role="tablist">
-        <SubTab active={tab === "prospecting"} onClick={() => setTab("prospecting")} icon={Search}      label="Prospecting" />
-        <SubTab active={tab === "signals"}     onClick={() => setTab("signals")}     icon={Zap}         label="Buying Signals" />
-        <SubTab active={tab === "quick"}       onClick={() => setTab("quick")}       icon={Sparkles}    label="Quick Lead Enrich" />
-        <SubTab active={tab === "cards"}       onClick={() => setTab("cards")}       icon={ScanLine}    label="Card Scanner" />
-        <SubTab active={tab === "lists"}       onClick={() => setTab("lists")}       icon={Upload}      label="List Upload" />
-        <SubTab active={tab === "dedup"}       onClick={() => setTab("dedup")}       icon={GitMerge}    label="Deduplication" />
-        <SubTab active={tab === "history"}     onClick={() => setTab("history")}     icon={History}     label="Search History" />
+        <SubTab active={tab === "prospecting"} onClick={() => setTab("prospecting")} icon={Search}   label="Prospecting" />
+        <SubTab active={tab === "bulk"}        onClick={() => setTab("bulk")}        icon={Upload}   label="Bulk Enrichment" />
+        <SubTab active={tab === "quick"}       onClick={() => setTab("quick")}       icon={Sparkles} label="Quick Lead Enrich" />
+        <SubTab active={tab === "cards"}       onClick={() => setTab("cards")}       icon={ScanLine} label="Companies Card Scanner" />
+        <SubTab active={tab === "signals"}     onClick={() => setTab("signals")}     icon={Zap}      label="Buying Signals" />
+        <SubTab active={tab === "history"}     onClick={() => setTab("history")}     icon={History}  label="Save History" />
       </div>
 
       {tab === "prospecting" && <ProspectingTab seed={prospectSeed} onConsumeSeed={() => setProspectSeed(null)} />}
-      {tab === "signals"     && <BuyingSignalsTab />}
+      {tab === "bulk"        && <BulkEnrichmentTab />}
       {tab === "quick"       && <Lazy><LeadEnrichPage /></Lazy>}
       {tab === "cards"       && <Lazy><BusinessCardsPage /></Lazy>}
-      {tab === "lists"       && <ListUploadTab />}
-      {tab === "dedup"       && <Lazy><DedupPage /></Lazy>}
+      {tab === "signals"     && <BuyingSignalsTab />}
       {tab === "history"     && <SearchHistoryTab onRerun={rerunFromHistory} />}
     </div>
   );
@@ -382,6 +403,34 @@ function ProspectingTab({ seed, onConsumeSeed }: { seed: { mode: ProspectMode; q
               );
             })}
           </div>
+
+          {/* Push-to-CRM cross-cutting workflow — appears once any enrichment is done */}
+          {enriched.size > 0 && (
+            <div className="border-t border-border p-5 bg-muted/20">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                Push enriched leads into CRM
+              </div>
+              <PushToCrm
+                source="Prospecting"
+                records={searched.people.filter((p) => enriched.has(p.name))}
+                getKey={(p) => p.name}
+                renderRow={(p) => (
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{p.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{p.title} · {p.dept} · {p.loc}</div>
+                  </div>
+                )}
+                toIcp={(p) => ({
+                  name: p.name,
+                  company: searched.company,
+                  industry: industry === "All industries" ? undefined : industry,
+                  region: region.includes("KSA") ? "KSA" : region.includes("UAE") ? "UAE" : "GCC",
+                  seniority: p.title.match(/CTO|CFO|CEO|VP|Director|Head|Chief/i)?.[0],
+                  headcount: 5000,
+                })}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -515,7 +564,189 @@ function BuyingSignalsTab() {
 }
 
 // ─────────────────────────────────────────────────────────
+// BULK ENRICHMENT — waterfall enrichment of an existing
+// lead pool (saved segment, recently-imported list, or hand-
+// picked queue). Plugs straight into the Push-to-CRM flow so
+// that dedup + ICP + manager-approval gates all fire.
+// ─────────────────────────────────────────────────────────
+
+interface BulkLead {
+  id: string;
+  name: string;
+  title: string;
+  company: string;
+  industry: string;
+  region: "KSA" | "UAE" | "Qatar" | "Bahrain" | "Kuwait" | "Oman" | "Egypt";
+  headcount: number;
+  enriched: boolean;
+}
+
+const BULK_QUEUES: Record<string, { label: string; desc: string; rows: BulkLead[] }> = {
+  segment_finance_gcc: {
+    label: "Segment · GCC Finance VPs (217)",
+    desc:  "Saved segment from Data Hub · last refreshed 4h ago",
+    rows: [
+      { id: "b1", name: "Khalid Al-Saud",     title: "VP Wealth",       company: "Emirates NBD",      industry: "Asset Management", region: "UAE", headcount: 12000, enriched: false },
+      { id: "b2", name: "Reem Al-Otaibi",     title: "Head of Treasury", company: "Saudi National Bank", industry: "Asset Management", region: "KSA", headcount: 18000, enriched: false },
+      { id: "b3", name: "Faisal Al-Harbi",    title: "Director, Family Office", company: "Mubadala", industry: "Family Office",    region: "UAE", headcount: 1800,  enriched: false },
+      { id: "b4", name: "Layla Al-Sabah",     title: "VP Insurance",     company: "Gulf Insurance",   industry: "Insurance",         region: "Kuwait", headcount: 4200, enriched: false },
+      { id: "b5", name: "Sara Al-Mansouri",   title: "Head of People",   company: "STC Group",         industry: "Telecom",           region: "KSA", headcount: 24000, enriched: false },
+      { id: "b6", name: "Yousef Al-Bahar",    title: "Innovation Lead",  company: "Aramco Trading",    industry: "Energy",            region: "KSA", headcount: 70000, enriched: false },
+    ],
+  },
+  list_gitex: {
+    label: "List · GITEX 2026 booth scans (318)",
+    desc:  "Uploaded Apr 28 · 318 unique after dedup",
+    rows: [
+      { id: "g1", name: "Hala Karam",         title: "CRO",              company: "Tabby",             industry: "Fintech",           region: "UAE", headcount: 600,  enriched: false },
+      { id: "g2", name: "Omar El-Banna",      title: "CTO",              company: "MNT-Halan",         industry: "Fintech",           region: "Egypt", headcount: 1200, enriched: false },
+      { id: "g3", name: "Aisha Al-Falasi",    title: "Director Marketing", company: "Bayut",            industry: "Real Estate",       region: "UAE", headcount: 800,  enriched: false },
+      { id: "g4", name: "Mohammed Al-Ghamdi", title: "VP Sales",          company: "Mrsool",            industry: "Logistics",         region: "KSA", headcount: 450,  enriched: false },
+    ],
+  },
+};
+
+function BulkEnrichmentTab() {
+  const [queue, setQueue] = useState<keyof typeof BULK_QUEUES>("segment_finance_gcc");
+  const [rows, setRows] = useState<BulkLead[]>(() => BULK_QUEUES.segment_finance_gcc.rows);
+  const [running, setRunning] = useState(false);
+  const queueMeta = BULK_QUEUES[queue];
+
+  function loadQueue(k: keyof typeof BULK_QUEUES) {
+    setQueue(k);
+    setRows(BULK_QUEUES[k].rows.map((r) => ({ ...r, enriched: false })));
+  }
+
+  function runWaterfall() {
+    setRunning(true);
+    // Stage the enrichment so the user sees the progress feel realistic.
+    let i = 0;
+    const tick = () => {
+      i += 1;
+      setRows((cur) => cur.map((r, idx) => idx < i ? { ...r, enriched: true } : r));
+      if (i < rows.length) setTimeout(tick, 250);
+      else setRunning(false);
+    };
+    setTimeout(tick, 400);
+  }
+
+  const enrichedRows = rows.filter((r) => r.enriched);
+
+  return (
+    <div className="space-y-5">
+      {/* Intro */}
+      <div className="glass-card rounded-2xl p-5 border-l-4 border-[#88B8B0]">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#88B8B0]/15 flex items-center justify-center flex-shrink-0">
+            <Upload className="w-5 h-5 text-[#88B8B0]" />
+          </div>
+          <div className="flex-1">
+            <div className="font-semibold">Bulk Enrichment — waterfall for an existing pool</div>
+            <p className="text-sm text-muted-foreground mt-1">
+              Pick a saved segment or recently-uploaded list, choose which signals to pull, run the GCC waterfall, then push the survivors into CRM with the dedup + ICP gate.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Source picker + signals */}
+      <div className="glass-card rounded-2xl p-5 grid lg:grid-cols-[1fr_auto] gap-4">
+        <div className="space-y-2">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground">Source pool</div>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(BULK_QUEUES).map(([k, v]) => (
+              <button
+                key={k}
+                onClick={() => loadQueue(k as keyof typeof BULK_QUEUES)}
+                className={cn(
+                  "rounded-xl border px-3 py-2 text-left transition",
+                  queue === k ? "border-[#88B8B0] bg-[#88B8B0]/10" : "border-border bg-background hover:bg-muted/40",
+                )}
+              >
+                <div className="text-sm font-medium">{v.label}</div>
+                <div className="text-[11px] text-muted-foreground">{v.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 self-end">
+          <button
+            onClick={runWaterfall}
+            disabled={running || rows.every((r) => r.enriched)}
+            className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
+          >
+            {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {running ? "Running waterfall…" : `Run waterfall on ${rows.length} leads`}
+          </button>
+        </div>
+      </div>
+
+      {/* Result table */}
+      <div className="glass-card rounded-2xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+          <div className="text-sm font-semibold">{queueMeta.label}</div>
+          <div className="text-xs text-muted-foreground">
+            {enrichedRows.length} / {rows.length} enriched
+          </div>
+        </div>
+        <ul className="divide-y divide-border">
+          {rows.map((r) => (
+            <li key={r.id} className="px-5 py-2.5 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-muted grid place-items-center text-xs font-semibold">
+                {r.name.split(" ").map((s) => s[0]).slice(0, 2).join("")}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{r.name} <span className="text-xs text-muted-foreground">· {r.title}</span></div>
+                <div className="text-xs text-muted-foreground truncate">{r.company} · {r.industry} · {r.region} · {r.headcount.toLocaleString()} staff</div>
+              </div>
+              {r.enriched ? (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-medium flex items-center gap-1">
+                  <Check className="w-2.5 h-2.5" /> Enriched
+                </span>
+              ) : (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Queued</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Push-to-CRM */}
+      {enrichedRows.length > 0 && (
+        <div className="glass-card rounded-2xl p-5 space-y-3 border-l-4 border-primary">
+          <div className="flex items-center gap-2">
+            <ChevronRight className="w-4 h-4 text-primary" />
+            <h3 className="font-semibold">Push survivors into CRM</h3>
+            <span className="text-xs text-muted-foreground">— dedup + ICP fit + manager approval will run automatically</span>
+          </div>
+          <PushToCrm
+            source="Bulk Enrichment"
+            records={enrichedRows}
+            getKey={(r) => r.id}
+            renderRow={(r) => (
+              <div className="min-w-0">
+                <div className="text-sm font-medium truncate">{r.name} <span className="text-xs text-muted-foreground">· {r.title}</span></div>
+                <div className="text-xs text-muted-foreground truncate">{r.company} · {r.industry} · {r.region} · {r.headcount.toLocaleString()} staff</div>
+              </div>
+            )}
+            toIcp={(r) => ({
+              name: r.name,
+              company: r.company,
+              industry: r.industry,
+              region: r.region,
+              headcount: r.headcount,
+              seniority: r.title.match(/CTO|CFO|CEO|VP|Director|Head|Chief|SVP|Owner|Founder/i)?.[0],
+            })}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
 // LIST UPLOAD — upload → dedup → questionnaire
+// (Kept intact; surfaced as the standalone /dedup page in Data Hub.)
 // ─────────────────────────────────────────────────────────
 function ListUploadTab() {
   const [phase, setPhase] = useState<"upload" | "deduping" | "questionnaire" | "queued">("upload");

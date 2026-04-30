@@ -11,6 +11,7 @@ import { useDashboard, useContacts, useForgottenLeads, useRegenerateInsights, us
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { getRole, type RoleKey, type RoleProfile } from "@/lib/marketing-auth";
+import { listApprovals, subscribeApprovals, type ApprovalItem } from "@/lib/approvals";
 import MarketingDashboardPage from "@/pages/marketing-dashboard";
 import CulturalIntelligencePage from "@/pages/cultural-intelligence";
 import CEOHomePage from "@/pages/ceo-home";
@@ -224,6 +225,53 @@ const PRIORITY_COLOR: Record<string, string> = { urgent: "#C8A880", high: "#B8A0
 const PRIORITY_BG: Record<string, string> = { urgent: "#C8A88020", high: "#B8A0C820", normal: "#88B8B020", low: "#90B8B820" };
 
 type Tab = "briefing" | "performance" | "todo" | "insights";
+
+// ──────────────────────────────────────────────
+// ApprovalsAlertSection — surfaces pending "Push anyway" requests from
+// reps (rows that failed ICP fit but were escalated). Subscribes to the
+// localStorage approvals queue so badges update live across tabs.
+// ──────────────────────────────────────────────
+function ApprovalsAlertSection() {
+  const [pending, setPending] = useState<ApprovalItem[]>([]);
+  useEffect(() => {
+    setPending(listApprovals().filter(a => a.status === "pending"));
+    return subscribeApprovals(() => {
+      setPending(listApprovals().filter(a => a.status === "pending"));
+    });
+  }, []);
+  if (pending.length === 0) return null;
+  const top = pending.slice(0, 3);
+  return (
+    <div className="rounded-2xl p-4 border-2" style={{ borderColor: "rgba(184,160,200,0.45)", background: "linear-gradient(135deg, #f9f3ff, #fffaf3)" }}>
+      <div className="flex items-center gap-2 mb-3">
+        <AlertTriangle className="w-4 h-4 text-[#B8A0C8]" />
+        <h2 className="font-bold text-sm text-foreground">Approvals Required</h2>
+        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#B8A0C8]/20 text-[#B8A0C8]">{pending.length} pending</span>
+        <Link href="/approvals" className="ml-auto text-[11px] font-bold text-[#B8A0C8] hover:underline">Open queue →</Link>
+      </div>
+      <div className="space-y-2">
+        {top.map(a => (
+          <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/80 border border-[#B8A0C8]/20">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#B8A0C8]/15 flex-shrink-0">
+              <AlertTriangle className="w-4 h-4 text-[#B8A0C8]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-bold text-foreground truncate">{a.name || a.company || "Unnamed lead"} · {a.company || "—"}</div>
+              <div className="text-[10px] text-muted-foreground truncate">
+                From {a.source} · ICP fit {a.score}% · {a.reasons.length} fail reason{a.reasons.length === 1 ? "" : "s"}
+              </div>
+            </div>
+            <Link href="/approvals">
+              <button type="button" className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-[#B8A0C8] text-white hover:opacity-90 flex-shrink-0">
+                Review
+              </button>
+            </Link>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ──────────────────────────────────────────────
 // CommandCenterPage — thin role router for /home.
@@ -892,6 +940,9 @@ function SalesAndExecHome() {
               </div>
             </div>
           </div>
+
+          {/* Approvals alert — non-fit pushes the rep escalated to the manager */}
+          <ApprovalsAlertSection />
 
           {/* Urgent signal alerts — top priority */}
           {URGENT_SIGNALS.length > 0 && (
