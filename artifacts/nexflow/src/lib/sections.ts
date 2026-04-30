@@ -46,6 +46,8 @@ export interface SectionDef {
 
 export const SECTIONS: SectionDef[] = [
   // ─── 1. Home ──────────────────────────────────────────────────────
+  // No items → SectionSidebar does not render for this section.
+  // The home/briefing page is self-contained with its own internal tabs.
   {
     key: "home",
     label: "Home",
@@ -53,28 +55,23 @@ export const SECTIONS: SectionDef[] = [
     tagline: "Your AI-powered daily briefing.",
     accent: "#B8A0C8",
     defaultHref: "/home",
-    items: [
-      { icon: Sparkles,  label: "Command Center",     href: "/home",              desc: "360° AI Analysis · morning brief · today's calendar · tasks · AI assistant" },
-      { icon: BarChart3, label: "Performance",        href: "/home#performance",  desc: "Live KPIs and trend strip" },
-      { icon: ListIcon,  label: "To-Do & Alerts",     href: "/home#todo",         desc: "AI-prioritised tasks for today" },
-      { icon: Activity,  label: "Insights Dashboard", href: "/home#insights",     desc: "Lead insights + news + AI summary" },
-    ],
+    items: [],
   },
 
-  // ─── 2. CRM (per spec §03, §08 — was "Leads") ─────────────────────
-  // The key remains "leads" to keep ROLE_NAV / legacy deep links working.
+  // ─── 2. CRM (was "Pipeline") ───────────────────────────────────────
+  // Key remains "leads" to keep ROLE_NAV / legacy deep links working.
   {
     key: "leads",
-    label: "Pipeline",
+    label: "CRM",
     icon: GitBranch,
-    tagline: "People, Companies, Deals, Accounts — one entry, internal tabs.",
+    tagline: "People · Companies · Deals · Command Center.",
     accent: "#88B8B0",
-    defaultHref: "/leads/pipeline",
+    defaultHref: "/contacts",
     items: [
-      { icon: BarChart3,  label: "Pipeline Planning", href: "/leads/pipeline", desc: "Funnel · gap analysis · AI suggestions · deal stages" },
-      { icon: Users,      label: "People",         href: "/contacts",       desc: "All contacts · enrich · score · history" },
-      { icon: Building2,  label: "Companies",      href: "/companies",      desc: "Accounts · revenue · contacts roster" },
-      { icon: GitBranch,  label: "Deals",          href: "/deal-pipeline",  desc: "Kanban pipeline · stages · win/loss" },
+      { icon: Users,      label: "People",          href: "/contacts",       desc: "All contacts · enrich · score · history" },
+      { icon: Building2,  label: "Companies",       href: "/companies",      desc: "Accounts · revenue · contacts roster" },
+      { icon: GitBranch,  label: "Deals",           href: "/deal-pipeline",  desc: "Kanban pipeline · stages · win/loss" },
+      { icon: Sparkles,   label: "Command Center",  href: "/home",           desc: "Generate lead lists · push automations · log calls · schedule follow-ups", group: "Automation" },
     ],
   },
 
@@ -263,7 +260,7 @@ export interface TopNavEntry {
 
 export const TOP_NAV: TopNavEntry[] = [
   { key: "home",       label: "Home",         icon: Sparkles,      sections: ["home"] },
-  { key: "leads",      label: "Pipeline",     icon: GitBranch,     sections: ["leads"] },
+  { key: "leads",      label: "CRM",          icon: GitBranch,     sections: ["leads"] },
   { key: "callcenter", label: "Comms",        icon: MessageSquare, sections: ["callcenter"] },
   { key: "datahub",    label: "★ Enrichment", icon: Database,      sections: ["datahub"] },
   { key: "marketing",  label: "Growth",       icon: Megaphone,     sections: ["marketing"] },

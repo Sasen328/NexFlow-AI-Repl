@@ -43,11 +43,8 @@ export function SectionSidebar() {
 
   const section = findSectionByRoute(location);
   if (!section) return null;
+  if (!section.items.length) return null; // section opted out of sub-nav (e.g. Home)
   if (roleKey === "marketing") return null;
-  // NOTE: We intentionally DO render on /home so Studio (a Home-section
-  // item) stays discoverable from the left rail. The Briefing page has
-  // its own inner tab strip for #performance / #todo / #insights so the
-  // sidebar simply gives users the section overview.
 
   const allowedKeys = ROLE_NAV[roleKey];
   if (allowedKeys && !allowedKeys.includes(section.key)) return null;
