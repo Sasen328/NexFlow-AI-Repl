@@ -101,3 +101,75 @@ id = "kUyRLREFK1SsGQ-UZreHA"
 uri = "file://attached_assets/nexflow-redesign.zip"
 type = "unspecified"
 title = "NexFlow — Calm OS Redesign · Tour HTML"
+
+[[outputs]]
+id = "TVC2xOz-lx15kisGaLesj"
+uri = "file://docs/README.md"
+type = "text"
+title = "00 — Index"
+
+[[outputs]]
+id = "oRES825rw9Vv2RwTvhnqq"
+uri = "file://docs/01-company-profile.md"
+type = "text"
+title = "01 — Company Profile"
+
+[[outputs]]
+id = "3pioNwakA6zzzWpgKFd0V"
+uri = "file://docs/02-pricing.md"
+type = "text"
+title = "02 — Pricing (with API/AI add-ons)"
+
+[[outputs]]
+id = "bvvEpZ5v63jXHLaowyCd9"
+uri = "file://docs/03-tech-stack.md"
+type = "text"
+title = "03 — Tech Stack"
+
+[[outputs]]
+id = "nI_eHUCSt5JS23X_diri0"
+uri = "file://docs/04-frontend-backend.md"
+type = "text"
+title = "04 — Frontend & Backend"
+
+[[outputs]]
+id = "Iz5BrmK9uPTK02Pkzk6G8"
+uri = "file://docs/05-components.md"
+type = "text"
+title = "05 — Components"
+
+[[outputs]]
+id = "UBxYc2Cw6CdRPgsEsdilJ"
+uri = "file://docs/06-deployment-plan.md"
+type = "text"
+title = "06 — Deployment Plan"
+
+[[outputs]]
+id = "G1EMMLvmR9lNP61PrtQzh"
+uri = "file://docs/07-app-documentation.md"
+type = "text"
+title = "07 — App Documentation"
+
+[[outputs]]
+id = "myrpPwAHojYu9WNZWEHE5"
+uri = "file://docs/08-expansion-plan.md"
+type = "text"
+title = "08 — Expansion Plan (Phase 1 → 3)"
+
+[[outputs]]
+id = "ugA7YLUuRWD8MgUOtgIiQ"
+uri = "file://docs/09-role-journeys.md"
+type = "text"
+title = "09 — Role Journeys"
+
+[[outputs]]
+id = "Nb4GkiXSqiJZL-w62ga2P"
+uri = "file://docs/10-feasibility-financial-forecast.md"
+type = "text"
+title = "10 — Feasibility & 3-Year Forecast"
+
+[[outputs]]
+id = "eFiv4w96-Eaa23apFVNpv"
+uri = "file://docs/11-video-script.md"
+type = "text"
+title = "11 — Video Script (AR + EN)"
