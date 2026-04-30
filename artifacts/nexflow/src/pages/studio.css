@@ -1,4 +1,8 @@
 .rd-root {
+  /* Original Studio palette — sand/cream editorial feel. Reverted from a
+     chameleon re-skin that the user disliked. Studio is intentionally
+     its own visual island; what made it clash before was the duplicate
+     top header, which has been removed in studio.tsx. */
   --rd-sand: #F7F4ED;
   --rd-sand-2: #FBF9F4;
   --rd-cream: #E8E2D5;

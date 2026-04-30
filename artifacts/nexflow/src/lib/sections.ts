@@ -89,10 +89,14 @@ export const SECTIONS: SectionDef[] = [
     key: "callcenter",
     label: "Comms",
     icon: MessageSquare,
-    tagline: "WhatsApp + Email inbox, dialer, command center.",
+    tagline: "Dashboard · WhatsApp · Dialer · Calls · Command Center.",
     accent: "#C0A0B8",
-    defaultHref: "/callcenter/messages",
+    // Landing on WhatsApp made the section feel like a messaging app. The
+    // dashboard is the proper overview surface (KPIs, queues, AI insights).
+    defaultHref: "/callcenter/dashboard",
     items: [
+      // Overview surface — KPIs / queues / AI insights / live status
+      { icon: BarChart3,       label: "Dashboard",           href: "/callcenter/dashboard",      desc: "Comms overview — KPIs · queues · AI insights · live status" },
       // Channels — direct conversation surfaces
       { icon: MessageSquare,   label: "WhatsApp",            href: "/callcenter/messages",       desc: "Unified inbox — WhatsApp + Email threads in one place" },
       { icon: Phone,           label: "Dialer",              href: "/power-dialer",              desc: "Outbound calls — Manual · Auto-dial · AI Agent" },
@@ -114,13 +118,16 @@ export const SECTIONS: SectionDef[] = [
     accent: "#B8A0C8",
     defaultHref: "/enrichment-engine",
     items: [
-      // Engine is the single hub: Prospecting / Bulk / Quick / Cards / Signals /
-      // Intel Engines / Sources / History all live as INNER tabs there. We
-      // intentionally do not duplicate those as sidebar entries.
-      { icon: BrainCircuit,    label: "Engine",            href: "/enrichment-engine",    desc: "The waterfall · Prospecting · Enrich · Sources · Intel Engines · Signals" },
-      { icon: FileSpreadsheet, label: "Dedup",             href: "/dedup",                desc: "List Upload · duplicate detection · auto-merge" },
-      { icon: Target,          label: "Segments",          href: "/datahub/segments",     desc: "Dynamic segments, filters, smart lists" },
-      { icon: Bot,             label: "AI Workforce",      href: "/datahub/workforce",    desc: "Custom AI agents, prompts & scoring" },
+      // Engine is the hub. Signals and Sources are also surfaced at the
+      // sidebar level (deep-linking into the corresponding inner tab) so
+      // users can jump straight to "what's the buying signal" or "which
+      // data providers do we have configured" without scanning tabs.
+      { icon: BrainCircuit,    label: "Engine",            href: "/enrichment-engine",                  desc: "The waterfall · Prospecting · Enrich · Cards · Intel Engines" },
+      { icon: Zap,             label: "Buying Signals",    href: "/enrichment-engine?tab=signals",      desc: "Hiring · funding · tech-change · intent triggers" },
+      { icon: Database,        label: "Sources",           href: "/enrichment-engine?tab=sources",      desc: "Hunter · Apollo · Lusha · Wathiq · MAGNiTT — keys & priority" },
+      { icon: FileSpreadsheet, label: "Dedup",             href: "/dedup",                              desc: "List Upload · duplicate detection · auto-merge" },
+      { icon: Target,          label: "Segments",          href: "/datahub/segments",                   desc: "Dynamic segments, filters, smart lists" },
+      { icon: Bot,             label: "AI Workforce",      href: "/datahub/workforce",                  desc: "Custom AI agents, prompts & scoring" },
     ],
   },
 
