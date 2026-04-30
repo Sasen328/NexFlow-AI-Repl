@@ -163,7 +163,18 @@ router.post("/save", async (req, res) => {
       metadata: { extracted, source_image_url },
     });
 
-    res.status(201).json({ contact_id: contact.id, company_id: companyId, duplicate });
+    // Fire-and-forget: kick off the deep multi-model enrichment chain in background.
+    // Falls through silently if OpenRouter is not configured.
+    if (process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY) {
+      const port = process.env.PORT ?? "8080";
+      const enrichUrl = `http://127.0.0.1:${port}/api/lead-enrich/deep/${contact.id}`;
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      fetch(enrichUrl, { method: "POST", headers: { "Content-Type": "application/json" } })
+        .then((r) => req.log.info({ contact_id: contact.id, status: r.status }, "[business-cards] background deep-enrich kicked off"))
+        .catch((err: any) => req.log.warn({ err: err?.message }, "[business-cards] background deep-enrich failed"));
+    }
+
+    res.status(201).json({ contact_id: contact.id, company_id: companyId, duplicate, enrichment_kicked_off: Boolean(process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY) });
   } catch (err: any) {
     console.error("[business-cards] save failed:", err?.message ?? err);
     res.status(500).json({ error: err?.message ?? "save failed" });

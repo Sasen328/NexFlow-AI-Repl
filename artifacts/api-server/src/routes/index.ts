@@ -35,6 +35,7 @@ import powerDialerRouter from "./power-dialer";
 import leadEnrichRouter from "./lead-enrich";
 import investorsRouter from "./investors";
 import napkinRouter from "./napkin";
+import prospectsRouter from "./prospects";
 
 const router: IRouter = Router();
 
@@ -74,5 +75,6 @@ router.use("/power-dialer", powerDialerRouter);
 router.use("/lead-enrich", leadEnrichRouter);
 router.use("/investors", investorsRouter);
 router.use("/napkin", napkinRouter);
+router.use("/prospects", prospectsRouter);
 
 export default router;
