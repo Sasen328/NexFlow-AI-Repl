@@ -502,24 +502,6 @@ function SalesAndExecHome() {
         </div>
       </div>
 
-      {/* ──── Studio entry-point CTA — discoverable from Home ──── */}
-      <Link href="/studio">
-        <div className="group rounded-2xl p-4 border cursor-pointer transition-all hover:shadow-md flex items-center gap-4"
-             style={{ background: "linear-gradient(135deg, #fdf6ff 0%, #f4f0ff 100%)", borderColor: "rgba(184,160,200,0.45)" }}>
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 nf-chameleon-bg shadow-sm">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-foreground">Open Studio</h3>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[#B8A0C8]/20 text-[#B8A0C8] font-bold uppercase tracking-wide">New</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">Your all-in-one workspace — focus list, active subject overview, and Conductor lane.</p>
-          </div>
-          <ArrowRight className="w-4 h-4 text-[#B8A0C8] flex-shrink-0 group-hover:translate-x-0.5 transition-transform" />
-        </div>
-      </Link>
-
       {/* Tab Navigation */}
       <div className="flex gap-1 p-1.5 rounded-2xl w-fit" style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(184,160,200,0.2)", backdropFilter: "blur(12px)" }}>
         {TABS.map(t => {
