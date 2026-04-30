@@ -105,34 +105,30 @@ const ANALYSIS_FALLBACK = {
 type CacheEntry = { data: any; ts: number };
 const ANALYSIS_CACHE = new Map<Scope, CacheEntry>();
 const PENDING_ANALYSIS = new Map<Scope, Promise<any>>();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min — survives idle browsing without re-paying Claude latency
 
-router.post("/analysis", async (req, res) => {
-  const scope = ((req.body?.scope as Scope) || "daily") as Scope;
-  const validScopes: Scope[] = ["daily", "ytd", "monthly"];
-  const safeScope: Scope = validScopes.includes(scope) ? scope : "daily";
-
-  // Serve cached if fresh — keeps demo responsive after first warm.
+async function runAnalysis(safeScope: Scope, logger?: { error?: (...args: any[]) => void }): Promise<any> {
+  // Serve cached if fresh
   const cached = ANALYSIS_CACHE.get(safeScope);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-    return res.json({ ...cached.data, _cached: true });
+    return { ...cached.data, _cached: true };
   }
 
-  // Coalesce concurrent first-load requests onto a single in-flight Claude call.
+  // Coalesce concurrent calls
   const inflight = PENDING_ANALYSIS.get(safeScope);
   if (inflight) {
     const result = await inflight;
-    return res.json({ ...result, _coalesced: true });
+    return { ...result, _coalesced: true };
   }
 
   if (!aiEnabled) {
-    return res.json({ ...ANALYSIS_FALLBACK, _source: "fallback" });
+    return { ...ANALYSIS_FALLBACK, _source: "fallback" };
   }
 
   const scopeLine =
-    scope === "ytd"
+    safeScope === "ytd"
       ? "Time scope: YEAR-TO-DATE. Frame insights as cumulative trends, not just today."
-      : scope === "monthly"
+      : safeScope === "monthly"
         ? "Time scope: THIS MONTH. Compare to previous month, surface trajectory."
         : "Time scope: TODAY. Be tactical and action-oriented for the next 8 hours.";
 
@@ -177,17 +173,36 @@ Return JSON in EXACTLY this shape (no commentary, no markdown):
       if (ok) ANALYSIS_CACHE.set(safeScope, { data: payload, ts: Date.now() });
       return payload;
     } catch (e) {
-      req.log?.error?.({ err: e }, "[briefing] analysis failed");
+      logger?.error?.({ err: e }, "[briefing] analysis failed");
       return { ...ANALYSIS_FALLBACK, _source: "fallback" };
     }
   })();
   PENDING_ANALYSIS.set(safeScope, promise);
   try {
-    const payload = await promise;
-    return res.json(payload);
+    return await promise;
   } finally {
     PENDING_ANALYSIS.delete(safeScope);
   }
+}
+
+// Pre-warm cache on module load so the first user click is instant.
+// Fires after a short delay to avoid blocking server startup, and only if AI is enabled.
+if (aiEnabled) {
+  setTimeout(() => {
+    (["daily", "ytd", "monthly"] as Scope[]).forEach((s) => {
+      runAnalysis(s).catch(() => {
+        /* warmup failures are non-fatal */
+      });
+    });
+  }, 2000);
+}
+
+router.post("/analysis", async (req, res) => {
+  const scope = ((req.body?.scope as Scope) || "daily") as Scope;
+  const validScopes: Scope[] = ["daily", "ytd", "monthly"];
+  const safeScope: Scope = validScopes.includes(scope) ? scope : "daily";
+  const payload = await runAnalysis(safeScope, req.log);
+  return res.json(payload);
 });
 
 const SYSTEM_COMMAND = `You are NexFlow's Command Center assistant — the voice the sales rep talks to when they want help running their day. Modes: command-center (overall planning), tasks (build a checklist of today's tasks), schedule (lay out the calendar). Be concise, specific, GCC-aware. Always return JSON.`;
