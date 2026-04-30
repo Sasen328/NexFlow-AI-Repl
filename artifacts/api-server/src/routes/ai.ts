@@ -2,47 +2,82 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { contacts, signals, calls } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
+import { aiChat, aiEnabled } from "../lib/ai.js";
 
 const router = Router();
 
+const ASSISTANT_SYSTEM = `You are NexFlow AI, the embedded assistant inside the NexFlow CRM (an AI-native B2B sales platform built for the GCC market — KSA, UAE, Bahrain, Kuwait, Qatar, Oman).
+
+Your job: help sales reps, managers, marketing leads, admins and CEOs do their work faster. Answer in 1–4 short sentences, in plain conversational English (or Arabic if the user writes in Arabic). Be specific, action-oriented and confident — never fluffy.
+
+You have access to the CRM's pipeline, contacts, deals, calls, signals, campaigns, and enrichment data. When the user asks about something specific (a contact, a deal, a campaign), give a concrete recommendation and tell them which page to open. When data isn't given to you, make a reasonable, plausible-sounding sales recommendation grounded in GCC B2B norms (Sun–Wed mornings best, Friday/Maghrib avoidance, Arabic-first for KSA enterprise, etc.).
+
+Then suggest 2–4 short follow-up actions the user could ask next. Respond strictly as JSON in this shape:
+{ "reply": "<your answer>", "suggestions": ["<short follow-up 1>", "<short follow-up 2>", ...] }`;
+
 router.post("/assistant", async (req, res) => {
   try {
-    const { message } = req.body;
-
-    // AI response simulation (real AI integration would go here via Anthropic)
-    const responses: Record<string, { reply: string; suggestions: string[] }> = {
-      default: {
-        reply: `I analyzed your CRM data. Based on current pipeline activity, I recommend focusing on contacts in the proposal stage — they have a 68% conversion rate when followed up within 24 hours. Your top signal this week is the funding round at Gulf Ventures which aligns with 3 of your active deals.`,
-        suggestions: [
-          "Show me deals closing this month",
-          "Which contacts need follow-up?",
-          "Generate a weekly sales report",
-          "Analyze my best-performing scripts",
-        ],
-      },
+    const { message, role, context } = req.body as {
+      message?: string;
+      role?: { key?: string; name?: string; title?: string };
+      context?: string;
     };
 
-    const lower = message.toLowerCase();
-    let result = responses.default;
-
-    if (lower.includes("contact") || lower.includes("lead")) {
-      result = {
-        reply: "Your top-scoring contacts this week are in the tech and financial services sectors. I recommend prioritizing contacts with lead scores above 80 — they show 3x higher conversion rates in your pipeline.",
-        suggestions: ["List high-score contacts", "Enrich contact data", "Create a new segment"],
-      };
-    } else if (lower.includes("deal") || lower.includes("pipeline")) {
-      result = {
-        reply: "Your pipeline currently has 12 open deals totaling $2.4M. 3 deals are at risk of stalling — I recommend immediate outreach to Gulf Capital, Riyadh Tech, and Al-Noor Investments.",
-        suggestions: ["Show at-risk deals", "Move deals to next stage", "Get deal forecast"],
-      };
-    } else if (lower.includes("signal") || lower.includes("intelligence")) {
-      result = {
-        reply: "I detected 5 high-value signals this week: 2 funding rounds, 1 executive move, and 2 expansion signals. The Gulf Ventures Series B round ($50M) is the highest-priority signal aligned with your current pipeline.",
-        suggestions: ["Show top signals", "Create outreach for Gulf Ventures", "Dismiss low-score signals"],
-      };
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ error: "Missing message" });
     }
 
-    res.json(result);
+    // Static fallback used when the AI integration isn't configured or
+    // the call fails. Keeps the assistant responsive instead of dead.
+    const fallback = {
+      reply: `I'm here to help. With your current pipeline, the highest-leverage move right now is to follow up with the 3 highest-intent prospects in your To-Do queue — they were active in the last 24h. Open the Daily Briefing and hit "Execute now" on the first card.`,
+      suggestions: [
+        "Show my hottest leads",
+        "What deals are at risk?",
+        "Summarise today's calls",
+        "Draft a follow-up to my top contact",
+      ],
+    };
+
+    if (!aiEnabled) {
+      return res.json(fallback);
+    }
+
+    // Persona context tells the model who it's talking to so the tone
+    // matches the avatar in the top right.
+    const personaLine = role?.title
+      ? `The current user is ${role?.name ?? "a teammate"} (${role.title}, role: ${role.key ?? "sales"}).`
+      : "";
+    const contextLine = context ? `Current page context: ${context}.` : "";
+    const userPrompt = [personaLine, contextLine, `User message: ${message}`]
+      .filter(Boolean)
+      .join("\n");
+
+    const raw = await aiChat({
+      system: ASSISTANT_SYSTEM,
+      user: userPrompt,
+      provider: "openai",
+      json: true,
+      maxTokens: 400,
+    });
+
+    if (!raw) return res.json(fallback);
+
+    let parsed: { reply?: string; suggestions?: string[] } = {};
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      // Some models return prose instead of JSON — treat the whole string as the reply.
+      return res.json({ reply: raw, suggestions: fallback.suggestions });
+    }
+
+    return res.json({
+      reply: parsed.reply || fallback.reply,
+      suggestions:
+        Array.isArray(parsed.suggestions) && parsed.suggestions.length
+          ? parsed.suggestions.slice(0, 4)
+          : fallback.suggestions,
+    });
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "AI assistant failed" });

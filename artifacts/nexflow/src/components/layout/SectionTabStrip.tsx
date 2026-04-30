@@ -44,6 +44,13 @@ export function SectionTabStrip() {
   // duplication. Skip it for marketing entirely.
   if (roleKey === "marketing") return null;
 
+  // /home has its OWN in-page 4-tab strip (Daily Briefing → Performance
+  // → To-Do & Alerts → Insights Dashboard) per the Sales Rep Home spec.
+  // Rendering the SectionTabStrip there too produces a duplicated tab row
+  // (one above the page content, one below). Suppress the global strip
+  // anywhere under /home so only the in-page tabs are visible.
+  if (location === "/home" || location.startsWith("/home#")) return null;
+
   // For other personas, only render the strip when the section it would
   // show belongs to that persona's allowed nav scope. This prevents the
   // strip from appearing on routes outside the persona's journey (e.g.
