@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Users, Plus, Target, Filter, Zap, TrendingUp, BarChart3, ChevronDown, X, Sparkles, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const AUDIENCES = [
+export const AUDIENCES = [
   {
     id: "a1", name: "GCC Enterprise Decision Makers", size: 1240, growth: "+48 this week",
     channel: "Email + WhatsApp", lastSync: "2h ago", status: "active",

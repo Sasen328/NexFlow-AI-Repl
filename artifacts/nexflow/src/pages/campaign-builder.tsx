@@ -5,8 +5,12 @@ import {
   Mail, MessageSquare, Linkedin, Twitter, Instagram, Facebook, Phone, FileText,
   Loader2, RefreshCw, Check, ArrowRight, ChevronRight, ChevronDown, Plus,
   Lightbulb, Trash2, Eye, Bot, AlertCircle, Users, Layers, Activity,
+  Library, BookMarked, X as XIcon, ExternalLink,
 } from "lucide-react";
 import { apiFetch } from "@/hooks/useApi";
+import { TEMPLATES } from "@/pages/templates";
+import { SEQUENCES } from "@/pages/sequences";
+import { AUDIENCES } from "@/pages/audiences";
 
 type Tab = "funnel" | "ai" | "manual" | "publishing";
 type Channel = "linkedin" | "x" | "instagram" | "facebook" | "whatsapp" | "email" | "sms";
@@ -221,7 +225,58 @@ function AiBuilderTab({ cultural, onPublish }: { cultural: boolean; onPublish: (
   const [error, setError] = useState<string>("");
   const [openStep, setOpenStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
 
-  const segment = useMemo(() => SEGMENTS.find((x) => x.id === s.segmentId)!, [s.segmentId]);
+  // Combine the built-in SEGMENTS with the user's saved Audiences from MarkHub
+  // so anything the marketer built in /audiences becomes targetable here.
+  const ALL_SEGMENTS = useMemo(
+    () => [
+      ...SEGMENTS,
+      ...AUDIENCES.map((a) => ({ id: a.id, name: a.name, size: a.size, persona: a.description })),
+    ],
+    [],
+  );
+  const segment = useMemo(
+    () => ALL_SEGMENTS.find((x) => x.id === s.segmentId) ?? ALL_SEGMENTS[0],
+    [s.segmentId, ALL_SEGMENTS],
+  );
+
+  // ── MarkHub insert handlers ─────────────────────────────────
+  function insertTemplate(t: typeof TEMPLATES[number]) {
+    const ch = (t.channel === "linkedin" || t.channel === "whatsapp" || t.channel === "sms" || t.channel === "email") ? t.channel as Channel : "email";
+    const subjectLine = (t.subject ?? "").trim();
+    setS((cur) => {
+      const baseMessages = cur.keyMessages ?? [];
+      const candidate = [
+        subjectLine,
+        `Inserted from MarkHub template "${t.name}".`,
+        `Channel-tuned for ${ch}.`,
+        ...baseMessages,
+      ].filter((m) => m.trim().length > 0);
+      const deduped = Array.from(new Set(candidate)).slice(0, 3);
+      return {
+        ...cur,
+        campaignName: cur.campaignName || t.name,
+        keyMessages: deduped.length ? deduped : (cur.keyMessages ?? null),
+        variants: { ...cur.variants, [ch]: t.body },
+      };
+    });
+    setOpenStep(4);
+  }
+  function insertSequence(seq: typeof SEQUENCES[number]) {
+    const headlines = seq.steps
+      .filter((st) => st.type !== "wait")
+      .map((st) => st.label)
+      .slice(0, 3);
+    setS((cur) => ({
+      ...cur,
+      campaignName: cur.campaignName || seq.name,
+      keyMessages: headlines.length ? headlines : (cur.keyMessages ?? null),
+    }));
+    setOpenStep(3);
+  }
+  function pickAudience(a: typeof AUDIENCES[number]) {
+    setS((cur) => ({ ...cur, segmentId: a.id }));
+    setOpenStep(1);
+  }
   const culturalSuffix = cultural
     ? "\n\nCULTURAL CONTEXT: Tailored for GCC region (KSA, UAE, Qatar). Use respectful tone, avoid Friday afternoons, mention regional success stories, prefer Arabic-first phrasing where appropriate."
     : "";
@@ -371,7 +426,13 @@ Return ONLY the final ${meta.label} copy as plain text. No JSON, no preamble, no
   const allChannels: Channel[] = ["email", "linkedin", "whatsapp", "x", "instagram", "facebook", "sms"];
 
   return (
-    <div className="grid grid-cols-12 gap-4">
+    <div className="space-y-3">
+      <MarkHubLibraryStrip
+        onInsertTemplate={insertTemplate}
+        onInsertSequence={insertSequence}
+        onPickAudience={pickAudience}
+      />
+      <div className="grid grid-cols-12 gap-4">
       {/* ── Left rail: stepper ─────────────────────────── */}
       <div className="col-span-4 space-y-3">
         <Step
@@ -385,7 +446,7 @@ Return ONLY the final ${meta.label} copy as plain text. No JSON, no preamble, no
               onChange={(e) => setS({ ...s, segmentId: e.target.value })}
               className="w-full text-sm px-2 py-1.5 rounded border border-border/40 bg-transparent"
             >
-              {SEGMENTS.map((seg) => (
+              {ALL_SEGMENTS.map((seg) => (
                 <option key={seg.id} value={seg.id}>{seg.name} ({seg.size})</option>
               ))}
             </select>
@@ -668,6 +729,7 @@ Return ONLY the final ${meta.label} copy as plain text. No JSON, no preamble, no
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
@@ -1030,6 +1092,166 @@ function PublishingTab() {
             })}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* MARKHUB LIBRARY STRIP                                       */
+/* Lets the marketer pull saved Templates, Sequences,          */
+/* Audiences and Web Forms from MarkHub straight into the      */
+/* AI builder state — no copy-paste, no tab switching.         */
+/* ─────────────────────────────────────────────────────────── */
+
+type LibraryModal = null | "templates" | "sequences" | "audiences" | "forms";
+
+function MarkHubLibraryStrip({
+  onInsertTemplate,
+  onInsertSequence,
+  onPickAudience,
+}: {
+  onInsertTemplate: (t: typeof TEMPLATES[number]) => void;
+  onInsertSequence: (s: typeof SEQUENCES[number]) => void;
+  onPickAudience: (a: typeof AUDIENCES[number]) => void;
+}) {
+  const [modal, setModal] = useState<LibraryModal>(null);
+  const close = () => setModal(null);
+
+  const buttons: { key: Exclude<LibraryModal, null>; label: string; count: number; icon: any; color: string; hint: string }[] = [
+    { key: "templates", label: "Templates", count: TEMPLATES.length, icon: BookMarked, color: "#C8A880", hint: "Insert subject + body into a channel variant" },
+    { key: "sequences", label: "Sequences", count: SEQUENCES.length, icon: Layers,     color: "#B8A0C8", hint: "Use sequence steps as your key messages" },
+    { key: "audiences", label: "Audiences", count: AUDIENCES.length, icon: Users,      color: "#88B8B0", hint: "Target a saved audience built in MarkHub" },
+    { key: "forms",     label: "Web Forms", count: 0,                icon: FileText,   color: "#A090C8", hint: "Open MarkHub web-form builder" },
+  ];
+
+  return (
+    <div className="glass-card rounded-xl p-3 border border-[#C8A880]/30 bg-[#C8A880]/5">
+      <div className="flex items-center gap-2 mb-2">
+        <Library className="w-4 h-4 text-[#C8A880]" />
+        <h3 className="text-sm font-bold">Insert from MarkHub</h3>
+        <span className="text-[10px] text-muted-foreground">Pull a saved asset straight into this campaign — no retyping.</span>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {buttons.map((b) => {
+          const Icon = b.icon;
+          return (
+            <button
+              key={b.key}
+              type="button"
+              onClick={() => b.key === "forms" ? window.open("/web-forms", "_blank") : setModal(b.key)}
+              title={b.hint}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 bg-white/60 hover:border-[#C8A880]/60 hover:bg-[#C8A880]/10 transition-colors text-left"
+            >
+              <div className="w-8 h-8 rounded-md flex items-center justify-center" style={{ background: `${b.color}25` }}>
+                <Icon className="w-4 h-4" style={{ color: b.color }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold flex items-center gap-1">
+                  {b.label}
+                  {b.key === "forms" && <ExternalLink className="w-3 h-3 text-muted-foreground" />}
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  {b.key === "forms" ? "Build & embed" : `${b.count} saved`}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {modal === "templates" && (
+        <LibraryModalShell title="Insert a saved Template" onClose={close}>
+          <div className="space-y-2">
+            {TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => { onInsertTemplate(t); close(); }}
+                className="w-full text-left p-3 rounded-lg border border-border/40 hover:border-[#C8A880]/60 hover:bg-[#C8A880]/5 transition-colors"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-muted">{t.channel}</span>
+                  <div className="text-sm font-semibold">{t.name}</div>
+                  <span className="ml-auto text-[10px] text-muted-foreground">{t.uses} uses</span>
+                </div>
+                <div className="text-xs text-muted-foreground line-clamp-1"><strong>Subject:</strong> {t.subject}</div>
+              </button>
+            ))}
+          </div>
+        </LibraryModalShell>
+      )}
+
+      {modal === "sequences" && (
+        <LibraryModalShell title="Insert a saved Sequence" onClose={close}>
+          <div className="space-y-2">
+            {SEQUENCES.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => { onInsertSequence(s); close(); }}
+                className="w-full text-left p-3 rounded-lg border border-border/40 hover:border-[#B8A0C8]/60 hover:bg-[#B8A0C8]/5 transition-colors"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="text-sm font-semibold">{s.name}</div>
+                  <span className="ml-auto text-[10px] text-muted-foreground">{s.steps.length} steps · {s.enrolled} enrolled</span>
+                </div>
+                <div className="text-xs text-muted-foreground line-clamp-2">{s.description}</div>
+              </button>
+            ))}
+          </div>
+        </LibraryModalShell>
+      )}
+
+      {modal === "audiences" && (
+        <LibraryModalShell title="Target a saved Audience" onClose={close}>
+          <div className="space-y-2">
+            {AUDIENCES.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => { onPickAudience(a); close(); }}
+                className="w-full text-left p-3 rounded-lg border border-border/40 hover:border-[#88B8B0]/60 hover:bg-[#88B8B0]/5 transition-colors"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="text-sm font-semibold">{a.name}</div>
+                  <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#88B8B0]/15 text-[#88B8B0]">{a.size.toLocaleString()} contacts</span>
+                </div>
+                <div className="text-xs text-muted-foreground line-clamp-2">{a.description}</div>
+                <div className="text-[10px] text-muted-foreground mt-1">{a.channel}</div>
+              </button>
+            ))}
+          </div>
+        </LibraryModalShell>
+      )}
+    </div>
+  );
+}
+
+function LibraryModalShell({
+  title, onClose, children,
+}: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-background rounded-2xl border border-border/40 shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col"
+      >
+        <div className="flex items-center justify-between p-4 border-b border-border/40">
+          <h2 className="text-base font-bold flex items-center gap-2">
+            <Library className="w-4 h-4 text-[#C8A880]" />
+            {title}
+          </h2>
+          <button type="button" onClick={onClose} className="p-1 rounded-md hover:bg-muted">
+            <XIcon className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-4 overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   );

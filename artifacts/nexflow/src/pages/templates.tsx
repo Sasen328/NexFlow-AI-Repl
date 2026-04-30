@@ -16,7 +16,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   "Re-engagement": "bg-[#C0A0B8]/15 text-[#C0A0B8]",
 };
 
-const TEMPLATES = [
+export const TEMPLATES = [
   {
     id: "t1", channel: "email", name: "Post-Demo Follow-Up", category: "Follow-up", language: "en", starred: true, uses: 42,
     subject: "Next Steps — NexFlow × {Company}",

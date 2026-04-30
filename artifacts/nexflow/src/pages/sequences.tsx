@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const SEQUENCES = [
+export const SEQUENCES = [
   {
     id: "s1",
     name: "GCC Enterprise Cold Outreach",
