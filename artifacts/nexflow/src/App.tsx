@@ -85,6 +85,7 @@ import CallRedactionPage from "@/pages/call-redaction";
 import PublicTrustPage from "@/pages/public-trust";
 import DedupPage from "@/pages/dedup";
 import LeadEnrichPage from "@/pages/lead-enrich";
+import EnrichmentEnginePage from "@/pages/enrichment-engine";
 import MarketingAssistantPage from "@/pages/marketing-assistant";
 import PowerDialerPage from "@/pages/power-dialer";
 import AccountSettingsPage from "@/pages/account-settings";
@@ -179,6 +180,7 @@ function AppLayout() {
           <Route path="/public-trust" component={PublicTrustPage} />
           <Route path="/dedup" component={DedupPage} />
           <Route path="/lead-enrich" component={LeadEnrichPage} />
+          <Route path="/enrichment-engine" component={EnrichmentEnginePage} />
           <Route path="/marketing-assistant" component={MarketingAssistantPage} />
           <Route path="/power-dialer" component={PowerDialerPage} />
           <Route path="/account-settings" component={AccountSettingsPage} />
