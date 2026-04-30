@@ -66,12 +66,12 @@ export const SECTIONS: SectionDef[] = [
     icon: GitBranch,
     tagline: "People · Companies · Deals · Command Center.",
     accent: "#88B8B0",
-    defaultHref: "/contacts",
+    defaultHref: "/command-center",
     items: [
       { icon: Users,      label: "People",          href: "/contacts",       desc: "All contacts · enrich · score · history" },
       { icon: Building2,  label: "Companies",       href: "/companies",      desc: "Accounts · revenue · contacts roster" },
       { icon: GitBranch,  label: "Deals",           href: "/deal-pipeline",  desc: "Kanban pipeline · stages · win/loss" },
-      { icon: Sparkles,   label: "Command Center",  href: "/home",           desc: "Generate lead lists · push automations · log calls · schedule follow-ups", group: "Automation" },
+      { icon: Sparkles,   label: "Command Center",  href: "/command-center", desc: "Generate lead lists · push automations · log calls · schedule follow-ups", group: "Automation" },
     ],
   },
 
@@ -274,6 +274,7 @@ const LEGACY_PATH_PREFIX_TO_SECTION: Array<[string, string]> = [
   ["/pipeline",          "leads"],
   ["/deal-pipeline",     "leads"],
   ["/deals",             "leads"],
+  ["/command-center",    "leads"],
   ["/contacts",          "leads"],
   ["/companies",         "leads"],
   ["/accounts",          "leads"],
