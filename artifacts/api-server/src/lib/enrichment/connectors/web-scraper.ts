@@ -22,6 +22,7 @@ import { createHash } from "crypto";
 import type { Browser } from "playwright";
 import type { Connector, EnrichResult, Field, Seed } from "../types.js";
 import { pickNeeded, extractDomain, SCRAPER_UA } from "./_common.js";
+import { aiFindDomain } from "./openrouter-ai.js";
 import { logger } from "../../logger.js";
 
 const CACHE_TTL_HOURS = 24;
@@ -225,22 +226,17 @@ export function parseHtmlMeta(html: string): {
 // ─────────────────────────────────────────────────────────────────────
 // Connector
 // ─────────────────────────────────────────────────────────────────────
+/**
+ * Domain discovery — delegates to OpenRouter (Perplexity) when available,
+ * which handles Arabic names, brand-vs-legal-name confusion, and MENA
+ * TLDs far better than HTML scraping. Falls back to null when AI is not
+ * configured (the `openrouter_search` connector also runs as its own
+ * waterfall step, so this is purely a convenience inside the scraper).
+ */
 async function discoverDomain(seed: Seed): Promise<string | null> {
   const known = extractDomain(seed);
   if (known) return known;
-  if (!seed.company) return null;
-  // Try a DuckDuckGo HTML search — no API key needed
-  const q = encodeURIComponent(`"${seed.company}" official site`);
-  const r = await scraperFetch(`https://duckduckgo.com/html/?q=${q}`, "cheerio");
-  if (!r.ok || !r.html) return null;
-  const $ = cheerio.load(r.html);
-  const href = $("a.result__url, a.result__a").first().attr("href") ?? "";
-  const m = href.match(/uddg=([^&]+)/);
-  const target = m ? decodeURIComponent(m[1]!) : href;
-  if (!target) return null;
-  try {
-    return new URL(target).hostname.replace(/^www\./, "");
-  } catch { return null; }
+  return aiFindDomain(seed);
 }
 
 export const webScraperConnector: Connector = {

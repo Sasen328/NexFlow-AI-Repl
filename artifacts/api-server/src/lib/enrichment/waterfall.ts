@@ -59,10 +59,22 @@ export async function runWaterfall(
     const t = Date.now();
     let res;
     try {
+      // The AI Composer (runs last) needs a snapshot of every field
+      // upstream sources have filled so it can write a polished
+      // narrative. Other connectors ignore composer_input.
+      const baseConfig = (row.config as Record<string, unknown>) ?? {};
+      const config = row.source_key === "openrouter_composer"
+        ? {
+            ...baseConfig,
+            composer_input: Object.fromEntries(
+              Object.entries(filled).map(([k, v]) => [k, v.value]),
+            ),
+          }
+        : baseConfig;
       res = await entry.connector.enrich({
         seed,
         apiKey: apiKey || null,
-        config: (row.config as Record<string, unknown>) ?? {},
+        config,
         alreadyFilled,
       });
     } catch (e) {
