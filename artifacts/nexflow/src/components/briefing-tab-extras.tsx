@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "wouter";
 import {
   Sparkles, Phone, TrendingUp, Database, ArrowRight, Loader2,
   AlertTriangle, ListChecks, Lightbulb, Activity, ShieldAlert, Zap, Bot, CheckCircle2,
+  Users,
 } from "lucide-react";
-import { apiFetch } from "../hooks/useApi";
+import { apiFetch, useContacts } from "../hooks/useApi";
 
 type Scope = "daily" | "ytd" | "monthly";
 
@@ -300,7 +302,21 @@ interface TaskRow { id: string; priority: string; label: string; due: string; co
 export function TasksAlertsWireframeBlocks({ tasks }: { tasks: TaskRow[] }) {
   const { doc, loading } = useScopedAnalysis("daily");
 
-  const redFlagged = [
+  // Look up contact id from contact name so each row can deep-link to the
+  // contact profile. Tasks that have no matching contact stay as plain text.
+  const { data: contactsData } = useContacts() as { data?: { contacts?: Array<{ id: string; first_name?: string; last_name?: string }> } };
+  const contactNameToId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of contactsData?.contacts ?? []) {
+      const full = [c.first_name, c.last_name].filter(Boolean).join(" ").trim().toLowerCase();
+      if (full) map.set(full, c.id);
+    }
+    return map;
+  }, [contactsData]);
+  const findContactId = (name: string | null) =>
+    name ? (contactNameToId.get(name.trim().toLowerCase()) ?? null) : null;
+
+  const redFlagged: Array<{ name: string; issue: string; impact: string }> = [
     { name: "Nora Al-Faisal",    issue: "Missed call · 2h overdue",        impact: "high"   },
     { name: "Tariq Al-Rashid",   issue: "Proposal follow-up · 1 day late", impact: "high"   },
     { name: "Khaled Bin Saad",   issue: "8 days silent on hot lead",       impact: "medium" },
@@ -311,6 +327,7 @@ export function TasksAlertsWireframeBlocks({ tasks }: { tasks: TaskRow[] }) {
     .slice(0, 5)
     .map(t => ({
       name: t.contact ?? "—",
+      contactId: findContactId(t.contact),
       action: t.label,
       priority: t.priority,
       ai: t.priority === "urgent" ? "Auto-execute drafted" : "Suggested next step",
@@ -355,15 +372,35 @@ export function TasksAlertsWireframeBlocks({ tasks }: { tasks: TaskRow[] }) {
             <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-[#C8A880]/20 text-[#C8A880] font-bold">{redFlagged.length}</span>
           </div>
           <ul className="space-y-2">
-            {redFlagged.map((r, i) => (
-              <li key={i} className="p-2.5 rounded-lg bg-white/70 border border-border/30">
-                <div className="flex items-center justify-between gap-2 mb-0.5">
-                  <span className="text-[11px] font-bold text-foreground truncate">{r.name}</span>
-                  <span className={"text-[9px] font-bold px-1.5 py-0.5 rounded-full " + (r.impact === "high" ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700")}>{r.impact}</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground leading-snug">{r.issue}</p>
-              </li>
-            ))}
+            {redFlagged.map((r, i) => {
+              const cid = findContactId(r.name);
+              const inner = (
+                <>
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <span className="text-[11px] font-bold text-foreground truncate">{r.name}</span>
+                    <span className={"text-[9px] font-bold px-1.5 py-0.5 rounded-full " + (r.impact === "high" ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700")}>{r.impact}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-snug">{r.issue}</p>
+                  {cid && (
+                    <div className="mt-1.5 inline-flex items-center gap-1 text-[9px] font-bold text-[#C8A880] opacity-80 group-hover:opacity-100">
+                      <Users className="w-2.5 h-2.5" /> Open lead
+                    </div>
+                  )}
+                </>
+              );
+              return (
+                <li key={i}>
+                  {cid ? (
+                    <Link href={`/contacts/${cid}`}
+                      className="group block p-2.5 rounded-lg bg-white/70 border border-border/30 hover:border-[#C8A880]/40 hover:bg-white transition-all no-underline">
+                      {inner}
+                    </Link>
+                  ) : (
+                    <div className="p-2.5 rounded-lg bg-white/70 border border-border/30">{inner}</div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
           <AnalysisInset text={flaggedAnalysis} loading={loading} />
         </div>
@@ -384,19 +421,41 @@ export function TasksAlertsWireframeBlocks({ tasks }: { tasks: TaskRow[] }) {
             </div>
           ) : (
             <ul className="space-y-2">
-              {prioritizedTasks.map((t, i) => (
-                <li key={i} className="p-2.5 rounded-lg bg-white/70 border border-border/30">
-                  <div className="flex items-center justify-between gap-2 mb-0.5">
-                    <span className="text-[11px] font-bold text-foreground truncate">{t.name}</span>
-                    <span className={"text-[9px] font-bold px-1.5 py-0.5 rounded-full " + (t.priority === "urgent" ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700")}>{t.priority}</span>
-                  </div>
-                  <p className="text-[10px] text-foreground/75 leading-snug">{t.action}</p>
-                  <div className="flex items-center gap-1 mt-1.5">
-                    <Bot className="w-3 h-3 text-[#B8A0C8]" />
-                    <span className="text-[9px] font-semibold text-[#B8A0C8]">{t.ai}</span>
-                  </div>
-                </li>
-              ))}
+              {prioritizedTasks.map((t, i) => {
+                /* Whole row is a link to the contact when we can resolve one,
+                 * otherwise it stays as a static card. The "Open" affordance
+                 * appears on hover so the row stays visually clean. */
+                const inner = (
+                  <>
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                      <span className="text-[11px] font-bold text-foreground truncate">{t.name}</span>
+                      <span className={"text-[9px] font-bold px-1.5 py-0.5 rounded-full " + (t.priority === "urgent" ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700")}>{t.priority}</span>
+                    </div>
+                    <p className="text-[10px] text-foreground/75 leading-snug">{t.action}</p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <Bot className="w-3 h-3 text-[#B8A0C8]" />
+                      <span className="text-[9px] font-semibold text-[#B8A0C8]">{t.ai}</span>
+                      {t.contactId && (
+                        <span className="ml-auto inline-flex items-center gap-1 text-[9px] font-bold text-[#88B8B0] opacity-80 group-hover:opacity-100">
+                          <Users className="w-2.5 h-2.5" /> Open lead
+                        </span>
+                      )}
+                    </div>
+                  </>
+                );
+                return (
+                  <li key={i}>
+                    {t.contactId ? (
+                      <Link href={`/contacts/${t.contactId}`}
+                        className="group block p-2.5 rounded-lg bg-white/70 border border-border/30 hover:border-[#88B8B0]/40 hover:bg-white transition-all no-underline">
+                        {inner}
+                      </Link>
+                    ) : (
+                      <div className="p-2.5 rounded-lg bg-white/70 border border-border/30">{inner}</div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
