@@ -154,7 +154,7 @@ const AI_INSIGHTS = [
 const PRIORITY_COLOR: Record<string, string> = { urgent: "#C8A880", high: "#B8A0C8", normal: "#88B8B0", low: "#90B8B8" };
 const PRIORITY_BG: Record<string, string> = { urgent: "#C8A88020", high: "#B8A0C820", normal: "#88B8B020", low: "#90B8B820" };
 
-type Tab = "overview" | "tasks" | "insights";
+type Tab = "briefing" | "command";
 
 export default function CommandCenterPage() {
   const { data: dash } = useDashboard();
@@ -194,7 +194,7 @@ export default function CommandCenterPage() {
   const tod = getTimeOfDay();
   const TODIcon = tod.icon;
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
-  const stats = dash?.stats ?? {};
+  const stats = (dash?.stats ?? {}) as Record<string, number | undefined>;
   const totalPipeline = ((stats.totalRevenue ?? 0) / 100).toLocaleString();
 
   // Re-render whenever the user switches persona from the avatar menu.
@@ -212,7 +212,7 @@ export default function CommandCenterPage() {
   const firstName = role.name.split(" ")[0];
 
   const [, navigate] = useLocation();
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>("briefing");
   const [tasks, setTasks] = useState(AUTO_TASKS);
   const [refreshingBriefing, setRefreshingBriefing] = useState(false);
   const [briefingRefreshedAt, setBriefingRefreshedAt] = useState<Date | null>(null);
@@ -236,9 +236,8 @@ export default function CommandCenterPage() {
   }
 
   const TABS = [
-    { k: "overview" as Tab, label: "Overview", icon: BarChart3 },
-    { k: "tasks" as Tab, label: "Tasks", icon: ListTodo, badge: tasks.filter(t => !t.done && t.priority === "urgent").length },
-    { k: "insights" as Tab, label: "Insights", icon: Sparkles },
+    { k: "briefing" as Tab, label: "Daily Briefing", icon: Sparkles },
+    { k: "command" as Tab, label: "Command Center", icon: Zap, badge: tasks.filter(t => !t.done && t.priority === "urgent").length },
   ];
 
   return (
@@ -327,8 +326,8 @@ export default function CommandCenterPage() {
         })}
       </div>
 
-      {/* ──── OVERVIEW TAB ──── */}
-      {tab === "overview" && (
+      {/* ──── DAILY BRIEFING TAB ──── */}
+      {tab === "briefing" && (
         <div className="space-y-5">
           {/* Re-Engagement Opportunities */}
           {forgotten.length > 0 && (
@@ -597,8 +596,11 @@ export default function CommandCenterPage() {
         </div>
       )}
 
-      {/* ──── TASKS TAB ──── */}
-      {tab === "tasks" && (() => {
+      {/* ──── COMMAND CENTER TAB ──── */}
+      {tab === "command" && (
+        <CommandLauncher firstName={firstName} navigate={navigate} />
+      )}
+      {tab === "command" && (() => {
         const totalCount = tasks.length;
         const doneCount = tasks.filter(t => t.done).length;
         const openCount = totalCount - doneCount;
@@ -757,8 +759,8 @@ export default function CommandCenterPage() {
         );
       })()}
 
-      {/* ──── INSIGHTS TAB ──── */}
-      {tab === "insights" && (() => {
+      {/* ──── INSIGHTS (rendered inside Command Center) ──── */}
+      {tab === "command" && (() => {
         const visibleInsights = AI_INSIGHTS
           .map((ins, idx) => ({ ins, idx }))
           .filter(({ idx }) => !insightSnoozed.has(idx));
@@ -880,6 +882,180 @@ export default function CommandCenterPage() {
         </div>
         );
       })()}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────
+// CommandLauncher — action launcher grid for the Command Center tab.
+// Mirrors the user's spec: Log Call Note, Send WhatsApp, Send Email,
+// Schedule Follow-up, AI Voice Call, Coaching Session, Generate List,
+// Scoring/Gaps Report.
+// ──────────────────────────────────────────────
+function CommandLauncher({ firstName, navigate }: { firstName: string; navigate: (to: string) => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [done, setDone] = useState<Set<string>>(new Set());
+
+  const ACTIONS: {
+    key: string;
+    label: string;
+    sub: string;
+    icon: any;
+    color: string;
+    href?: string;
+    log?: { type: string; title: string; body: string };
+  }[] = [
+    {
+      key: "log-call",
+      label: "Log Call Note",
+      sub: "Capture an after-call summary",
+      icon: Phone,
+      color: "#88B8B0",
+      log: { type: "call", title: "Call note logged", body: "Manually-logged call summary captured from Command Center." },
+    },
+    {
+      key: "whatsapp",
+      label: "Send WhatsApp",
+      sub: "Khaleeji-tone draft, ready to send",
+      icon: MessageSquare,
+      color: "#90B8B8",
+      log: { type: "whatsapp", title: "WhatsApp message sent", body: "Outreach message dispatched from Command Center." },
+    },
+    {
+      key: "email",
+      label: "Send Email",
+      sub: "AI-drafted with tone preset",
+      icon: Mail,
+      color: "#B8A0C8",
+      log: { type: "email", title: "Email sent", body: "Outreach email dispatched from Command Center." },
+    },
+    {
+      key: "follow-up",
+      label: "Schedule Follow-up",
+      sub: "Auto-pick best time per timezone",
+      icon: CalendarPlus,
+      color: "#C8A880",
+      log: { type: "meeting", title: "Follow-up scheduled", body: "Calendar invite drafted from Command Center." },
+    },
+    {
+      key: "voice-call",
+      label: "AI Voice Call",
+      sub: "Queue an AI re-call session",
+      icon: Mic,
+      color: "#88B8B0",
+      href: "/voice-agents",
+    },
+    {
+      key: "coaching",
+      label: "Coaching Session",
+      sub: "Run a 1:1 coaching review",
+      icon: Brain,
+      color: "#B8A0C8",
+      href: "/coaching",
+    },
+    {
+      key: "generate-list",
+      label: "Generate List",
+      sub: "Build a target list from criteria",
+      icon: ListTodo,
+      color: "#C0A0B8",
+      href: "/lists",
+    },
+    {
+      key: "scoring-gaps",
+      label: "Scoring & Gaps Report",
+      sub: "AI rescore + funnel gap analysis",
+      icon: BarChart3,
+      color: "#B8B880",
+      href: "/pipeline",
+    },
+  ];
+
+  async function handle(a: typeof ACTIONS[number]) {
+    if (a.href) {
+      navigate(a.href);
+      return;
+    }
+    if (!a.log || done.has(a.key) || busy) return;
+    setBusy(a.key);
+    try {
+      await apiFetch("/activities", {
+        method: "POST",
+        body: JSON.stringify({
+          type: a.log.type,
+          title: a.log.title,
+          body: a.log.body,
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          metadata: { source: "command_center_launcher", action: a.key, by: firstName },
+        }),
+      });
+      setDone((s) => new Set([...s, a.key]));
+    } catch {
+      // silent
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl p-5 border relative overflow-hidden"
+      style={{ background: "linear-gradient(135deg, rgba(184,160,200,0.10), rgba(136,184,176,0.10))", borderColor: "rgba(184,160,200,0.3)" }}>
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 right-0 w-56 h-56 rounded-full blur-3xl opacity-20" style={{ background: "radial-gradient(circle, #B8A0C8, transparent)" }} />
+      </div>
+      <div className="relative">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-9 h-9 rounded-xl nf-chameleon-bg flex items-center justify-center shadow-sm">
+            <Zap className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <h2 className="font-bold text-foreground">Action Launcher</h2>
+            <p className="text-[11px] text-muted-foreground">One-tap shortcuts for the most common revenue motions</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+          {ACTIONS.map((a) => {
+            const isDone = done.has(a.key);
+            const isBusy = busy === a.key;
+            return (
+              <button
+                key={a.key}
+                type="button"
+                onClick={() => handle(a)}
+                disabled={isBusy || isDone}
+                className={cn(
+                  "text-left rounded-xl p-3.5 border transition-all flex flex-col gap-2 group",
+                  isDone
+                    ? "bg-[#88B8B0]/15 border-[#88B8B0]/40 cursor-default"
+                    : "bg-white/60 border-white/80 hover:shadow-md hover:-translate-y-0.5",
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${a.color}20` }}>
+                    {isBusy ? (
+                      <Loader2 className="w-4 h-4 animate-spin" style={{ color: a.color }} />
+                    ) : isDone ? (
+                      <CheckCircle2 className="w-4 h-4 text-[#88B8B0]" />
+                    ) : (
+                      <a.icon className="w-4 h-4" style={{ color: a.color }} />
+                    )}
+                  </div>
+                  {!isDone && (
+                    <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
+                  )}
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-foreground leading-tight">
+                    {isDone ? "Done" : a.label}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{a.sub}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

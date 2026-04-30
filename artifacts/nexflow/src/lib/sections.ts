@@ -4,7 +4,7 @@ import {
   Zap, Mic, BookOpen, Mail, Megaphone, Calendar, Layers, Target, Eye,
   CreditCard, Globe, Workflow, Wand2, Route, Database, BookText, BarChart3,
   UserSquare2, ListIcon, Filter, FileSpreadsheet, Settings, MoreHorizontal,
-  Send, Share2,
+  Send, Share2, MessageSquare, Home as HomeIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -37,25 +37,26 @@ export const SECTIONS: SectionDef[] = [
     accent: "#B8A0C8",
     defaultHref: "/home",
     items: [
-      { icon: Sparkles, label: "Command Center", href: "/home",      desc: "Daily briefing & priorities" },
-      { icon: Activity, label: "Daily Insights",  href: "/insights",  desc: "AI insights for your day" },
+      { icon: Sparkles, label: "Daily Briefing & Command Center", href: "/home",     desc: "AI briefing + one-tap actions" },
+      { icon: Activity, label: "Daily Insights",                  href: "/insights", desc: "AI insights for your day" },
     ],
   },
   {
     key: "crm",
     label: "CRM",
     icon: Briefcase,
-    tagline: "Pipeline, deals, and revenue intelligence.",
+    tagline: "Pipeline, deals, contacts, and revenue intelligence.",
     accent: "#88B8B0",
-    defaultHref: "/funnel",
+    defaultHref: "/section/crm",
     items: [
-      { icon: GitBranch,  label: "Pipeline & Deals",  href: "/funnel",        desc: "Drag-and-drop deal stages" },
-      { icon: Users,      label: "Contacts",          href: "/contacts",      desc: "All people in your CRM" },
-      { icon: Building2,  label: "Companies",         href: "/companies",     desc: "Accounts & domains" },
-      { icon: Network,    label: "Account Hub (ABM)", href: "/accounts",      desc: "Account-based selling" },
-      { icon: FileText,   label: "Quotes & CPQ",      href: "/quotes",        desc: "Send quotes & contracts" },
-      { icon: TrendingUp, label: "Forecasting",       href: "/forecasting",   desc: "Pipeline + revenue forecast" },
-      { icon: Heart,      label: "Health Scores",     href: "/health-scores", desc: "Account engagement health" },
+      { icon: HomeIcon,    label: "CRM Workspace",        href: "/section/crm",   desc: "AI-powered CRM home" },
+      { icon: LayoutDashboard, label: "CRM Dashboard",    href: "/crm-dashboard", desc: "Contacts, companies, lead-stage insights" },
+      { icon: GitBranch,   label: "Pipeline",             href: "/pipeline",      desc: "Pre-SAL lead funnel + AI gap analysis" },
+      { icon: TrendingUp,  label: "Deal Pipeline",        href: "/deal-pipeline", desc: "Post-SAL deals — drag-and-drop stages" },
+      { icon: Users,       label: "Contacts",             href: "/contacts",      desc: "All people in your CRM" },
+      { icon: MessageSquare, label: "Engagement Activities", href: "/engagement",  desc: "Calls, meetings, emails — with AI analysis" },
+      { icon: Building2,   label: "Companies & Accounts", href: "/companies",     desc: "Accounts + Account Hub (ABM)" },
+      { icon: TrendingUp,  label: "Forecasting",          href: "/forecasting",   desc: "Pipeline + revenue forecast" },
     ],
   },
   {
@@ -64,17 +65,18 @@ export const SECTIONS: SectionDef[] = [
     icon: Headphones,
     tagline: "Voice, AI agents, and conversational intelligence.",
     accent: "#C0A0B8",
-    defaultHref: "/call-list",
+    defaultHref: "/section/callcenter",
     items: [
-      { icon: LayoutDashboard, label: "Call Dashboard",      href: "/call-list",                  desc: "Live call activity" },
-      { icon: Zap,             label: "Power Dialer",        href: "/power-dialer",               desc: "AI-prioritized outbound" },
-      { icon: Phone,           label: "Calls & Transcripts", href: "/calls",                      desc: "Call history + AI notes" },
-      { icon: Mic,             label: "Conversation Intel",  href: "/conversation-intelligence",  desc: "Coach & analyze calls" },
-      { icon: Bot,             label: "AI Voice Agent",      href: "/voice-agents",               desc: "AI dials for you" },
-      { icon: BookOpen,        label: "Knowledge Base",      href: "/scripts",                    desc: "Playbooks & scripts" },
-      { icon: Mail,            label: "Email",               href: "/email",                      desc: "1-to-1 email" },
-      { icon: Mail,            label: "Messages",            href: "/messages",                   desc: "Unified inbox" },
-      { icon: Mail,            label: "WhatsApp",            href: "/whatsapp",                   desc: "WhatsApp business" },
+      { icon: HomeIcon,        label: "Contact Center Workspace", href: "/section/callcenter",         desc: "Live voice activity & AI coaching" },
+      { icon: LayoutDashboard, label: "Call Dashboard",           href: "/call-list",                  desc: "Live call activity" },
+      { icon: Zap,             label: "Power Dialer",             href: "/power-dialer",               desc: "AI-prioritized outbound" },
+      { icon: Phone,           label: "Calls & Transcripts",      href: "/calls",                      desc: "Call history + AI notes" },
+      { icon: Mic,             label: "Conversation Intel",       href: "/conversation-intelligence",  desc: "Coach & analyze calls" },
+      { icon: Bot,             label: "AI Voice Agent",           href: "/voice-agents",               desc: "AI dials for you" },
+      { icon: BookOpen,        label: "Knowledge Base",           href: "/scripts",                    desc: "Playbooks & scripts" },
+      { icon: Mail,            label: "Email",                    href: "/email",                      desc: "1-to-1 email" },
+      { icon: Mail,            label: "Messages",                 href: "/messages",                   desc: "Unified inbox" },
+      { icon: MessageSquare,   label: "WhatsApp",                 href: "/whatsapp",                   desc: "WhatsApp business" },
     ],
   },
   {
@@ -83,13 +85,14 @@ export const SECTIONS: SectionDef[] = [
     icon: Database,
     tagline: "Find new leads. Enrich existing ones. GCC-first data.",
     accent: "#B8B880",
-    defaultHref: "/sourcing",
+    defaultHref: "/section/enrichment",
     items: [
-      { icon: Database, label: "Bulk Enrichment",   href: "/sourcing",       desc: "Find new leads · Clay-style waterfall" },
-      { icon: Wand2,    label: "Quick Enrich Lead", href: "/lead-enrich",    desc: "Single-shot AI enrichment" },
-      { icon: ScanLine, label: "Card Scanner",      href: "/business-cards", desc: "Scan biz cards into CRM" },
-      { icon: Zap,      label: "Buying Signals",    href: "/signals",        desc: "Funding, hiring, intent signals" },
-      { icon: Sparkles, label: "Lead Intelligence", href: "/intelligence",   desc: "AI scoring & prioritization" },
+      { icon: HomeIcon, label: "Enrichment Workspace", href: "/section/enrichment", desc: "AI-curated enrichment overview" },
+      { icon: Database, label: "Bulk Enrichment",     href: "/sourcing",          desc: "Find new leads · Clay-style waterfall" },
+      { icon: Wand2,    label: "Quick Enrich Lead",   href: "/lead-enrich",       desc: "Single-shot AI enrichment" },
+      { icon: ScanLine, label: "Card Scanner",        href: "/business-cards",    desc: "Scan biz cards into CRM" },
+      { icon: Zap,      label: "Buying Signals",      href: "/signals",           desc: "Funding, hiring, intent signals" },
+      { icon: Sparkles, label: "Lead Intelligence",   href: "/intelligence",      desc: "AI scoring & prioritization" },
     ],
   },
   {
@@ -154,6 +157,7 @@ export const SECTIONS: SectionDef[] = [
       { icon: UserSquare2,     label: "Team Performance", href: "/team",           desc: "Rep leaderboards" },
       { icon: BarChart3,       label: "Attribution",      href: "/attribution",    desc: "Revenue attribution" },
       { icon: BarChart3,       label: "Report Builder",   href: "/report-builder", desc: "Build new reports" },
+      { icon: Heart,           label: "Health Scores",    href: "/health-scores",  desc: "Account engagement health" },
     ],
   },
   {
@@ -169,6 +173,7 @@ export const SECTIONS: SectionDef[] = [
       { icon: GitBranch,       label: "Deduplication", href: "/dedup",        desc: "Merge duplicate contacts" },
       { icon: FileSpreadsheet, label: "Migration",     href: "/migration",    desc: "CSV import/export" },
       { icon: Filter,          label: "Properties",    href: "/account-settings/properties", desc: "Custom fields" },
+      { icon: FileText,        label: "Quotes & CPQ",  href: "/quotes",       desc: "Send quotes & contracts" },
     ],
   },
   {
@@ -226,6 +231,13 @@ export function findSectionByRoute(pathname: string): SectionDef | null {
       if (item.href === pathname) return s;
       if (item.href !== "/" && pathname.startsWith(item.href + "/")) return s;
     }
+  }
+  // Special-case routes that don't appear in items but logically belong somewhere
+  if (pathname === "/accounts" || pathname.startsWith("/accounts/")) {
+    return SECTIONS.find((s) => s.key === "crm") ?? null;
+  }
+  if (pathname === "/funnel" || pathname === "/deals") {
+    return SECTIONS.find((s) => s.key === "crm") ?? null;
   }
   // Home fallback only for the Home root path
   if (pathname === "/home") return SECTIONS.find((s) => s.key === "home") ?? null;
