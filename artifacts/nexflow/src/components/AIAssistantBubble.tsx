@@ -297,6 +297,9 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
   const [interim, setInterim] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const recognizerRef = useRef<RecognizerHandle | null>(null);
+  // Holds the latest `submit` so the global `nf:open-assistant` listener can
+  // call it after the panel mounts without re-binding the listener.
+  const submitRef = useRef<((text: string) => void) | null>(null);
 
   // Pre-warm voices list — some browsers populate it lazily after the first call.
   useEffect(() => {
@@ -325,6 +328,24 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
       window.localStorage.setItem(STORAGE_TTS, ttsOn ? "1" : "0");
     } catch {/* ignore */}
   }, [ttsOn]);
+
+  // Listen for global "open assistant" requests from anywhere in the app
+  // (Command Center "Ask AI" button, Predictive page, etc). All "Ask AI"
+  // entry points dispatch `nf:open-assistant` with optional { detail: { text } }
+  // so the user gets a single unified multi-agent assistant — never a
+  // separate widget.
+  useEffect(() => {
+    function onOpen(e: Event) {
+      setOpen(true);
+      const detail = (e as CustomEvent).detail;
+      if (detail?.text && typeof detail.text === "string") {
+        // Defer one tick so the panel mounts before we submit the query.
+        setTimeout(() => submitRef.current?.(detail.text), 60);
+      }
+    }
+    window.addEventListener("nf:open-assistant", onOpen);
+    return () => window.removeEventListener("nf:open-assistant", onOpen);
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => () => {
@@ -417,6 +438,11 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
     },
     [enabled, navigate, role, ttsOn],
   );
+
+  // Keep the latest submit reachable from outside (window event listener).
+  useEffect(() => {
+    submitRef.current = submit;
+  }, [submit]);
 
   // Toggle voice listening
   const toggleListening = useCallback(() => {
