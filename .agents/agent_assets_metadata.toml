@@ -191,3 +191,33 @@ id = "7ksBcrMkVyfCXT-6mXxVD"
 uri = "file://artifacts/nexflow/public/logo_mark.png"
 type = "image"
 title = "NexFlow Logo Mark — Diamond only"
+
+[[outputs]]
+id = "zVjO5kFpWlp4TzzvZabxC"
+uri = "file://docs/logos/NexFlow_Logo_Full.png"
+type = "image"
+title = "NexFlow Logo — Full (3200×1800, transparent background)"
+
+[[outputs]]
+id = "LnBbIHHET7C4CK-uGR2JQ"
+uri = "file://docs/logos/NexFlow_Logo_White_BG.jpg"
+type = "image"
+title = "NexFlow Logo — Full (white background, JPG)"
+
+[[outputs]]
+id = "R2KXBn1ubU9Ys8fYL79hz"
+uri = "file://docs/logos/NexFlow_Icon_1024.png"
+type = "image"
+title = "NexFlow Icon — 1024px (transparent)"
+
+[[outputs]]
+id = "ECgF0_5aIgwWsjTyi1wog"
+uri = "file://docs/logos/NexFlow_Icon_512.png"
+type = "image"
+title = "NexFlow Icon — 512px (app stores, favicons)"
+
+[[outputs]]
+id = "tKkx2zOvtb_TLep369nJt"
+uri = "file://docs/logos/NexFlow_Icon_64.png"
+type = "image"
+title = "NexFlow Icon — 64px (web / email use)"
