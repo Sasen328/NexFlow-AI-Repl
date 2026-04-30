@@ -27,6 +27,8 @@ const LIVE_CALLS = [
 export default function VoiceAgentsPage() {
   const [tab, setTab] = useState<"agents" | "live" | "voices">("agents");
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
+  const [aiTestingVoice, setAiTestingVoice] = useState<string | null>(null);
+  const [aiTestText, setAiTestText] = useState<Record<string, string>>({});
   const [showNew, setShowNew] = useState(false);
   const [openAgent, setOpenAgent] = useState<any>(null);
   const { data, isLoading } = useAgents();
@@ -34,27 +36,54 @@ export default function VoiceAgentsPage() {
 
   // Real browser-side TTS using SpeechSynthesis. The voice's language hint
   // (ar-SA / en-US) is sent so the OS picks the closest male/female voice.
-  function playVoice(id: string) {
+  function speak(text: string, lang: string, gender: string, idForState: string) {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      setPlayingVoice(id);
+      setPlayingVoice(idForState);
       setTimeout(() => setPlayingVoice(null), 2400);
       return;
     }
-    const v = VOICES.find(x => x.id === id);
-    if (!v) return;
     window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(v.sample);
-    u.lang = v.lang;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = lang;
     u.rate = 1.0;
-    u.pitch = v.gender === "Female" ? 1.1 : 0.95;
+    u.pitch = gender === "Female" ? 1.1 : 0.95;
     const list = window.speechSynthesis.getVoices();
-    const langMatch = list.filter(s => s.lang.toLowerCase().startsWith(v.lang.toLowerCase().slice(0, 2)));
-    const exact = langMatch.find(s => s.name.toLowerCase().includes(v.gender.toLowerCase())) ?? langMatch[0];
+    const langMatch = list.filter(s => s.lang.toLowerCase().startsWith(lang.toLowerCase().slice(0, 2)));
+    const exact = langMatch.find(s => s.name.toLowerCase().includes(gender.toLowerCase())) ?? langMatch[0];
     if (exact) u.voice = exact;
     u.onend = () => setPlayingVoice(null);
     u.onerror = () => setPlayingVoice(null);
-    setPlayingVoice(id);
+    setPlayingVoice(idForState);
     window.speechSynthesis.speak(u);
+  }
+
+  function playVoice(id: string) {
+    const v = VOICES.find(x => x.id === id);
+    if (!v) return;
+    speak(aiTestText[id] || v.sample, v.lang, v.gender, id);
+  }
+
+  // "AI Test" — calls the real backend, generates a fresh greeting using the
+  // selected voice's persona/language, then speaks it through the browser.
+  async function aiTestVoice(id: string) {
+    const v = VOICES.find(x => x.id === id);
+    if (!v) return;
+    setAiTestingVoice(id);
+    try {
+      const r = await fetch("/api/ai/voice-agent-test", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ voice: v.name, persona: `${v.style} GCC sales agent`, language: v.lang }),
+      });
+      const data = await r.json();
+      const text: string = data?.text || v.sample;
+      setAiTestText(t => ({ ...t, [id]: text }));
+      speak(text, v.lang, v.gender, id);
+    } catch {
+      speak(v.sample, v.lang, v.gender, id);
+    } finally {
+      setAiTestingVoice(null);
+    }
   }
 
   return (
@@ -212,13 +241,31 @@ export default function VoiceAgentsPage() {
                       <div className="text-[10px] text-muted-foreground">{v.gender} · {v.samples} samples</div>
                     </div>
                   </div>
-                  <button onClick={() => playVoice(v.id)} className={cn("p-2 rounded-full transition-all", playingVoice === v.id ? "nf-chameleon-bg text-white" : "bg-muted/60 text-foreground hover:bg-muted")}>
-                    {playingVoice === v.id ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => aiTestVoice(v.id)}
+                      disabled={aiTestingVoice === v.id}
+                      title="Generate a fresh AI greeting and speak it"
+                      className="px-2 py-1 rounded-lg bg-[#B8A0C8]/20 text-[#B8A0C8] hover:bg-[#B8A0C8]/30 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 disabled:opacity-50"
+                    >
+                      {aiTestingVoice === v.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                      AI Test
+                    </button>
+                    <button
+                      onClick={() => playVoice(v.id)}
+                      title="Play sample"
+                      className={cn("p-2 rounded-full transition-all", playingVoice === v.id ? "nf-chameleon-bg text-white" : "bg-muted/60 text-foreground hover:bg-muted")}
+                    >
+                      {playingVoice === v.id ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                 </div>
                 <div className="text-xs text-muted-foreground mb-1"><Languages className="w-3 h-3 inline mr-1" />{v.language}</div>
                 <div className="text-xs text-foreground/70 mb-2">{v.style}</div>
-                <div className="text-[11px] text-foreground/85 italic px-2 py-1.5 rounded-lg bg-muted/30" dir="auto">"{v.sample}"</div>
+                <div className="text-[11px] text-foreground/85 italic px-2 py-1.5 rounded-lg bg-muted/30" dir="auto">
+                  "{aiTestText[v.id] || v.sample}"
+                  {aiTestText[v.id] && <span className="ml-1 text-[9px] text-[#B8A0C8] font-bold uppercase">· AI</span>}
+                </div>
               </div>
             ))}
           </div>
