@@ -16,6 +16,7 @@ import MarketingDashboardPage from "@/pages/marketing-dashboard";
 import CulturalIntelligencePage from "@/pages/cultural-intelligence";
 import CEOHomePage from "@/pages/ceo-home";
 import { Globe as GlobeIcon, LayoutDashboard as LayoutDashboardIcon } from "lucide-react";
+import Briefing360AIAnalysis from "@/components/briefing-360";
 
 interface PersonaTask {
   id: string;
@@ -522,7 +523,12 @@ function SalesAndExecHome() {
       </div>
 
       {/* ──── DAILY BRIEFING TAB ──── */}
-      {tab === "briefing" && (
+      {tab === "briefing" && role.key === "sales" && (
+        <div className="space-y-5">
+          <Briefing360AIAnalysis />
+        </div>
+      )}
+      {tab === "briefing" && role.key !== "sales" && (
         <div className="space-y-5">
           {/* AI Briefing Summary Card */}
           <div className="rounded-2xl overflow-hidden border" style={{ borderColor: "rgba(184,160,200,0.3)" }}>
