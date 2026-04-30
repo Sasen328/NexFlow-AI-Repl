@@ -223,7 +223,7 @@ const AI_INSIGHTS = [
 const PRIORITY_COLOR: Record<string, string> = { urgent: "#C8A880", high: "#B8A0C8", normal: "#88B8B0", low: "#90B8B8" };
 const PRIORITY_BG: Record<string, string> = { urgent: "#C8A88020", high: "#B8A0C820", normal: "#88B8B020", low: "#90B8B820" };
 
-type Tab = "briefing" | "command" | "insights";
+type Tab = "briefing" | "performance" | "todo" | "insights";
 
 // ──────────────────────────────────────────────
 // CommandCenterPage — thin role router for /home.
@@ -326,7 +326,8 @@ function SalesAndExecHome() {
     function applyHash() {
       const hash = window.location.hash.replace(/^#/, "");
       if (!hash) return;
-      if (hash === "todo") setTab("command");
+      if (hash === "todo" || hash === "alerts") setTab("todo");
+      else if (hash === "performance") setTab("performance");
       else if (hash === "insights") setTab("insights");
       else setTab("briefing");
       // Defer so the new tab content is in the DOM before we scroll.
@@ -364,6 +365,17 @@ function SalesAndExecHome() {
   // Insights tab — per-card snooze + action-taken state
   const [insightSnoozed, setInsightSnoozed] = useState<Set<number>>(new Set());
   const [insightActed, setInsightActed] = useState<Set<number>>(new Set());
+  // Performance tab — date filter
+  type PerfFilter = "Today" | "This Week" | "This Month" | "Quarter" | "Custom";
+  const PERF_FILTERS: PerfFilter[] = ["Today", "This Week", "This Month", "Quarter", "Custom"];
+  const [perfFilter, setPerfFilter] = useState<PerfFilter>("This Week");
+  // To-Do tab — bulk select
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
+  function toggleTaskSelect(id: string) {
+    setSelectedTasks(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+  // Insights tab — news filter
+  const [newsFilter, setNewsFilter] = useState<string>("All");
 
   function handleRefreshBriefing() {
     setRefreshingBriefing(true);
@@ -378,9 +390,10 @@ function SalesAndExecHome() {
   }
 
   const TABS = [
-    { k: "briefing" as Tab, label: "Daily Briefing", icon: Sparkles },
-    { k: "command" as Tab, label: "Command Center", icon: Zap, badge: tasks.filter(t => !t.done && t.priority === "urgent").length },
-    { k: "insights" as Tab, label: "Daily Insights", icon: Activity, badge: personaInsights.length },
+    { k: "briefing"    as Tab, label: "Daily Briefing",    icon: Sparkles },
+    { k: "performance" as Tab, label: "Performance",        icon: TrendingUp },
+    { k: "todo"        as Tab, label: "To-Do & Alerts",     icon: ListTodo, badge: tasks.filter(t => !t.done && t.priority === "urgent").length },
+    { k: "insights"    as Tab, label: "Insights Dashboard", icon: BarChart3, badge: personaInsights.length },
   ];
 
   // Marketing persona is routed earlier by CommandCenterPage to
@@ -527,11 +540,11 @@ function SalesAndExecHome() {
                 ))}
                 <button
                   type="button"
-                  onClick={() => setTab("command")}
+                  onClick={() => setTab("todo")}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold nf-chameleon-bg text-white hover:opacity-90 transition-all shadow-sm ml-auto"
                 >
                   <Zap className="w-3 h-3" />
-                  Open Command Center
+                  Open To-Do Queue
                   <ArrowRight className="w-3 h-3" />
                 </button>
               </div>
@@ -574,273 +587,89 @@ function SalesAndExecHome() {
             </div>
           </div>
 
-          {/* SECTION 2 — Performance & Schedule */}
+          {/* SECTION B — Command Center */}
           <div className="flex items-center gap-2 mt-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#88B8B0]">Section 2</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#C8A880]">Section B</span>
+            <span className="h-px flex-1 bg-gradient-to-r from-[#C8A880]/40 to-transparent" />
+            <span className="text-xs font-semibold text-foreground/80">Command Center · action hub</span>
+          </div>
+          <CommandLauncher firstName={firstName} navigate={navigate} />
+
+          {/* SECTION C — Daily Insights mini + Schedule + Top Signals */}
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#88B8B0]">Section C</span>
             <span className="h-px flex-1 bg-gradient-to-r from-[#88B8B0]/40 to-transparent" />
-            <span className="text-xs font-semibold text-foreground/80">Performance · Schedule · Tasks · Top signals</span>
+            <span className="text-xs font-semibold text-foreground/80">Daily Insights (mini) · Schedule · Top signals</span>
           </div>
 
-          {/* Re-Engagement Opportunities */}
-          {forgotten.length > 0 && (
-            <div className="rounded-2xl p-5 relative overflow-hidden border"
-              style={{ background: "linear-gradient(135deg, #fffbf0, #f9f3ff, #f0f9f8)", borderColor: "rgba(200,168,128,0.3)" }}>
-              <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-2xl opacity-20" style={{ background: "radial-gradient(circle, #C8A880, transparent)" }} />
-                <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full blur-2xl opacity-15" style={{ background: "radial-gradient(circle, #B8A0C8, transparent)" }} />
-              </div>
-              <div className="relative">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #C8A880, #B8A0C8)" }}>
-                      <Clock className="w-4 h-4 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="font-bold text-foreground flex items-center gap-2">
-                        Re-Engagement Opportunities
-                        <span className="text-xs px-2 py-0.5 rounded-full font-bold text-white" style={{ background: "linear-gradient(90deg, #C8A880, #B8A0C8)" }}>{forgotten.length}</span>
-                      </h2>
-                      <p className="text-[11px] text-muted-foreground">No contact ≥90 days + wealth, job change, or digital activity signal</p>
-                    </div>
+          {/* Mini insights — top 3 cards */}
+          <div className="space-y-2">
+            {personaInsights.slice(0, 3).map((ins, idx) => {
+              const Icon = ins.icon;
+              return (
+                <div key={idx} className="glass-card rounded-xl p-4 flex items-start gap-3"
+                  style={{ borderLeft: `3px solid ${ins.color}` }}>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${ins.color}20` }}>
+                    <Icon className="w-4 h-4" style={{ color: ins.color }} />
                   </div>
-                  <button onClick={() => regenerate.mutate()} disabled={regenerate.isPending}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border backdrop-blur-sm"
-                    style={{ background: "rgba(255,255,255,0.6)", borderColor: "rgba(200,168,128,0.4)", color: "#C8A880" }}>
-                    {regenerate.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                    {regenerate.isPending ? "Analysing…" : "AI Re-score"}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-foreground">{ins.title}</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: `${ins.color}20`, color: ins.color }}>{ins.tag}</span>
+                    </div>
+                    <p className="text-[11px] text-foreground/75 leading-relaxed mt-0.5 line-clamp-2">{ins.body}</p>
+                  </div>
+                  <button onClick={() => setTab("insights")} className="text-[10px] font-semibold text-[#B8A0C8] hover:underline flex-shrink-0 flex items-center gap-0.5">
+                    Full view <ChevronRight className="w-3 h-3" />
                   </button>
                 </div>
-                {forgottenSummary && (
-                  <p className="text-xs text-foreground/80 italic mb-3 px-3 py-2 rounded-lg" style={{ background: "rgba(200,168,128,0.12)", borderLeft: "3px solid #C8A880" }}>
-                    {forgottenSummary}
-                  </p>
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {forgotten.slice(0, showAllRecall ? 9 : 3).map((l: any, i: number) => {
-                    const priorityScore = Math.round(Number(l.lead_score) * 0.9 + 5);
-                    const signals = ["Wealth signal", "Job change", "Site visits", "Email opens", "Follow-up missed"][i % 5];
-                    return (
-                      <Link key={l.id} href={`/contacts/${l.id}`}>
-                        <div className="flex items-center gap-2.5 p-3 rounded-xl cursor-pointer group backdrop-blur-sm transition-all hover:shadow-md"
-                          style={{ background: "rgba(255,255,255,0.6)", border: "1px solid rgba(200,168,128,0.2)" }}
-                          title="Missed opportunity based on inactivity + high-value signals">
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                            style={{ background: "linear-gradient(135deg, #C8A880, #B8A0C8)" }}>
-                            {(l.first_name?.[0] ?? "") + (l.last_name?.[0] ?? "")}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-semibold text-foreground truncate">{l.first_name} {l.last_name}</div>
-                            <div className="text-[10px] text-muted-foreground truncate">{l.company_name ?? "—"} · silent {Math.round(Number(l.days_silent))}d</div>
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: "#C8A88020", color: "#C8A880" }}>{signals}</span>
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                            <div className="text-xs font-black" style={{ color: "#C8A880" }}>{priorityScore}</div>
-                            <div className="text-[9px] text-muted-foreground">priority</div>
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-                {forgotten.length > 3 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAllRecall((s) => !s)}
-                    className="mt-2 text-[11px] font-semibold text-[#C8A880] hover:underline flex items-center gap-1"
-                  >
-                    {showAllRecall ? "Show less" : `Show ${Math.min(forgotten.length - 3, 6)} more`}
-                    <ChevronRight className={cn("w-3 h-3 transition-transform", showAllRecall && "rotate-90")} />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
+              );
+            })}
+            <button onClick={() => setTab("insights")} className="w-full py-2 text-xs font-semibold text-[#B8A0C8] hover:underline flex items-center justify-center gap-1">
+              <BarChart3 className="w-3.5 h-3.5" />
+              Open Insights Dashboard — {personaInsights.length} active insights
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
 
-          {/* ──── NEXT BEST ACTIONS — RECENT CALLS ──── */}
-          {recentCalls.length > 0 && (
-            <div className="glass-card rounded-2xl p-5 border-l-4" style={{ borderLeftColor: "#88B8B0" }}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #88B8B0, #B8A0C8)" }}>
-                    <Sparkles className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="font-bold text-foreground flex items-center gap-2">
-                      Next Best Actions · Recent Calls
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold text-white" style={{ background: "#88B8B0" }}>{recentCalls.length}</span>
-                    </h2>
-                    <p className="text-[11px] text-muted-foreground">AI-suggested follow-ups for your most recent conversations — one tap to act</p>
-                  </div>
-                </div>
-                <Link href="/calls"><span className="text-xs text-[#88B8B0] hover:underline cursor-pointer">All calls →</span></Link>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {recentCalls.map((call: any) => (
-                  <NextActionCard key={call.id} call={call} contactByName={contactByName} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {/* Priority Contacts */}
-            <div className="lg:col-span-2 glass-card rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-foreground flex items-center gap-2">
-                  <Target className="w-4 h-4 text-[#B8A0C8]" />
-                  Today's Top 3 to Call
-                </h2>
-                <Link href="/contacts"><span className="text-xs text-[#B8A0C8] hover:underline cursor-pointer">All contacts →</span></Link>
-              </div>
-              <div className="space-y-3">
-                {priorityContacts.length === 0 && <div className="text-sm text-muted-foreground py-6 text-center">Loading…</div>}
-                {priorityContacts.map((c, i) => {
-                  const Channel = CHANNEL_ICON[c.channel];
-                  return (
-                    <Link key={c.id} href={`/contacts/${c.id}`}>
-                      <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer group">
-                        <div className="text-xl font-black text-muted-foreground/30 w-6 text-center flex-shrink-0">{i + 1}</div>
-                        <div className="w-10 h-10 rounded-xl nf-chameleon-bg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                          {c.name.split(" ").map(n => n[0]).join("")}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-foreground">{c.name}</span>
-                            <span className="text-xs text-muted-foreground">· {c.company}</span>
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-0.5 truncate">{c.reason}</div>
-                        </div>
-                        <div className="hidden md:block text-right flex-shrink-0">
-                          <div className="text-sm font-bold text-[#88B8B0]">${(c.value / 100).toLocaleString()}</div>
-                          <div className="text-[10px] text-muted-foreground">pipeline</div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs"
-                            style={{ background: `${c.score >= 85 ? "#88B8B0" : c.score >= 70 ? "#B8B880" : "#C0A0B8"}25`, color: c.score >= 85 ? "#88B8B0" : c.score >= 70 ? "#B8B880" : "#C0A0B8" }}>
-                            {c.score}
-                          </div>
-                          <button className="w-9 h-9 rounded-full nf-chameleon-bg flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Channel className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Today's Agenda */}
+          {/* Optional: Schedule + Signals side-by-side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="glass-card rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-3">
                 <Calendar className="w-4 h-4 text-[#88B8B0]" />
-                <h2 className="font-semibold text-foreground">Today's Schedule</h2>
+                <h2 className="font-semibold text-foreground text-sm">Today's Schedule</h2>
               </div>
-              <div className="space-y-2.5">
-                {personaAgenda.map((item, i) => {
+              <div className="space-y-2">
+                {personaAgenda.slice(0, 5).map((item, i) => {
                   const Channel = CHANNEL_ICON[item.channel];
                   return (
-                    <div key={i} className="flex items-start gap-3 group">
-                      <div className="text-[10px] font-bold text-muted-foreground w-10 text-right pt-1 flex-shrink-0">{item.time}</div>
-                      <div className={cn("w-2 h-2 rounded-full mt-2 flex-shrink-0", item.status === "task" ? "bg-[#C8A880]" : "bg-[#88B8B0]")} />
-                      <div className="flex-1 min-w-0 pb-2 border-b border-border/15">
-                        <div className="flex items-center gap-1.5">
-                          <Channel className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                          <span className="text-xs text-foreground/85 truncate">{item.title}</span>
-                        </div>
-                        <span className={cn("text-[9px] font-medium uppercase tracking-wide", item.status === "task" ? "text-[#C8A880]" : "text-[#88B8B0]")}>{item.status}</span>
-                      </div>
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="text-[10px] font-bold text-muted-foreground w-10 text-right flex-shrink-0">{item.time}</div>
+                      <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", item.status === "task" ? "bg-[#C8A880]" : "bg-[#88B8B0]")} />
+                      <Channel className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                      <span className="text-xs text-foreground/85 truncate flex-1">{item.title}</span>
                     </div>
                   );
                 })}
               </div>
             </div>
-
-            {/* SLA Alerts */}
-            <div className="glass-card rounded-2xl p-5 border-l-4" style={{ borderLeftColor: "#C0A0B8" }}>
+            <div className="glass-card rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-3">
-                <BellRing className="w-4 h-4 text-[#C0A0B8]" />
-                <h2 className="font-semibold text-foreground">SLA Alerts</h2>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-[#C0A0B8]/20 text-[#C0A0B8] font-bold">2</span>
+                <Zap className="w-4 h-4 text-[#B8B880]" />
+                <h2 className="font-semibold text-foreground text-sm">Top Signals · Last 24h</h2>
               </div>
               <div className="space-y-2">
-                {AT_RISK.map((d, i) => (
-                  <div key={i} className="p-3 rounded-xl border" style={{ background: "#C0A0B808", borderColor: "#C0A0B825" }}>
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-sm font-semibold text-foreground">{d.name}</span>
-                      <span className="text-xs font-bold text-[#C0A0B8]">${(d.value / 100).toLocaleString()}</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">{d.deal}</div>
-                    <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-[#C0A0B8]">
-                      <AlertTriangle className="w-3 h-3" />{d.risk}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Hot Signals */}
-            <div className="lg:col-span-2 glass-card rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-foreground flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-[#B8B880]" />Hot Signals · Last 24h
-                </h2>
-                <Link href="/signals"><span className="text-xs text-[#B8A0C8] hover:underline cursor-pointer">All signals →</span></Link>
-              </div>
-              <div className="space-y-2">
-                {HOT_SIGNALS.slice(0, showAllSignals ? HOT_SIGNALS.length : 3).map((s, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 rounded-xl border" style={{ borderColor: "#B8B88025", background: "#B8B88008" }}>
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "#B8B88025" }}>
-                      <Zap className="w-4 h-4 text-[#B8B880]" />
+                {HOT_SIGNALS.slice(0, 4).map((s, i) => (
+                  <div key={i} className="flex items-start gap-2 p-2 rounded-lg border" style={{ borderColor: "#B8B88025", background: "#B8B88008" }}>
+                    <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ background: "#B8B88025" }}>
+                      <Zap className="w-3 h-3 text-[#B8B880]" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-foreground">{s.title}</div>
-                      <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs">
-                        <Link href={`/contacts/${s.contactId}`}><span className="text-[#B8A0C8] hover:underline cursor-pointer">{s.contact}</span></Link>
-                        <span className="text-muted-foreground">· {s.impact}</span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground font-medium uppercase tracking-wider">{s.source}</span>
-                        <button className="text-[10px] font-semibold text-[#88B8B0] flex items-center gap-1 hover:underline">{s.action} <ArrowRight className="w-3 h-3" /></button>
-                      </div>
+                      <div className="text-xs font-semibold text-foreground truncate">{s.title}</div>
+                      <div className="text-[10px] text-muted-foreground">{s.impact}</div>
                     </div>
-                    <span className="text-sm font-black text-[#B8B880] flex-shrink-0">{s.score}</span>
+                    <span className="text-xs font-black text-[#B8B880] flex-shrink-0">{s.score}</span>
                   </div>
-                ))}
-              </div>
-              {HOT_SIGNALS.length > 3 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllSignals((s) => !s)}
-                  className="mt-2 text-[11px] font-semibold text-[#B8B880] hover:underline flex items-center gap-1"
-                >
-                  {showAllSignals ? "Show less" : `Show ${HOT_SIGNALS.length - 3} more`}
-                  <ChevronRight className={cn("w-3 h-3 transition-transform", showAllSignals && "rotate-90")} />
-                </button>
-              )}
-            </div>
-
-            {/* Quick Actions */}
-            <div className="lg:col-span-3 glass-card rounded-2xl p-5">
-              <h2 className="font-semibold text-foreground mb-4">Quick Actions</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                  { label: "Start a Call", icon: Phone, color: "#88B8B0", href: "/calls" },
-                  { label: "Compose Email", icon: Mail, color: "#B8A0C8", href: "/messages" },
-                  { label: "WhatsApp Message", icon: MessageSquare, color: "#90B8B8", href: "/messages" },
-                  { label: "Find New Leads", icon: Users, color: "#C8A880", href: "/sourcing" },
-                ].map(a => (
-                  <Link key={a.label} href={a.href}>
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer group">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${a.color}20` }}>
-                        <a.icon className="w-4 h-4" style={{ color: a.color }} />
-                      </div>
-                      <span className="text-sm font-medium text-foreground flex-1">{a.label}</span>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
-                    </div>
-                  </Link>
                 ))}
               </div>
             </div>
@@ -848,12 +677,174 @@ function SalesAndExecHome() {
         </div>
       )}
 
-      {/* ──── COMMAND CENTER TAB ──── */}
-      {tab === "command" && (
-        <CommandLauncher firstName={firstName} navigate={navigate} />
-      )}
-      {tab === "command" && <div id="todo" className="scroll-mt-32" />}
-      {tab === "command" && (() => {
+      {/* ──── PERFORMANCE TAB (spec §2.2) ──── */}
+      {tab === "performance" && (() => {
+        const MULT: Record<string, number> = { "Today": 0.15, "This Week": 1, "This Month": 4.2, "Quarter": 13, "Custom": 1.5 };
+        const m = MULT[perfFilter] ?? 1;
+        const kpis = [
+          { label: "Calls Made",       value: String(Math.round(23 * m)), sub: "vs target " + String(Math.round(28 * m)), color: "#88B8B0", icon: Phone,    delta: "+12%", up: true  },
+          { label: "Calls Connected",  value: String(Math.round(14 * m)), sub: String(Math.round(61)) + "% connect rate",  color: "#B8A0C8", icon: Phone,    delta: "+5%",  up: true  },
+          { label: "Meetings Booked",  value: String(Math.round(5  * m)), sub: "vs target " + String(Math.round(6  * m)), color: "#C8A880", icon: Calendar, delta: "-8%",  up: false },
+          { label: "SAL Conversions",  value: String(Math.round(3  * m)), sub: "SAL1 → SAL2",                             color: "#90B8B8", icon: TrendingUp,delta: "+2%",  up: true  },
+          { label: "Deals Opened",     value: String(Math.round(2  * m)), sub: "new this period",                         color: "#C0A0B8", icon: Star,     delta: "0%",   up: true  },
+          { label: "Pipeline Value",   value: "SAR " + Math.round(420 * m).toLocaleString() + "k", sub: "total open",    color: "#B8B880", icon: BarChart3, delta: "+18%", up: true  },
+          { label: "Win Rate",         value: String(Math.round(34)) + "%", sub: "team avg 29%",                          color: "#88B8B0", icon: TrendingUp,delta: "+5pp", up: true  },
+        ];
+        const bottlenecks = [
+          { title: "3 prospects silent 14+ days",   body: "Nora Al-Faisal, Khaled Bin Saad, Tariq Al-Rashid — last touch was an email. Re-engage by WhatsApp today.", color: "#C8A880", action: "Re-engage now" },
+          { title: "Meetings-to-SAL conversion low", body: "12 meetings held this month but only 3 converted. Review call scoring for common objections.",              color: "#C0A0B8", action: "View call scores" },
+          { title: "Follow-up task backlog rising",  body: "7 follow-ups are past due. Each day delay drops win probability by ~4%. Batch-execute from To-Do tab.",   color: "#B8A0C8", action: "Go to To-Do" },
+        ];
+        const trends = [
+          { label: "Calls",     bars: [40, 55, 70, 62, 80, 73, 88] },
+          { label: "Connects",  bars: [22, 31, 40, 38, 49, 45, 53] },
+          { label: "Meetings",  bars: [2,  3,  4,  5,  4,  6,  5 ] },
+        ];
+        const maxBar = 100;
+        return (
+        <div className="space-y-5" id="performance">
+          {/* AI Analysis Summary band */}
+          <div className="rounded-2xl p-5 border relative overflow-hidden" style={{ background: "linear-gradient(135deg, #f9f3ff 0%, #f0f9f8 60%, #fffbf0 100%)", borderColor: "rgba(184,160,200,0.3)" }}>
+            <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl opacity-20 pointer-events-none" style={{ background: "radial-gradient(circle, #B8A0C8, transparent)" }} />
+            <div className="relative flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl nf-chameleon-bg flex items-center justify-center flex-shrink-0 shadow-sm"><Sparkles className="w-5 h-5 text-white" /></div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-[#B8A0C8] mb-0.5">AI Performance Analysis · {perfFilter}</div>
+                <h2 className="text-lg font-black text-foreground mb-1">Your Performance Brief</h2>
+                <p className="text-sm text-foreground/85 leading-relaxed">
+                  {perfFilter === "Today" ? "Good pacing — 3 calls made so far. Connect rate is strong (67%). One bottleneck: 2 scheduled follow-ups are already overdue. Prioritise those before your 2 PM block."
+                  : perfFilter === "This Week" ? "Calls are up 12% week-on-week. Meeting bookings are slightly behind target (-1). Win rate is tracking above team average (34% vs 29%). Focus: re-engage the 3 silent prospects before the week closes."
+                  : perfFilter === "This Month" ? "Month is on track. Pipeline at SAR 1.76M vs SAR 1.4M target. Two deals moved to SAL2 this month — strong. One deal at risk due to SLA breach. Check SLA alerts."
+                  : "Quarter performance: 87% of quarterly target achieved with 3 weeks remaining. Team velocity is up. Forecast: 104% of target if current trend continues. One bottleneck: meeting-to-SAL rate (25%) is below team benchmark (31%)."}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Date filter strip */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {PERF_FILTERS.map(f => (
+              <button key={f} onClick={() => setPerfFilter(f)}
+                className={cn("px-4 py-1.5 rounded-xl text-xs font-semibold transition-all", f === perfFilter ? "nf-chameleon-bg text-white shadow-sm" : "bg-muted/40 text-muted-foreground hover:bg-muted/70")}>
+                {f}
+              </button>
+            ))}
+            <span className="ml-auto text-[10px] text-muted-foreground">Last updated: just now</span>
+          </div>
+
+          {/* KPI tiles — 7 */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+            {kpis.map(k => (
+              <div key={k.label} className="glass-card rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${k.color}20` }}>
+                    <k.icon className="w-4 h-4" style={{ color: k.color }} />
+                  </div>
+                  <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full", k.up ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600")}>{k.delta}</span>
+                </div>
+                <div className="text-2xl font-black text-foreground leading-none mb-0.5">{k.value}</div>
+                <div className="text-[10px] text-muted-foreground">{k.label}</div>
+                <div className="text-[9px] text-muted-foreground/70 mt-0.5">{k.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Trend mini-charts + Bottlenecks */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="lg:col-span-2 glass-card rounded-2xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-foreground flex items-center gap-2"><Activity className="w-4 h-4 text-[#88B8B0]" /> Trends · {perfFilter}</h2>
+                <span className="text-[10px] text-muted-foreground">7-day rolling</span>
+              </div>
+              {trends.map(t => (
+                <div key={t.label} className="mb-4">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-medium text-foreground">{t.label}</span>
+                    <span className="text-xs font-black text-foreground">{Math.round(t.bars[t.bars.length - 1] * m / (perfFilter === "Today" ? 8 : 1))}</span>
+                  </div>
+                  <div className="flex items-end gap-1 h-10">
+                    {t.bars.map((b, i) => (
+                      <div key={i} className="flex-1 rounded-t-sm transition-all" style={{ height: `${Math.max(8, (b / maxBar) * 100)}%`, background: i === t.bars.length - 1 ? "linear-gradient(180deg, #B8A0C8, #88B8B0)" : "#B8A0C820" }} />
+                    ))}
+                  </div>
+                  <div className="flex justify-between text-[9px] text-muted-foreground/50 mt-1">
+                    <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Today</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Bottleneck panel */}
+            <div className="glass-card rounded-2xl p-5">
+              <h2 className="font-semibold text-foreground flex items-center gap-2 mb-4"><AlertTriangle className="w-4 h-4 text-[#C8A880]" /> Bottlenecks</h2>
+              <div className="space-y-3">
+                {bottlenecks.map((b, i) => (
+                  <div key={i} className="p-3 rounded-xl border" style={{ borderColor: `${b.color}30`, background: `${b.color}08` }}>
+                    <div className="text-xs font-bold text-foreground mb-1" style={{ color: b.color }}>{b.title}</div>
+                    <p className="text-[11px] text-foreground/75 leading-relaxed mb-2">{b.body}</p>
+                    <button
+                      type="button"
+                      onClick={() => b.action === "Go to To-Do" ? setTab("todo") : undefined}
+                      className="text-[10px] font-semibold flex items-center gap-1"
+                      style={{ color: b.color }}>
+                      {b.action} <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Rep vs Team toggle */}
+          <div className="glass-card rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-foreground flex items-center gap-2"><Users className="w-4 h-4 text-[#B8A0C8]" /> Rep vs Team Average</h2>
+              <span className="text-[10px] text-muted-foreground">· {perfFilter}</span>
+            </div>
+            <div className="space-y-3">
+              {[
+                { metric: "Calls Made",      you: 23, team: 18 },
+                { metric: "Connect Rate",    you: 61, team: 48, pct: true },
+                { metric: "Win Rate",        you: 34, team: 29, pct: true },
+                { metric: "Meetings Booked", you: 5,  team: 4  },
+              ].map(r => {
+                const youPct = Math.round((r.you / (Math.max(r.you, r.team) * 1.2)) * 100);
+                const teamPct = Math.round((r.team / (Math.max(r.you, r.team) * 1.2)) * 100);
+                return (
+                  <div key={r.metric}>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-medium text-foreground">{r.metric}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[#B8A0C8] font-bold">You: {r.you}{r.pct ? "%" : ""}</span>
+                        <span className="text-muted-foreground">Team: {r.team}{r.pct ? "%" : ""}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] text-muted-foreground w-8">You</span>
+                        <div className="flex-1 h-2 rounded-full bg-muted/30">
+                          <div className="h-2 rounded-full nf-chameleon-bg" style={{ width: `${youPct}%` }} />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] text-muted-foreground w-8">Team</span>
+                        <div className="flex-1 h-2 rounded-full bg-muted/30">
+                          <div className="h-2 rounded-full bg-muted-foreground/40" style={{ width: `${teamPct}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        );
+      })()}
+
+      {/* ──── TO-DO & ALERTS TAB (spec §2.3) ──── */}
+      {tab === "todo" && <div id="todo" className="scroll-mt-32" />}
+      {tab === "todo" && (() => {
         const totalCount = tasks.length;
         const doneCount = tasks.filter(t => t.done).length;
         const openCount = totalCount - doneCount;
@@ -862,157 +853,156 @@ function SalesAndExecHome() {
         const normalOpen = tasks.filter(t => !t.done && t.priority === "normal").length;
         const lowOpen    = tasks.filter(t => !t.done && t.priority === "low").length;
         const completionPct = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
-        const nextUp = tasks.find(t => !t.done && t.priority === "urgent")
-          ?? tasks.find(t => !t.done);
+        const nextUp = tasks.find(t => !t.done && t.priority === "urgent") ?? tasks.find(t => !t.done);
         const aiSummary = openCount === 0
-          ? `Inbox zero. You've cleared all ${totalCount} AI-generated tasks today — well done.`
-          : `${openCount} of ${totalCount} tasks open · ${urgentOpen} urgent. Knock out ${nextUp ? `"${nextUp.label.split(" ").slice(0, 6).join(" ")}…"` : "the urgent items"} first to keep momentum.`;
+          ? `Inbox zero. You've cleared all ${totalCount} AI-generated tasks — excellent work today.`
+          : `${openCount} of ${totalCount} open · ${urgentOpen} urgent, ${highOpen} high. Start with ${nextUp ? `"${nextUp.label.split(" ").slice(0, 5).join(" ")}…"` : "the urgent items"} — highest revenue impact.`;
         const buckets: { key: "urgent"|"high"|"normal"|"low"; label: string; open: number }[] = [
           { key: "urgent", label: "Urgent",  open: urgentOpen },
           { key: "high",   label: "High",    open: highOpen },
           { key: "normal", label: "Normal",  open: normalOpen },
           { key: "low",    label: "Low",     open: lowOpen },
         ];
+        const MISSED_ACTIONS = [
+          { id: "m1", label: "Call back Nora Al-Faisal",      note: "Missed call — 2h overdue",  color: "#C8A880" },
+          { id: "m2", label: "Send proposal to Tariq Corp",   note: "Follow-up overdue 1 day",   color: "#C0A0B8" },
+          { id: "m3", label: "WhatsApp re-engage: Khaled B.", note: "Lead going cold — 8 days silent", color: "#B8A0C8" },
+        ];
+        const URGENT_SIGNALS = HOT_SIGNALS.filter(s => Number(s.score) >= 90).slice(0, 3);
         return (
         <div className="space-y-5">
-          {/* AI summary header */}
-          <div className="rounded-2xl p-5 border relative overflow-hidden"
-               style={{ background: "linear-gradient(135deg, rgba(184,160,200,0.10), rgba(136,184,176,0.10))", borderColor: "rgba(184,160,200,0.3)" }}>
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl nf-chameleon-bg flex items-center justify-center flex-shrink-0 shadow-sm">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[10px] uppercase tracking-wider font-bold text-[#B8A0C8] mb-0.5">AI Task Summary</div>
+          {/* AI Analysis Summary band */}
+          <div className="rounded-2xl p-5 border relative overflow-hidden" style={{ background: "linear-gradient(135deg, #f9f3ff 0%, #f0f9f8 60%, #fffbf0 100%)", borderColor: "rgba(184,160,200,0.3)" }}>
+            <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl opacity-20 pointer-events-none" style={{ background: "radial-gradient(circle, #B8A0C8, transparent)" }} />
+            <div className="relative flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl nf-chameleon-bg flex items-center justify-center flex-shrink-0 shadow-sm"><Sparkles className="w-5 h-5 text-white" /></div>
+              <div className="flex-1">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-[#B8A0C8] mb-0.5">AI Prioritisation · To-Do & Alerts</div>
+                <h2 className="text-lg font-black text-foreground mb-1">Your Action Queue</h2>
                 <p className="text-sm text-foreground/85 leading-relaxed">{aiSummary}</p>
-              </div>
-              <div className="hidden sm:flex flex-col items-end flex-shrink-0">
-                <div className="text-2xl font-black text-foreground leading-none">{completionPct}%</div>
-                <div className="text-[10px] text-muted-foreground">complete</div>
-              </div>
-            </div>
-            <div className="w-full h-1.5 rounded-full bg-white/40 overflow-hidden mt-4">
-              <div className="h-full nf-chameleon-bg transition-all" style={{ width: `${completionPct}%` }} />
-            </div>
-          </div>
-
-          {/* Priority scorecards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {buckets.map((b) => (
-              <div key={b.key} className="glass-card rounded-2xl p-4 border-l-4" style={{ borderLeftColor: PRIORITY_COLOR[b.key] }}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">{b.label}</div>
-                    <div className="text-2xl font-black text-foreground leading-tight mt-1">{b.open}</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5">{b.open === 1 ? "task open" : "tasks open"}</div>
-                  </div>
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: PRIORITY_BG[b.key], color: PRIORITY_COLOR[b.key] }}>
-                    {b.key === "urgent" ? <Flame className="w-5 h-5" />
-                      : b.key === "high" ? <TrendingUp className="w-5 h-5" />
-                      : b.key === "normal" ? <ListTodo className="w-5 h-5" />
-                      : <Clock className="w-5 h-5" />}
+                <div className="flex items-center gap-3 mt-3 flex-wrap">
+                  <div className="flex items-center gap-1.5 text-xs"><div className="w-2 h-2 rounded-full bg-[#C8A880]" /><span className="text-muted-foreground">{urgentOpen} Urgent</span></div>
+                  <div className="flex items-center gap-1.5 text-xs"><div className="w-2 h-2 rounded-full bg-[#B8A0C8]" /><span className="text-muted-foreground">{highOpen} High</span></div>
+                  <div className="flex items-center gap-1.5 text-xs"><div className="w-2 h-2 rounded-full bg-[#88B8B0]" /><span className="text-muted-foreground">{normalOpen} Normal</span></div>
+                  <div className="ml-auto flex items-center gap-2">
+                    <div className="w-20 h-1.5 rounded-full bg-muted/30"><div className="h-1.5 rounded-full nf-chameleon-bg" style={{ width: `${completionPct}%` }} /></div>
+                    <span className="text-[10px] text-muted-foreground">{completionPct}% done</span>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Section divider */}
-          <div className="flex items-center justify-between pt-1">
-            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-              <CheckSquare className="w-4 h-4 text-[#88B8B0]" /> Today's task list
-            </h2>
-            <div className="text-xs text-muted-foreground">
-              <span className="font-bold text-foreground">{doneCount}</span>/{totalCount} complete
             </div>
           </div>
 
-          {(["urgent", "high", "normal", "low"] as const).map(priority => {
-            const group = tasks.filter(t => t.priority === priority);
-            if (!group.length) return null;
-            const labels: Record<string, string> = { urgent: "Urgent", high: "High Priority", normal: "Normal", low: "Low Priority" };
-            return (
-              <div key={priority}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: PRIORITY_COLOR[priority] }} />
-                  <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{labels[priority]}</span>
-                  <span className="text-xs text-muted-foreground">· {group.filter(t => !t.done).length} remaining</span>
-                </div>
-                <div className="space-y-2">
-                  {group.map(task => (
-                    <div key={task.id}
-                      className={cn(
-                        "glass-card rounded-xl flex items-stretch transition-all border",
-                        task.done ? "opacity-60 border-border/10" : "border-border/20 hover:border-[#B8A0C8]/30 hover:shadow-sm"
-                      )}>
-                      {/* Big explicit tap target for the checkbox */}
-                      <button
-                        type="button"
-                        onClick={() => toggleTask(task.id)}
-                        className={cn(
-                          "flex items-center justify-center w-14 flex-shrink-0 rounded-l-xl transition-all border-r",
-                          task.done
-                            ? "border-border/10"
-                            : "border-border/10 hover:bg-[#88B8B0]/10 active:bg-[#88B8B0]/20"
-                        )}
-                        aria-label={task.done ? "Mark as incomplete" : "Mark as complete"}
-                      >
-                        {task.done
-                          ? <CheckCircle2 className="w-6 h-6" style={{ color: PRIORITY_COLOR[priority] }} />
-                          : <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/40 transition-colors" />
-                        }
+          {/* Urgent signal alerts — top priority */}
+          {URGENT_SIGNALS.length > 0 && (
+            <div className="rounded-2xl p-4 border-2 border-[#C8A880]/40" style={{ background: "linear-gradient(135deg, #fffbf0, #fff8f5)" }}>
+              <div className="flex items-center gap-2 mb-3">
+                <BellRing className="w-4 h-4 text-[#C8A880]" />
+                <h2 className="font-bold text-sm text-foreground">Urgent Signal Alerts</h2>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#C8A880]/20 text-[#C8A880]">LIVE</span>
+              </div>
+              <div className="space-y-2">
+                {URGENT_SIGNALS.map((s, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/80 border border-[#C8A880]/20">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#C8A880]/20 flex-shrink-0"><Zap className="w-4 h-4 text-[#C8A880]" /></div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-bold text-foreground truncate">{s.title}</div>
+                      <div className="text-[10px] text-muted-foreground">{s.impact}</div>
+                    </div>
+                    <Link href={`/contacts/${s.contactId}`}>
+                      <button type="button" className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-[#C8A880] text-white hover:opacity-90 flex-shrink-0">
+                        <Zap className="w-3 h-3" /> Execute now
                       </button>
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-                      {/* Task content */}
-                      <div className="flex-1 min-w-0 p-4">
-                        <div className={cn("text-sm font-medium text-foreground leading-snug", task.done && "line-through text-muted-foreground")}>
-                          {task.label}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground flex-wrap">
-                          <Clock className="w-3 h-3 flex-shrink-0" />
-                          <span>{task.due}</span>
-                          {task.contact && (() => {
-                            const cid = findContactId(task.contact);
-                            return (
-                              <>
-                                <span>·</span>
-                                {cid ? (
-                                  <Link href={`/contacts/${cid}`}>
-                                    <span
-                                      className="text-[#B8A0C8] font-semibold cursor-pointer hover:underline hover:text-[#88B8B0] transition-colors inline-flex items-center gap-1"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      {task.contact}
-                                      <ChevronRight className="w-3 h-3" />
-                                    </span>
-                                  </Link>
-                                ) : (
-                                  <span className="text-[#B8A0C8] font-medium">{task.contact}</span>
-                                )}
-                              </>
-                            );
-                          })()}
-                          <span className="ml-auto px-1.5 py-0.5 rounded bg-muted/60 text-[10px] font-medium flex-shrink-0">{task.source}</span>
+          {/* Missed action alerts */}
+          <div className="rounded-2xl p-4 border border-red-200/50" style={{ background: "linear-gradient(135deg, #fff5f5, #fff8f8)" }}>
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="w-4 h-4 text-red-500" />
+              <h2 className="font-bold text-sm text-foreground">Missed Action Alerts</h2>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-red-100 text-red-600">{MISSED_ACTIONS.length} overdue</span>
+            </div>
+            <div className="space-y-2">
+              {MISSED_ACTIONS.map(m => (
+                <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/80 border border-red-100">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-100 flex-shrink-0"><AlertTriangle className="w-4 h-4 text-red-500" /></div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold text-foreground">{m.label}</div>
+                    <div className="text-[10px] text-red-500 font-medium">{m.note}</div>
+                  </div>
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    <button type="button" className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-red-500 text-white hover:bg-red-600 transition-colors">Execute now</button>
+                    <button type="button" className="px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-border/40 text-muted-foreground hover:bg-muted/40 transition-colors">Snooze</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Task buckets with Execute / Reassign / Snooze */}
+          {buckets.filter(b => b.open > 0).map(bucket => (
+            <div key={bucket.key} className="glass-card rounded-2xl p-5 border-l-4" style={{ borderLeftColor: PRIORITY_COLOR[bucket.key] }}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: PRIORITY_BG[bucket.key] }}>
+                  <ListTodo className="w-3.5 h-3.5" style={{ color: PRIORITY_COLOR[bucket.key] }} />
+                </div>
+                <h2 className="font-bold text-sm text-foreground">{bucket.label} Priority</h2>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: PRIORITY_BG[bucket.key], color: PRIORITY_COLOR[bucket.key] }}>{bucket.open}</span>
+                {selectedTasks.size > 0 && (
+                  <button type="button" onClick={() => { tasks.filter(t => !t.done && t.priority === bucket.key && selectedTasks.has(t.id)).forEach(t => toggleTask(t.id)); setSelectedTasks(new Set()); }}
+                    className="ml-auto text-[10px] font-bold px-2.5 py-1 rounded-lg nf-chameleon-bg text-white">
+                    Batch execute ({selectedTasks.size})
+                  </button>
+                )}
+              </div>
+              <div className="space-y-2">
+                {tasks.filter(t => !t.done && t.priority === bucket.key).map(task => {
+                  const cid = findContactId(task.contact);
+                  const isSelected = selectedTasks.has(task.id);
+                  return (
+                    <div key={task.id} className={cn("flex items-center gap-3 p-3 rounded-xl border transition-all", isSelected ? "border-[#B8A0C8]/50 bg-[#B8A0C8]/5" : "border-border/20 bg-white/40 hover:bg-white/70")}>
+                      <input type="checkbox" checked={isSelected} onChange={() => toggleTaskSelect(task.id)}
+                        className="w-4 h-4 rounded accent-[#B8A0C8] cursor-pointer flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-foreground">{task.label}</div>
+                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
+                          <Clock className="w-3 h-3" /><span>{task.due}</span>
+                          {task.contact && <><span>·</span>{cid ? <Link href={`/contacts/${cid}`}><span className="text-[#B8A0C8] font-semibold hover:underline">{task.contact}</span></Link> : <span>{task.contact}</span>}</>}
                         </div>
                       </div>
-
-                      {/* Done label appears when complete */}
-                      {task.done && (
-                        <div className="flex items-center pr-4">
-                          <span className="text-[10px] font-bold text-[#88B8B0] uppercase tracking-wider">Done</span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button type="button" onClick={() => toggleTask(task.id)}
+                          className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-opacity"
+                          style={{ background: PRIORITY_COLOR[bucket.key] }}>
+                          <Zap className="w-3 h-3 inline mr-1" />Execute
+                        </button>
+                        <button type="button" className="px-2 py-1 rounded-lg text-[10px] font-semibold border border-border/40 text-muted-foreground hover:bg-muted/40">Reassign</button>
+                        <button type="button" className="px-2 py-1 rounded-lg text-[10px] font-semibold border border-border/40 text-muted-foreground hover:bg-muted/40">Snooze</button>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
+
+          {openCount === 0 && (
+            <div className="glass-card rounded-2xl p-10 text-center">
+              <CheckCircle2 className="w-12 h-12 text-[#88B8B0] mx-auto mb-3" />
+              <div className="text-lg font-black text-foreground">Inbox zero!</div>
+              <p className="text-sm text-muted-foreground mt-1">All {totalCount} tasks complete. Check back after your next calls.</p>
+            </div>
+          )}
         </div>
         );
       })()}
 
-      {/* ──── DAILY INSIGHTS TAB ──── */}
+      {/* ──── INSIGHTS DASHBOARD TAB (spec §2.4) ──── */}
       {tab === "insights" && (() => {
         const visibleInsights = personaInsights
           .map((ins, idx) => ({ ins, idx }))
@@ -1097,38 +1087,46 @@ function SalesAndExecHome() {
                       <p className="text-sm text-foreground/80 leading-relaxed">{ins.body}</p>
                     </div>
                   </div>
-                  {/* Action buttons */}
+                  {/* Action buttons — spec §2.4: Open Lead / Add to Today / Send WhatsApp / Schedule Call / Snooze */}
                   <div className="flex flex-wrap gap-2 mt-4 pl-14">
                     <button
                       type="button"
-                      onClick={() => setInsightActed((s) => new Set([...s, idx]))}
+                      onClick={() => navigate("/contacts")}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white border-transparent hover:opacity-90 shadow-sm transition-all"
+                      style={{ background: ins.color }}
+                    >
+                      <ArrowRight className="w-3 h-3" />
+                      Open Lead
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setInsightActed((s) => new Set([...s, idx])); }}
                       disabled={acted}
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all",
                         acted
                           ? "bg-[#88B8B0]/15 text-[#88B8B0] border-[#88B8B0]/30 cursor-default"
-                          : "text-white border-transparent hover:opacity-90 shadow-sm",
+                          : "border-border/30 text-foreground hover:bg-muted/40",
                       )}
-                      style={!acted ? { background: ins.color } : undefined}
                     >
-                      {acted ? <CheckCircle2 className="w-3 h-3" /> : <Zap className="w-3 h-3" />}
-                      {acted ? "Action taken" : "Take action"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => navigate("/insights")}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border border-border/30 text-foreground hover:bg-muted/40 transition-colors"
-                    >
-                      <ArrowRight className="w-3 h-3" />
-                      View related
+                      {acted ? <CheckCircle2 className="w-3 h-3" /> : <CalendarPlus className="w-3 h-3" />}
+                      {acted ? "Added to Today" : "Add to Today"}
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate("/messages")}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border border-border/30 text-foreground hover:bg-muted/40 transition-colors"
                     >
-                      <FileText className="w-3 h-3" />
-                      Create task
+                      <MessageSquare className="w-3 h-3" />
+                      Send WhatsApp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/calendar")}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border border-border/30 text-foreground hover:bg-muted/40 transition-colors"
+                    >
+                      <Calendar className="w-3 h-3" />
+                      Schedule Call
                     </button>
                     <button
                       type="button"
@@ -1154,6 +1152,56 @@ function SalesAndExecHome() {
               Restore {insightSnoozed.size} snoozed insight{insightSnoozed.size === 1 ? "" : "s"}
             </button>
           )}
+
+          {/* News & Market Signals — filter row */}
+          {(() => {
+            const NEWS_FILTERS = ["All", "KSA Market", "Vision 2030", "Competitor", "Regulation", "Tech"];
+            const NEWS_ITEMS = [
+              { tag: "KSA Market",   headline: "Saudi private equity inflows up 34% YoY — GCC wealth migration accelerating",        age: "2h ago", impact: "High",   color: "#88B8B0" },
+              { tag: "Vision 2030",  headline: "NEOM Phase 2 procurement tenders released — SAR 4.2B facility management package",  age: "4h ago", impact: "High",   color: "#B8A0C8" },
+              { tag: "Competitor",   headline: "Al-Rajhi Commercial expands Riyadh SME desk — new competitor footprint in target segment", age: "6h ago", impact: "Medium", color: "#C0A0B8" },
+              { tag: "Regulation",   headline: "SAMA updates open banking API rules — fintech integrations require re-certification by Q3", age: "1d ago", impact: "Medium", color: "#C8A880" },
+              { tag: "Tech",         headline: "GPT-4o voice API launches Arabic dialect support — CRM voice agents now viable",      age: "1d ago", impact: "Low",    color: "#B8B880" },
+              { tag: "KSA Market",   headline: "Construction sector GDP contribution hits 11.2% — highest since 2018",              age: "2d ago", impact: "Low",    color: "#88B8B0" },
+            ];
+            const filtered = newsFilter === "All" ? NEWS_ITEMS : NEWS_ITEMS.filter(n => n.tag === newsFilter);
+            return (
+              <div className="glass-card rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-4 flex-wrap">
+                  <Flame className="w-4 h-4 text-[#C8A880]" />
+                  <h2 className="font-semibold text-foreground text-sm">News &amp; Market Signals</h2>
+                  <div className="ml-auto flex flex-wrap gap-1.5">
+                    {NEWS_FILTERS.map(f => (
+                      <button key={f} onClick={() => setNewsFilter(f)}
+                        className={cn("px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all", f === newsFilter ? "nf-chameleon-bg text-white" : "bg-muted/40 text-muted-foreground hover:bg-muted/70")}>
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {filtered.map((n, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 rounded-xl border" style={{ borderColor: `${n.color}20`, background: `${n.color}06` }}>
+                      <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ background: n.color }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-foreground leading-snug">{n.headline}</div>
+                        <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                          <span className="px-1.5 py-0.5 rounded-full font-semibold" style={{ background: `${n.color}20`, color: n.color }}>{n.tag}</span>
+                          <span>{n.age}</span>
+                          <span className={cn("px-1.5 py-0.5 rounded-full font-bold", n.impact === "High" ? "bg-red-100 text-red-600" : n.impact === "Medium" ? "bg-orange-100 text-orange-600" : "bg-muted/40 text-muted-foreground")}>
+                            {n.impact} impact
+                          </span>
+                        </div>
+                      </div>
+                      <button type="button" className="text-[10px] font-semibold text-[#B8A0C8] flex items-center gap-0.5 flex-shrink-0 hover:underline">
+                        Analyse <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
         );
       })()}

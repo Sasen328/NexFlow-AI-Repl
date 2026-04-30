@@ -383,9 +383,12 @@ const ALL_TOP_NAV_ENTRIES: TopNavEntry[] = [
 export const ROLE_NAV: Record<string, string[]> = {
   // CEO — exec dashboards, marketing performance, high-level pipeline.
   ceo:       ["home", "insights", "marketing", "leads"],
-  // Sales Rep — daily operating surfaces only. NO Marketing module.
-  // Campaign briefing & hot-lead signals appear inside /home.
-  sales:     ["home", "leads", "callcenter", "insights"],
+  // Sales Rep — daily operating surfaces. NO Marketing module.
+  sales:     ["home", "leads", "callcenter", "datahub", "insights"],
+  // Sales Manager — same as Sales Rep + team insights. NO Marketing.
+  manager:   ["home", "leads", "callcenter", "datahub", "insights"],
+  // CRM Admin — full access including Marketing.
+  admin:     ["home", "leads", "callcenter", "datahub", "insights", "marketing"],
   // Marketing — ONLY marketing-relevant surfaces.
   marketing: ["home", "tab-campaign-builder", "tab-campaign-performance", "markhub"],
 };
