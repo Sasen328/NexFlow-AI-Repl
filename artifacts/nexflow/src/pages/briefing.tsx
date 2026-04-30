@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { getRole, type RoleKey, type RoleProfile } from "@/lib/marketing-auth";
 import MarketingDashboardPage from "@/pages/marketing-dashboard";
+import CulturalIntelligencePage from "@/pages/cultural-intelligence";
+import { Globe as GlobeIcon, LayoutDashboard as LayoutDashboardIcon } from "lucide-react";
 
 interface PersonaTask {
   id: string;
@@ -1405,6 +1407,8 @@ function MarketingHomePage() {
   );
 }
 
+type MarketingHomeTab = "overview" | "pulse" | "cultural";
+
 function MarketingHomeView({
   role, persona, firstName, today, tod, TODIcon,
   tasks, toggleTask, personaAgenda, personaInsights,
@@ -1424,6 +1428,12 @@ function MarketingHomeView({
   briefingRefreshedAt: Date | null;
   handleRefreshBriefing: () => void;
 }) {
+  const [tab, setTab] = useState<MarketingHomeTab>("overview");
+  const SUB_TABS: { key: MarketingHomeTab; label: string; icon: LucideIcon; hint: string }[] = [
+    { key: "overview", label: "Overview",             icon: Sparkles,             hint: "Briefing · KPIs · today's plan" },
+    { key: "pulse",    label: "Marketing Pulse",      icon: LayoutDashboardIcon,  hint: "Live campaign performance dashboard" },
+    { key: "cultural", label: "Cultural Intelligence",icon: GlobeIcon,            hint: "GCC calendar, blackout dates, advisor" },
+  ];
   return (
     <div className="space-y-5 max-w-7xl">
       {/* Hero — marketing-themed (warm Khaleeji palette) */}
@@ -1490,7 +1500,35 @@ function MarketingHomeView({
         </div>
       </div>
 
+      {/* Sub-tab strip — keeps /home short by switching content panels */}
+      <div className="flex items-center gap-0 border-b border-border/40 -mx-1 px-1 overflow-x-auto" role="tablist">
+        {SUB_TABS.map(t => {
+          const Icon = t.icon;
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(t.key)}
+              title={t.hint}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap",
+                active
+                  ? "border-[#C8A880] text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon className="w-4 h-4" />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Three-column: Today's Marketing To-Do · Schedule · AI Marketing Insights */}
+      {tab === "overview" && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Today's marketing to-do */}
         <div className="glass-card rounded-2xl p-5">
@@ -1596,20 +1634,39 @@ function MarketingHomeView({
           </div>
         </div>
       </div>
+      )}
 
-      {/* Embedded full marketing dashboard */}
-      <div className="border-t border-border/30 pt-6">
-        <div className="mb-4">
-          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-[#C8A880]" />
-            Marketing Pulse
-          </h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            Live campaign performance — embedded from your dashboard
-          </p>
+      {/* Marketing Pulse — full embedded dashboard */}
+      {tab === "pulse" && (
+        <div className="pt-2">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-[#C8A880]" />
+              Marketing Pulse
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Live campaign performance · KPIs · winning + pain + how-to-win analysis · hot leads
+            </p>
+          </div>
+          <MarketingDashboardPage />
         </div>
-        <MarketingDashboardPage />
-      </div>
+      )}
+
+      {/* Cultural Intelligence — embedded GCC calendar + advisor */}
+      {tab === "cultural" && (
+        <div className="pt-2">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <GlobeIcon className="w-5 h-5 text-[#88B8B0]" />
+              Cultural Intelligence
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              GCC holiday calendar, blackout windows, regional playbook, and AI cultural advisor
+            </p>
+          </div>
+          <CulturalIntelligencePage />
+        </div>
+      )}
     </div>
   );
 }
