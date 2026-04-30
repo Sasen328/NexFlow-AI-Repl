@@ -47,6 +47,17 @@ async function wipeAllSeedTables() {
 
 export async function autoSeed(force = false) {
   try {
+    // Always (re)seed the enrichment_sources registry — it's small,
+    // idempotent (ON CONFLICT DO NOTHING), and decoupled from contacts.
+    // Doing it here at startup avoids the per-request race the route's
+    // singleton would otherwise have on cold-start.
+    try {
+      const { seedSources } = await import("./enrichment/sources.js");
+      await seedSources();
+    } catch (e) {
+      console.warn("[autoSeed] seedSources failed:", e instanceof Error ? e.message : e);
+    }
+
     const existing = await db.select({ c: sql<number>`count(*)` }).from(contacts);
     const n = Number(existing[0]?.c ?? 0);
 

@@ -36,6 +36,7 @@ import leadEnrichRouter from "./lead-enrich";
 import investorsRouter from "./investors";
 import napkinRouter from "./napkin";
 import prospectsRouter from "./prospects";
+import enrichmentRouter from "./enrichment";
 
 const router: IRouter = Router();
 
@@ -76,5 +77,6 @@ router.use("/lead-enrich", leadEnrichRouter);
 router.use("/investors", investorsRouter);
 router.use("/napkin", napkinRouter);
 router.use("/prospects", prospectsRouter);
+router.use("/enrichment", enrichmentRouter);
 
 export default router;

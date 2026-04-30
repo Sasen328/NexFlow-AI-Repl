@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/hooks/useApi";
 import { PushToCrm } from "@/components/push-to-crm";
+import { SourcesTab } from "@/components/enrichment/sources-tab";
 
 const SignalsPage = lazy(() => import("./signals"));
 const LeadEnrichPage = lazy(() => import("./lead-enrich"));
@@ -33,7 +34,8 @@ type Tab =
   | "quick"
   | "cards"
   | "signals"
-  | "history";
+  | "history"
+  | "sources";
 
 type ProspectMode = "company" | "person";
 
@@ -105,7 +107,7 @@ export default function EnrichmentEnginePage() {
   const initialTab: Tab = (() => {
     if (typeof window === "undefined") return "prospecting";
     const t = new URLSearchParams(window.location.search).get("tab");
-    const valid: Tab[] = ["prospecting", "bulk", "quick", "cards", "signals", "history"];
+    const valid: Tab[] = ["prospecting", "bulk", "quick", "cards", "signals", "history", "sources"];
     return (valid as string[]).includes(t ?? "") ? (t as Tab) : "prospecting";
   })();
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -152,6 +154,7 @@ export default function EnrichmentEnginePage() {
         <SubTab active={tab === "cards"}       onClick={() => setTab("cards")}       icon={ScanLine} label="Companies Card Scanner" />
         <SubTab active={tab === "signals"}     onClick={() => setTab("signals")}     icon={Zap}      label="Buying Signals" />
         <SubTab active={tab === "history"}     onClick={() => setTab("history")}     icon={History}  label="Save History" />
+        <SubTab active={tab === "sources"}     onClick={() => setTab("sources")}     icon={Database} label="Sources" />
       </div>
 
       {tab === "prospecting" && <ProspectingTab seed={prospectSeed} onConsumeSeed={() => setProspectSeed(null)} />}
@@ -160,6 +163,7 @@ export default function EnrichmentEnginePage() {
       {tab === "cards"       && <Lazy><BusinessCardsPage /></Lazy>}
       {tab === "signals"     && <BuyingSignalsTab />}
       {tab === "history"     && <SearchHistoryTab onRerun={rerunFromHistory} />}
+      {tab === "sources"     && <SourcesTab />}
     </div>
   );
 }
@@ -606,28 +610,65 @@ const BULK_QUEUES: Record<string, { label: string; desc: string; rows: BulkLead[
   },
 };
 
+/** Per-row waterfall result keyed by lead id. */
+interface BulkWaterfallRow {
+  fields: Record<string, { value: unknown; source_key: string; source_name: string }>;
+  per_source: Array<{ source_name: string; status: string; fields_filled: string[] }>;
+  total_ms: number;
+  total_cost_usd: number;
+  error?: string;
+}
+
 function BulkEnrichmentTab() {
   const [queue, setQueue] = useState<keyof typeof BULK_QUEUES>("segment_finance_gcc");
   const [rows, setRows] = useState<BulkLead[]>(() => BULK_QUEUES.segment_finance_gcc.rows);
   const [running, setRunning] = useState(false);
+  const [results, setResults] = useState<Record<string, BulkWaterfallRow>>({});
+  const [progressIdx, setProgressIdx] = useState(0);
   const queueMeta = BULK_QUEUES[queue];
 
   function loadQueue(k: keyof typeof BULK_QUEUES) {
     setQueue(k);
     setRows(BULK_QUEUES[k].rows.map((r) => ({ ...r, enriched: false })));
+    setResults({});
+    setProgressIdx(0);
   }
 
-  function runWaterfall() {
+  /**
+   * Walk the queue one row at a time so the user sees realistic per-row
+   * progress. Each row hits /api/enrichment/run with dry_run=true so no
+   * counters get bumped from a demo. If the orchestrator fails for any
+   * reason the row still flips to "enriched" (graceful) but its result
+   * card shows the error.
+   */
+  async function runWaterfall() {
     setRunning(true);
-    // Stage the enrichment so the user sees the progress feel realistic.
-    let i = 0;
-    const tick = () => {
-      i += 1;
-      setRows((cur) => cur.map((r, idx) => idx < i ? { ...r, enriched: true } : r));
-      if (i < rows.length) setTimeout(tick, 250);
-      else setRunning(false);
-    };
-    setTimeout(tick, 400);
+    setResults({});
+    setProgressIdx(0);
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]!;
+      setProgressIdx(i + 1);
+      try {
+        const data = await apiFetch("/enrichment/run", {
+          method: "POST",
+          body: JSON.stringify({
+            seed: { name: r.name, company: r.company, country: r.region },
+            dry_run: true,
+          }),
+        }) as BulkWaterfallRow;
+        setResults((cur) => ({ ...cur, [r.id]: data }));
+      } catch (e) {
+        setResults((cur) => ({
+          ...cur,
+          [r.id]: {
+            fields: {}, per_source: [], total_ms: 0, total_cost_usd: 0,
+            error: e instanceof Error ? e.message : String(e),
+          },
+        }));
+      }
+      setRows((cur) => cur.map((row, idx) => idx === i ? { ...row, enriched: true } : row));
+    }
+    setRunning(false);
   }
 
   const enrichedRows = rows.filter((r) => r.enriched);
@@ -676,7 +717,9 @@ function BulkEnrichmentTab() {
             className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
           >
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {running ? "Running waterfall…" : `Run waterfall on ${rows.length} leads`}
+            {running
+              ? `Running waterfall… ${progressIdx}/${rows.length}`
+              : `Run waterfall on ${rows.length} leads`}
           </button>
         </div>
       </div>
@@ -690,24 +733,54 @@ function BulkEnrichmentTab() {
           </div>
         </div>
         <ul className="divide-y divide-border">
-          {rows.map((r) => (
-            <li key={r.id} className="px-5 py-2.5 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-muted grid place-items-center text-xs font-semibold">
-                {r.name.split(" ").map((s) => s[0]).slice(0, 2).join("")}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate">{r.name} <span className="text-xs text-muted-foreground">· {r.title}</span></div>
-                <div className="text-xs text-muted-foreground truncate">{r.company} · {r.industry} · {r.region} · {r.headcount.toLocaleString()} staff</div>
-              </div>
-              {r.enriched ? (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-medium flex items-center gap-1">
-                  <Check className="w-2.5 h-2.5" /> Enriched
-                </span>
-              ) : (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Queued</span>
-              )}
-            </li>
-          ))}
+          {rows.map((r) => {
+            const wf = results[r.id];
+            const filledFields = wf ? Object.entries(wf.fields) : [];
+            return (
+              <li key={r.id} className="px-5 py-2.5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-muted grid place-items-center text-xs font-semibold">
+                    {r.name.split(" ").map((s) => s[0]).slice(0, 2).join("")}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{r.name} <span className="text-xs text-muted-foreground">· {r.title}</span></div>
+                    <div className="text-xs text-muted-foreground truncate">{r.company} · {r.industry} · {r.region} · {r.headcount.toLocaleString()} staff</div>
+                  </div>
+                  {wf?.error ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-600 dark:text-red-300 font-medium flex items-center gap-1">
+                      <AlertTriangle className="w-2.5 h-2.5" /> Error
+                    </span>
+                  ) : r.enriched ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-medium flex items-center gap-1">
+                      <Check className="w-2.5 h-2.5" /> {filledFields.length} field{filledFields.length === 1 ? "" : "s"}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Queued</span>
+                  )}
+                </div>
+                {/* Per-source attribution chips */}
+                {wf && filledFields.length > 0 && (
+                  <div className="ml-11 mt-1.5 flex flex-wrap gap-1">
+                    {filledFields.map(([f, v]) => (
+                      <span
+                        key={f}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-[#88B8B0]/10 text-[#3f7a72] dark:text-[#9ae0d6] border border-[#88B8B0]/30"
+                        title={String(v.value)}
+                      >
+                        <strong>{f}</strong> · {v.source_name}
+                      </span>
+                    ))}
+                    <span className="text-[10px] text-muted-foreground self-center">
+                      {wf.total_ms}ms · ${wf.total_cost_usd.toFixed(3)}
+                    </span>
+                  </div>
+                )}
+                {wf?.error && (
+                  <div className="ml-11 mt-1.5 text-[11px] text-red-500">{wf.error}</div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
 
