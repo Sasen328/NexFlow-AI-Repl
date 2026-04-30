@@ -9,7 +9,7 @@ import {
 import { useDashboard, useContacts, useForgottenLeads, useRegenerateInsights, useCalls, apiFetch } from "@/hooks/useApi";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import { getRole, type RoleKey } from "@/lib/marketing-auth";
+import { getRole, type RoleKey, type RoleProfile } from "@/lib/marketing-auth";
 import MarketingDashboardPage from "@/pages/marketing-dashboard";
 
 interface PersonaTask {
@@ -221,7 +221,39 @@ const PRIORITY_BG: Record<string, string> = { urgent: "#C8A88020", high: "#B8A0C
 
 type Tab = "briefing" | "command";
 
+// ──────────────────────────────────────────────
+// CommandCenterPage — thin role router for /home.
+// IMPORTANT: This wrapper exists so we don't fetch sales-side data
+// (contacts, calls, forgotten leads, dashboard pipeline) for marketing
+// users. Each branch uses its own component which scopes its own
+// hooks. Avoids both UI leak AND data-fetch leak between personas.
+// ──────────────────────────────────────────────
 export default function CommandCenterPage() {
+  // Subscribe to role changes so a persona switch from the avatar menu
+  // re-routes /home without a full page reload.
+  const [roleKey, setRoleKey] = useState<RoleKey>(() => getRole().key);
+  useEffect(() => {
+    const refresh = () => setRoleKey(getRole().key);
+    window.addEventListener("nf:role-change", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("nf:role-change", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+
+  if (roleKey === "marketing") {
+    return <MarketingHomePage />;
+  }
+  return <SalesAndExecHome />;
+}
+
+// ──────────────────────────────────────────────
+// SalesAndExecHome — original /home for sales rep / sales manager /
+// CEO / admin personas. Loads all the sales-side hooks. Marketing
+// users never reach this branch, so its API calls don't fire for them.
+// ──────────────────────────────────────────────
+function SalesAndExecHome() {
   const { data: dash } = useDashboard();
   const { data: contactsData } = useContacts({ limit: "100" });
   const { data: forgottenData } = useForgottenLeads();
@@ -334,6 +366,10 @@ export default function CommandCenterPage() {
     { k: "briefing" as Tab, label: "Daily Briefing", icon: Sparkles },
     { k: "command" as Tab, label: "Command Center", icon: Zap, badge: tasks.filter(t => !t.done && t.priority === "urgent").length },
   ];
+
+  // Marketing persona is routed earlier by CommandCenterPage to
+  // MarketingHomePage — it never reaches SalesAndExecHome — so no
+  // additional branch is needed here.
 
   return (
     <div className="space-y-5 max-w-7xl">
@@ -979,25 +1015,6 @@ export default function CommandCenterPage() {
         );
       })()}
 
-      {/* ── Marketing-only embedded dashboard ──────────────────────
-          Marketing's Home tab includes the marketing dashboard inline
-          (KPIs, AI 3-up analysis, hot leads, quick nav) so they don't
-          have to leave Home to see campaign health. */}
-      {role.key === "marketing" && (
-        <div className="mt-8 border-t border-border/30 pt-6">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="px-2 py-0.5 rounded-full bg-[#C8A880]/15 border border-[#C8A880]/40">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#C8A880]">
-                Marketing Pulse
-              </span>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              Live campaign performance — embedded from your dashboard
-            </span>
-          </div>
-          <MarketingDashboardPage />
-        </div>
-      )}
     </div>
   );
 }
@@ -1319,6 +1336,279 @@ function NextActionCard({ call, contactByName }: { call: any; contactByName: Map
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────
+// MarketingHomeView — fully separate marketing journey for /home.
+// No sales-style widgets (priority contacts, recent calls, forgotten
+// leads, pipeline numbers). Only marketing-flavored content + the
+// embedded marketing dashboard.
+// ──────────────────────────────────────────────
+// MarketingHomePage is the top-level marketing /home component. It
+// owns the marketing-only state (briefing refresh, task checkboxes)
+// and reads the persona profile + persona-specific tasks/agenda/
+// insights. It does NOT call any sales hooks — keeping the marketing
+// experience scoped at the data layer too, not just visually.
+function MarketingHomePage() {
+  const role = getRole();
+  const persona = PERSONA_BRIEFINGS[role.key];
+  const firstName = role.name.split(" ")[0];
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "long", month: "long", day: "numeric", year: "numeric",
+  });
+  const tod = getTimeOfDay();
+  const TODIcon = tod.icon;
+
+  // AUTO_TASKS is the shared sales-rep default — its inferred priority
+  // type is `string`, so cast to PersonaTask[] when this is the
+  // fallback. Marketing's own persona.tasks list is already typed.
+  const personaTasks    = (persona.tasks    ?? AUTO_TASKS) as PersonaTask[];
+  const personaAgenda   = persona.agenda   ?? TODAY_AGENDA;
+  const personaInsights = persona.insights ?? AI_INSIGHTS;
+
+  const [tasks, setTasks] = useState<PersonaTask[]>(personaTasks);
+  // If persona changes underneath us (avatar switch), reset tasks.
+  useEffect(() => { setTasks(personaTasks); }, [role.key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [refreshingBriefing, setRefreshingBriefing] = useState(false);
+  const [briefingRefreshedAt, setBriefingRefreshedAt] = useState<Date | null>(null);
+  function handleRefreshBriefing() {
+    setRefreshingBriefing(true);
+    setTimeout(() => {
+      setRefreshingBriefing(false);
+      setBriefingRefreshedAt(new Date());
+    }, 800);
+  }
+  function toggleTask(id: string) {
+    setTasks(ts => ts.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  }
+
+  return (
+    <MarketingHomeView
+      role={role}
+      persona={persona}
+      firstName={firstName}
+      today={today}
+      tod={tod}
+      TODIcon={TODIcon}
+      tasks={tasks}
+      toggleTask={toggleTask}
+      personaAgenda={personaAgenda}
+      personaInsights={personaInsights}
+      refreshingBriefing={refreshingBriefing}
+      briefingRefreshedAt={briefingRefreshedAt}
+      handleRefreshBriefing={handleRefreshBriefing}
+    />
+  );
+}
+
+function MarketingHomeView({
+  role, persona, firstName, today, tod, TODIcon,
+  tasks, toggleTask, personaAgenda, personaInsights,
+  refreshingBriefing, briefingRefreshedAt, handleRefreshBriefing,
+}: {
+  role: RoleProfile;
+  persona: PersonaBriefing;
+  firstName: string;
+  today: string;
+  tod: ReturnType<typeof getTimeOfDay>;
+  TODIcon: LucideIcon;
+  tasks: PersonaTask[];
+  toggleTask: (id: string) => void;
+  personaAgenda: PersonaAgendaItem[];
+  personaInsights: PersonaInsight[];
+  refreshingBriefing: boolean;
+  briefingRefreshedAt: Date | null;
+  handleRefreshBriefing: () => void;
+}) {
+  return (
+    <div className="space-y-5 max-w-7xl">
+      {/* Hero — marketing-themed (warm Khaleeji palette) */}
+      <div className="relative rounded-3xl overflow-hidden p-8"
+        style={{ background: "linear-gradient(135deg, #fff8f0 0%, #fdf6e8 40%, #f8f4ff 80%, #fff8f0 100%)" }}>
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 right-0 w-72 h-72 rounded-full blur-3xl opacity-30" style={{ background: "radial-gradient(circle, #C8A880, transparent)" }} />
+          <div className="absolute bottom-0 left-0 w-56 h-56 rounded-full blur-3xl opacity-20" style={{ background: "radial-gradient(circle, #B8B880, transparent)" }} />
+        </div>
+        <div className="relative">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm" style={{ background: `${tod.color}30` }}>
+                <TODIcon className="w-6 h-6" style={{ color: tod.color }} />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground font-medium">{today} · Riyadh</div>
+                <h1 className="text-3xl font-black text-foreground leading-tight">{tod.greeting}, {firstName}</h1>
+                <div className="text-sm font-semibold mt-0.5" style={{ color: "#C8A880" }}>{role.title} · Marketing Command Center</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleRefreshBriefing}
+              disabled={refreshingBriefing}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/60 border border-white/80 text-xs text-muted-foreground hover:text-foreground shadow-sm backdrop-blur-sm disabled:opacity-60"
+            >
+              <RefreshCw className={`w-3 h-3 ${refreshingBriefing ? "animate-spin" : ""}`} />
+              {refreshingBriefing ? "Refreshing..." : briefingRefreshedAt ? `Refreshed ${briefingRefreshedAt.toLocaleTimeString()}` : "Refresh briefing"}
+            </button>
+          </div>
+
+          <div className="mt-4 p-5 rounded-2xl backdrop-blur-sm border" style={{ background: "rgba(255,255,255,0.6)", borderColor: "rgba(200,168,128,0.3)" }}>
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm" style={{ background: "linear-gradient(135deg, #C8A880, #B8B880)" }}>
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex-1">
+                <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#C8A880" }}>
+                  Your AI Marketing Briefing · for {role.label}
+                </div>
+                <p className="text-sm text-foreground/85 leading-relaxed">
+                  {/* Marketing's briefing function ignores totalPipeline (sales metric). */}
+                  {persona.briefing("")}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+            {persona.kpis.map(s => (
+              <div key={s.label} className="rounded-xl p-3 flex items-center gap-3 backdrop-blur-sm" style={{ background: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.7)" }}>
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${s.color}20` }}>
+                  <s.icon className="w-4 h-4" style={{ color: s.color }} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xl font-black text-foreground leading-none">{s.value}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">{s.label}</div>
+                  <div className="text-[10px] text-muted-foreground/70">{s.sub}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Three-column: Today's Marketing To-Do · Schedule · AI Marketing Insights */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Today's marketing to-do */}
+        <div className="glass-card rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <ListTodo className="w-4 h-4 text-[#C8A880]" />
+            <h2 className="font-semibold text-foreground">Today's Marketing To-Do</h2>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-[#C8A880]/20 text-[#C8A880] font-bold ml-auto">
+              {tasks.filter(t => !t.done).length} open
+            </span>
+          </div>
+          <div className="space-y-2">
+            {tasks.map((t) => {
+              const priorityColor =
+                t.priority === "urgent" ? "#C0A0B8" :
+                t.priority === "high"   ? "#C8A880" :
+                t.priority === "normal" ? "#B8A0C8" : "#88B8B0";
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => toggleTask(t.id)}
+                  className={cn(
+                    "w-full flex items-start gap-2.5 text-left p-2.5 rounded-xl border transition-all",
+                    t.done
+                      ? "bg-muted/30 border-border/30 opacity-60"
+                      : "bg-white/60 border-border/40 hover:border-border/60",
+                  )}
+                >
+                  <div
+                    className="mt-0.5 w-4 h-4 rounded-md border flex-shrink-0 flex items-center justify-center"
+                    style={{ borderColor: priorityColor, background: t.done ? priorityColor : "transparent" }}
+                  >
+                    {t.done && <CheckCircle2 className="w-3 h-3 text-white" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className={cn(
+                      "text-xs font-medium leading-snug",
+                      t.done ? "line-through text-muted-foreground" : "text-foreground",
+                    )}>
+                      {t.label}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                      <span>{t.due}</span>
+                      <span className="opacity-50">·</span>
+                      <span>{t.source}</span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Today's marketing schedule */}
+        <div className="glass-card rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar className="w-4 h-4 text-[#88B8B0]" />
+            <h2 className="font-semibold text-foreground">Today's Schedule</h2>
+          </div>
+          <div className="space-y-2.5">
+            {personaAgenda.map((item, i) => {
+              const Channel = CHANNEL_ICON[item.channel] ?? Calendar;
+              return (
+                <div key={i} className="flex items-start gap-3 group">
+                  <div className="text-[10px] font-bold text-muted-foreground w-10 text-right pt-1 flex-shrink-0">{item.time}</div>
+                  <div className={cn("w-2 h-2 rounded-full mt-2 flex-shrink-0", item.status === "task" ? "bg-[#C8A880]" : "bg-[#88B8B0]")} />
+                  <div className="flex-1 min-w-0 pb-2 border-b border-border/15">
+                    <div className="flex items-center gap-1.5">
+                      <Channel className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                      <span className="text-xs text-foreground/85 truncate">{item.title}</span>
+                    </div>
+                    <span className={cn("text-[9px] font-medium uppercase tracking-wide", item.status === "task" ? "text-[#C8A880]" : "text-[#88B8B0]")}>{item.status}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* AI marketing insights */}
+        <div className="glass-card rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles className="w-4 h-4 text-[#B8A0C8]" />
+            <h2 className="font-semibold text-foreground">AI Marketing Insights</h2>
+          </div>
+          <div className="space-y-3">
+            {personaInsights.map((ins, i) => {
+              const Icon = ins.icon;
+              return (
+                <div key={i} className="p-3 rounded-xl border bg-white/60" style={{ borderColor: `${ins.color}30` }}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Icon className="w-3.5 h-3.5" style={{ color: ins.color }} />
+                    <span className="text-xs font-bold text-foreground">{ins.title}</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-snug">{ins.body}</p>
+                  <div className="mt-1.5 inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                    style={{ background: `${ins.color}15`, color: ins.color }}>
+                    {ins.tag}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Embedded full marketing dashboard */}
+      <div className="border-t border-border/30 pt-6">
+        <div className="mb-4">
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-[#C8A880]" />
+            Marketing Pulse
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Live campaign performance — embedded from your dashboard
+          </p>
+        </div>
+        <MarketingDashboardPage />
       </div>
     </div>
   );

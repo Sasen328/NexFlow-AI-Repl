@@ -1,7 +1,9 @@
 import { Link, useLocation } from "wouter";
+import { useEffect, useState } from "react";
 import { LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { findSectionByRoute, SECTIONS, type SectionDef } from "@/lib/sections";
+import { findSectionByRoute, SECTIONS, ROLE_NAV, type SectionDef } from "@/lib/sections";
+import { getRole } from "@/lib/marketing-auth";
 
 /**
  * Renders a horizontally-scrollable tab strip for the section the current
@@ -21,8 +23,35 @@ const SECTIONS_WITHOUT_DASHBOARD = new Set([
 
 export function SectionTabStrip() {
   const [location] = useLocation();
+  // Subscribe to persona changes so the strip hides/shows when the user
+  // switches role from the avatar menu.
+  const [roleKey, setRoleKey] = useState(() => getRole().key);
+  useEffect(() => {
+    const refresh = () => setRoleKey(getRole().key);
+    window.addEventListener("nf:role-change", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("nf:role-change", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+
   const section = findSectionByRoute(location);
   if (!section) return null;
+
+  // Marketing has a flat top nav (Home, Campaign Builder, Campaign
+  // Performance, MarkHub) so a second-row sub-tab strip would be pure
+  // duplication. Skip it for marketing entirely.
+  if (roleKey === "marketing") return null;
+
+  // For other personas, only render the strip when the section it would
+  // show belongs to that persona's allowed nav scope. This prevents the
+  // strip from appearing on routes outside the persona's journey (e.g.
+  // CEO landing on a leftover legacy /signals link should not see the
+  // full Data Hub sub-tab strip).
+  const allowedKeys = ROLE_NAV[roleKey];
+  if (allowedKeys && !allowedKeys.includes(section.key)) return null;
+
   return <SectionTabStripInner section={section} location={location} />;
 }
 
