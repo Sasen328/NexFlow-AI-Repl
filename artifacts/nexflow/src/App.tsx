@@ -46,6 +46,7 @@ import FunnelPage from "@/pages/funnel";
 import PipelinePage from "@/pages/pipeline";
 import DealPipelinePage from "@/pages/deal-pipeline";
 import CrmDashboardPage from "@/pages/crm-dashboard";
+import CommandCenterPage from "@/pages/command-center";
 import EngagementPage from "@/pages/engagement";
 import CallListPage from "@/pages/call-list";
 import DashboardsPage from "@/pages/dashboards";
@@ -188,6 +189,7 @@ function AppLayout() {
           <Route path="/pipeline" component={PipelinePage} />
           <Route path="/deal-pipeline" component={DealPipelinePage} />
           <Route path="/crm-dashboard" component={CrmDashboardPage} />
+          <Route path="/command-center" component={CommandCenterPage} />
           <Route path="/engagement" component={EngagementPage} />
           <Route path="/post-call-automation" component={PostCallAutomationPage} />
           <Route path="/contact-center-setup" component={ContactCenterSetupPage} />
