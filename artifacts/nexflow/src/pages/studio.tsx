@@ -26,19 +26,12 @@ export default function StudioPage() {
 
   return (
     <div className="rd-root">
-      <div className="rd-topstrip">
-        <div className="rd-topstrip-l">
-          <div className="rd-logo">N</div>
-          <div className="rd-display rd-topstrip-title">Studio</div>
-          <span className="rd-pill rd-pill-accent">· all-in-one</span>
-        </div>
-        <div className="rd-topstrip-r">
-          <div className="rd-pill rd-pill-mute rd-mono">⌘K</div>
-          <div className="rd-pill rd-pill-sage">● Conductor on</div>
-          <div className="rd-avatar" />
-        </div>
-      </div>
-
+      {/* NOTE: The previous rd-topstrip ("Studio · all-in-one" + ⌘K + Conductor on)
+          duplicated the app's own top nav and used a different sand/cream colour
+          palette which clashed visibly with the rest of the CRM. AppShell already
+          provides logo + persona + global controls — Studio is rendered inside it,
+          so the extra top strip has been removed entirely. Section name is shown
+          on the subject header below. */}
       <div className="rd-cols">
         {/* LEFT — focus list */}
         <aside className="rd-col-left">

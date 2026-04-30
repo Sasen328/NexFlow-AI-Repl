@@ -51,7 +51,9 @@ const IMPACT_COLOR: Record<string, string> = { High: "#C8A880", Medium: "#B8A0C8
 
 export default function LeadsPipelinePage() {
   const [mode, setMode] = useState<Mode>("deals");
-  const [showGap, setShowGap] = useState(true);
+  // Gap Analysis is opt-in (was on by default and dominated the view —
+  // users wanted to land on the actual pipeline, not the AI commentary).
+  const [showGap, setShowGap] = useState(false);
 
   return (
     <div className="space-y-4">
