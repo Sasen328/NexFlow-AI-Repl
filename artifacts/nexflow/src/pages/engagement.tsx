@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Activity, Phone, Calendar, Sparkles, Mic, ArrowRight, Mail, MessageSquare, Headphones } from "lucide-react";
+import { Activity, Phone, Calendar, Sparkles, Mic, ArrowRight, Mail, MessageSquare, Headphones, CheckCircle2, Clock, XCircle, Tag } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import ActivitiesPage from "@/pages/activities";
@@ -12,6 +12,13 @@ const TABS: { key: Tab; label: string; icon: any; color: string }[] = [
   { key: "all",      label: "All Activities", icon: Activity, color: "#B8A0C8" },
   { key: "calls",    label: "Calls",          icon: Phone,    color: "#88B8B0" },
   { key: "meetings", label: "Meetings",       icon: Calendar, color: "#C8A880" },
+];
+
+const RESOLUTION_HIGHLIGHTS = [
+  { contact: "Faisal Al-Mutairi", company: "SABIC",      type: "Call",    resolution: "Meeting Booked",  outcome: "Positive", color: "#88B8B0",  icon: CheckCircle2, ago: "2h ago" },
+  { contact: "Nora Al-Faisal",    company: "NCB Capital", type: "Call",    resolution: "No Answer",       outcome: "Follow-up", color: "#C8A880", icon: Clock,        ago: "4h ago" },
+  { contact: "Omar Al-Qahtani",   company: "STC Group",  type: "Meeting", resolution: "Demo Completed",  outcome: "Positive", color: "#B8A0C8",  icon: CheckCircle2, ago: "Yesterday" },
+  { contact: "Aisha Mohammed",    company: "Aramco",     type: "Call",    resolution: "Not Interested",  outcome: "Closed",   color: "#C0A0B8",  icon: XCircle,      ago: "Yesterday" },
 ];
 
 /**
@@ -59,6 +66,36 @@ export default function EngagementPage() {
               <Mic className="w-3 h-3" /> Conversation Intel <ArrowRight className="w-3 h-3" />
             </button>
           </Link>
+        </div>
+      </div>
+
+      {/* Resolution status — recent engagements with outcome tagging */}
+      <div className="glass-card rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <Tag className="w-4 h-4 text-[#B8A0C8]" />
+          <h2 className="font-semibold text-foreground text-sm">Recent Engagement Resolution</h2>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-[#B8A0C8]/10 text-[#B8A0C8]">Last 48h</span>
+        </div>
+        <div className="space-y-2">
+          {RESOLUTION_HIGHLIGHTS.map((r, i) => (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/30 cursor-pointer transition-colors">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${r.color}15` }}>
+                <r.icon className="w-4 h-4" style={{ color: r.color }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-foreground">{r.contact} <span className="font-normal text-muted-foreground">· {r.company}</span></div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-muted/40 text-muted-foreground">{r.type}</span>
+                  <span className="text-[10px] font-semibold" style={{ color: r.color }}>{r.resolution}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: `${r.color}15`, color: r.color }}>{r.outcome}</span>
+                <span className="text-[10px] text-muted-foreground">{r.ago}</span>
+                <ArrowRight className="w-3 h-3 text-muted-foreground" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

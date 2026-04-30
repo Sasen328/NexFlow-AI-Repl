@@ -89,6 +89,7 @@ import EnrichmentEnginePage from "@/pages/enrichment-engine";
 import MarketingAssistantPage from "@/pages/marketing-assistant";
 import MarketingDashboardPage from "@/pages/marketing-dashboard";
 import CampaignBuilderPage from "@/pages/campaign-builder";
+import EmailGeneratorPage from "@/pages/email-generator";
 import SequencesAudiencesPage from "@/pages/sequences-audiences";
 import CampaignPerformancePage from "@/pages/campaign-performance";
 import PowerDialerPage from "@/pages/power-dialer";
@@ -233,6 +234,7 @@ function AppLayout() {
           {/* New Marketing tab structure (overhaul) */}
           <Route path="/marketing-dashboard" component={MarketingDashboardPage} />
           <Route path="/campaign-builder" component={CampaignBuilderPage} />
+          <Route path="/email-generator" component={EmailGeneratorPage} />
           <Route path="/sequences-audiences" component={SequencesAudiencesPage} />
           <Route path="/campaign-performance" component={CampaignPerformancePage} />
           <Route path="/power-dialer" component={PowerDialerPage} />
