@@ -1,371 +1,497 @@
-import { useState } from "react";
+/**
+ * Command Center — first tab in the CRM.
+ *
+ *   Tab 1 "Live Scorecards"  — recently contacted people with mini scorecards
+ *                              and per-row action buttons that PUSH a command
+ *                              into that contact (call note, WhatsApp, email,
+ *                              follow-up, AI voice call).
+ *   Tab 2 "Quick Actions"    — search by name OR phone number to find a
+ *                              contact, then push any command into them.
+ */
+
+import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  Phone, MessageSquare, Mail, Calendar, Mic, Brain, ListTodo, BarChart3,
-  Sparkles, Bot, Send, Loader2, CheckCircle2, Zap, Plus, Clock,
-  Users, Target, TrendingUp, Layers, ChevronRight, RefreshCw,
-  CalendarPlus, LayoutGrid, StickyNote, Activity,
+  Phone, MessageSquare, Mail, Mic, Sparkles, Bot, Send, Loader2, CheckCircle2,
+  Users, TrendingUp, Layers, ChevronRight, CalendarPlus, LayoutGrid, StickyNote,
+  Activity, Search, X, Zap, Target, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch, useActivities, useContacts } from "@/hooks/useApi";
 import { useQueryClient } from "@tanstack/react-query";
 
-// ─── types ─────────────────────────────────────────────────────────────────
-
-type ActionKey =
-  | "log-call" | "log-note" | "whatsapp" | "email"
-  | "follow-up" | "voice-call" | "generate-list" | "scoring-gaps";
+// ─── Types ──────────────────────────────────────────────────────────────
+type ActionKey = "log-call" | "log-note" | "whatsapp" | "email" | "follow-up" | "voice-call";
 
 interface Action {
   key: ActionKey;
   label: string;
-  sub: string;
+  short: string;
   icon: React.ElementType;
   color: string;
+  logType: string;
   href?: string;
-  logType?: string;
 }
 
 const ACTIONS: Action[] = [
-  { key: "log-call",       label: "Log Call Note",        sub: "Capture post-call summary → pushed to lead",        icon: Phone,        color: "#88B8B0", logType: "call"    },
-  { key: "log-note",       label: "Log Meeting / Note",   sub: "Meeting notes · follow-up context → lead timeline", icon: StickyNote,   color: "#B8B880", logType: "note"    },
-  { key: "whatsapp",       label: "AI Text (WhatsApp)",   sub: "AI-drafted Khaleeji-tone message → inbox + lead",   icon: MessageSquare,color: "#90B8B8", logType: "whatsapp"},
-  { key: "email",          label: "Send Email",           sub: "AI email draft → linked to contact",                icon: Mail,         color: "#B8A0C8", logType: "email"   },
-  { key: "follow-up",      label: "Schedule Follow-up",   sub: "AI picks best time · calendar invite created",      icon: CalendarPlus, color: "#C8A880", logType: "meeting" },
-  { key: "voice-call",     label: "AI Voice Call",        sub: "Queue an automated AI call session",                icon: Mic,          color: "#88B8B0", href: "/voice-agents" },
-  { key: "generate-list",  label: "Generate Lead List",   sub: "Build a targeted prospect list from AI criteria",   icon: ListTodo,     color: "#C0A0B8", href: "/lists"       },
-  { key: "scoring-gaps",   label: "Scoring & Gaps",       sub: "AI rescore pipeline · identify stuck deals",        icon: BarChart3,    color: "#B8B880", href: "/deal-pipeline"},
+  { key: "log-call",   label: "Log Call",       short: "Call",     icon: Phone,        color: "#88B8B0", logType: "call"     },
+  { key: "log-note",   label: "Log Meeting",    short: "Note",     icon: StickyNote,   color: "#B8B880", logType: "note"     },
+  { key: "whatsapp",   label: "AI WhatsApp",    short: "WhatsApp", icon: MessageSquare,color: "#90B8B8", logType: "whatsapp" },
+  { key: "email",      label: "Email Draft",    short: "Email",    icon: Mail,         color: "#B8A0C8", logType: "email"    },
+  { key: "follow-up",  label: "Follow-up",      short: "Follow",   icon: CalendarPlus, color: "#C8A880", logType: "meeting"  },
+  { key: "voice-call", label: "AI Voice Call",  short: "Voice",    icon: Mic,          color: "#A090C8", logType: "call",    href: "/voice-agents" },
 ];
 
-// ─── QuickActions ───────────────────────────────────────────────────────────
+// ─── Push a command into a contact (logs activity tied to the contact) ──
+async function pushAction(action: Action, contactId: string | null, body?: { title?: string; body?: string }) {
+  await apiFetch("/activities", {
+    method: "POST",
+    body: JSON.stringify({
+      type: action.logType,
+      title: body?.title?.trim() || action.label,
+      body: body?.body?.trim() || null,
+      status: "completed",
+      completed_at: new Date().toISOString(),
+      contact_id: contactId,
+      metadata: { source: "command_center", action: action.key },
+    }),
+  });
+}
 
-function QuickActions({ navigate }: { navigate: (to: string) => void }) {
-  const qc = useQueryClient();
-  const [busy, setBusy] = useState<ActionKey | null>(null);
-  const [done, setDone] = useState<Set<ActionKey>>(new Set());
-  const [logOpen, setLogOpen] = useState<ActionKey | null>(null);
-  const [logTitle, setLogTitle] = useState("");
-  const [logBody, setLogBody] = useState("");
-
-  async function execute(a: Action) {
-    if (a.href) { navigate(a.href); return; }
-    if (done.has(a.key) || busy) return;
-    if (!logTitle.trim() && !logBody.trim()) {
-      setLogOpen(a.key);
-      return;
-    }
-    setBusy(a.key);
-    try {
-      await apiFetch("/activities", {
-        method: "POST",
-        body: JSON.stringify({
-          type: a.logType ?? "note",
-          title: logTitle.trim() || a.label,
-          body: logBody.trim() || null,
-          status: "completed",
-          completed_at: new Date().toISOString(),
-          metadata: { source: "command_center", action: a.key },
-        }),
-      });
-      await qc.invalidateQueries({ queryKey: ["activities"] });
-      setDone((s) => new Set([...s, a.key]));
-      setLogTitle(""); setLogBody(""); setLogOpen(null);
-    } catch { /* silent */ } finally { setBusy(null); }
-  }
+// ─── A single per-contact scorecard with inline action buttons ──────────
+function ContactScorecard({ contact, onPush, navigate }: {
+  contact: any;
+  onPush: (a: Action, c: any) => void;
+  navigate: (to: string) => void;
+}) {
+  const score = Number(contact.score ?? 0);
+  const scoreColor = score >= 80 ? "#88B8B0" : score >= 50 ? "#C8A880" : "#B8A0C8";
+  const initials = `${(contact.first_name?.[0] ?? "?")}${(contact.last_name?.[0] ?? "")}`.toUpperCase();
+  const fullName = `${contact.first_name ?? ""} ${contact.last_name ?? ""}`.trim() || "—";
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {ACTIONS.map((a) => {
+    <div className="glass-card rounded-2xl p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-start gap-3 mb-3">
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-white flex-shrink-0"
+          style={{ background: `linear-gradient(135deg, ${scoreColor}, ${scoreColor}cc)` }}>
+          {initials}
+        </div>
+        <div className="flex-1 min-w-0">
+          <Link href={`/contacts/${contact.id}`}>
+            <button className="text-left">
+              <div className="font-bold text-foreground text-sm truncate hover:underline">{fullName}</div>
+              <div className="text-[11px] text-muted-foreground truncate">
+                {contact.title ?? "—"}{contact.company_name ? ` · ${contact.company_name}` : ""}
+              </div>
+            </button>
+          </Link>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <div className="text-xl font-black" style={{ color: scoreColor }}>{score}</div>
+          <div className="text-[9px] text-muted-foreground uppercase tracking-wider">score</div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 mb-3 text-[10px] text-muted-foreground flex-wrap">
+        {contact.email && <span className="px-1.5 py-0.5 rounded bg-muted/50 truncate max-w-[140px]" title={contact.email}>{contact.email}</span>}
+        {contact.phone && <span className="px-1.5 py-0.5 rounded bg-muted/50">{contact.phone}</span>}
+        {contact.country && <span className="px-1.5 py-0.5 rounded bg-muted/50">{contact.country}</span>}
+      </div>
+
+      <div className="grid grid-cols-3 gap-1.5">
+        {ACTIONS.map(a => {
           const Icon = a.icon;
-          const isDone = done.has(a.key);
-          const isBusy = busy === a.key;
           return (
             <button
               key={a.key}
-              onClick={() => execute(a)}
-              className={cn(
-                "group relative flex flex-col items-start gap-2 p-4 rounded-2xl border text-left transition-all hover:shadow-md",
-                isDone
-                  ? "border-[#88B8B0]/40 bg-[#88B8B0]/8"
-                  : "border-border/50 bg-muted/20 hover:border-[var(--ac)] hover:bg-[var(--ac)]/8"
-              )}
+              onClick={() => a.href ? navigate(a.href) : onPush(a, contact)}
+              className="flex flex-col items-center gap-1 p-2 rounded-lg border border-border/30 hover:border-[var(--ac)] hover:bg-[var(--ac)]/8 transition-colors"
               style={{ "--ac": a.color } as any}
+              title={a.label}
             >
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: `${a.color}20` }}>
-                {isBusy
-                  ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: a.color }} />
-                  : isDone
-                  ? <CheckCircle2 className="w-4 h-4 text-[#88B8B0]" />
-                  : <Icon className="w-4 h-4" style={{ color: a.color }} />}
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-bold text-foreground leading-tight">{a.label}</div>
-                <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{a.sub}</div>
-              </div>
-              {!a.href && !isDone && (
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Plus className="w-3 h-3 text-muted-foreground" />
-                </div>
-              )}
+              <Icon className="w-3.5 h-3.5" style={{ color: a.color }} />
+              <span className="text-[9px] font-semibold text-foreground">{a.short}</span>
             </button>
           );
         })}
       </div>
-
-      {logOpen && (
-        <div className="glass-card rounded-2xl p-4 border border-[#88B8B0]/30 space-y-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#88B8B0]" />
-            <span className="text-sm font-semibold text-foreground">
-              {ACTIONS.find(a => a.key === logOpen)?.label}
-            </span>
-            <button onClick={() => { setLogOpen(null); setLogTitle(""); setLogBody(""); }}
-              className="ml-auto text-xs text-muted-foreground hover:text-foreground">Cancel</button>
-          </div>
-          <input
-            autoFocus
-            value={logTitle}
-            onChange={e => setLogTitle(e.target.value)}
-            placeholder="Title / subject (optional)"
-            className="w-full rounded-xl border border-border/40 bg-muted/30 px-3 py-2 text-sm outline-none focus:border-[#88B8B0]/60"
-          />
-          <textarea
-            rows={3}
-            value={logBody}
-            onChange={e => setLogBody(e.target.value)}
-            placeholder="Notes, summary, transcript — paste anything here…"
-            className="w-full rounded-xl border border-border/40 bg-muted/30 px-3 py-2 text-sm outline-none focus:border-[#88B8B0]/60 resize-none"
-          />
-          <button
-            onClick={() => execute(ACTIONS.find(a => a.key === logOpen)!)}
-            disabled={busy != null || (!logTitle.trim() && !logBody.trim())}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold disabled:opacity-50"
-          >
-            {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-            Push to system
-          </button>
-        </div>
-      )}
     </div>
   );
 }
 
-// ─── AI Assistant Panel ─────────────────────────────────────────────────────
-
-type AiMode = "command" | "leads" | "tasks";
-
-function AIPanel() {
-  const [mode, setMode] = useState<AiMode>("command");
-  const [input, setInput] = useState("");
+// ─── Tab 1: Live Scorecards of contacted people ─────────────────────────
+function ScorecardsTab({ navigate }: { navigate: (to: string) => void }) {
+  const qc = useQueryClient();
+  const { data: actData } = useActivities({ limit: "50" });
+  const { data: contactData, isLoading } = useContacts({ limit: "100", sort: "-score" });
+  const [pushed, setPushed] = useState<string | null>(null);
+  const [pushModal, setPushModal] = useState<{ action: Action; contact: any } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [reply, setReply] = useState<{ reply: string; suggestedTasks?: { label: string; priority: string; eta: string }[] } | null>(null);
+  const [logTitle, setLogTitle] = useState("");
+  const [logBody, setLogBody] = useState("");
 
-  const MODES: { k: AiMode; label: string; icon: React.ElementType; placeholder: string }[] = [
-    { k: "command", label: "Command",      icon: LayoutGrid, placeholder: "What should I focus on today? Who should I call next?" },
-    { k: "leads",   label: "Lead Finder",  icon: Target,     placeholder: "Find 10 CFOs in Saudi Arabia fintech with headcount 50–200…" },
-    { k: "tasks",   label: "Task Planner", icon: CheckCircle2,placeholder: "Plan my morning: 3 calls, 2 emails, pipeline review…" },
-  ];
+  // "Recently contacted" = unique contact IDs from the most recent activities,
+  // joined with the live contact records to draw scorecards.
+  const recentContactIds = useMemo(() => {
+    const acts = actData?.activities ?? [];
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    for (const a of acts) {
+      const cid = a.contact_id;
+      if (cid && !seen.has(cid)) { seen.add(cid); ids.push(cid); }
+      if (ids.length >= 12) break;
+    }
+    return ids;
+  }, [actData]);
 
-  async function send() {
-    if (!input.trim() || busy) return;
+  const allContacts = contactData?.contacts ?? [];
+  const recentContacts = useMemo(() => {
+    if (recentContactIds.length === 0) return allContacts.slice(0, 8);
+    const byId = new Map(allContacts.map((c: any) => [c.id, c]));
+    return recentContactIds.map(id => byId.get(id)).filter(Boolean) as any[];
+  }, [recentContactIds, allContacts]);
+
+  async function handlePush(action: Action, contact: any) {
+    setPushModal({ action, contact });
+    setLogTitle("");
+    setLogBody("");
+  }
+
+  async function confirmPush() {
+    if (!pushModal) return;
     setBusy(true);
     try {
-      const data = await apiFetch("/briefing/chat", {
-        method: "POST",
-        body: JSON.stringify({ mode, message: input.trim() }),
-      }) as any;
-      setReply(data);
-    } catch {
-      setReply({
-        reply: "I've analyzed your pipeline and recommend: 1) Call Gulf Ventures today — deal is stalling at negotiation. 2) Send Aramco proposal follow-up. 3) Review 3 forgotten leads flagged by AI.",
-        suggestedTasks: [
-          { label: "Call Gulf Ventures — Khalid", priority: "P1", eta: "20m" },
-          { label: "Send Aramco proposal v2", priority: "P1", eta: "15m" },
-          { label: "Re-engage 3 forgotten leads", priority: "P2", eta: "30m" },
-        ],
-      });
-    } finally { setBusy(false); }
+      await pushAction(pushModal.action, pushModal.contact.id, { title: logTitle, body: logBody });
+      await qc.invalidateQueries({ queryKey: ["activities"] });
+      setPushed(`${pushModal.contact.id}-${pushModal.action.key}`);
+      setTimeout(() => setPushed(null), 2000);
+      setPushModal(null);
+    } catch { /* swallow */ } finally {
+      setBusy(false);
+    }
   }
 
-  async function publishTasks() {
-    if (!reply?.suggestedTasks?.length) return;
-    try {
-      await apiFetch("/briefing/publish-checklist", {
-        method: "POST",
-        body: JSON.stringify({ tasks: reply.suggestedTasks }),
-      });
-    } catch { /* non-fatal */ }
-  }
-
-  const placeholder = MODES.find(m => m.k === mode)?.placeholder ?? "";
-
   return (
-    <div className="glass-card rounded-2xl p-5 space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl nf-chameleon-bg flex items-center justify-center shadow-sm">
-          <Bot className="w-4 h-4 text-white" />
-        </div>
-        <div>
-          <h3 className="text-sm font-bold text-foreground">AI Command Brain</h3>
-          <p className="text-[11px] text-muted-foreground">Ask anything · generate lists · plan your day</p>
-        </div>
-        <div className="ml-auto flex gap-1">
-          {MODES.map(m => {
-            const Icon = m.icon;
-            return (
-              <button
-                key={m.k}
-                onClick={() => setMode(m.k)}
-                className={cn(
-                  "flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all",
-                  mode === m.k ? "nf-chameleon-bg text-white" : "bg-muted/40 text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Icon className="w-3 h-3" />
-                {m.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="flex gap-2">
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && send()}
-          placeholder={placeholder}
-          className="flex-1 rounded-xl border border-border/40 bg-muted/30 px-3 py-2.5 text-sm outline-none focus:border-[#B8A0C8]/60"
-        />
-        <button
-          onClick={send}
-          disabled={busy || !input.trim()}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl nf-chameleon-bg text-white text-sm font-semibold disabled:opacity-50 transition-opacity"
-        >
-          {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-        </button>
-      </div>
-
-      {reply && (
-        <div className="rounded-xl border border-border/30 bg-muted/20 p-4 space-y-3">
-          <p className="text-sm text-foreground/90 leading-relaxed">{reply.reply}</p>
-          {reply.suggestedTasks && reply.suggestedTasks.length > 0 && (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Suggested tasks · {reply.suggestedTasks.length}
-                </span>
-                <button
-                  onClick={publishTasks}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#88B8B0]/15 text-[#88B8B0] text-[11px] font-semibold hover:bg-[#88B8B0]/25 transition-colors"
-                >
-                  <Zap className="w-3 h-3" /> Publish to To-Do
-                </button>
-              </div>
-              {reply.suggestedTasks.map((t, i) => (
-                <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/40 border border-border/30 text-xs">
-                  <span className={cn(
-                    "text-[10px] font-bold px-1.5 py-0.5 rounded",
-                    t.priority === "P1" ? "bg-red-100 text-red-600" : t.priority === "P2" ? "bg-amber-100 text-amber-700" : "bg-muted text-muted-foreground"
-                  )}>{t.priority}</span>
-                  <span className="flex-1">{t.label}</span>
-                  <span className="text-muted-foreground">{t.eta}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Recent Activity Feed ───────────────────────────────────────────────────
-
-function RecentFeed() {
-  const { data } = useActivities({ limit: "8" });
-  const activities = data?.activities ?? [];
-
-  const iconFor = (type: string) => {
-    if (type === "call") return Phone;
-    if (type === "meeting") return Calendar;
-    if (type === "whatsapp") return MessageSquare;
-    if (type === "email") return Mail;
-    return Activity;
-  };
-  const colorFor = (type: string) => {
-    if (type === "call") return "#88B8B0";
-    if (type === "meeting") return "#C8A880";
-    if (type === "whatsapp") return "#90B8B8";
-    if (type === "email") return "#B8A0C8";
-    return "#B8B880";
-  };
-
-  return (
-    <div className="glass-card rounded-2xl p-5 space-y-4">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-          <Activity className="w-4 h-4 text-muted-foreground" />
-          Recent Activity
-        </h3>
-        <Link href="/activities">
+        <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+          <BarChart3 className="w-3.5 h-3.5" />
+          Live scorecards · {recentContacts.length} recently contacted
+        </h2>
+        <Link href="/contacts">
           <button className="text-[11px] text-[#88B8B0] font-semibold hover:underline flex items-center gap-1">
-            View all <ChevronRight className="w-3 h-3" />
+            All contacts <ChevronRight className="w-3 h-3" />
           </button>
         </Link>
       </div>
 
-      {activities.length === 0 ? (
-        <div className="py-8 text-center text-sm text-muted-foreground">
-          <StickyNote className="w-8 h-8 mx-auto mb-2 opacity-40" />
-          <p>No activity yet — push your first action above</p>
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array(6).fill(0).map((_, i) => <div key={i} className="glass-card rounded-2xl h-44 animate-pulse" />)}
+        </div>
+      ) : recentContacts.length === 0 ? (
+        <div className="glass-card rounded-2xl p-10 text-center">
+          <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-50" />
+          <p className="text-sm text-muted-foreground">No contacts yet — add one to start pushing actions.</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {activities.slice(0, 6).map((a: any) => {
-            const Icon = iconFor(a.type);
-            const color = colorFor(a.type);
-            const ts = a.created_at ? new Date(a.created_at) : null;
-            const relTime = ts ? (() => {
-              const diff = Date.now() - ts.getTime();
-              if (diff < 60000) return "just now";
-              if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-              if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-              return `${Math.floor(diff / 86400000)}d ago`;
-            })() : "";
-
-            return (
-              <div key={a.id} className="flex items-start gap-3 p-2.5 rounded-xl bg-muted/20 hover:bg-muted/40 transition-colors">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${color}20` }}>
-                  <Icon className="w-3.5 h-3.5" style={{ color }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-semibold text-foreground truncate">{a.title}</div>
-                  {a.body && <div className="text-[10px] text-muted-foreground truncate mt-0.5">{a.body}</div>}
-                </div>
-                <div className="text-[10px] text-muted-foreground flex-shrink-0">{relTime}</div>
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {recentContacts.map((c: any) => <ContactScorecard key={c.id} contact={c} onPush={handlePush} navigate={navigate} />)}
         </div>
+      )}
+
+      {pushed && (
+        <div className="fixed bottom-6 right-6 glass-card rounded-xl px-4 py-3 flex items-center gap-2 shadow-xl border border-[#88B8B0]/40 z-40">
+          <CheckCircle2 className="w-4 h-4 text-[#88B8B0]" />
+          <span className="text-sm font-semibold text-foreground">Action pushed to contact</span>
+        </div>
+      )}
+
+      {pushModal && (
+        <PushActionModal
+          action={pushModal.action}
+          contact={pushModal.contact}
+          title={logTitle}
+          body={logBody}
+          busy={busy}
+          onTitle={setLogTitle}
+          onBody={setLogBody}
+          onClose={() => setPushModal(null)}
+          onSubmit={confirmPush}
+        />
       )}
     </div>
   );
 }
 
-// ─── Stats strip ────────────────────────────────────────────────────────────
+// ─── Tab 2: Quick Actions — search by name or phone, then push ──────────
+function QuickActionsTab() {
+  const qc = useQueryClient();
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<any | null>(null);
+  const [pushModal, setPushModal] = useState<Action | null>(null);
+  const [logTitle, setLogTitle] = useState("");
+  const [logBody, setLogBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [pushed, setPushed] = useState<string | null>(null);
+  const { data, isLoading } = useContacts({ limit: "200" });
+  const all = data?.contacts ?? [];
 
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [] as any[];
+    const isPhone = /[0-9+()\-\s]/.test(q) && q.replace(/[^0-9]/g, "").length >= 4;
+    const numericQ = q.replace(/[^0-9]/g, "");
+    return all.filter((c: any) => {
+      if (isPhone && c.phone) {
+        const phone = String(c.phone).replace(/[^0-9]/g, "");
+        if (phone.includes(numericQ)) return true;
+      }
+      const name = `${c.first_name ?? ""} ${c.last_name ?? ""}`.toLowerCase();
+      if (name.includes(q)) return true;
+      if (c.email && c.email.toLowerCase().includes(q)) return true;
+      if (c.company_name && c.company_name.toLowerCase().includes(q)) return true;
+      return false;
+    }).slice(0, 8);
+  }, [query, all]);
+
+  async function handlePush(a: Action) {
+    if (!selected) return;
+    if (a.href) {
+      window.location.href = a.href;
+      return;
+    }
+    setPushModal(a);
+    setLogTitle("");
+    setLogBody("");
+  }
+
+  async function confirmPush() {
+    if (!pushModal || !selected) return;
+    setBusy(true);
+    try {
+      await pushAction(pushModal, selected.id, { title: logTitle, body: logBody });
+      await qc.invalidateQueries({ queryKey: ["activities"] });
+      setPushed(pushModal.label);
+      setTimeout(() => setPushed(null), 2000);
+      setPushModal(null);
+    } catch { /* swallow */ } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Search */}
+      <div className="glass-card rounded-2xl p-4 space-y-3">
+        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+          <Search className="w-3.5 h-3.5" />
+          Find a contact — type a name or phone number
+        </label>
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={query}
+            onChange={e => { setQuery(e.target.value); setSelected(null); }}
+            placeholder="e.g. Sara Al-Mansouri  ·  +966 50 123 4567  ·  ahmed@…"
+            className="w-full pl-10 pr-10 py-3 rounded-xl border border-border/40 bg-muted/30 text-sm outline-none focus:border-[#88B8B0]/60"
+            autoFocus
+          />
+          {query && (
+            <button
+              onClick={() => { setQuery(""); setSelected(null); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {query && !selected && (
+          <div className="rounded-xl border border-border/30 bg-muted/20 max-h-72 overflow-y-auto">
+            {isLoading ? (
+              <div className="p-3 text-xs text-muted-foreground">Loading contacts…</div>
+            ) : matches.length === 0 ? (
+              <div className="p-4 text-center text-xs text-muted-foreground">
+                No matches. Try a different name or phone digits.
+              </div>
+            ) : (
+              matches.map((c: any) => {
+                const score = Number(c.score ?? 0);
+                const sc = score >= 80 ? "#88B8B0" : score >= 50 ? "#C8A880" : "#B8A0C8";
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelected(c)}
+                    className="w-full text-left flex items-center gap-3 px-3 py-2.5 hover:bg-muted/40 border-b border-border/20 last:border-0 transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-xs" style={{ background: sc }}>
+                      {(c.first_name?.[0] ?? "?")}{(c.last_name?.[0] ?? "")}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-foreground truncate">
+                        {c.first_name} {c.last_name}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground truncate">
+                        {c.title ?? "—"}{c.company_name ? ` · ${c.company_name}` : ""}{c.phone ? ` · ${c.phone}` : ""}
+                      </div>
+                    </div>
+                    <div className="text-xs font-black" style={{ color: sc }}>{score}</div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Selected contact + actions */}
+      {selected && (
+        <div className="glass-card rounded-2xl p-5 space-y-4 border border-[#88B8B0]/30">
+          <div className="flex items-start gap-3">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-white text-base"
+              style={{ background: "linear-gradient(135deg, #88B8B0, #B8A0C8)" }}>
+              {(selected.first_name?.[0] ?? "?")}{(selected.last_name?.[0] ?? "")}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-foreground">{selected.first_name} {selected.last_name}</div>
+              <div className="text-xs text-muted-foreground">
+                {selected.title ?? "—"}{selected.company_name ? ` · ${selected.company_name}` : ""}
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap gap-2">
+                {selected.email && <span>{selected.email}</span>}
+                {selected.phone && <span>· {selected.phone}</span>}
+                {selected.country && <span>· {selected.country}</span>}
+              </div>
+            </div>
+            <Link href={`/contacts/${selected.id}`}>
+              <button className="text-[11px] text-[#88B8B0] font-semibold hover:underline">Open profile</button>
+            </Link>
+            <button onClick={() => { setSelected(null); setQuery(""); }} className="text-muted-foreground hover:text-foreground">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {ACTIONS.map(a => {
+              const Icon = a.icon;
+              return (
+                <button
+                  key={a.key}
+                  onClick={() => handlePush(a)}
+                  className="group flex flex-col items-start gap-1.5 p-3 rounded-xl border border-border/40 hover:border-[var(--ac)] hover:bg-[var(--ac)]/8 transition-colors text-left"
+                  style={{ "--ac": a.color } as any}
+                >
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${a.color}20` }}>
+                    <Icon className="w-4 h-4" style={{ color: a.color }} />
+                  </div>
+                  <div className="text-xs font-bold text-foreground">{a.label}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {!selected && !query && (
+        <div className="glass-card rounded-2xl p-8 text-center">
+          <Search className="w-8 h-8 text-muted-foreground mx-auto mb-3 opacity-40" />
+          <p className="text-sm text-muted-foreground">
+            Search above by name or phone to push any action into a contact's timeline.
+          </p>
+        </div>
+      )}
+
+      {pushed && (
+        <div className="fixed bottom-6 right-6 glass-card rounded-xl px-4 py-3 flex items-center gap-2 shadow-xl border border-[#88B8B0]/40 z-40">
+          <CheckCircle2 className="w-4 h-4 text-[#88B8B0]" />
+          <span className="text-sm font-semibold text-foreground">{pushed} pushed</span>
+        </div>
+      )}
+
+      {pushModal && selected && (
+        <PushActionModal
+          action={pushModal}
+          contact={selected}
+          title={logTitle}
+          body={logBody}
+          busy={busy}
+          onTitle={setLogTitle}
+          onBody={setLogBody}
+          onClose={() => setPushModal(null)}
+          onSubmit={confirmPush}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Push-action modal (shared by both tabs) ─────────────────────────────
+function PushActionModal({ action, contact, title, body, busy, onTitle, onBody, onClose, onSubmit }: {
+  action: Action;
+  contact: any;
+  title: string;
+  body: string;
+  busy: boolean;
+  onTitle: (v: string) => void;
+  onBody: (v: string) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  const Icon = action.icon;
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="glass-card rounded-2xl p-5 w-full max-w-md space-y-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${action.color}20` }}>
+            <Icon className="w-5 h-5" style={{ color: action.color }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-foreground">{action.label}</div>
+            <div className="text-xs text-muted-foreground truncate">→ {contact.first_name} {contact.last_name}</div>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+        </div>
+        <input
+          autoFocus
+          value={title}
+          onChange={e => onTitle(e.target.value)}
+          placeholder="Title / subject (optional)"
+          className="w-full rounded-xl border border-border/40 bg-muted/30 px-3 py-2 text-sm outline-none focus:border-[#88B8B0]/60"
+        />
+        <textarea
+          rows={4}
+          value={body}
+          onChange={e => onBody(e.target.value)}
+          placeholder="Notes, summary, talking points — paste anything…"
+          className="w-full rounded-xl border border-border/40 bg-muted/30 px-3 py-2 text-sm outline-none focus:border-[#88B8B0]/60 resize-none"
+        />
+        <div className="flex gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted">Cancel</button>
+          <button
+            onClick={onSubmit}
+            disabled={busy}
+            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            Push to {contact.first_name}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Stats strip (kept from previous version) ───────────────────────────
 function StatsStrip() {
   const { data: contactsData } = useContacts({ limit: "1" });
   return (
-    <div className="grid grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {[
-        { label: "Contacts",     value: contactsData?.total ?? "—", icon: Users,      color: "#88B8B0", href: "/contacts"      },
-        { label: "Active Deals", value: "19",                        icon: TrendingUp, color: "#B8B880", href: "/deal-pipeline" },
-        { label: "Open Tasks",   value: "12",                        icon: CheckCircle2,color: "#C8A880",href: "/home"          },
-        { label: "Signals",      value: "34",                        icon: Zap,        color: "#B8A0C8", href: "/enrichment-engine?tab=signals" },
+        { label: "Contacts",     value: contactsData?.total ?? "—", icon: Users,        color: "#88B8B0", href: "/contacts" },
+        { label: "Active Deals", value: "19",                       icon: TrendingUp,   color: "#B8B880", href: "/deal-pipeline" },
+        { label: "Open Tasks",   value: "12",                       icon: CheckCircle2, color: "#C8A880", href: "/home" },
+        { label: "Signals",      value: "34",                       icon: Zap,          color: "#B8A0C8", href: "/enrichment-engine?tab=signals" },
       ].map(s => {
         const Icon = s.icon;
         return (
@@ -376,9 +502,6 @@ function StatsStrip() {
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{s.label}</span>
               </div>
               <div className="text-2xl font-black" style={{ color: s.color }}>{s.value}</div>
-              <div className="text-[10px] text-muted-foreground group-hover:text-foreground transition-colors mt-0.5 flex items-center gap-0.5">
-                View <ChevronRight className="w-3 h-3" />
-              </div>
             </div>
           </Link>
         );
@@ -387,10 +510,12 @@ function StatsStrip() {
   );
 }
 
-// ─── Page ───────────────────────────────────────────────────────────────────
+// ─── Page ───────────────────────────────────────────────────────────────
+type Tab = "scorecards" | "quick";
 
 export default function CommandCenterPage() {
   const [, navigate] = useLocation();
+  const [tab, setTab] = useState<Tab>("scorecards");
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -402,20 +527,20 @@ export default function CommandCenterPage() {
           <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full blur-3xl opacity-20" style={{ background: "radial-gradient(circle, #88B8B0, transparent)" }} />
         </div>
         <div className="relative flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-10 h-10 rounded-xl nf-chameleon-bg flex items-center justify-center shadow-md">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-black text-foreground">Command Center</h1>
-                <p className="text-xs text-muted-foreground">Push actions · generate lists · log engagement · run automations</p>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl nf-chameleon-bg flex items-center justify-center shadow-md">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-foreground">Command Center</h1>
+              <p className="text-xs text-muted-foreground">
+                Live scorecards of contacted people · push actions to any contact
+              </p>
             </div>
           </div>
-          <Link href="/home">
+          <Link href="/assistant">
             <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-muted/60 text-muted-foreground text-xs font-medium hover:text-foreground transition-colors">
-              <LayoutGrid className="w-3.5 h-3.5" /> Daily Briefing
+              <Bot className="w-3.5 h-3.5" /> Ask AI
             </button>
           </Link>
         </div>
@@ -424,24 +549,28 @@ export default function CommandCenterPage() {
       {/* Stats */}
       <StatsStrip />
 
-      {/* Quick Actions */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-          <Layers className="w-3.5 h-3.5" /> Quick Actions
-          <span className="text-[10px] normal-case font-normal">— click to log instantly · fill the form to add detail</span>
-        </h2>
-        <QuickActions navigate={navigate} />
+      {/* Sub-tabs */}
+      <div className="flex gap-1 p-1 rounded-xl bg-muted/40 w-fit">
+        {[
+          { k: "scorecards" as Tab, label: "Live Scorecards", icon: BarChart3 },
+          { k: "quick"      as Tab, label: "Quick Actions",   icon: Search },
+        ].map(t => {
+          const Icon = t.icon;
+          return (
+            <button key={t.k} onClick={() => setTab(t.k)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all",
+                tab === t.k ? "nf-chameleon-bg text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}>
+              <Icon className="w-3.5 h-3.5" />
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* 2-col: AI + Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        <div className="lg:col-span-3">
-          <AIPanel />
-        </div>
-        <div className="lg:col-span-2">
-          <RecentFeed />
-        </div>
-      </div>
+      {tab === "scorecards" && <ScorecardsTab navigate={navigate} />}
+      {tab === "quick" && <QuickActionsTab />}
 
       {/* Shortcuts */}
       <div className="space-y-3">
@@ -450,10 +579,10 @@ export default function CommandCenterPage() {
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "People",         href: "/contacts",                   icon: Users,       color: "#88B8B0" },
-            { label: "Deals",          href: "/deal-pipeline",              icon: TrendingUp,  color: "#B8B880" },
-            { label: "Sequences",      href: "/sequences-audiences",        icon: Layers,      color: "#C8A880" },
-            { label: "Lead Finder",    href: "/enrichment-engine?tab=intel",icon: Target,      color: "#B8A0C8" },
+            { label: "Contacts",       href: "/contacts",                    icon: Users,      color: "#88B8B0" },
+            { label: "Deals",          href: "/deal-pipeline",               icon: TrendingUp, color: "#B8B880" },
+            { label: "Sequences",      href: "/sequences-audiences",         icon: Layers,     color: "#C8A880" },
+            { label: "Lead Finder",    href: "/enrichment-engine?tab=intel", icon: Target,     color: "#B8A0C8" },
           ].map(s => {
             const Icon = s.icon;
             return (

@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { MessageSquare, Mail, Send, Phone, Check, CheckCheck, Search, Plus, Paperclip, Smile, Brain, RefreshCw, X, Inbox } from "lucide-react";
+import { MessageSquare, Mail, Send, Phone, Check, CheckCheck, Search, Plus, Paperclip, Smile, Brain, RefreshCw, X, Inbox, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiFetch } from "@/hooks/useApi";
 
 const WA_THREADS = [
   {
@@ -100,13 +101,38 @@ export default function MessagesPage() {
     setEmailSubject("");
   }
 
-  function aiImprove() {
-    if (!input) return;
+  // REAL AI compose — sends the current draft + thread context + available
+  // templates + GCC tuning over to /api/assistant/chat which routes through
+  // OpenRouter. Returns a polished draft that replaces the input.
+  async function aiImprove(mode: "improve" | "draft" | "translate-ar" = "improve") {
+    if (mode !== "draft" && !input.trim()) return;
     setAiGenerating(true);
-    setTimeout(() => {
-      setInput(prev => prev + " [AI: Added personalization + GCC-specific CTA]");
+    try {
+      const channel = activeThread?.channel ?? "whatsapp";
+      const last5 = (activeThread?.messages ?? []).slice(-5)
+        .map((m: any) => `${m.from === "me" ? "Me" : activeThread.contactName}: ${m.text}`)
+        .join("\n");
+      const templateNames = templates.map(t => `• ${t.name}`).join("\n");
+      const instruction = mode === "translate-ar"
+        ? `Translate the draft below into warm Khaleeji (Gulf) Arabic, ready to send. Keep contact names as-is.`
+        : mode === "draft"
+          ? `Compose a ${channel} message for ${activeThread?.contactName} at ${activeThread?.company}. Match the conversation tone, be specific, end with one clear next step.`
+          : `Improve the draft below: tighter wording, GCC-appropriate tone, clear CTA, preserve the user's intent. Reply with ONLY the improved message — no preamble.`;
+      const userBlock = `Channel: ${channel}\nContact: ${activeThread?.contactName} (${activeThread?.company ?? "—"})\n\nRecent thread:\n${last5 || "(no prior messages)"}\n\nAvailable templates I can borrow phrasing from:\n${templateNames}\n\n${mode === "draft" ? "" : `Current draft:\n"""${input}"""\n\n`}Task: ${instruction}`;
+      const res = await apiFetch("/assistant/chat", {
+        method: "POST",
+        body: JSON.stringify({ message: userBlock, provider: "auto" }),
+      }) as { reply?: string };
+      if (res?.reply) {
+        // Strip simple wrapping quotes / markdown the model sometimes adds.
+        const cleaned = res.reply.trim().replace(/^["'`]+|["'`]+$/g, "").replace(/^\*\*|\*\*$/g, "");
+        setInput(cleaned);
+      }
+    } catch {
+      setInput(prev => prev + " [AI couldn't reach the model — try again]");
+    } finally {
       setAiGenerating(false);
-    }, 1200);
+    }
   }
 
   return (
@@ -302,16 +328,35 @@ export default function MessagesPage() {
                 dir="auto"
               />
             </div>
-            {isEmail && (
+            {/* Real AI compose toolbar — works for WhatsApp + Email */}
+            <div className="flex items-center gap-1 flex-shrink-0">
               <button
-                onClick={aiImprove}
-                disabled={!input || aiGenerating}
-                className="p-2.5 rounded-xl bg-[#B8A0C8]/20 text-[#B8A0C8] hover:bg-[#B8A0C8]/30 flex-shrink-0 disabled:opacity-50"
-                title="AI improve"
+                onClick={() => aiImprove("draft")}
+                disabled={aiGenerating}
+                className="px-2.5 py-2 rounded-xl bg-[#B8A0C8]/20 text-[#B8A0C8] hover:bg-[#B8A0C8]/30 disabled:opacity-50 text-[11px] font-semibold flex items-center gap-1"
+                title="AI Draft from scratch (uses thread + templates)"
               >
-                {aiGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
+                {aiGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                Draft
               </button>
-            )}
+              <button
+                onClick={() => aiImprove("improve")}
+                disabled={!input || aiGenerating}
+                className="px-2.5 py-2 rounded-xl bg-muted/60 text-foreground hover:bg-muted disabled:opacity-50 text-[11px] font-semibold flex items-center gap-1"
+                title="Improve current draft"
+              >
+                <Brain className="w-3.5 h-3.5" />
+                Improve
+              </button>
+              <button
+                onClick={() => aiImprove("translate-ar")}
+                disabled={!input || aiGenerating}
+                className="px-2.5 py-2 rounded-xl bg-muted/60 text-foreground hover:bg-muted disabled:opacity-50 text-[11px] font-semibold"
+                title="Translate to Khaleeji Arabic"
+              >
+                ع
+              </button>
+            </div>
             <button
               onClick={sendMessage}
               disabled={!input.trim()}

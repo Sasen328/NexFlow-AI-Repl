@@ -39,6 +39,7 @@ import prospectsRouter from "./prospects";
 import enrichmentRouter from "./enrichment";
 import enginesRouter from "./engines";
 import briefingRouter from "./briefing";
+import assistantRouter from "./assistant";
 
 const router: IRouter = Router();
 
@@ -82,5 +83,6 @@ router.use("/prospects", prospectsRouter);
 router.use("/enrichment", enrichmentRouter);
 router.use("/engines", enginesRouter);
 router.use("/briefing", briefingRouter);
+router.use("/assistant", assistantRouter);
 
 export default router;

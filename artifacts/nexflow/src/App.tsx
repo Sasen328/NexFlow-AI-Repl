@@ -91,7 +91,9 @@ import DataHubAiAnalyticsPage from "@/pages/datahub-ai-analytics";
 import IcpRulesPage from "@/pages/icp-rules";
 import ApprovalsPage from "@/pages/approvals";
 import MarketingAssistantPage from "@/pages/marketing-assistant";
+import AssistantPage from "@/pages/assistant";
 import MarketingDashboardPage from "@/pages/marketing-dashboard";
+import MarketingHubProPage from "@/pages/marketing-hub-pro";
 import CampaignBuilderPage from "@/pages/campaign-builder";
 import EmailGeneratorPage from "@/pages/email-generator";
 import SequencesAudiencesPage from "@/pages/sequences-audiences";
@@ -207,7 +209,7 @@ function AppLayout() {
           <Route path="/ai" component={AiPage} />
           <Route path="/intelligence" component={IntelligencePage} />
           <Route path="/automation" component={AutomationPage} />
-          <Route path="/assistant">{() => <Redirect to="/home" />}</Route>
+          <Route path="/assistant" component={AssistantPage} />
           <Route path="/team" component={TeamPage} />
           <Route path="/messages" component={MessagesPage} />
           <Route path="/templates" component={TemplatesPage} />
@@ -244,6 +246,7 @@ function AppLayout() {
           <Route path="/marketing-assistant" component={MarketingAssistantPage} />
           {/* New Marketing tab structure (overhaul) */}
           <Route path="/marketing-dashboard" component={MarketingDashboardPage} />
+          <Route path="/marketing-hub-pro" component={MarketingHubProPage} />
           <Route path="/campaign-builder" component={CampaignBuilderPage} />
           <Route path="/email-generator" component={EmailGeneratorPage} />
           <Route path="/sequences-audiences" component={SequencesAudiencesPage} />

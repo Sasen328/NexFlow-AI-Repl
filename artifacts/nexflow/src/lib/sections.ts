@@ -169,10 +169,11 @@ export const SECTIONS: SectionDef[] = [
     accent: "#C8A880",
     defaultHref: "/templates",
     items: [
-      { icon: FileText,   label: "Templates",  href: "/templates",           desc: "Email/WhatsApp/SMS message templates" },
-      { icon: GitBranch,  label: "Sequences",  href: "/sequences-audiences", desc: "Cadences and multi-touch journeys" },
-      { icon: Users,      label: "Audiences",  href: "/audiences",           desc: "Segments and target lists" },
-      { icon: FileText,   label: "Web Forms",  href: "/web-forms",           desc: "AI form creator + ad-funnel forms" },
+      { icon: Layers,     label: "Hub Pro",       href: "/marketing-hub-pro",  desc: "Landing pages · A/B testing · lead scoring · attribution (HubSpot-style)" },
+      { icon: FileText,   label: "Templates",     href: "/templates",          desc: "Email/WhatsApp/SMS message templates" },
+      { icon: GitBranch,  label: "Sequences",     href: "/sequences-audiences",desc: "Cadences and multi-touch journeys" },
+      { icon: Users,      label: "Audiences",     href: "/audiences",          desc: "Segments and target lists" },
+      { icon: FileText,   label: "Web Forms",     href: "/web-forms",          desc: "AI form creator + ad-funnel forms" },
     ],
   },
 
