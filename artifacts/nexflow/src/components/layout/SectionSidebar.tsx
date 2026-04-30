@@ -33,7 +33,10 @@ export function SectionSidebar() {
   const section = findSectionByRoute(location);
   if (!section) return null;
   if (roleKey === "marketing") return null;
-  if (location === "/home" || location.startsWith("/home#")) return null;
+  // NOTE: We intentionally DO render on /home so Studio (a Home-section
+  // item) stays discoverable from the left rail. The Briefing page has
+  // its own inner tab strip for #performance / #todo / #insights so the
+  // sidebar simply gives users the section overview.
 
   const allowedKeys = ROLE_NAV[roleKey];
   if (allowedKeys && !allowedKeys.includes(section.key)) return null;
@@ -72,12 +75,39 @@ function DesktopSidebar({ section, location }: { section: SectionDef; location: 
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-        {section.items.map((item) => (
-          <SidebarItem key={item.href} item={item} location={location} accent={section.accent} />
-        ))}
+        {renderItems(section, location)}
       </nav>
     </aside>
   );
+}
+
+/**
+ * Render section.items, inserting a small group header divider whenever
+ * an item declares a `group` that differs from the previous one. Items
+ * without a `group` flow at the top with no header.
+ */
+function renderItems(section: SectionDef, location: string) {
+  const out: React.ReactNode[] = [];
+  let lastGroup: string | undefined = undefined;
+  section.items.forEach((item, i) => {
+    if (item.group && item.group !== lastGroup) {
+      out.push(
+        <div
+          key={`group-${item.group}-${i}`}
+          className="px-2.5 pt-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70"
+        >
+          {item.group}
+        </div>,
+      );
+      lastGroup = item.group;
+    } else if (!item.group && lastGroup !== undefined) {
+      lastGroup = undefined;
+    }
+    out.push(
+      <SidebarItem key={item.href} item={item} location={location} accent={section.accent} />,
+    );
+  });
+  return out;
 }
 
 function MobileSubnav({ section, location }: { section: SectionDef; location: string }) {
@@ -125,9 +155,7 @@ function MobileSubnav({ section, location }: { section: SectionDef; location: st
           className="px-2 pb-2 space-y-0.5 max-h-[60vh] overflow-y-auto"
           aria-label={`${section.label} navigation`}
         >
-          {section.items.map((item) => (
-            <SidebarItem key={item.href} item={item} location={location} accent={section.accent} />
-          ))}
+          {renderItems(section, location)}
         </nav>
       )}
     </div>
