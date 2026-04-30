@@ -31,16 +31,16 @@ const FORECAST_SUMMARY = [
 
 export default function PredictivePage() {
   const [aiQuery, setAiQuery] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiInsight, setAiInsight] = useState("");
 
+  // The "Ask AI" box on this page is a thin entry point — it dispatches the
+  // typed query to the unified multi-agent assistant bubble (same engine
+  // everywhere in the app). The bubble opens and answers in-place so the
+  // user has one consistent AI surface, not a per-page widget.
   function runAiQuery() {
-    if (!aiQuery.trim()) return;
-    setAiLoading(true);
-    setTimeout(() => {
-      setAiInsight(`Predictive analysis for "${aiQuery}":\n\nBased on historical patterns and current pipeline signals, I project a 73% probability of hitting your Q2 target of $350K. The highest-risk factor is the SABIC Solutions deal — recommend reassigning to a senior rep. Your best opportunity for acceleration is the Aramco Digital pilot which has 3 active stakeholders but needs an exec sponsor introduction this week.`);
-      setAiLoading(false);
-    }, 1800);
+    const text = aiQuery.trim();
+    if (!text) return;
+    window.dispatchEvent(new CustomEvent("nf:open-assistant", { detail: { text } }));
+    setAiQuery("");
   }
 
   return (
@@ -75,18 +75,14 @@ export default function PredictivePage() {
           />
           <button
             onClick={runAiQuery}
-            disabled={!aiQuery.trim() || aiLoading}
+            disabled={!aiQuery.trim()}
             className="px-4 py-2 rounded-lg nf-chameleon-bg text-white text-sm font-semibold disabled:opacity-50 flex items-center gap-1.5"
           >
-            {aiLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+            <Sparkles className="w-3.5 h-3.5" />
             Ask AI
           </button>
         </div>
-        {aiInsight && (
-          <div className="mt-3 p-4 rounded-xl bg-background/60 border border-border/30 text-xs text-foreground/80 whitespace-pre-line leading-relaxed">
-            {aiInsight}
-          </div>
-        )}
+        <p className="text-[10px] text-muted-foreground mt-2 ml-1">Opens in the AI Assistant — powered by the multi-agent engine.</p>
       </div>
 
       {/* Forecast bands */}

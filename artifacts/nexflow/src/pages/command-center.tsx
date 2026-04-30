@@ -538,11 +538,12 @@ export default function CommandCenterPage() {
               </p>
             </div>
           </div>
-          <Link href="/assistant">
-            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-muted/60 text-muted-foreground text-xs font-medium hover:text-foreground transition-colors">
-              <Bot className="w-3.5 h-3.5" /> Ask AI
-            </button>
-          </Link>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("nf:open-assistant"))}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-muted/60 text-muted-foreground text-xs font-medium hover:text-foreground transition-colors"
+          >
+            <Bot className="w-3.5 h-3.5" /> Ask AI
+          </button>
         </div>
       </div>
 
