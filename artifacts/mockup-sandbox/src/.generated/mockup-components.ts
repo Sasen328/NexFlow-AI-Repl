@@ -5,6 +5,7 @@ export const modules: ModuleMap = {
   "./components/mockups/crm-redesign/CallInbox.tsx": () => import("../components/mockups/crm-redesign/CallInbox.tsx"),
   "./components/mockups/crm-redesign/Home.tsx": () => import("../components/mockups/crm-redesign/Home.tsx"),
   "./components/mockups/crm-redesign/PersonDrawer.tsx": () => import("../components/mockups/crm-redesign/PersonDrawer.tsx"),
+  "./components/mockups/crm-redesign/SmartFlow.tsx": () => import("../components/mockups/crm-redesign/SmartFlow.tsx"),
   "./components/mockups/sales-rep-home/Cockpit.tsx": () => import("../components/mockups/sales-rep-home/Cockpit.tsx"),
   "./components/mockups/sales-rep-home/DailyBriefing.tsx": () => import("../components/mockups/sales-rep-home/DailyBriefing.tsx"),
   "./components/mockups/sales-rep-home/FeedRail.tsx": () => import("../components/mockups/sales-rep-home/FeedRail.tsx"),
