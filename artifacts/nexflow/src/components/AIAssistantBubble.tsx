@@ -16,16 +16,16 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence, useDragControls, type PanInfo } from "framer-motion";
+import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import {
   Sparkles, Mic, MicOff, X, Volume2, VolumeX, Send, Bot,
   ListTodo, Target, Phone, Mail, Calendar, Search,
-  Settings as SettingsIcon, ChevronRight, AlertTriangle,
-  TrendingUp, Zap, type LucideIcon,
+  Settings as SettingsIcon, AlertTriangle,
+  Zap, type LucideIcon,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import {
-  getRole, isSignedIn, type RoleKey,
+  getRole, isSignedIn,
 } from "@/lib/marketing-auth";
 import {
   createRecognizer, speak, stopSpeaking,
@@ -264,11 +264,19 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
 
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState("");
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const recognizerRef = useRef<RecognizerHandle | null>(null);
 
-  const dragControls = useDragControls();
+  // Pre-warm voices list — some browsers populate it lazily after the first call.
+  useEffect(() => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.getVoices();
+    }
+  }, []);
+
   const constraintsRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -340,8 +348,12 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
       if (captured) submit(captured);
       return;
     }
-    if (!isSpeechRecognitionSupported()) return;
+    if (!isSpeechRecognitionSupported()) {
+      setVoiceError("Voice input isn't supported in this browser. Try Chrome or Edge.");
+      return;
+    }
     stopSpeaking();
+    setVoiceError(null);
     const rec = createRecognizer({
       onUpdate: ({ interim: i, final }) => {
         if (final) {
@@ -352,7 +364,16 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
         }
       },
       onEnd: () => setListening(false),
-      onError: () => setListening(false),
+      onError: (msg) => {
+        setListening(false);
+        if (msg === "not-allowed" || msg === "service-not-allowed") {
+          setVoiceError("Microphone access blocked. Allow mic permission and try again.");
+        } else if (msg === "no-speech") {
+          setVoiceError("No speech detected — try again and speak a bit louder.");
+        } else if (msg !== "aborted") {
+          setVoiceError(`Voice input failed (${msg}). Try again.`);
+        }
+      },
     });
     recognizerRef.current = rec;
     rec.start();
@@ -360,14 +381,18 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
   }, [listening, interim, submit]);
 
   function onDragEnd(_e: any, info: PanInfo) {
+    const base = position ?? defaultPos;
     const next = {
-      x: Math.max(8, Math.min(window.innerWidth - 64, (position?.x ?? defaultPos.x) + info.offset.x)),
-      y: Math.max(8, Math.min(window.innerHeight - 64, (position?.y ?? defaultPos.y) + info.offset.y)),
+      x: Math.max(8, Math.min(window.innerWidth - 64, base.x + info.offset.x)),
+      y: Math.max(8, Math.min(window.innerHeight - 64, base.y + info.offset.y)),
     };
     setPosition(next);
     try {
       window.localStorage.setItem(STORAGE_POS, JSON.stringify(next));
     } catch {/* ignore */}
+    // Reset drag flag on next tick so the synthetic click that follows pointer-up
+    // (when there was real movement) is suppressed.
+    setTimeout(() => { draggingRef.current = false; }, 50);
   }
 
   function runAction(action: ActionDef) {
@@ -393,41 +418,46 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
     <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-40">
       <motion.div
         drag
-        dragControls={dragControls}
         dragMomentum={false}
-        dragListener={false}
+        dragElastic={0}
         dragConstraints={constraintsRef}
+        onDragStart={() => { draggingRef.current = true; }}
         onDragEnd={onDragEnd}
         initial={false}
         animate={{ x: startPos.x, y: startPos.y }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="absolute pointer-events-auto"
-        style={{ width: 56, height: 56 }}
+        whileDrag={{ scale: 1.08, cursor: "grabbing" }}
+        className="absolute pointer-events-auto cursor-grab active:cursor-grabbing"
+        style={{ width: 56, height: 56, touchAction: "none" }}
       >
         {/* Bubble */}
-        <motion.button
+        <button
           type="button"
-          onClick={() => setOpen((o) => !o)}
-          onPointerDown={(e) => {
-            // Long-press / hold-to-drag: start drag from the handle
-            if (e.shiftKey || e.metaKey) dragControls.start(e);
+          onClick={(e) => {
+            // If user just dragged, swallow the synthetic click.
+            if (draggingRef.current) {
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
+            setOpen((o) => !o);
           }}
-          whileHover={{ scale: 1.06 }}
-          whileTap={{ scale: 0.94 }}
           aria-label={open ? "Close AI Assistant" : "Open AI Assistant"}
           className={cn(
             "relative w-14 h-14 rounded-full flex items-center justify-center shadow-2xl",
-            "border border-white/40 backdrop-blur-md",
-            "cursor-pointer select-none",
+            "border border-white/40 backdrop-blur-md select-none",
+            "transition-transform hover:scale-105 active:scale-95",
           )}
           style={{
             background:
               "conic-gradient(from 220deg, #B8A0C8, #88B8B0, #C8A880, #B8B880, #B8A0C8)",
+            // Let the parent motion.div handle pointer drag — but clicks still fire.
+            pointerEvents: "auto",
           }}
         >
           {/* Pulse ring (idle / listening) */}
           <motion.span
-            className="absolute inset-0 rounded-full"
+            className="absolute inset-0 rounded-full pointer-events-none"
             animate={
               listening
                 ? { scale: [1, 1.5, 1], opacity: [0.45, 0, 0.45] }
@@ -443,26 +473,14 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
           />
           {/* Inner glass */}
           <span
-            className="absolute inset-1 rounded-full backdrop-blur-sm"
+            className="absolute inset-1 rounded-full backdrop-blur-sm pointer-events-none"
             style={{ background: "rgba(255,255,255,0.18)" }}
           />
           {/* Icon */}
-          <span className="relative z-10 text-white drop-shadow">
+          <span className="relative z-10 text-white drop-shadow pointer-events-none">
             {listening ? <Mic className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
           </span>
-          {/* Drag handle (top-right corner) */}
-          <span
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              dragControls.start(e);
-            }}
-            className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white/90 border border-white text-[8px] flex items-center justify-center text-foreground/70 cursor-grab active:cursor-grabbing"
-            title="Drag to move"
-            aria-label="Drag to move"
-          >
-            <span className="leading-none">⋮⋮</span>
-          </span>
-        </motion.button>
+        </button>
 
         {/* Expanded panel */}
         <AnimatePresence>
@@ -546,6 +564,21 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
                         </div>
                       </div>
                     )}
+                    {voiceError && (
+                      <div className="flex justify-center">
+                        <div className="max-w-[90%] rounded-xl px-3 py-2 text-[11px] text-[#C0A0B8] border border-[#C0A0B8]/40 bg-[#C0A0B8]/10 flex items-center gap-2">
+                          <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                          <span className="flex-1">{voiceError}</span>
+                          <button
+                            type="button"
+                            onClick={() => setVoiceError(null)}
+                            className="text-[10px] underline hover:no-underline flex-shrink-0"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Action chips */}
@@ -577,11 +610,10 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
                       <button
                         type="button"
                         onClick={toggleListening}
-                        disabled={!sttSupported}
-                        title={!sttSupported ? "Speech recognition not supported in this browser" : listening ? "Stop listening" : "Start listening"}
+                        title={!sttSupported ? "Speech recognition not supported in this browser — click for details" : listening ? "Stop listening" : "Start listening"}
                         className={cn(
                           "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all",
-                          !sttSupported && "opacity-40 cursor-not-allowed",
+                          !sttSupported && "opacity-60",
                           listening
                             ? "bg-[#C0A0B8] text-white shadow-md"
                             : "bg-muted/40 text-foreground hover:bg-muted/60",

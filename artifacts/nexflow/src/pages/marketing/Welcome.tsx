@@ -117,20 +117,23 @@ export default function WelcomePage() {
 
         {/* Animated logo */}
         <div className="flex justify-center mb-7">
-          <div className="relative">
-            {/* Outer rotating ring */}
-            <div className="absolute inset-0 -m-8 rounded-full border-2 border-dashed opacity-25 animate-[spin_25s_linear_infinite]"
-              style={{ borderColor: "#B8A0C8", width: 200, height: 200, marginLeft: -28, marginTop: -28 }} />
-            {/* Glow */}
-            <div className="absolute inset-0 rounded-full blur-3xl opacity-50 animate-pulse"
-              style={{ background: "radial-gradient(circle,#B8A0C8 0%,#88B8B0 60%,transparent 80%)", width: 144, height: 144 }} />
-            {/* Logo with subtle bounce */}
-            <div className="relative animate-[bounce_3s_ease-in-out_infinite]" style={{ animationDuration: "3.5s" }}>
-              <NexFlowLogo size={144} />
+          <div className="relative" style={{ width: 176, height: 176 }}>
+            {/* Soft glow behind the logo (no hard ring) */}
+            <div
+              className="absolute inset-0 blur-3xl opacity-40 animate-pulse pointer-events-none"
+              style={{
+                background:
+                  "radial-gradient(circle, #B8A0C8 0%, #88B8B0 50%, transparent 75%)",
+                animationDuration: "4s",
+              }}
+            />
+            {/* Logo — diamond mark with full transparent edges */}
+            <div
+              className="absolute inset-0 flex items-center justify-center animate-[bounce_3s_ease-in-out_infinite]"
+              style={{ animationDuration: "3.5s" }}
+            >
+              <NexFlowLogo size={176} />
             </div>
-            {/* Inner ping */}
-            <div className="absolute inset-0 rounded-full blur-2xl opacity-30 animate-ping"
-              style={{ background: "radial-gradient(circle,#C0A0B8,transparent 70%)", animationDuration: "3s" }} />
           </div>
         </div>
 
