@@ -76,8 +76,9 @@ export const ROLES: Record<RoleKey, RoleProfile> = {
     title: "Director of Marketing",
     accent: "#B8B880",
     blurb: "Run multi-channel campaigns and reactivate dormant leads.",
-    // Marketing lands on the campaign-centric dashboard, not the sales briefing.
-    landingHref: "/marketing-dashboard",
+    // Marketing lands on the persona-tailored Home, which embeds the
+    // marketing dashboard inline below the briefing.
+    landingHref: "/home",
   },
 };
 
