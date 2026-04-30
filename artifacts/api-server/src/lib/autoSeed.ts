@@ -16,8 +16,36 @@ import {
   dashboards, dashboard_widgets,
 } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve, dirname } from "node:path";
 
 const EXPECTED_MIN_CONTACTS = 30;
+
+/**
+ * On a fresh production database the schema doesn't exist yet (no
+ * `drizzle-kit push` runs at deploy time). Detect that and bootstrap the
+ * schema from the bundled SQL dump so prod becomes a true twin of dev.
+ */
+async function ensureSchema() {
+  const has = await db.execute(sql`SELECT to_regclass('public.contacts') AS r`);
+  const row = (has as any).rows?.[0] ?? (Array.isArray(has) ? has[0] : undefined);
+  if (row?.r) return;
+
+  const candidates = [
+    resolve(process.cwd(), "artifacts/api-server/seed/schema.sql"),
+    resolve(dirname(new URL(import.meta.url).pathname), "../seed/schema.sql"),
+    resolve(process.cwd(), "seed/schema.sql"),
+  ];
+  const path = candidates.find((p) => existsSync(p));
+  if (!path) {
+    console.error("[autoSeed] schema.sql not found in any of:", candidates);
+    return;
+  }
+  console.log(`[autoSeed] Bootstrapping schema from ${path}…`);
+  const ddl = readFileSync(path, "utf8");
+  await db.execute(sql.raw(ddl));
+  console.log("[autoSeed] Schema bootstrapped.");
+}
 
 /**
  * Wipe every table autoSeed (and the demo flow) writes to. Each TRUNCATE
@@ -47,6 +75,8 @@ async function wipeAllSeedTables() {
 
 export async function autoSeed(force = false) {
   try {
+    await ensureSchema();
+
     // Always (re)seed the enrichment_sources registry — it's small,
     // idempotent (ON CONFLICT DO NOTHING), and decoupled from contacts.
     // Doing it here at startup avoids the per-request race the route's
