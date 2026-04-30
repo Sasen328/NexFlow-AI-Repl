@@ -16,7 +16,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence, type PanInfo } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, Mic, MicOff, X, Volume2, VolumeX, Send, Bot,
   ListTodo, Target, Phone, Mail, Calendar, Search,
@@ -380,19 +380,101 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
     setListening(true);
   }, [listening, interim, submit]);
 
-  function onDragEnd(_e: any, info: PanInfo) {
-    const base = position ?? defaultPos;
-    const next = {
-      x: Math.max(8, Math.min(window.innerWidth - 64, base.x + info.offset.x)),
-      y: Math.max(8, Math.min(window.innerHeight - 64, base.y + info.offset.y)),
+  // ─── Native pointer-event drag (replaces framer-motion `drag`) ───
+  // Why: framer-motion's drag introduced visible jank on rapid pointer
+  // moves (snap-back animations conflicting with pointer deltas) and
+  // didn't snap to the screen edge after release. We use raw pointer
+  // events with a manual delta + a snap-to-nearest-edge on release. The
+  // bubble is positioned via `transform: translate3d()` for buttery 60fps.
+  const dragStateRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    baseX: number;
+    baseY: number;
+    moved: boolean;
+  } | null>(null);
+
+  function clamp(x: number, y: number) {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    return {
+      x: Math.max(8, Math.min(w - 64, x)),
+      y: Math.max(8, Math.min(h - 64, y)),
     };
+  }
+
+  function persistPosition(p: { x: number; y: number }) {
+    setPosition(p);
+    try { window.localStorage.setItem(STORAGE_POS, JSON.stringify(p)); } catch {/* ignore */}
+  }
+
+  // Re-clamp on viewport resize so the bubble can never get stuck off-screen.
+  useEffect(() => {
+    function onResize() {
+      const cur = position ?? defaultPos;
+      const c = clamp(cur.x, cur.y);
+      if (c.x !== cur.x || c.y !== cur.y) persistPosition(c);
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [position]);
+
+  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    e.preventDefault();
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    const base = position ?? defaultPos;
+    dragStateRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      baseX: base.x,
+      baseY: base.y,
+      moved: false,
+    };
+    draggingRef.current = false;
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const ds = dragStateRef.current;
+    if (!ds || ds.pointerId !== e.pointerId) return;
+    const dx = e.clientX - ds.startX;
+    const dy = e.clientY - ds.startY;
+    if (!ds.moved && Math.abs(dx) + Math.abs(dy) < 6) return; // 6px dead-zone — preserve clicks
+    ds.moved = true;
+    draggingRef.current = true;
+    const next = clamp(ds.baseX + dx, ds.baseY + dy);
     setPosition(next);
-    try {
-      window.localStorage.setItem(STORAGE_POS, JSON.stringify(next));
-    } catch {/* ignore */}
-    // Reset drag flag on next tick so the synthetic click that follows pointer-up
-    // (when there was real movement) is suppressed.
-    setTimeout(() => { draggingRef.current = false; }, 50);
+  }
+
+  function handlePointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const ds = dragStateRef.current;
+    if (!ds || ds.pointerId !== e.pointerId) return;
+    dragStateRef.current = null;
+    (e.target as Element).releasePointerCapture?.(e.pointerId);
+    if (!ds.moved) {
+      // Plain click — clear drag flag so the button onClick fires.
+      draggingRef.current = false;
+      return;
+    }
+    // Snap to nearest horizontal edge with a 16px inset.
+    const cur = position ?? defaultPos;
+    const w = window.innerWidth;
+    const snapLeft = cur.x + 28 < w / 2;
+    const snapped = clamp(snapLeft ? 16 : w - 72, cur.y);
+    persistPosition(snapped);
+    // Suppress the synthetic click that follows pointer-up after a drag.
+    setTimeout(() => { draggingRef.current = false; }, 80);
+  }
+
+  function handlePointerCancel(e: React.PointerEvent<HTMLDivElement>) {
+    const ds = dragStateRef.current;
+    if (!ds || ds.pointerId !== e.pointerId) return;
+    dragStateRef.current = null;
+    (e.target as Element).releasePointerCapture?.(e.pointerId);
+    draggingRef.current = false;
   }
 
   function runAction(action: ActionDef) {
@@ -416,19 +498,20 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
 
   return (
     <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-40">
-      <motion.div
-        drag
-        dragMomentum={false}
-        dragElastic={0}
-        dragConstraints={constraintsRef}
-        onDragStart={() => { draggingRef.current = true; }}
-        onDragEnd={onDragEnd}
-        initial={false}
-        animate={{ x: startPos.x, y: startPos.y }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        whileDrag={{ scale: 1.08, cursor: "grabbing" }}
-        className="absolute pointer-events-auto cursor-grab active:cursor-grabbing"
-        style={{ width: 56, height: 56, touchAction: "none" }}
+      <div
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        className="absolute pointer-events-auto cursor-grab active:cursor-grabbing select-none"
+        style={{
+          width: 56,
+          height: 56,
+          touchAction: "none",
+          transform: `translate3d(${startPos.x}px, ${startPos.y}px, 0)`,
+          transition: dragStateRef.current ? "none" : "transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+          willChange: "transform",
+        }}
       >
         {/* Bubble */}
         <button
@@ -673,7 +756,7 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </div>
     </div>
   );
 }

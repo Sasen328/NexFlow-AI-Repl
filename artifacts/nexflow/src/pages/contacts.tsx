@@ -419,9 +419,17 @@ export default function ContactsPage() {
         <AddContactModal
           users={users}
           onClose={() => setShowAddContact(false)}
-          onCreate={async (data) => {
-            await createContact.mutateAsync(data);
-            setShowAddContact(false);
+          onCreate={async (data: any) => {
+            try {
+              const created = await createContact.mutateAsync(data);
+              setShowAddContact(false);
+              if (created?.id) {
+                navigate(`/contacts/${created.id}`);
+              }
+              return null;
+            } catch (err: any) {
+              return err?.message ?? "Failed to create contact. Please try again.";
+            }
           }}
           submitting={createContact.isPending}
         />
@@ -432,8 +440,16 @@ export default function ContactsPage() {
 
 function AddContactModal({ users, onClose, onCreate, submitting }: any) {
   const [form, setForm] = useState({ first_name: "", last_name: "", email: "", phone: "", title: "", status: "new", owner_id: "" });
-  const update = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+  const [error, setError] = useState<string | null>(null);
+  const update = (k: string, v: string) => { setError(null); setForm(f => ({ ...f, [k]: v })); };
   const canSubmit = form.first_name.trim() && form.last_name.trim();
+  async function handleSubmit() {
+    setError(null);
+    const payload: any = { ...form };
+    if (!payload.owner_id) delete payload.owner_id;
+    const errMsg = await onCreate(payload);
+    if (errMsg) setError(typeof errMsg === "string" ? errMsg : "Failed to create contact.");
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
@@ -485,10 +501,16 @@ function AddContactModal({ users, onClose, onCreate, submitting }: any) {
             </div>
           </div>
         </div>
+        {error && (
+          <div className="mt-3 rounded-lg border border-[#C0A0B8]/40 bg-[#C0A0B8]/10 px-3 py-2 text-xs text-[#9d6f8a] flex items-start gap-2">
+            <X className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+            <span className="flex-1">{error}</span>
+          </div>
+        )}
         <div className="flex justify-end gap-2 mt-5">
           <button onClick={onClose} className="px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground">Cancel</button>
           <button
-            onClick={() => onCreate(form)}
+            onClick={handleSubmit}
             disabled={!canSubmit || submitting}
             className="px-4 py-2 rounded-lg text-sm font-semibold nf-chameleon-bg text-white disabled:opacity-50 flex items-center gap-1.5"
           >

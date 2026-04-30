@@ -97,6 +97,16 @@ import PermissionsPage from "@/pages/permissions";
 import ReportBuilderPage from "@/pages/report-builder";
 import CapabilitiesPage from "@/pages/capabilities";
 import InvestorsPage from "@/pages/investors";
+// ─── New 6-tab IA wrapper pages (Apr 2026 restructure) ──────────────
+import LeadsPipelinePage from "@/pages/leads-pipeline";
+import LeadsListsPage from "@/pages/leads-lists";
+import LeadsResearchPage from "@/pages/leads-research";
+import ForgottenLeadsPage from "@/pages/forgotten-leads";
+import CallCenterDashboardPage from "@/pages/callcenter-dashboard";
+import CallCenterAgentPage from "@/pages/callcenter-agent";
+import CallCenterKnowledgeBasePage from "@/pages/callcenter-knowledge-base";
+import CallCenterMessagesPage from "@/pages/callcenter-messages";
+import InsightsTeamPage from "@/pages/insights-team";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -114,6 +124,37 @@ function AppLayout() {
       <SectionTabStrip />
       <main className="flex-1 min-w-0 px-4 sm:px-6 py-6 overflow-y-auto relative z-10 max-w-[1600px] w-full mx-auto">
         <Switch>
+          {/* ─── New 6-tab IA routes (Apr 2026) ─────────────────────
+                Each section has its own URL space. Legacy routes
+                (defined further down) remain registered for back-
+                compat — old bookmarks, deep links and inbound emails
+                continue to work. */}
+          {/* Leads */}
+          <Route path="/leads"><Redirect to="/leads/pipeline" /></Route>
+          <Route path="/leads/pipeline"  component={LeadsPipelinePage} />
+          <Route path="/leads/lists"     component={LeadsListsPage} />
+          <Route path="/leads/research"  component={LeadsResearchPage} />
+          <Route path="/leads/forgotten" component={ForgottenLeadsPage} />
+          {/* Call Center */}
+          <Route path="/callcenter"><Redirect to="/callcenter/dashboard" /></Route>
+          <Route path="/callcenter/dashboard"        component={CallCenterDashboardPage} />
+          <Route path="/callcenter/calls"            component={CallsPage} />
+          <Route path="/callcenter/agent"            component={CallCenterAgentPage} />
+          <Route path="/callcenter/knowledge-base"   component={CallCenterKnowledgeBasePage} />
+          <Route path="/callcenter/messages"         component={CallCenterMessagesPage} />
+          {/* Data Hub */}
+          <Route path="/datahub"><Redirect to="/datahub/segments" /></Route>
+          <Route path="/datahub/segments"     component={SegmentsPage} />
+          <Route path="/datahub/enrichment"   component={EnrichmentEnginePage} />
+          <Route path="/datahub/workforce"    component={AiPage} />
+          <Route path="/datahub/signals"      component={SignalsPage} />
+          {/* Insights */}
+          <Route path="/insights/dashboards" component={DashboardsPage} />
+          <Route path="/insights/reports"    component={ReportsPage} />
+          <Route path="/insights/team"       component={InsightsTeamPage} />
+          <Route path="/insights/predictive" component={PredictivePage} />
+
+          {/* ─── Legacy routes (kept for back-compat) ──────────── */}
           <Route path="/home" component={Briefing} />
           <Route path="/section/:key" component={SectionHubPage} />
           <Route path="/dashboard" component={Dashboard} />
@@ -144,7 +185,10 @@ function AppLayout() {
           <Route path="/contact-center-setup" component={ContactCenterSetupPage} />
           <Route path="/dashboards" component={DashboardsPage} />
           <Route path="/dashboards/:id" component={DashboardDetailPage} />
-          <Route path="/insights" component={InsightsPage} />
+          {/* New /insights index → redirect to dashboards. Legacy InsightsPage
+              kept available at /insights/legacy for any old deep links. */}
+          <Route path="/insights"><Redirect to="/insights/dashboards" /></Route>
+          <Route path="/insights/legacy" component={InsightsPage} />
           <Route path="/campaigns" component={CampaignsPage} />
           <Route path="/channels" component={ChannelsPage} />
           <Route path="/agents" component={AgentBuilderPage} />
