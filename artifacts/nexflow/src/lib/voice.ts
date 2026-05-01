@@ -157,6 +157,43 @@ export function stopSpeaking(): void {
 
 let _activeAudio: HTMLAudioElement | null = null;
 let _activeUrl: string | null = null;
+let _audioCtx: AudioContext | null = null;
+let _activeSource: AudioBufferSourceNode | null = null;
+
+/**
+ * Unlock the AudioContext on first user gesture so subsequent plays work in Chrome.
+ * Call this once from a click/keydown handler anywhere in the app.
+ */
+export function unlockAudio(): void {
+  if (typeof window === "undefined" || typeof AudioContext === "undefined") return;
+  if (!_audioCtx) {
+    _audioCtx = new AudioContext();
+  }
+  if (_audioCtx.state === "suspended") {
+    void _audioCtx.resume();
+  }
+}
+
+async function playViaAudioContext(arrayBuffer: ArrayBuffer, opts?: { onEnd?: () => void; onError?: (msg: string) => void }): Promise<void> {
+  try {
+    if (!_audioCtx) _audioCtx = new AudioContext();
+    if (_audioCtx.state === "suspended") await _audioCtx.resume();
+    const decoded = await _audioCtx.decodeAudioData(arrayBuffer.slice(0));
+    if (_activeSource) { try { _activeSource.stop(); } catch { /* noop */ } }
+    const src = _audioCtx.createBufferSource();
+    src.buffer = decoded;
+    src.connect(_audioCtx.destination);
+    _activeSource = src;
+    src.onended = () => {
+      if (_activeSource === src) _activeSource = null;
+      opts?.onEnd?.();
+    };
+    src.start(0);
+  } catch (e: any) {
+    opts?.onError?.(e?.message ?? "audio_ctx_error");
+    opts?.onEnd?.();
+  }
+}
 
 export type ServerVoiceId =
   | "layla" | "noor" | "khalid" | "faisal"
@@ -212,27 +249,18 @@ export async function speakViaServer(
       speak(text, { lang: fallbackLang, onEnd: () => opts?.onEnd?.() });
       return;
     }
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    _activeAudio = audio;
-    _activeUrl = url;
-    audio.onended = () => {
-      if (_activeUrl === url) { URL.revokeObjectURL(url); _activeUrl = null; _activeAudio = null; }
-      opts?.onEnd?.();
-    };
-    audio.onerror = () => {
-      if (_activeUrl === url) { URL.revokeObjectURL(url); _activeUrl = null; _activeAudio = null; }
-      opts?.onError?.("audio_error");
-      // Single onEnd — caller's turn-taking should resume now since playback failed.
-      opts?.onEnd?.();
-    };
-    await audio.play().catch((e) => {
-      opts?.onError?.(e?.message ?? "play_blocked");
-      // play() failed (e.g. autoplay block). onerror may not fire — release the
-      // turn now so the conversation does not stall.
-      if (_activeUrl === url) { URL.revokeObjectURL(url); _activeUrl = null; _activeAudio = null; }
-      opts?.onEnd?.();
+    const arrayBuffer = await r.arrayBuffer();
+    // Use AudioContext (bypasses Chrome autoplay restrictions after a user gesture)
+    await playViaAudioContext(arrayBuffer, {
+      onEnd: opts?.onEnd,
+      onError: (msg) => {
+        opts?.onError?.(msg);
+        // Last-resort: try HTMLAudioElement
+        const isArabicVoice = voice === "layla" || voice === "noor" || voice === "khalid" || voice === "faisal";
+        const fallbackLang = isArabicVoice ? "ar-SA" : "en-US";
+        const fallbackGender: "female" | "male" = (voice === "khalid" || voice === "faisal" || voice === "adam" || voice === "james") ? "male" : "female";
+        speak(text, { lang: fallbackLang, gender: fallbackGender, onEnd: () => opts?.onEnd?.() });
+      },
     });
   } catch (e: any) {
     if (e?.name === "AbortError") return;
@@ -246,6 +274,10 @@ export async function speakViaServer(
 }
 
 export function stopServerSpeak(): void {
+  if (_activeSource) {
+    try { _activeSource.stop(); } catch { /* noop */ }
+    _activeSource = null;
+  }
   if (_activeAudio) {
     try { _activeAudio.pause(); } catch { /* noop */ }
     _activeAudio = null;
