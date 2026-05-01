@@ -108,6 +108,44 @@ async function geminiSpeak(opts: {
 }
 
 /**
+ * Gemini Vision — send an image + text prompt and get a JSON response back.
+ * Model: gemini-2.0-flash-exp (supports vision + JSON output).
+ */
+export async function aiGeminiVisionJson(opts: {
+  prompt: string;
+  imageDataUrl: string;
+  maxTokens?: number;
+}): Promise<any> {
+  if (!geminiApiKey) throw new Error("Gemini API key not configured");
+  const { prompt, imageDataUrl, maxTokens = 2000 } = opts;
+  const [header, b64] = imageDataUrl.split(",");
+  const mimeType = header?.match(/data:([^;]+)/)?.[1] ?? "image/jpeg";
+  const body = {
+    contents: [
+      {
+        parts: [
+          { text: prompt },
+          { inline_data: { mime_type: mimeType, data: b64 } },
+        ],
+      },
+    ],
+    generationConfig: {
+      responseMimeType: "application/json",
+      maxOutputTokens: maxTokens,
+      temperature: 0.1,
+    },
+  };
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+  );
+  const json: any = await r.json();
+  if (!r.ok || json.error) throw new Error(json.error?.message ?? `Gemini Vision HTTP ${r.status}`);
+  const text = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+  try { return JSON.parse(text); } catch { return {}; }
+}
+
+/**
  * Direct Gemini text-generation — bypasses the OpenRouter proxy entirely.
  * Uses gemini-2.0-flash-exp which is fast, reliable, and supports bilingual GCC content.
  */
