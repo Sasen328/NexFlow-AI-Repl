@@ -463,6 +463,32 @@ export default function ContactProfilePage({ params }: Props) {
         }
         items.sort((x, y) => y.ts - x.ts);
 
+        // Show 3 sample engagement entries so the timeline never looks empty
+        const MOCK_ENGAGEMENTS: Item[] = [
+          {
+            id: "mock-1", kind: "call",
+            title: "Outbound call · connected · 4m 12s",
+            body: "Discussed Q3 priorities. Contact expressed interest in a demo next week. Follow up with deck.",
+            meta: "Score 74/100",
+            ts: Date.now() - 1000 * 60 * 60 * 72,
+          },
+          {
+            id: "mock-2", kind: "email_open",
+            title: "Email opened — NexFlow intro deck",
+            body: "Opened the proposal email 3 times in 2 hours — strong buying signal.",
+            meta: "3 opens",
+            ts: Date.now() - 1000 * 60 * 60 * 48,
+          },
+          {
+            id: "mock-3", kind: "whatsapp",
+            title: "WhatsApp — confirmed meeting",
+            body: "Replied to our WhatsApp message confirming the Thursday 10 AM demo slot.",
+            meta: "delivered",
+            ts: Date.now() - 1000 * 60 * 60 * 24,
+          },
+        ];
+        const displayItems = items.length > 0 ? items : MOCK_ENGAGEMENTS;
+
         const counts = {
           call:       items.filter(i => i.kind === "call").length,
           meeting:    items.filter(i => i.kind === "meeting").length,
@@ -491,9 +517,9 @@ export default function ContactProfilePage({ params }: Props) {
                   <div className="text-[10px] font-bold uppercase tracking-widest text-[#B8A0C8] mb-0.5">AI Engagement Analysis</div>
                   <h3 className="text-base font-black text-foreground mb-1">All touchpoints with {contact.first_name ?? "this contact"}</h3>
                   <p className="text-xs text-foreground/80 leading-relaxed">
-                    {items.length === 0
+                    {displayItems.length === 0
                       ? "No engagement yet. Start with a call or note to build the timeline."
-                      : `${items.length} touchpoints — ${counts.call} calls · ${counts.meeting} meetings · ${counts.note} notes · ${counts.email_open} email opens · ${counts.whatsapp} WhatsApp. Most recent first.`}
+                      : `${displayItems.length} touchpoints — ${counts.call} calls · ${counts.meeting} meetings · ${counts.note} notes · ${counts.email_open} email opens · ${counts.whatsapp} WhatsApp. Most recent first.`}
                   </p>
                 </div>
               </div>
@@ -582,12 +608,13 @@ export default function ContactProfilePage({ params }: Props) {
                   <span className="px-2 py-0.5 rounded-full bg-[#6CB888]/15 text-[#6CB888] font-semibold">{counts.whatsapp} WhatsApp</span>
                 </div>
               </div>
-              {items.length === 0 ? (
+              {displayItems.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No engagement yet — use the "Log activity" panel above to add the first entry.</p>
               ) : (
                 <div className="space-y-3 relative">
+                  {items.length === 0 && <div className="text-[10px] text-muted-foreground/60 mb-2 italic">Sample engagement — log your first real activity above to replace these</div>}
                   <div className="absolute left-3 top-1 bottom-1 w-px bg-border/30" />
-                  {items.map(it => {
+                  {displayItems.map(it => {
                     const { color, Icon, label } = STYLE[it.kind];
                     const txExpanded = expandedTranscripts.has(it.id);
                     const intelExpanded = expandedCallIntel.has(it.id);

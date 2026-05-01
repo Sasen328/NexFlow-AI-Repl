@@ -263,14 +263,14 @@ export async function findLeadsByCompany(input: LeadFinderInput): Promise<{ repo
     generatedAt: new Date().toISOString(),
   };
 
-  const { data, provider } = await synthesizeJson<LeadFinderReport>({
-    system:
-      "You consolidate multi-source intelligence into a deduplicated, ranked list of real named leads at a single company. " +
-      "Return ONLY valid JSON — no markdown, no explanation. " +
-      "Never fabricate names — only include people explicitly mentioned in the research bundle. " +
-      "If two sources mention the same person, merge them and pick the most authoritative title. " +
-      "Confidence rules: name+email+LinkedIn=high, name from official website=high, name from news/press=medium, name from AI training data=low.",
-    user: `Company: ${company}
+  const synthesisSystem =
+    "You are a B2B lead extraction specialist. Your job is to scan a research bundle and pull out EVERY real named person you can find. " +
+    "Return ONLY valid JSON — no markdown, no explanation. " +
+    "CRITICAL: Extract every single name mentioned, even if only mentioned once. Do NOT omit names because confidence is low — include them with confidence=low. " +
+    "If two sources mention the same person, merge them into one entry. " +
+    "Confidence rules: name+email+LinkedIn=high, name from official website=high, name from news/press=medium, name mentioned once in AI summary=low.";
+
+  const synthesisUser = `Company: ${company}
 Website: ${websiteUrl ?? "(unknown)"}
 Country: ${country}
 City: ${input.city ?? "(unknown)"}
@@ -282,42 +282,75 @@ ${bundle.slice(0, 28000)}
 
 Discovered emails (attach to matching persons, infer pattern for others): ${crawlR.emails.join(", ") || "(none)"}
 
+TASK: Scan every section of the bundle above. Extract EVERY person's name you see — executives, directors, VPs, managers, board members. Even if the bundle only has 2-3 names, extract them all.
+
 Return JSON with EXACTLY these keys:
 {
-  "company": { "name": "...", "website": "...", "city": "..." },
+  "company": { "name": "${company}", "website": "${websiteUrl ?? ""}", "city": "${input.city ?? ""}" },
   "leads": [
     {
       "fullName": "...",
-      "arabicName": "... (optional)",
+      "arabicName": "... (or null)",
       "title": "...",
       "department": "Sales|Engineering|Finance|Operations|HR|Legal|Marketing|Board|Other",
       "seniority": "C-suite|VP|Director|Manager|Individual",
-      "linkedinUrl": "... (optional)",
-      "email": "... (optional)",
-      "phone": "... (optional)",
-      "source": "which agent surfaced this person",
+      "linkedinUrl": "... (or null)",
+      "email": "... (or null)",
+      "phone": "... (or null)",
+      "source": "which section of bundle (e.g. pplx_leadership, claude_knowledge, website_crawl)",
       "confidence": "high|medium|low",
-      "notes": "... (optional 1-line context)"
+      "notes": "... (1-line context or null)"
     }
   ],
   "byDepartment": { "<dept>": <count> },
   "bySeniority": { "<level>": <count> },
   "totalFound": <integer>,
-  "sourcesQueried": ["..."],
+  "sourcesQueried": ${JSON.stringify(sourcesUsed)},
   "recommendations": {
-    "bestEntryPoints": ["<2-4 names + why they are the best entry point>"],
-    "decisionMakers": ["<names of actual budget owners / decision makers>"],
-    "blockers": ["<gatekeepers, EAs, or blockers to be aware of>"],
-    "suggestedSequence": "<3-5 step multi-touch outreach sequence specific to this company>"
+    "bestEntryPoints": ["<name + why>"],
+    "decisionMakers": ["<name>"],
+    "blockers": [],
+    "suggestedSequence": "<3-5 step outreach plan>"
   },
-  "generatedAt": "<ISO timestamp>"
+  "generatedAt": "${new Date().toISOString()}"
 }
 
-Rank leads: decision makers first, then influencers, then ICs. Aim for ${count} leads. Include only real named people from the research bundle — do not invent.`,
+Rank leads: decision makers first. Aim for ${count} leads. DO NOT return an empty leads array if any names appear in the bundle above.`;
+
+  let { data, provider } = await synthesizeJson<LeadFinderReport>({
+    system: synthesisSystem,
+    user: synthesisUser,
     fallback,
     preferredProvider: "anthropic",
     maxTokens: 6000,
   });
+
+  // If synthesis returned 0 leads but we have a non-empty bundle, retry with
+  // a more directive prompt to force extraction.
+  if ((data.leads ?? []).length === 0 && bundle.length > 500) {
+    logger.warn({ scope: "lead_finder", company }, "0 leads returned — retrying synthesis with extraction-only prompt");
+    const retryUser = `IMPORTANT: You returned 0 leads. That is wrong if names appear in the bundle below.
+
+Go through EVERY bullet point, paragraph, and line in the research bundle. Find EVERY human name mentioned in the context of ${company}. Extract them all into the leads array.
+
+Research bundle:
+${bundle.slice(0, 20000)}
+
+If you cannot find any named people in the bundle above, return leads: []. But read it carefully — names are there.
+
+Return ONLY the JSON object described earlier.`;
+    const retry = await synthesizeJson<LeadFinderReport>({
+      system: synthesisSystem,
+      user: retryUser,
+      fallback,
+      preferredProvider: "openai",
+      maxTokens: 5000,
+    });
+    if ((retry.data.leads ?? []).length > 0) {
+      data = retry.data;
+      provider = `${retry.provider}(retry)`;
+    }
+  }
 
   if (provider !== "fallback") sourcesUsed.push(`synthesis:${provider}`);
 

@@ -29,17 +29,31 @@ function checkIcp(extracted: Record<string, any>): { passes: boolean; failed: st
 
 // ─── AGENT 1: Gemini Vision — raw OCR + field extraction ──────────────────
 async function agent1GeminiOCR(imageDataUrl: string): Promise<{ result: any; error?: string }> {
-  const prompt = `You are an expert business-card OCR for GCC/Middle-East markets. Analyse this image.
+  const prompt = `You are an expert business-card OCR specialist for GCC/Middle-East B2B markets. Your job is to extract contact data from business cards.
 
-STEP 1 — Validate: Is this image a real professional business card with a real person's name and contact info?
-Return is_business_card=false if it is: a screenshot, random photo, ID card, invoice, meme, poster, product image, logo-only, or anything NOT a business card.
+STEP 1 — VALIDATION (be GENEROUS):
+A business card is ANY printed or digital card that conveys professional contact information for a person.
+Business cards come in many styles: dark backgrounds (black, navy, maroon, dark red, dark green), metallic/gold, white, minimalist, luxury, textured, bilingual Arabic/English, QR-code only cards, digital cards on screens.
 
-STEP 2 — Extract every visible field accurately.
+Only return is_business_card=false for CLEAR non-cards: selfie photos, landscape photos, food images, memes, social media screenshots, random documents, invoices, official government ID cards (e.g. passport, national ID, driver's license), product advertisements.
+
+If you see ANY of these on the image, it IS a business card (is_business_card=true):
+- A person's name (even partially visible)
+- A job title or company name
+- A phone number or email address
+- A logo combined with contact details
+- A QR code on what appears to be a card-shaped image
+- Arabic text that looks like contact information
+
+When in doubt, assume it IS a business card and attempt extraction.
+
+STEP 2 — EXTRACT every visible field accurately, even from low-quality or dark images.
+For dark/low-contrast images: increase effort on reading light-colored text on dark backgrounds.
 
 Return ONLY valid JSON:
 {
   "is_business_card": true|false,
-  "rejection_reason": null|"one clear sentence",
+  "rejection_reason": null|"one clear sentence — only set if clearly NOT a business card",
   "name_en": string|null,
   "name_ar": string|null,
   "title": string|null,
@@ -65,7 +79,8 @@ Rules:
 - Strip protocol from URLs ("neom.com" not "https://neom.com")
 - Return null (never empty string) for absent fields
 - Arabic names must use proper Arabic script
-- Guess industry from company name / context`;
+- Guess industry from company name / context
+- For dark cards: try harder — white/gold/silver text on dark backgrounds is common in luxury GCC cards`;
 
   try {
     const result = await aiGeminiVisionJson({ prompt, imageDataUrl });
@@ -233,25 +248,36 @@ router.post("/scan", async (req, res) => {
       error: ocr.error ?? null,
     };
 
-    // Short-circuit if clearly not a business card
-    if (ocr.result?.is_business_card === false) {
+    // Short-circuit if clearly not a business card — but override if Gemini
+    // still extracted contact data (dark/colored cards are often mis-rejected).
+    const ocrData = ocr.result ?? {};
+    const hasContactData =
+      ocrData.name_en || ocrData.name_ar || ocrData.email ||
+      ocrData.mobile || ocrData.office || ocrData.company;
+    if (ocrData.is_business_card === false && !hasContactData) {
       res.json({
-        extracted: ocr.result,
+        extracted: ocrData,
         model: "gemini-2.5-flash",
         pipeline_trace,
         agents_used: ["gemini-vision"],
       });
       return;
     }
+    // If Gemini said false but found data anyway, override and keep going
+    if (ocrData.is_business_card === false && hasContactData) {
+      ocrData.is_business_card = true;
+      ocrData.rejection_reason = null;
+      pipeline_trace.agent1_gemini_vision.override = "data_found_despite_false_flag";
+    }
 
     // ── STAGE 2: Agents 2-4 run in PARALLEL
-    const website = ocr.result?.website ?? null;
-    const nameForSearch = [ocr.result?.name_en, ocr.result?.title, ocr.result?.company]
+    const website = ocrData.website ?? null;
+    const nameForSearch = [ocrData.name_en, ocrData.title, ocrData.company]
       .filter(Boolean).join(" ");
 
     const [validated, perplexityIntel, webEnrich] = await Promise.all([
       // Agent 2: Claude validation/normalisation
-      agent2ReasoningValidate(ocr.result),
+      agent2ReasoningValidate(ocrData),
 
       // Agent 3: Perplexity live search — real-time web intelligence on the person
       (async () => {

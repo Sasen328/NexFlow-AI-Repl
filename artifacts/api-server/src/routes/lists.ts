@@ -2,6 +2,8 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { static_lists, static_list_members, contacts, companies, users } from "@workspace/db";
 import { and, eq, desc, sql, inArray } from "drizzle-orm";
+import { aiJson } from "../lib/ai.js";
+import { randomUUID } from "crypto";
 
 const router = Router();
 
@@ -103,6 +105,127 @@ router.delete("/:id/members/:entityId", async (req, res) => {
     res.status(204).send();
   } catch (err) {
     res.status(500).json({ error: "Failed" });
+  }
+});
+
+// ── POST /api/lists/ai-generate ────────────────────────────────────────────
+// AI generates a call list from existing CRM contacts based on questionnaire
+// body: { name, criteria: { industry, seniority, stage, intent, region, callWindow, goalNotes, maxCount } }
+router.post("/ai-generate", async (req, res) => {
+  try {
+    const { name = "AI Call List", criteria = {} } = req.body ?? {};
+    const {
+      industry = "",
+      seniority = "",
+      stage = "",
+      intent = "",
+      region = "",
+      callWindow = "",
+      goalNotes = "",
+      maxCount = 20,
+    } = criteria;
+
+    // Fetch candidate contacts from DB (score ≥ 40 or any contact)
+    const candidates = await db
+      .select({
+        id: contacts.id,
+        first_name: contacts.first_name,
+        last_name: contacts.last_name,
+        title: contacts.title,
+        email: contacts.email,
+        phone: contacts.phone,
+        lead_score: contacts.lead_score,
+        status: contacts.status,
+        tags: contacts.tags,
+        notes: contacts.notes,
+        company_id: contacts.company_id,
+        source: contacts.source,
+      })
+      .from(contacts)
+      .limit(200);
+
+    if (!candidates.length) {
+      return res.status(422).json({ error: "No contacts in CRM yet. Add contacts first." });
+    }
+
+    // Build compact candidate list for AI
+    const candidateSummary = candidates.map((c, i) =>
+      `${i}: id=${c.id} name="${c.first_name} ${c.last_name}" title="${c.title ?? ""}" score=${c.lead_score ?? 0} status=${c.status ?? ""} tags=[${(c.tags as string[] ?? []).join(",")}]`
+    ).join("\n");
+
+    const systemPrompt = `You are a B2B sales strategist. Given a list of CRM contacts and calling criteria, pick the best contacts for an outbound call list. Return ONLY valid JSON.`;
+
+    const userPrompt = `Calling criteria:
+- Industry focus: ${industry || "any"}
+- Seniority: ${seniority || "any"}
+- Deal stage: ${stage || "any"}
+- Intent signals: ${intent || "any"}
+- Region: ${region || "any"}
+- Best call window: ${callWindow || "any"}
+- Goal / notes: ${goalNotes || "none"}
+- Max contacts: ${maxCount}
+
+Candidate contacts (index: fields):
+${candidateSummary}
+
+Pick the best ${Math.min(maxCount, candidates.length)} contacts for this call list. Prioritize: higher lead_score, status=active/qualified, tags matching criteria.
+
+Return JSON: { "selected_indices": [0, 3, 7, ...], "rationale": "Why these contacts?" }`;
+
+    let selectedIndices: number[] = [];
+    let rationale = "";
+
+    // Try AI selection — fall back to score-sorted top-N if AI fails
+    try {
+      const parsed = await aiJson<{ selected_indices: number[]; rationale: string }>({
+        provider: "openai",
+        system: systemPrompt,
+        user: userPrompt,
+        fallback: { selected_indices: [], rationale: "" },
+      });
+      selectedIndices = parsed.selected_indices ?? [];
+      rationale = parsed.rationale ?? "";
+    } catch { /* fallback below */ }
+
+    if (!selectedIndices.length) {
+      // Fallback: sort by lead_score and take top maxCount
+      const sorted = [...candidates].sort((a, b) => (b.lead_score ?? 0) - (a.lead_score ?? 0));
+      selectedIndices = sorted.slice(0, maxCount).map((c) => candidates.indexOf(c));
+      rationale = "Selected by lead score ranking (AI selection unavailable).";
+    }
+
+    // Clamp indices to valid range
+    selectedIndices = selectedIndices.filter(i => i >= 0 && i < candidates.length).slice(0, maxCount);
+    const chosen = selectedIndices.map(i => candidates[i]).filter(Boolean);
+
+    if (!chosen.length) {
+      return res.status(422).json({ error: "AI could not select any contacts. Try relaxing the criteria." });
+    }
+
+    // Create the list in DB
+    const listId = randomUUID();
+    const [list] = await db.insert(static_lists).values({
+      id: listId,
+      name,
+      description: rationale,
+      object_type: "contact",
+      org_id: "default",
+      color: "#B8A0C8",
+    } as any).returning();
+
+    // Add members
+    const memberRows = chosen.map(c => ({ list_id: listId, entity_id: c.id }));
+    await db.insert(static_list_members).values(memberRows).onConflictDoNothing();
+
+    res.status(201).json({
+      list,
+      members: chosen,
+      rationale,
+      count: chosen.length,
+    });
+  } catch (err: any) {
+    console.error("[lists/ai-generate]", err);
+    res.status(500).json({ error: err?.message ?? "Failed to generate list" });
   }
 });
 
