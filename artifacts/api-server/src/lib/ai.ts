@@ -109,7 +109,7 @@ async function geminiSpeak(opts: {
 
 /**
  * Gemini Vision — send an image + text prompt and get a JSON response back.
- * Model: gemini-2.0-flash-exp (supports vision + JSON output).
+ * Model: gemini-2.5-flash (supports vision + JSON output).
  */
 export async function aiGeminiVisionJson(opts: {
   prompt: string;
@@ -136,7 +136,7 @@ export async function aiGeminiVisionJson(opts: {
     },
   };
   const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
   );
   const json: any = await r.json();
@@ -147,7 +147,7 @@ export async function aiGeminiVisionJson(opts: {
 
 /**
  * Direct Gemini text-generation — bypasses the OpenRouter proxy entirely.
- * Uses gemini-2.0-flash-exp which is fast, reliable, and supports bilingual GCC content.
+ * Uses gemini-2.5-flash which is fast, reliable, and supports bilingual GCC content.
  */
 export async function aiGeminiChat(opts: {
   system?: string;
@@ -174,7 +174,7 @@ export async function aiGeminiChat(opts: {
   }
 
   const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
   );
   const json: any = await r.json();
