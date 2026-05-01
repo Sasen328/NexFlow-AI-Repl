@@ -2,10 +2,10 @@
   "name": "@workspace/enrichment-scraper",
   "version": "0.0.0",
   "private": true,
-  "description": "Python FastAPI sidecar for AI-assisted public-web extraction (NexFlow waterfall orchestrator).",
+  "description": "Python FastAPI sidecar: BS4 + Playwright + Stealth + Crawl4AI web extractor for NexFlow.",
   "scripts": {
-    "dev": "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --reload --app-dir artifacts/enrichment-scraper",
-    "start": "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --app-dir artifacts/enrichment-scraper",
-    "install-deps": "python -m pip install --upgrade -r artifacts/enrichment-scraper/requirements.txt"
+    "dev": "pip install -q -r artifacts/enrichment-scraper/requirements.txt 2>/dev/null; playwright install chromium --with-deps 2>/dev/null || true; python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --reload --app-dir artifacts/enrichment-scraper",
+    "start": "pip install -q -r artifacts/enrichment-scraper/requirements.txt 2>/dev/null; playwright install chromium 2>/dev/null || true; python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --app-dir artifacts/enrichment-scraper",
+    "install-deps": "pip install -r artifacts/enrichment-scraper/requirements.txt && playwright install chromium --with-deps"
   }
 }

@@ -11,19 +11,17 @@ GET  /scraper/health              -> liveness + version + capability list
 POST /scraper/extract             -> fetch URL, return text + structured fields
 GET  /scraper/                    -> small status JSON (browsable index)
 
-Design notes
-------------
-* BeautifulSoup4 is the default engine — fast, zero browser dep.
-* Crawl4AI is treated as an OPTIONAL upgrade; if installed it's selected
-  when the caller passes `mode="crawl4ai"`. Otherwise we silently fall
-  back to BS4 so the waterfall keeps moving.
-* All outbound fetches respect a 10s timeout and identify themselves with
-  a NexFlow user-agent so the host can rate-limit us if needed.
-* Robots.txt is honored by default; pass `respect_robots=false` to override.
+Modes
+-----
+bs4           : BeautifulSoup4 + requests (lightweight, fast, default)
+playwright    : Headless Chromium via Playwright (JS-rendered pages)
+stealth       : Playwright + playwright-stealth evasion (bot-detection bypass)
+crawl4ai      : Crawl4AI async crawler (Markdown output, optional)
 """
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import logging
 import os
@@ -39,28 +37,43 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, HttpUrl
 
-# ─────────────────────────────────────────────────────────────────────
-# Optional Crawl4AI — heavy, opt-in. We never error on missing install.
-# ─────────────────────────────────────────────────────────────────────
-try:  # pragma: no cover - optional dep
+# ─── Optional Playwright ──────────────────────────────────────────────────────
+try:
+    from playwright.async_api import async_playwright  # type: ignore[import-not-found]
+    HAS_PLAYWRIGHT = True
+except Exception:
+    async_playwright = None  # type: ignore[assignment]
+    HAS_PLAYWRIGHT = False
+
+# ─── Optional playwright-stealth ─────────────────────────────────────────────
+try:
+    from playwright_stealth.stealth import Stealth as _Stealth  # type: ignore[import-not-found]
+    HAS_STEALTH = True
+except Exception:
+    _Stealth = None  # type: ignore[assignment]
+    HAS_STEALTH = False
+
+# ─── Optional Crawl4AI ───────────────────────────────────────────────────────
+try:
     from crawl4ai import AsyncWebCrawler  # type: ignore[import-not-found]
     HAS_CRAWL4AI = True
-except Exception:  # noqa: BLE001
+except Exception:
     AsyncWebCrawler = None  # type: ignore[assignment]
     HAS_CRAWL4AI = False
 
-VERSION = "1.0.1"
+VERSION = "2.0.0"
 USER_AGENT = (
-    "NexFlow-Enrichment-Scraper/1.0 "
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0.0.0 Safari/537.36"
+)
+NEXFLOW_UA = (
+    "NexFlow-Enrichment-Scraper/2.0 "
     "(+https://nexflow.replit.app; contact: ops@nexflow.io)"
 )
-DEFAULT_TIMEOUT = 10  # seconds
+DEFAULT_TIMEOUT = 15
 MAX_REDIRECTS = 5
 
-# Shared secret — when set, every /scraper/extract call must present a matching
-# X-Sidecar-Token header. The Node-side connector (api-server) sends this from
-# the same env var. When unset, the endpoint is open (dev convenience only —
-# production deploys MUST set this).
 SHARED_SECRET = os.environ.get("SCRAPER_SHARED_SECRET", "").strip() or None
 
 logger = logging.getLogger("enrichment-scraper")
@@ -69,15 +82,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 app = FastAPI(
     title="NexFlow Enrichment Scraper",
     version=VERSION,
-    description="AI-assisted public-web extractor sidecar for the NexFlow waterfall.",
-    # Service is mounted at /scraper by the workspace reverse proxy, so all
-    # routes must include the /scraper prefix here.
+    description="Multi-engine web extractor sidecar: BS4 + Playwright + Stealth + Crawl4AI.",
     root_path="",
 )
 
-# Server-to-server only — no browser CORS surface needed. We keep the
-# middleware mounted but with an empty origin list so a browser can never
-# trick a logged-in user into hitting /scraper/extract from another tab.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[],
@@ -86,17 +94,15 @@ app.add_middleware(
 )
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Schemas
-# ─────────────────────────────────────────────────────────────────────
+# ─── Schemas ─────────────────────────────────────────────────────────────────
 class ExtractRequest(BaseModel):
     url: HttpUrl
     mode: str = Field(
         default="bs4",
-        description="bs4 | crawl4ai. Falls back to bs4 if crawl4ai isn't installed.",
+        description="bs4 | playwright | stealth | crawl4ai — falls back to bs4 if engine unavailable.",
     )
     respect_robots: bool = Field(default=True)
-    timeout_seconds: int = Field(default=DEFAULT_TIMEOUT, ge=1, le=30)
+    timeout_seconds: int = Field(default=DEFAULT_TIMEOUT, ge=1, le=60)
 
 
 class StructuredFields(BaseModel):
@@ -124,12 +130,12 @@ class HealthResponse(BaseModel):
     ok: bool
     version: str
     modes: list[str]
+    playwright_available: bool
+    stealth_available: bool
     crawl4ai_available: bool
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Helpers
-# ─────────────────────────────────────────────────────────────────────
+# ─── Helpers ─────────────────────────────────────────────────────────────────
 EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
 TECH_HINTS = {
     "React": [r"__NEXT_DATA__", r"window\._react", r"react-dom"],
@@ -161,11 +167,12 @@ INDUSTRY_HINTS = {
     "Real Estate": ["real estate", "property", "proptech", "broker"],
     "Energy": ["renewable", "solar", "oil & gas", "energy"],
     "Education": ["edtech", "learning", "school", "university"],
+    "Finance": ["wealth management", "asset management", "investment", "fund"],
+    "Insurance": ["insurance", "takaful", "reinsurance"],
 }
 
 
 def _allowed_by_robots(url: str, user_agent: str) -> bool:
-    """Best-effort robots.txt check. Failure to fetch -> allowed."""
     try:
         parsed = urllib.parse.urlparse(url)
         robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
@@ -173,7 +180,7 @@ def _allowed_by_robots(url: str, user_agent: str) -> bool:
         rp.set_url(robots_url)
         rp.read()
         return rp.can_fetch(user_agent, url)
-    except Exception:  # noqa: BLE001
+    except Exception:
         return True
 
 
@@ -181,31 +188,20 @@ def _is_private_ip(ip: str) -> bool:
     try:
         addr = ipaddress.ip_address(ip)
     except ValueError:
-        return True  # unparseable → block to be safe
+        return True
     return (
-        addr.is_private
-        or addr.is_loopback
-        or addr.is_link_local
-        or addr.is_reserved
-        or addr.is_multicast
-        or addr.is_unspecified
+        addr.is_private or addr.is_loopback or addr.is_link_local
+        or addr.is_reserved or addr.is_multicast or addr.is_unspecified
     )
 
 
 def _ssrf_guard(url: str) -> None:
-    """Reject URLs that point at private/loopback/cloud-metadata IPs.
-
-    Resolves DNS for the host and blocks if any returned IP is private. Also
-    blocks the cloud metadata IP literal 169.254.169.254. Raises HTTPException
-    with status 400 on rejection.
-    """
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise HTTPException(status_code=400, detail="only http(s) URLs are allowed")
     host = parsed.hostname
     if not host:
         raise HTTPException(status_code=400, detail="missing host")
-    # Direct IP literal in URL
     try:
         addr = ipaddress.ip_address(host)
         if _is_private_ip(str(addr)):
@@ -213,7 +209,6 @@ def _ssrf_guard(url: str) -> None:
         return
     except ValueError:
         pass
-    # Resolve DNS, block if ANY answer is private
     try:
         infos = socket.getaddrinfo(host, None)
     except socket.gaierror:
@@ -225,8 +220,11 @@ def _ssrf_guard(url: str) -> None:
 
 
 def _fetch(url: str, timeout: int) -> tuple[str, dict[str, str]]:
-    """Fetch the URL with manual redirect following so we can SSRF-check each hop."""
-    headers = {"User-Agent": USER_AGENT, "Accept-Language": "en-US,en;q=0.8"}
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept-Language": "en-US,en;q=0.9,ar;q=0.8",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
     current = url
     for _ in range(MAX_REDIRECTS + 1):
         _ssrf_guard(current)
@@ -245,7 +243,7 @@ def _fetch(url: str, timeout: int) -> tuple[str, dict[str, str]]:
 
 def _check_secret(token: Optional[str]) -> None:
     if SHARED_SECRET is None:
-        return  # open mode (local dev)
+        return
     if not token or token != SHARED_SECRET:
         raise HTTPException(status_code=401, detail="invalid or missing X-Sidecar-Token")
 
@@ -254,14 +252,12 @@ def _extract_structured(html: str, base_url: str) -> StructuredFields:
     soup = BeautifulSoup(html, "lxml")
     out = StructuredFields()
 
-    # Company name: og:site_name → <title> first chunk
     og_site = soup.find("meta", property="og:site_name")
     if og_site and og_site.get("content"):
         out.company_name = og_site["content"].strip()
     elif soup.title and soup.title.string:
         out.company_name = soup.title.string.split("|")[0].split("·")[0].strip() or None
 
-    # Description: og:description → meta description → first <p>
     og_desc = soup.find("meta", property="og:description")
     if og_desc and og_desc.get("content"):
         out.description = og_desc["content"].strip()
@@ -274,39 +270,33 @@ def _extract_structured(html: str, base_url: str) -> StructuredFields:
             if first_p and first_p.text:
                 out.description = first_p.text.strip()[:280]
 
-    # Industry: regex against full text
     full_text = soup.get_text(separator=" ", strip=True).lower()
     for industry, hints in INDUSTRY_HINTS.items():
         if any(h in full_text for h in hints):
             out.industry = industry
             break
 
-    # Size band: text match
     for pattern, fmt in SIZE_HINTS:
         m = pattern.search(full_text)
         if m:
             out.size_band = fmt(m)
             break
 
-    # Tech stack: search raw HTML for fingerprints
     for tech, patterns in TECH_HINTS.items():
         if any(re.search(p, html) for p in patterns):
             out.tech_stack.append(tech)
 
-    # Headcount signals: look for "we're hiring", "join our team", careers links
     if any(s in full_text for s in ["we're hiring", "we are hiring", "join our team", "careers"]):
         out.headcount_signals.append("Active hiring page detected")
     careers_links = soup.find_all("a", href=re.compile(r"(careers|jobs|hiring)", re.I))
     if careers_links:
         out.headcount_signals.append(f"{len(careers_links)} careers links on homepage")
 
-    # News: <article> headlines or h2/h3 in news/blog sections
     for h in soup.find_all(["h2", "h3"], limit=8):
         txt = h.get_text(strip=True)
         if 12 <= len(txt) <= 140:
             out.news.append(txt)
 
-    # Social links
     for a in soup.find_all("a", href=True):
         href = a["href"]
         if "linkedin.com/company" in href and "linkedin" not in out.social_links:
@@ -316,9 +306,8 @@ def _extract_structured(html: str, base_url: str) -> StructuredFields:
         elif "github.com/" in href and "github" not in out.social_links:
             out.social_links["github"] = href
 
-    # Emails (deduped, bot-safe — drop obviously masked ones)
     raw_emails = EMAIL_RE.findall(html)
-    seen = set()
+    seen: set[str] = set()
     for e in raw_emails:
         e = e.lower()
         if e in seen or e.endswith((".png", ".jpg", ".gif")):
@@ -330,26 +319,75 @@ def _extract_structured(html: str, base_url: str) -> StructuredFields:
     return out
 
 
-async def _crawl_with_crawl4ai(url: str, timeout: int) -> tuple[str, str]:
-    """Returns (text, html) — only invoked when HAS_CRAWL4AI."""
-    if not HAS_CRAWL4AI or AsyncWebCrawler is None:  # defensive
+# ─── Engine implementations ──────────────────────────────────────────────────
+
+async def _crawl_bs4(url: str, timeout: int) -> tuple[str, str]:
+    """BeautifulSoup4 via requests — fast, no browser needed."""
+    html, _ = _fetch(url, timeout)
+    text = BeautifulSoup(html, "lxml").get_text(separator="\n", strip=True)
+    return text, html
+
+
+async def _crawl_playwright(url: str, timeout: int, use_stealth: bool = False) -> tuple[str, str]:
+    """Headless Chromium via Playwright — renders JavaScript."""
+    if not HAS_PLAYWRIGHT or async_playwright is None:
+        raise RuntimeError("playwright not installed")
+    _ssrf_guard(url)
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+        )
+        try:
+            context = await browser.new_context(
+                user_agent=USER_AGENT,
+                locale="en-US",
+                viewport={"width": 1280, "height": 800},
+                extra_http_headers={
+                    "Accept-Language": "en-US,en;q=0.9,ar;q=0.8",
+                },
+            )
+            page = await context.new_page()
+
+            if use_stealth and HAS_STEALTH and _Stealth is not None:
+                await _Stealth().apply_stealth_async(page)
+
+            await page.goto(url, wait_until="networkidle", timeout=timeout * 1000)
+            html = await page.content()
+            text = await page.evaluate("() => document.body.innerText")
+            return text or "", html or ""
+        finally:
+            await browser.close()
+
+
+async def _crawl_crawl4ai(url: str, timeout: int) -> tuple[str, str]:
+    """Crawl4AI async crawler — returns Markdown + raw HTML."""
+    if not HAS_CRAWL4AI or AsyncWebCrawler is None:
         raise RuntimeError("crawl4ai not installed")
-    async with AsyncWebCrawler(verbose=False) as crawler:  # type: ignore[misc]
+    async with AsyncWebCrawler(verbose=False) as crawler:
         result = await crawler.arun(url=url, page_timeout=timeout * 1000)
-        text = getattr(result, "markdown", "") or getattr(result, "text", "")
+        text = getattr(result, "markdown", "") or getattr(result, "text", "") or ""
         html = getattr(result, "html", "") or ""
         return text, html
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Routes — all served behind the /scraper prefix via the workspace proxy.
-# ─────────────────────────────────────────────────────────────────────
+# ─── Routes ──────────────────────────────────────────────────────────────────
+
 @app.get("/scraper/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
+    modes = ["bs4"]
+    if HAS_PLAYWRIGHT:
+        modes.append("playwright")
+        if HAS_STEALTH:
+            modes.append("stealth")
+    if HAS_CRAWL4AI:
+        modes.append("crawl4ai")
     return HealthResponse(
         ok=True,
         version=VERSION,
-        modes=["bs4"] + (["crawl4ai"] if HAS_CRAWL4AI else []),
+        modes=modes,
+        playwright_available=HAS_PLAYWRIGHT,
+        stealth_available=HAS_STEALTH,
         crawl4ai_available=HAS_CRAWL4AI,
     )
 
@@ -359,8 +397,13 @@ async def index() -> dict[str, Any]:
     return {
         "service": "NexFlow Enrichment Scraper",
         "version": VERSION,
+        "engines": {
+            "bs4": True,
+            "playwright": HAS_PLAYWRIGHT,
+            "stealth": HAS_PLAYWRIGHT and HAS_STEALTH,
+            "crawl4ai": HAS_CRAWL4AI,
+        },
         "endpoints": ["/scraper/health", "/scraper/extract"],
-        "crawl4ai_available": HAS_CRAWL4AI,
     }
 
 
@@ -373,49 +416,70 @@ async def extract(
     url_str = str(req.url)
     logger.info("extract url=%s mode=%s", url_str, req.mode)
 
-    # SSRF guard up-front — also re-applied on every redirect inside _fetch.
     _ssrf_guard(url_str)
 
-    if req.respect_robots and not _allowed_by_robots(url_str, USER_AGENT):
+    if req.respect_robots and not _allowed_by_robots(url_str, NEXFLOW_UA):
         return ExtractResponse(
             ok=False, url=url_str, mode_used="blocked",
             error="Blocked by robots.txt — pass respect_robots=false to override",
         )
 
+    mode = req.mode
     mode_used = "bs4"
+    text = ""
+    html = ""
+
     try:
-        if req.mode == "crawl4ai" and HAS_CRAWL4AI:
-            text, html = await _crawl_with_crawl4ai(url_str, req.timeout_seconds)
+        if mode == "stealth" and HAS_PLAYWRIGHT and HAS_STEALTH:
+            text, html = await _crawl_playwright(url_str, req.timeout_seconds, use_stealth=True)
+            mode_used = "stealth"
+        elif mode == "playwright" and HAS_PLAYWRIGHT:
+            text, html = await _crawl_playwright(url_str, req.timeout_seconds, use_stealth=False)
+            mode_used = "playwright"
+        elif mode == "crawl4ai" and HAS_CRAWL4AI:
+            text, html = await _crawl_crawl4ai(url_str, req.timeout_seconds)
             mode_used = "crawl4ai"
         else:
-            html, _headers = _fetch(url_str, req.timeout_seconds)
-            text = BeautifulSoup(html, "lxml").get_text(separator="\n", strip=True)
+            # bs4 default (also fallback for any unavailable engine)
+            if mode not in ("bs4",):
+                logger.warning("engine '%s' unavailable, falling back to bs4", mode)
+            text, html = await _crawl_bs4(url_str, req.timeout_seconds)
+            mode_used = "bs4"
+
     except HTTPException:
         raise
     except requests.HTTPError as e:
-        return ExtractResponse(ok=False, url=url_str, mode_used=mode_used, error=f"HTTP {e.response.status_code}")
+        return ExtractResponse(ok=False, url=url_str, mode_used=mode_used,
+                               error=f"HTTP {e.response.status_code}")
     except requests.RequestException as e:
-        return ExtractResponse(ok=False, url=url_str, mode_used=mode_used, error=f"fetch failed: {e}")
-    except Exception as e:  # noqa: BLE001
+        return ExtractResponse(ok=False, url=url_str, mode_used=mode_used,
+                               error=f"fetch failed: {e}")
+    except Exception as e:
         logger.exception("extract failed")
-        return ExtractResponse(ok=False, url=url_str, mode_used=mode_used, error=str(e))
+        # Try BS4 fallback if a browser engine failed
+        if mode_used != "bs4":
+            try:
+                text, html = await _crawl_bs4(url_str, req.timeout_seconds)
+                mode_used = "bs4_fallback"
+                logger.info("browser engine failed, bs4 fallback succeeded")
+            except Exception as e2:
+                return ExtractResponse(ok=False, url=url_str, mode_used=mode_used,
+                                       error=f"{mode} failed: {e}; bs4 fallback also failed: {e2}")
+        else:
+            return ExtractResponse(ok=False, url=url_str, mode_used=mode_used, error=str(e))
 
     structured = _extract_structured(html, url_str)
     return ExtractResponse(
         ok=True,
         url=url_str,
         mode_used=mode_used,
-        text=text[:5000] if text else None,
+        text=text[:6000] if text else None,
         structured=structured,
     )
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Entrypoint — `python main.py` runs uvicorn directly for ad-hoc testing.
-# Production / dev workflow uses `uvicorn main:app ...` instead.
-# ─────────────────────────────────────────────────────────────────────
-if __name__ == "__main__":  # pragma: no cover
+# ─── Entrypoint ──────────────────────────────────────────────────────────────
+if __name__ == "__main__":
     import uvicorn
-
     port = int(os.environ.get("PORT", "8000"))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)

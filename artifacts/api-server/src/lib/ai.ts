@@ -308,26 +308,72 @@ export async function aiChat(opts: {
 }): Promise<string> {
   const { system, user, provider = "auto", model, json = false, maxTokens = 1500 } = opts;
 
-  // Prefer OpenRouter when available (multi-provider). Fall back to OpenAI.
+  // OpenAI requires the word "json" to appear in messages when using json_object response format
+  const systemText = json && system && !/json/i.test(system)
+    ? `${system} Always respond with valid JSON.`
+    : system;
+
+  // ── Direct Gemini — bypass OpenRouter entirely when the Gemini key is present
+  if (provider === "gemini" && geminiApiKey && !model) {
+    try {
+      // For JSON mode with Gemini, we use the vision JSON endpoint which supports
+      // responseMimeType. For plain text, we use aiGeminiChat.
+      if (json) {
+        const prompt = systemText ? `${systemText}\n\nUser: ${user}` : user;
+        const body: any = {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: "application/json", maxOutputTokens: maxTokens, temperature: 0.3 },
+        };
+        const r = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+        );
+        const gjson: any = await r.json();
+        if (!r.ok || gjson.error) throw new Error(gjson.error?.message ?? `Gemini HTTP ${r.status}`);
+        return gjson.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+      }
+      return await aiGeminiChat({ system: systemText, messages: [{ role: "user", text: user }], maxTokens });
+    } catch (err: any) {
+      console.error("[ai] direct gemini failed, falling back to OpenRouter:", err?.message ?? err);
+      // fall through to OpenRouter below
+    }
+  }
+
+  // ── Direct OpenAI — bypass OpenRouter when OpenAI integration key is present
+  if (provider === "openai" && openaiApiKey && openaiBaseUrl && !model) {
+    try {
+      const client = openai();
+      const messages: any[] = [];
+      if (systemText) messages.push({ role: "system", content: systemText });
+      messages.push({ role: "user", content: user });
+      const resp = await client.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages,
+        max_tokens: maxTokens,
+        ...(json ? { response_format: { type: "json_object" } } : {}),
+      });
+      return resp.choices[0]?.message?.content ?? "";
+    } catch (err: any) {
+      console.error("[ai] direct openai failed, falling back to OpenRouter:", err?.message ?? err);
+      // fall through to OpenRouter below
+    }
+  }
+
+  // ── OpenRouter — used for: anthropic/Claude, perplexity/sonar, auto, and
+  //    any provider that doesn't have a direct key configured above.
   const useRouter = Boolean(openrouterBaseUrl && openrouterApiKey);
 
   let client: OpenAI;
   try {
     client = useRouter ? openrouter() : openai();
   } catch (err: any) {
-    // No AI integration configured — return empty so caller can fallback
     console.error("[ai] init failed:", err?.message ?? err);
-    return json ? "" : "";
+    return "";
   }
 
   const chosenModel = useRouter
     ? (model ?? providerModelMap[provider])
     : "gpt-4o-mini";
-
-  // OpenAI requires the word "json" to appear in messages when using json_object response format
-  const systemText = json && system && !/json/i.test(system)
-    ? `${system} Always respond with valid JSON.`
-    : system;
 
   const messages: any[] = [];
   if (systemText) messages.push({ role: "system", content: systemText });
@@ -342,7 +388,6 @@ export async function aiChat(opts: {
     });
     return resp.choices[0]?.message?.content ?? "";
   } catch (err: any) {
-    // Graceful degradation — never crash the route
     console.error("[ai] request failed:", err?.message ?? err);
     return "";
   }

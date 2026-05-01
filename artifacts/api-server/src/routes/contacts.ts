@@ -199,4 +199,69 @@ router.get("/:id/activities", async (req, res) => {
   }
 });
 
+// ─── POST /bulk — import multiple contacts from CSV/manual upload ───────────
+router.post("/bulk", async (req, res) => {
+  try {
+    const { rows } = req.body ?? {};
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ error: "rows array required" });
+    }
+    if (rows.length > 500) {
+      return res.status(400).json({ error: "Maximum 500 contacts per bulk import" });
+    }
+
+    const results = { created: 0, skipped: 0, errors: [] as string[] };
+
+    for (const row of rows) {
+      const first = (row.first_name ?? row.name?.split(" ")?.[0] ?? "").toString().trim();
+      const last = (row.last_name ?? row.name?.split(" ")?.slice(1)?.join(" ") ?? "").toString().trim();
+      if (!first) {
+        results.skipped++;
+        continue;
+      }
+
+      try {
+        // Deduplicate by email if provided
+        if (row.email) {
+          const existing = await db
+            .select({ id: contacts.id })
+            .from(contacts)
+            .where(eq(contacts.email, row.email.toString().toLowerCase().trim()))
+            .limit(1);
+          if (existing[0]) {
+            results.skipped++;
+            continue;
+          }
+        }
+
+        await db.insert(contacts).values({
+          first_name: first,
+          last_name: last || "",
+          email: row.email?.toString().toLowerCase().trim() || null,
+          phone: row.phone?.toString().trim() || null,
+          title: row.title?.toString().trim() || null,
+          status: (row.status as any) || "new",
+          notes: row.notes?.toString().trim() || null,
+          tags: row.tags ? (Array.isArray(row.tags) ? row.tags : [row.tags]) : ["bulk-import"],
+          source: "bulk_import",
+          org_id: "default",
+        });
+        results.created++;
+      } catch (rowErr: any) {
+        results.errors.push(`Row ${results.created + results.skipped + 1}: ${rowErr?.message ?? "insert failed"}`);
+      }
+    }
+
+    res.status(201).json({
+      ok: true,
+      created: results.created,
+      skipped: results.skipped,
+      errors: results.errors.slice(0, 10),
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to bulk import contacts");
+    res.status(500).json({ error: "Bulk import failed" });
+  }
+});
+
 export default router;
