@@ -5,6 +5,7 @@ import DefaultVideoTemplate, { SCENE_DURATIONS as DEFAULT_SCENE_DURATIONS } from
 import { useSceneControls } from '@/lib/video/useSceneControls';
 import { useAmbientAudio } from '@/lib/video/useAmbientAudio';
 import { useTabRecorder } from '@/lib/video/useTabRecorder';
+import { useNarration } from '@/lib/video/useNarration';
 
 interface TemplateProps {
   durations?: Record<string, number>;
@@ -16,6 +17,7 @@ interface VideoWithControlsProps {
   Template?: ComponentType<TemplateProps>;
   sceneDurations?: Record<string, number>;
   audioUrlOverride?: string;
+  narrationSlug?: string;
 }
 
 const PROGRESS_TICK_MS = 60;
@@ -310,6 +312,7 @@ function SoundToggle({
 export default function VideoWithControls({
   Template = DefaultVideoTemplate,
   sceneDurations = DEFAULT_SCENE_DURATIONS,
+  narrationSlug,
 }: VideoWithControlsProps = {}) {
   const isIframed = typeof window !== 'undefined' && window.self !== window.top;
 
@@ -334,6 +337,9 @@ export default function VideoWithControls({
     audioRef,
     audioUrl,
   } = useAmbientAudio();
+
+  // TTS narration — plays the pre-generated OpenAI TTS MP3 for each scene
+  useNarration(narrationSlug, sceneKeys[activeIndex] ?? '', audioMuted);
 
   const recorder = useTabRecorder();
   const totalDurationMs = useMemo(
