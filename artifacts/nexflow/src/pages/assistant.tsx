@@ -1,15 +1,16 @@
 /**
- * NexFlow AI Assistant — real LLM-backed chat with live dashboard data.
- *
- *   • Backend: POST /api/assistant/chat (OpenRouter → Claude/GPT/Gemini/Perplexity)
- *   • Pulls live pipeline / contacts / signals / activities from the DB.
- *   • Voice playback uses browser SpeechSynthesis with the selected voice
- *     profile (default = Layla, Gulf Arabic female).
- *   • Provider selector lets the user pick which model answers.
+ * NexFlow AI Assistant
+ *   • Chat: POST /api/assistant/chat → Gemini 2.0 Flash (direct, no proxy)
+ *   • TTS:  POST /api/assistant/tts  → Gemini TTS (Aoede/Orus/Leda/Charon/Kore)
+ *           WAV blob played via HTMLAudioElement — full Gulf Arabic accent support
+ *   • All settings (tone, mode, focus, language, accent, voice) sent on every turn
  */
 
 import { useState, useRef, useEffect } from "react";
-import { Brain, Send, Volume2, VolumeX, Copy, RefreshCw, Sparkles, User, Loader2, ChevronDown, Database, CheckCircle2 } from "lucide-react";
+import {
+  Brain, Send, Volume2, VolumeX, Copy, RefreshCw, Sparkles, User, Loader2,
+  ChevronDown, Database, CheckCircle2, Settings2, Globe, Mic, X, Play, Square,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/hooks/useApi";
 
@@ -20,97 +21,145 @@ interface Message {
   time: string;
   provider?: string;
   data_used?: string[];
+  actions?: { kind: string; label: string; path?: string }[];
 }
+
+// ─── Voices — map to /api/assistant/tts voice_id values ─────────────────────
+const VOICES = [
+  { id: "layla",  label: "Layla",  sub: "Gulf Arabic Female",   lang: "AR", gender: "female", flag: "🇦🇪" },
+  { id: "faisal", label: "Faisal", sub: "Gulf Arabic Male",     lang: "AR", gender: "male",   flag: "🇸🇦" },
+  { id: "noor",   label: "Noor",   sub: "Bilingual AR / EN",    lang: "AR", gender: "female", flag: "🌐"  },
+  { id: "sara",   label: "Sara",   sub: "English Female",       lang: "EN", gender: "female", flag: "🇬🇧" },
+  { id: "adam",   label: "Adam",   sub: "English Male",         lang: "EN", gender: "male",   flag: "🇺🇸" },
+] as const;
+type VoiceId = typeof VOICES[number]["id"];
+
+// ─── Tone / Language / Mode ──────────────────────────────────────────────────
+const TONES = [
+  { id: "conversational", label: "Conversational" },
+  { id: "concise",        label: "Concise" },
+  { id: "formal",         label: "Formal" },
+  { id: "coach",          label: "Coach" },
+] as const;
+
+const LANGUAGES = [
+  { id: "auto", label: "Auto (mirror input)" },
+  { id: "ar",   label: "Arabic only" },
+  { id: "en",   label: "English only" },
+] as const;
+
+const ACCENTS = [
+  { id: "uae",     label: "UAE / Khaleeji" },
+  { id: "saudi",   label: "Saudi Najdi" },
+  { id: "default", label: "Neutral Gulf MSA" },
+] as const;
+
+const MODES = [
+  { id: "chat",     label: "Chat",     sub: "Conversational back-and-forth" },
+  { id: "analysis", label: "Analysis", sub: "Structured insights + actions" },
+  { id: "research", label: "Research", sub: "Live web grounding" },
+] as const;
 
 const SUGGESTIONS = [
   "Give me today's pipeline briefing with real numbers",
   "Who are my top 3 hot contacts to call right now?",
   "Which deals are at risk of stalling?",
   "Write a Khaleeji WhatsApp follow-up to my hottest lead",
-  "Summarize my recent activity and what I missed",
-  "What buying signals should I act on first?",
+  "Summarize recent activity and what I should act on",
+  "What buying signals should I prioritize this week?",
 ];
 
-// Provider-routed AI models. All of these go through OpenRouter automatically.
-const PROVIDERS = [
-  { key: "auto",       label: "Auto",        sub: "Best model picked for the task",        color: "#B8A0C8" },
-  { key: "anthropic",  label: "Claude 4.6",  sub: "Best for nuance, drafting, persuasion", color: "#C8A880" },
-  { key: "openai",     label: "GPT-4o",      sub: "Balanced reasoning + speed",            color: "#88B8B0" },
-  { key: "gemini",     label: "Gemini 2.5",  sub: "Long context, multilingual",            color: "#90B8D8" },
-  { key: "perplexity", label: "Perplexity",  sub: "Live web grounding for fresh facts",    color: "#B8B880" },
-] as const;
+// ─── Gemini TTS playback ─────────────────────────────────────────────────────
+let _currentAudio: HTMLAudioElement | null = null;
 
-const VOICES = [
-  { id: "layla",  label: "Layla — Gulf Arabic Female", lang: "ar-SA", gender: "female" as const, default: true },
-  { id: "faisal", label: "Faisal — Gulf Arabic Male",  lang: "ar-SA", gender: "male"   as const },
-  { id: "noor",   label: "Noor — Bilingual AR/EN",     lang: "ar",    gender: "female" as const },
-  { id: "adam",   label: "Adam — English Male",        lang: "en-US", gender: "male"   as const },
-];
+async function speakGemini(text: string, voiceId: VoiceId): Promise<void> {
+  // Stop any ongoing playback
+  if (_currentAudio) { _currentAudio.pause(); _currentAudio = null; }
+  // Strip out markdown / JSON fences — only read the clean text
+  const clean = text
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/[#*`_~]/g, "")
+    .slice(0, 800); // Keep TTS snappy — truncate long answers
+  if (!clean.trim()) return;
 
-function speak(text: string, voiceId: string) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  const v = VOICES.find(x => x.id === voiceId) ?? VOICES[0]!;
-  const u = new SpeechSynthesisUtterance(text.replace(/\*\*/g, "").replace(/[#`]/g, ""));
-  u.lang = v.lang;
-  u.rate = 1.0;
-  u.pitch = v.gender === "female" ? 1.1 : 0.95;
-  // Try to pick a matching voice from the OS voice list.
-  const list = window.speechSynthesis.getVoices();
-  const match = list.find(s => s.lang.toLowerCase().startsWith(v.lang.toLowerCase().slice(0, 2)) && s.name.toLowerCase().includes(v.gender === "female" ? "female" : "male"))
-    ?? list.find(s => s.lang.toLowerCase().startsWith(v.lang.toLowerCase().slice(0, 2)));
-  if (match) u.voice = match;
-  window.speechSynthesis.speak(u);
+  try {
+    const res = await fetch("/api/assistant/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: clean, voice_id: voiceId }),
+    });
+    if (!res.ok) return; // Silently skip if TTS fails — never block chat
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    _currentAudio = new Audio(url);
+    _currentAudio.onended = () => URL.revokeObjectURL(url);
+    _currentAudio.play();
+  } catch { /* TTS failure is non-fatal */ }
 }
 
+function stopAudio() {
+  if (_currentAudio) { _currentAudio.pause(); _currentAudio = null; }
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 export default function AssistantPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "init",
-      role: "assistant",
-      text: "Hello — I'm your NexFlow AI Assistant. I have live access to your pipeline, contacts, deals, signals, and activity feed. Ask me anything about your performance, who to call, what to send, or what's at risk.\n\nاهلاً وسهلاً — تقدر تكتبلي بالعربي وأنا أرد عليك بلهجة خليجية.",
-      time: "Now",
-    }
-  ]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState<string | null>(null);
-  const [provider, setProvider] = useState<typeof PROVIDERS[number]["key"]>("auto");
-  const [voiceId, setVoiceId] = useState<string>("layla");
-  const [voiceOn, setVoiceOn] = useState<boolean>(true);
-  const [providerOpen, setProviderOpen] = useState(false);
-  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([{
+    id: "init", role: "assistant",
+    text: "Hello — I'm your NexFlow AI copilot. I have live access to your pipeline, contacts, deals, signals and activity feed. Ask me anything.\n\nاهلاً — تقدر تكتبلي بالعربي وأنا أرد بلهجة خليجية.",
+    time: "Now",
+  }]);
+  const [input, setInput]         = useState("");
+  const [loading, setLoading]     = useState(false);
+  const [copied, setCopied]       = useState<string | null>(null);
+  const [ttsLoading, setTtsLoad]  = useState(false);
+  const [playing, setPlaying]     = useState(false);
+
+  // Settings
+  const [voiceId, setVoiceId]     = useState<VoiceId>("layla");
+  const [voiceOn, setVoiceOn]     = useState(true);
+  const [tone, setTone]           = useState<typeof TONES[number]["id"]>("conversational");
+  const [language, setLanguage]   = useState<typeof LANGUAGES[number]["id"]>("auto");
+  const [accent, setAccent]       = useState<typeof ACCENTS[number]["id"]>("uae");
+  const [mode, setMode]           = useState<typeof MODES[number]["id"]>("chat");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef  = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Force the OS to load voice list on mount (Chrome quirk).
-  useEffect(() => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.getVoices();
-    }
-    return () => {
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, []);
+  const currentVoice = VOICES.find(v => v.id === voiceId) ?? VOICES[0];
 
   async function send(text?: string) {
-    const msg = text ?? input.trim();
+    const msg = (text ?? input).trim();
     if (!msg || loading) return;
-    const userMsg: Message = { id: `u${Date.now()}`, role: "user", text: msg, time: "Now" };
-    const history = messages.filter(m => m.id !== "init").map(m => ({ role: m.role, text: m.text }));
-    setMessages(prev => [...prev, userMsg]);
+
+    const history = messages
+      .filter(m => m.id !== "init")
+      .map(m => ({ role: m.role as "user" | "assistant", text: m.text }));
+
+    setMessages(prev => [...prev, { id: `u${Date.now()}`, role: "user", text: msg, time: "Now" }]);
     setInput("");
     setLoading(true);
+
     try {
-      const res = await apiFetch("/assistant/chat", {
+      const res: any = await apiFetch("/assistant/chat", {
         method: "POST",
-        body: JSON.stringify({ message: msg, provider, history }),
-      }) as { reply: string; provider_used?: string; data_used?: string[] };
+        body: JSON.stringify({
+          message: msg,
+          provider: "auto",
+          tone,
+          mode,
+          focus: "general",
+          language,
+          accent,
+          agent_name: "NexFlow AI",
+          history,
+        }),
+      });
+
       const reply: Message = {
         id: `a${Date.now()}`,
         role: "assistant",
@@ -118,20 +167,40 @@ export default function AssistantPage() {
         time: "Now",
         provider: res.provider_used,
         data_used: res.data_used,
+        actions: res.actions ?? [],
       };
       setMessages(prev => [...prev, reply]);
-      if (voiceOn && res.reply) speak(res.reply, voiceId);
+
+      // Speak the reply with real Gemini TTS
+      if (voiceOn && res.reply) {
+        setTtsLoad(true);
+        setPlaying(true);
+        try {
+          await speakGemini(res.reply, voiceId);
+        } finally {
+          setTtsLoad(false);
+          setPlaying(false);
+        }
+      }
     } catch (e: any) {
       setMessages(prev => [...prev, {
         id: `a${Date.now()}`,
         role: "assistant",
-        text: `I couldn't reach the AI right now (${e?.message ?? "network error"}). Please try again.`,
+        text: `Connection issue: ${e?.message ?? "request failed"}. The AI backend is Gemini 2.0 Flash — check API server logs if this persists.`,
         time: "Now",
       }]);
     } finally {
       setLoading(false);
     }
   }
+
+  async function replaySingle(text: string) {
+    setTtsLoad(true); setPlaying(true);
+    try { await speakGemini(text, voiceId); }
+    finally { setTtsLoad(false); setPlaying(false); }
+  }
+
+  function handleStop() { stopAudio(); setPlaying(false); }
 
   function copyMsg(id: string, text: string) {
     navigator.clipboard.writeText(text);
@@ -144,219 +213,252 @@ export default function AssistantPage() {
       const formatted = line
         .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
         .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-        .replace(/^(#{1,3}) (.+)$/, (_, _h, t) => `<span class="font-bold text-foreground">${t}</span>`);
-      return <p key={i} className={cn("leading-relaxed", line.startsWith("---") ? "border-t border-border/30 my-2" : "")} dangerouslySetInnerHTML={{ __html: formatted || "&nbsp;" }} />;
+        .replace(/^(#{1,3}) (.+)$/, (_, _h, t) => `<span class="font-bold">${t}</span>`);
+      return (
+        <p key={i}
+          className={cn("leading-relaxed", line.startsWith("---") ? "border-t border-border/30 my-2" : "")}
+          dangerouslySetInnerHTML={{ __html: formatted || "&nbsp;" }}
+        />
+      );
     });
   }
 
-  const currentProvider = PROVIDERS.find(p => p.key === provider) ?? PROVIDERS[0];
-  const currentVoice = VOICES.find(v => v.id === voiceId) ?? VOICES[0];
+  function onKey(e: React.KeyboardEvent) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+  }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-3 flex-shrink-0">
-        <div className="w-10 h-10 rounded-xl nf-chameleon-bg flex items-center justify-center">
-          <Brain className="w-5 h-5 text-white" />
+    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-3xl mx-auto px-1 pt-2">
+
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-3 pb-3 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-xl nf-chameleon-bg flex items-center justify-center shadow-sm">
+            <Brain className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-base font-bold">NexFlow AI</span>
+              <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-[#88B8B0]/15 text-[#88B8B0] border border-[#88B8B0]/30 uppercase tracking-wide">
+                Gemini 2.0 Flash
+              </span>
+            </div>
+            <div className="text-[11px] text-muted-foreground">Live pipeline · {mode} mode · {language === "auto" ? "bilingual" : language}</div>
+          </div>
         </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold text-foreground">NexFlow AI Assistant</h1>
-          <p className="text-xs text-[#88B8B0] flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#88B8B0] animate-pulse" />
-            Live · powered by {currentProvider!.label} · reads your real pipeline
-          </p>
+
+        <div className="flex items-center gap-1.5">
+          {/* TTS stop button */}
+          {playing && (
+            <button onClick={handleStop} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 transition">
+              <Square className="w-3 h-3 fill-current" /> Stop
+            </button>
+          )}
+
+          {/* Voice toggle */}
+          <button
+            onClick={() => { setVoiceOn(v => !v); if (playing) handleStop(); }}
+            className={cn("flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition",
+              voiceOn ? "bg-[#88B8B0]/15 border-[#88B8B0]/40 text-[#88B8B0]" : "bg-muted/40 border-border/40 text-muted-foreground")}
+          >
+            {ttsLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : voiceOn ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+            {currentVoice.flag} {currentVoice.label}
+          </button>
+
+          {/* Settings panel toggle */}
+          <button
+            onClick={() => setSettingsOpen(v => !v)}
+            className={cn("p-1.5 rounded-lg border transition",
+              settingsOpen ? "bg-[#B8A0C8]/15 border-[#B8A0C8]/40 text-[#B8A0C8]" : "border-border/40 text-muted-foreground hover:bg-muted/40")}
+          >
+            <Settings2 className="w-4 h-4" />
+          </button>
+
+          <button onClick={() => setMessages(m => [m[0]!])} title="Clear chat"
+            className="p-1.5 rounded-lg border border-border/40 text-muted-foreground hover:bg-muted/40 transition">
+            <RefreshCw className="w-4 h-4" />
+          </button>
         </div>
-        <button
-          onClick={() => setMessages([messages[0]!])}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          New chat
-        </button>
       </div>
 
-      {/* Provider + Voice strip */}
-      <div className="flex flex-wrap gap-2 mb-3 flex-shrink-0">
-        {/* Provider picker */}
-        <div className="relative">
-          <button
-            onClick={() => { setProviderOpen(o => !o); setVoiceOpen(false); }}
-            className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-muted/50 hover:bg-muted text-foreground border border-border/40"
-          >
-            <Sparkles className="w-3 h-3" style={{ color: currentProvider!.color }} />
-            <span className="font-semibold">Model: {currentProvider!.label}</span>
-            <ChevronDown className="w-3 h-3 opacity-60" />
-          </button>
-          {providerOpen && (
-            <div className="absolute top-full mt-1 left-0 z-20 w-72 glass-card rounded-xl p-1 shadow-xl border border-border/40">
-              {PROVIDERS.map(p => (
-                <button
-                  key={p.key}
-                  onClick={() => { setProvider(p.key); setProviderOpen(false); }}
-                  className={cn("w-full text-left px-3 py-2 rounded-lg flex items-start gap-2 hover:bg-muted/40 transition-colors", provider === p.key && "bg-muted/60")}
-                >
-                  <Sparkles className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: p.color }} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-foreground">{p.label}</div>
-                    <div className="text-[10px] text-muted-foreground">{p.sub}</div>
-                  </div>
-                  {provider === p.key && <CheckCircle2 className="w-3.5 h-3.5 text-[#88B8B0] mt-0.5" />}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Voice toggle */}
-        <button
-          onClick={() => setVoiceOn(v => !v)}
-          className={cn("flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-colors",
-            voiceOn ? "bg-[#88B8B0]/15 border-[#88B8B0]/40 text-[#88B8B0]" : "bg-muted/40 border-border/40 text-muted-foreground")}
-        >
-          {voiceOn ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
-          <span className="font-semibold">Voice {voiceOn ? "on" : "off"}</span>
-        </button>
-
-        {/* Voice picker */}
-        <div className="relative">
-          <button
-            onClick={() => { setVoiceOpen(o => !o); setProviderOpen(false); }}
-            disabled={!voiceOn}
-            className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-muted/50 hover:bg-muted text-foreground border border-border/40 disabled:opacity-50"
-          >
-            <span className="font-semibold">{currentVoice!.label}</span>
-            <ChevronDown className="w-3 h-3 opacity-60" />
-          </button>
-          {voiceOpen && (
-            <div className="absolute top-full mt-1 left-0 z-20 w-64 glass-card rounded-xl p-1 shadow-xl border border-border/40">
+      {/* ── Settings drawer ─────────────────────────────────────────────── */}
+      {settingsOpen && (
+        <div className="glass-panel p-4 mb-3 grid grid-cols-2 gap-4 flex-shrink-0">
+          <div>
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1.5">Voice persona</div>
+            <div className="grid grid-cols-1 gap-1">
               {VOICES.map(v => (
-                <button
-                  key={v.id}
-                  onClick={() => { setVoiceId(v.id); setVoiceOpen(false); speak("مرحبا، أنا مساعدك الذكي", v.id); }}
-                  className={cn("w-full text-left px-3 py-2 rounded-lg hover:bg-muted/40 transition-colors flex items-center justify-between", voiceId === v.id && "bg-muted/60")}
-                >
-                  <div className="flex flex-col">
-                    <span className="text-sm font-semibold text-foreground">{v.label}</span>
-                    <span className="text-[10px] text-muted-foreground">{v.lang} · {v.gender}</span>
+                <button key={v.id} onClick={() => setVoiceId(v.id as VoiceId)}
+                  className={cn("flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-left transition border",
+                    voiceId === v.id ? "border-[#88B8B0]/50 bg-[#88B8B0]/10 text-[#88B8B0]" : "border-transparent hover:bg-muted/40")}>
+                  <span className="text-base leading-none">{v.flag}</span>
+                  <div>
+                    <div className="font-semibold">{v.label}</div>
+                    <div className="text-[10px] text-muted-foreground">{v.sub}</div>
                   </div>
-                  {voiceId === v.id && <CheckCircle2 className="w-3.5 h-3.5 text-[#88B8B0]" />}
+                  {voiceId === v.id && <CheckCircle2 className="w-3.5 h-3.5 ml-auto" />}
                 </button>
               ))}
             </div>
-          )}
-        </div>
+          </div>
 
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground ml-auto">
-          <Database className="w-3 h-3" />
-          Live data: pipeline · contacts · signals · activities
+          <div className="space-y-3">
+            <Setting label="Arabic accent / dialect" options={ACCENTS} value={accent} onChange={setAccent as any} />
+            <Setting label="Language output" options={LANGUAGES} value={language} onChange={setLanguage as any} />
+            <Setting label="Tone" options={TONES} value={tone} onChange={setTone as any} />
+            <Setting label="Mode" options={MODES} value={mode} onChange={setMode as any} />
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-        {messages.map(msg => (
-          <div key={msg.id} className={cn("flex gap-3", msg.role === "user" ? "flex-row-reverse" : "")}>
+      {/* ── Message list ────────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto space-y-3 pr-1 pb-2">
+        {messages.map((msg) => (
+          <div key={msg.id} className={cn("flex gap-2.5", msg.role === "user" ? "flex-row-reverse" : "flex-row")}>
             <div className={cn(
-              "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1",
-              msg.role === "assistant" ? "nf-chameleon-bg" : "bg-muted/60"
+              "w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold mt-0.5",
+              msg.role === "user" ? "bg-[#B8A0C8]" : "nf-chameleon-bg"
             )}>
-              {msg.role === "assistant" ? <Sparkles className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-foreground" />}
+              {msg.role === "user" ? <User className="w-3.5 h-3.5" /> : <Brain className="w-3.5 h-3.5" />}
             </div>
-            <div className={cn("flex-1 max-w-[85%] flex flex-col gap-1", msg.role === "user" ? "items-end" : "items-start")}>
+
+            <div className={cn("max-w-[82%] space-y-1", msg.role === "user" ? "items-end" : "items-start")}>
               <div className={cn(
-                "rounded-2xl px-4 py-3 text-sm group relative",
-                msg.role === "assistant" ? "glass-card text-foreground/90 rounded-tl-sm" : "nf-chameleon-bg text-white rounded-tr-sm"
-              )} dir="auto">
-                <div className={cn("space-y-0.5", msg.role === "assistant" ? "text-foreground/85" : "text-white")}>
+                "rounded-2xl px-4 py-2.5 text-sm",
+                msg.role === "user"
+                  ? "bg-[#B8A0C8]/20 border border-[#B8A0C8]/30 rounded-tr-sm"
+                  : "glass-panel rounded-tl-sm"
+              )}>
+                <div className="prose prose-sm prose-compact max-w-none text-foreground">
                   {renderText(msg.text)}
                 </div>
-                {msg.role === "assistant" && (
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                    <button
-                      onClick={() => speak(msg.text, voiceId)}
-                      className="p-1 rounded text-muted-foreground hover:text-foreground"
-                      title="Speak this answer"
-                    >
-                      <Volume2 className="w-3 h-3" />
+
+                {/* Action buttons */}
+                {msg.actions && msg.actions.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {msg.actions.map((a, i) => (
+                      <a key={i} href={a.path ?? "#"}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#B8A0C8]/15 text-[#B8A0C8] border border-[#B8A0C8]/30 hover:bg-[#B8A0C8]/25 transition">
+                        <Sparkles className="w-3 h-3" /> {a.label}
+                      </a>
+                    ))}
+                  </div>
+                )}
+
+                {/* Meta row */}
+                {msg.role === "assistant" && msg.id !== "init" && (
+                  <div className="mt-2 pt-1.5 border-t border-border/20 flex items-center gap-2 flex-wrap">
+                    {msg.provider && (
+                      <span className="text-[10px] text-muted-foreground">{msg.provider}</span>
+                    )}
+                    {msg.data_used && msg.data_used.length > 0 && (
+                      <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                        <Database className="w-2.5 h-2.5" /> live data
+                      </span>
+                    )}
+                    <button onClick={() => copyMsg(msg.id, msg.text)}
+                      className="ml-auto text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition">
+                      {copied === msg.id ? <CheckCircle2 className="w-3 h-3 text-[#88B8B0]" /> : <Copy className="w-3 h-3" />}
+                      {copied === msg.id ? "Copied" : "Copy"}
                     </button>
-                    <button
-                      onClick={() => copyMsg(msg.id, msg.text)}
-                      className="p-1 rounded text-muted-foreground hover:text-foreground"
-                      title="Copy"
-                    >
-                      <Copy className="w-3 h-3" />
-                    </button>
+                    {voiceOn && (
+                      <button onClick={() => replaySingle(msg.text)}
+                        className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition">
+                        <Play className="w-3 h-3" /> Replay
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
-              {msg.role === "assistant" && msg.provider && msg.id !== "init" && (
-                <div className="text-[10px] text-muted-foreground flex items-center gap-2 px-1">
-                  {msg.provider !== "none" && <span>via {msg.provider}</span>}
-                  {msg.data_used && msg.data_used.length > 0 && (
-                    <span className="flex items-center gap-1">
-                      <Database className="w-2.5 h-2.5" /> {msg.data_used.join(" · ")}
-                    </span>
-                  )}
-                  {copied === msg.id && <span className="text-[#88B8B0]">copied</span>}
-                </div>
-              )}
             </div>
           </div>
         ))}
+
         {loading && (
-          <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-full nf-chameleon-bg flex items-center justify-center flex-shrink-0">
-              <Loader2 className="w-4 h-4 text-white animate-spin" />
+          <div className="flex gap-2.5">
+            <div className="w-7 h-7 rounded-full nf-chameleon-bg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Brain className="w-3.5 h-3.5 text-white" />
             </div>
-            <div className="glass-card rounded-2xl rounded-tl-sm px-4 py-3 text-xs text-muted-foreground">
-              Pulling live data and consulting {currentProvider!.label}…
+            <div className="glass-panel rounded-2xl rounded-tl-sm px-4 py-3">
+              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Gemini thinking…</span>
+              </div>
             </div>
           </div>
         )}
         <div ref={bottomRef} />
       </div>
 
-      {/* Suggestions */}
-      {messages.length <= 1 && (
-        <div className="py-3 flex-shrink-0">
-          <div className="text-xs text-muted-foreground mb-2">Try asking:</div>
-          <div className="flex flex-wrap gap-2">
-            {SUGGESTIONS.map(s => (
-              <button
-                key={s}
-                onClick={() => send(s)}
-                className="text-xs px-3 py-1.5 rounded-full bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
+      {/* ── Suggestions (only when no real messages) ─────────────────────── */}
+      {messages.length <= 1 && !loading && (
+        <div className="grid grid-cols-2 gap-2 mb-3 flex-shrink-0">
+          {SUGGESTIONS.map((s) => (
+            <button key={s} onClick={() => send(s)}
+              className="text-left px-3 py-2 rounded-xl border border-border/40 hover:border-[#B8A0C8]/40 hover:bg-[#B8A0C8]/5 text-xs text-muted-foreground hover:text-foreground transition leading-snug">
+              <Sparkles className="w-3 h-3 text-[#B8A0C8] inline mr-1.5 -mt-0.5" />
+              {s}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* Input */}
-      <div className="flex items-end gap-2 pt-3 border-t border-border/20 flex-shrink-0">
-        <div className="flex-1 flex items-end gap-2 px-4 py-3 rounded-2xl bg-muted/50 border border-border/40 focus-within:border-[#B8A0C8] transition-colors">
+      {/* ── Input ───────────────────────────────────────────────────────── */}
+      <div className="flex-shrink-0 pb-2">
+        <div className="flex items-end gap-2 px-4 py-2.5 rounded-2xl bg-muted/50 border border-border/40 focus-within:border-[#B8A0C8] transition-colors">
           <textarea
-            className="flex-1 bg-transparent text-sm outline-none resize-none text-foreground placeholder:text-muted-foreground leading-relaxed max-h-32"
-            placeholder="Ask about pipeline, deals, contacts, signals — or request a draft (English / Arabic)…"
+            ref={inputRef}
             value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }}}
+            onKeyDown={onKey}
+            placeholder="Ask anything — pipeline, contacts, follow-ups, Arabic… (Enter to send)"
             rows={1}
-            dir="auto"
+            className="flex-1 bg-transparent resize-none focus:outline-none text-sm placeholder:text-muted-foreground max-h-32"
+            style={{ fieldSizing: "content" } as any}
           />
+          <button
+            onClick={() => send()}
+            disabled={!input.trim() || loading}
+            className={cn(
+              "p-2 rounded-xl transition-all flex-shrink-0",
+              input.trim() && !loading
+                ? "nf-chameleon-bg text-white shadow-sm hover:opacity-90"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
+            )}
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          </button>
         </div>
-        <button
-          onClick={() => send()}
-          disabled={!input.trim() || loading}
-          className={cn(
-            "p-3 rounded-xl flex-shrink-0 transition-all",
-            input.trim() && !loading ? "nf-chameleon-bg text-white hover:opacity-90" : "bg-muted/30 text-muted-foreground cursor-not-allowed"
-          )}
-        >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-        </button>
+        <div className="text-[10px] text-muted-foreground text-center mt-1.5">
+          {currentVoice.flag} {currentVoice.label} · {accent} accent · {tone} · {language === "auto" ? "auto language" : language}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Small settings row component ────────────────────────────────────────────
+function Setting<T extends string>({
+  label, options, value, onChange,
+}: {
+  label: string;
+  options: readonly { id: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div>
+      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">{label}</div>
+      <div className="flex flex-wrap gap-1">
+        {options.map(o => (
+          <button key={o.id} onClick={() => onChange(o.id)}
+            className={cn("px-2 py-0.5 rounded-lg text-[11px] font-semibold border transition",
+              value === o.id
+                ? "border-[#B8A0C8]/50 bg-[#B8A0C8]/15 text-[#B8A0C8]"
+                : "border-border/40 text-muted-foreground hover:bg-muted/40")}>
+            {o.label}
+          </button>
+        ))}
       </div>
     </div>
   );

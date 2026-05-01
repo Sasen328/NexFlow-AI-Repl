@@ -19,7 +19,7 @@
 import { Router, type IRouter } from "express";
 import { db, contacts, deals, signals, activities } from "@workspace/db";
 import { sql, desc } from "drizzle-orm";
-import { aiChat, aiTranscribe, type AiProvider } from "../lib/ai.js";
+import { aiGeminiChat, aiGeminiTts, aiTranscribe, type AiProvider } from "../lib/ai.js";
 
 const router: IRouter = Router();
 
@@ -255,23 +255,35 @@ router.post("/chat", async (req, res) => {
   }
 
   const dataBlock = ctx
-    ? `LIVE DATA (as of now):\n${JSON.stringify(ctx, null, 2)}`
-    : `LIVE DATA: (unavailable — answer generally and suggest the user retry)`;
+    ? `LIVE DATA (as of now — use these exact numbers, do not invent any):\n${JSON.stringify(ctx, null, 2)}`
+    : `LIVE DATA: temporarily unavailable — answer generally.`;
 
-  const historyBlock = history.length
-    ? `\n\nRECENT CONVERSATION:\n${history
-        .map((h) => `${h.role === "user" ? "USER" : "ASSISTANT"}: ${h.text}`)
-        .join("\n")}`
-    : "";
-
-  const chosenProvider = pickProvider(provider, mode, message);
   const system = buildSystemPrompt({ agentName, tone, mode, focus, language, accent });
 
+  // Build message list in Gemini format: prior history (user/model alternating) + current user turn
+  const geminiMessages: Array<{ role: "user" | "model"; text: string }> = [];
+
+  // Prepend data context to the first user turn (or create a synthetic one if history is empty)
+  const contextPreamble = `${dataBlock}\n\n---\nUSER MESSAGE: ${message}`;
+  if (history.length === 0) {
+    geminiMessages.push({ role: "user", text: contextPreamble });
+  } else {
+    // Insert data context into the first historical user turn so it doesn't bloat every turn
+    for (let i = 0; i < history.length; i++) {
+      const h = history[i]!;
+      const isFirst = i === 0 && h.role === "user";
+      geminiMessages.push({
+        role: h.role === "user" ? "user" : "model",
+        text: isFirst ? `${dataBlock}\n\nUSER: ${h.text}` : h.text,
+      });
+    }
+    geminiMessages.push({ role: "user", text: message });
+  }
+
   try {
-    const reply = await aiChat({
+    const reply = await aiGeminiChat({
       system,
-      user: `${dataBlock}${historyBlock}\n\nUSER MESSAGE: ${message}`,
-      provider: chosenProvider,
+      messages: geminiMessages,
       maxTokens: tone === "concise" ? 400 : 1200,
     });
 
@@ -279,9 +291,9 @@ router.post("/chat", async (req, res) => {
       res.json({
         reply:
           language === "ar"
-            ? "لم أستطع الاتصال بمزود الذكاء الآن. حاول بعد لحظات."
-            : "I couldn't reach the AI provider right now. Please try again in a moment.",
-        provider_used: chosenProvider,
+            ? "لم أستطع الاتصال بالذكاء الاصطناعي الآن. حاول بعد لحظات."
+            : "I couldn't reach the AI right now. Please try again in a moment.",
+        provider_used: "gemini-2.0-flash",
         actions: [],
         data_used: ctx ? Object.keys(ctx) : [],
       });
@@ -292,7 +304,7 @@ router.post("/chat", async (req, res) => {
 
     res.json({
       reply: cleanText,
-      provider_used: chosenProvider,
+      provider_used: "gemini-2.0-flash",
       actions,
       data_used: ctx ? Object.keys(ctx) : [],
     });
@@ -350,7 +362,47 @@ router.post("/transcribe", async (req, res) => {
   }
 });
 
-// ─── POST /api/assistant/voice — TTS metadata for the client ───────────
+// ─── POST /api/assistant/tts — Real Gemini TTS → WAV audio ─────────────
+// Maps persona voice IDs to Gemini prebuilt voices + dialect instruction.
+// Returns audio/wav binary — client should play via new Audio(URL.createObjectURL(blob)).
+const TTS_VOICE_MAP: Record<string, { geminiVoice: string; dialectInstruction: string }> = {
+  layla:  { geminiVoice: "Aoede",  dialectInstruction: "warm Gulf Arabic (Khaleeji) female"  },
+  faisal: { geminiVoice: "Orus",   dialectInstruction: "Gulf Arabic (Khaleeji) male"          },
+  noor:   { geminiVoice: "Leda",   dialectInstruction: "warm bilingual Arabic-English female" },
+  adam:   { geminiVoice: "Charon", dialectInstruction: "professional English male"             },
+  sara:   { geminiVoice: "Kore",   dialectInstruction: "professional English female"           },
+};
+
+router.post("/tts", async (req, res) => {
+  const text: string = String(req.body?.text ?? "").slice(0, 4000).trim();
+  const voiceId: string = String(req.body?.voice_id ?? "layla").toLowerCase();
+
+  if (!text) {
+    res.status(400).json({ error: "text required" });
+    return;
+  }
+
+  const voiceCfg = TTS_VOICE_MAP[voiceId] ?? TTS_VOICE_MAP["layla"]!;
+
+  try {
+    const wav = await aiGeminiTts({
+      text,
+      voiceName: voiceCfg.geminiVoice,
+      dialectInstruction: voiceCfg.dialectInstruction,
+    });
+    res.set({
+      "Content-Type": "audio/wav",
+      "Content-Length": String(wav.length),
+      "Cache-Control": "no-store",
+    });
+    res.send(wav);
+  } catch (err: any) {
+    req.log.error({ err }, "[assistant/tts] Gemini TTS failed");
+    res.status(500).json({ error: err?.message ?? "tts_failed" });
+  }
+});
+
+// ─── POST /api/assistant/voice — legacy metadata (kept for compat) ──────
 router.post("/voice", async (req, res) => {
   const text: string = String(req.body?.text ?? "").trim();
   const voiceId: string = String(req.body?.voice_id ?? "layla");
@@ -367,7 +419,7 @@ router.post("/voice", async (req, res) => {
   };
   const v = voiceMap[voiceId.toLowerCase()] ?? voiceMap["layla"]!;
   res.json({
-    mode: "browser_tts",
+    mode: "gemini_tts",
     text,
     voice: { id: voiceId, ...v },
     note: "Browser SpeechSynthesis / expo-speech speaks in the requested language; install ElevenLabs/Gemini TTS for premium audio.",

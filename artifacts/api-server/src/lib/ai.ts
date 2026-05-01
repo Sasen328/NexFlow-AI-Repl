@@ -107,6 +107,60 @@ async function geminiSpeak(opts: {
   return pcmToWav(pcm, 24000, 1, 16);
 }
 
+/**
+ * Direct Gemini text-generation — bypasses the OpenRouter proxy entirely.
+ * Uses gemini-2.0-flash-exp which is fast, reliable, and supports bilingual GCC content.
+ */
+export async function aiGeminiChat(opts: {
+  system?: string;
+  messages: Array<{ role: "user" | "model"; text: string }>;
+  maxTokens?: number;
+}): Promise<string> {
+  if (!geminiApiKey) throw new Error("Gemini API key not configured");
+  const { system, messages, maxTokens = 1500 } = opts;
+
+  const contents: any[] = messages.map((m) => ({
+    role: m.role,
+    parts: [{ text: m.text }],
+  }));
+
+  const body: any = {
+    contents,
+    generationConfig: {
+      maxOutputTokens: maxTokens,
+      temperature: 0.7,
+    },
+  };
+  if (system) {
+    body.systemInstruction = { parts: [{ text: system }] };
+  }
+
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+  );
+  const json: any = await r.json();
+  if (!r.ok || json.error) throw new Error(json.error?.message ?? `Gemini HTTP ${r.status}`);
+  return json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+}
+
+/**
+ * Gemini TTS — returns a WAV buffer for the given text + voice.
+ * voiceName must be a valid Gemini prebuilt voice (e.g. "Aoede", "Charon", "Leda").
+ * dialectInstruction is prepended to the TTS prompt so the model reads with the right accent.
+ */
+export async function aiGeminiTts(opts: {
+  text: string;
+  voiceName: string;
+  dialectInstruction?: string;
+}): Promise<Buffer> {
+  const { text, voiceName, dialectInstruction } = opts;
+  const prefix = dialectInstruction
+    ? `Read aloud the following text exactly as written with a ${dialectInstruction} accent, do not translate:\n`
+    : `Read aloud the following text exactly as written, do not translate:\n`;
+  return geminiSpeak({ text: prefix + text.slice(0, 3900), geminiVoice: voiceName });
+}
+
 export function openrouter(): OpenAI {
   if (!openrouterBaseUrl || !openrouterApiKey) {
     throw new Error("OpenRouter integration not configured");
