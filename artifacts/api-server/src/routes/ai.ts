@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { contacts, signals, calls, deals, activities, companies, ai_agents, ai_agent_runs } from "@workspace/db";
 import { desc, eq, sql, and, gte } from "drizzle-orm";
-import { aiChat, aiEnabled } from "../lib/ai.js";
+import { aiChat, aiEnabled, aiTranscribe, type AiProvider } from "../lib/ai.js";
 
 const router = Router();
 
@@ -173,15 +173,179 @@ Always JSON: {"agents":["agent_key", ...], "reasoning":"one short sentence", "we
   }
 }
 
+// ─── Conversational helpers ─────────────────────────────────────────────────
+type AssistantAction = {
+  kind: "open" | "start_call" | "draft_email" | "draft_whatsapp" | "switch_mode";
+  label: string;
+  path?: string;
+  payload?: Record<string, unknown>;
+};
+
+const RESEARCH_HINTS = /\b(news|latest|today|this week|recent|update|trend|funding|hiring|announce|launch|stock|ipo|earnings|merger|acquisition|2025|2026|raised|round)\b/i;
+const COMMAND_HINTS = /\b(open|go to|navigate|show me|take me to|jump to)\b/i;
+
+const PAGE_MAP: Array<{ re: RegExp; path: string; label: string }> = [
+  { re: /\b(pipeline|deals?|forecast)\b/i, path: "/pipeline", label: "Open pipeline" },
+  { re: /\b(contacts?|leads?|people)\b/i, path: "/contacts", label: "Open contacts" },
+  { re: /\b(calls?|dialer|dial)\b/i, path: "/calls", label: "Open calls" },
+  { re: /\b(messages?|inbox|chat)\b/i, path: "/messages", label: "Open messages" },
+  { re: /\b(home|dashboard|today|briefing)\b/i, path: "/home", label: "Open home" },
+  { re: /\b(insights?|analytics|report)\b/i, path: "/insights", label: "Open insights" },
+  { re: /\b(campaigns?|marketing)\b/i, path: "/campaigns", label: "Open campaigns" },
+  { re: /\b(tasks?|todo|to-do)\b/i, path: "/tasks", label: "Open tasks" },
+  { re: /\b(settings?|preferences|profile)\b/i, path: "/settings", label: "Open settings" },
+];
+
+function detectActions(message: string, reply: string): AssistantAction[] {
+  const acts: AssistantAction[] = [];
+  const text = message.toLowerCase();
+
+  if (COMMAND_HINTS.test(text)) {
+    for (const p of PAGE_MAP) {
+      if (p.re.test(text)) {
+        acts.push({ kind: "open", label: p.label, path: p.path });
+        break;
+      }
+    }
+  }
+  if (/\b(call|dial|phone|ring)\b/i.test(text) && /\b(start|make|begin|place)\b/i.test(text)) {
+    if (!acts.some(a => a.kind === "start_call")) acts.push({ kind: "start_call", label: "Start a call", path: "/calls" });
+  }
+  if (/\b(draft|write|compose|send)\b.*\bemail\b/i.test(text)) {
+    acts.push({ kind: "draft_email", label: "Draft email", path: "/messages" });
+  }
+  if (/\b(draft|write|send)\b.*\b(whatsapp|wa|message)\b/i.test(text)) {
+    acts.push({ kind: "draft_whatsapp", label: "Draft WhatsApp", path: "/messages" });
+  }
+  // Try to extract trailing JSON actions block from the model
+  try {
+    const matches = [...reply.matchAll(/```json\s*([\s\S]*?)```/gi)];
+    const last = matches[matches.length - 1];
+    if (last) {
+      const parsed = JSON.parse(last[1]);
+      if (Array.isArray(parsed?.actions)) {
+        for (const a of parsed.actions) {
+          if (a?.kind && a?.label) acts.push(a as AssistantAction);
+        }
+      }
+    }
+  } catch {/* ignore */}
+  // Dedupe by kind+path
+  const seen = new Set<string>();
+  return acts.filter(a => {
+    const k = `${a.kind}:${a.path ?? ""}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+function stripTrailingJson(text: string): string {
+  return text.replace(/\n*```json\s*[\s\S]*?```\s*$/i, "").trim();
+}
+
+function buildPersonaSystem(opts: {
+  agentName?: string;
+  tone?: string;
+  focus?: string;
+  language?: string;
+  accent?: string;
+  role?: { key?: string; name?: string; title?: string };
+  context?: string;
+  mode: "chat" | "research" | "analyze";
+}): string {
+  const name = opts.agentName?.trim() || "NexFlow AI";
+  const tone = opts.tone || "conversational";
+  const focus = opts.focus || "general";
+  const lang = opts.language || "auto";
+  const accent = opts.accent || "default";
+  const userName = opts.role?.name?.split(" ")[0] || "there";
+  const userTitle = opts.role?.title || "Sales rep";
+
+  const langLine = lang === "ar"
+    ? `Always answer in Arabic${accent && accent !== "default" ? ` with a ${accent} dialect` : ""}.`
+    : lang === "en"
+    ? "Always answer in English."
+    : "Detect the user's language from their message and answer in the same language. If they write Arabic, reply in Arabic.";
+
+  const toneMap: Record<string, string> = {
+    conversational: "Warm, friendly, like a smart colleague chatting over coffee. Short replies (1-3 sentences). Ask one clarifying question only if truly needed.",
+    concise: "Direct and brief. No fluff. 1-2 sentences max.",
+    coach: "Encouraging mentor — affirm progress, then suggest the next concrete move.",
+    enthusiastic: "Upbeat and energetic, but professional. Celebrate wins, push forward.",
+    formal: "Polished, business-formal English/Arabic. Address them by title.",
+  };
+  const toneLine = toneMap[tone] ?? toneMap.conversational;
+
+  const focusLine = focus === "sales"
+    ? "Lens everything through revenue impact: pipeline, deals, calls, follow-ups."
+    : focus === "marketing"
+    ? "Lens everything through audience reach, campaigns, channels, content."
+    : focus === "research"
+    ? "Lens everything through facts, citations, market intelligence, competitive moves."
+    : "Be a generalist helpful assistant.";
+
+  const modeLine = opts.mode === "chat"
+    ? "Mode: CHAT — keep it conversational and short. Do NOT produce long structured analyses unless explicitly asked."
+    : opts.mode === "research"
+    ? "Mode: RESEARCH — provide current, factual information with sources where possible."
+    : "Mode: ANALYZE — provide a structured, evidence-based analysis with concrete numbers and a clear next step.";
+
+  return `You are ${name}, an AI assistant for NexFlow CRM (a B2B revenue platform for the GCC: KSA, UAE, Bahrain, Kuwait, Qatar, Oman).
+The user is ${userName}, a ${userTitle}. Current page: ${opts.context ?? "/"}.
+${langLine}
+Tone: ${toneLine}
+Focus: ${focusLine}
+${modeLine}
+
+If the user is asking you to perform an action (open a page, start a call, draft an email/WhatsApp), append a JSON block at the very end like:
+\`\`\`json
+{"actions":[{"kind":"open","label":"Open pipeline","path":"/pipeline"}]}
+\`\`\`
+Valid kinds: open, start_call, draft_email, draft_whatsapp. Otherwise omit the JSON block entirely.`;
+}
+
 router.post("/assistant", async (req, res) => {
   const t0 = Date.now();
   try {
-    const { message, role, context } = req.body as {
+    const {
+      message, role, context,
+      mode: rawMode,
+      tone, focus, language, accent, agent_name,
+      provider: rawProvider,
+      history,
+    } = req.body as {
       message?: string;
       role?: { key?: string; name?: string; title?: string };
       context?: string;
+      mode?: "chat" | "research" | "analyze" | "auto";
+      tone?: string;
+      focus?: string;
+      language?: "en" | "ar" | "auto";
+      accent?: string;
+      agent_name?: string;
+      provider?: AiProvider;
+      history?: Array<{ role: "user" | "assistant"; text: string }>;
     };
     if (!message || typeof message !== "string") return res.status(400).json({ error: "Missing message" });
+
+    // Auto-detect mode if not explicitly set
+    let mode: "chat" | "research" | "analyze" = "chat";
+    if (rawMode === "research" || rawMode === "analyze" || rawMode === "chat") {
+      mode = rawMode;
+    } else if (RESEARCH_HINTS.test(message)) {
+      mode = "research";
+    } else if (/\b(analy[sz]e|breakdown|deep dive|forecast|coverage|metric|kpi|performance|how am i doing)\b/i.test(message)) {
+      mode = "analyze";
+    }
+
+    // Pick provider — explicit override wins, else auto-route by mode
+    const provider: AiProvider =
+      (rawProvider && ["openai","anthropic","gemini","perplexity","auto"].includes(rawProvider))
+        ? rawProvider
+        : mode === "research" ? "perplexity"
+        : mode === "analyze" ? "anthropic"
+        : "openai";
 
     // Static fallback if AI integration is missing.
     const fallback = {
@@ -189,9 +353,65 @@ router.post("/assistant", async (req, res) => {
       suggestions: ["Show my hottest leads", "What deals are at risk?", "Plan a campaign for Q2", "Research Aramco Digital"],
       agents_used: [] as { key: AgentKey; label: string }[],
       data_used: [] as string[],
+      actions: [] as AssistantAction[],
+      mode,
+      provider,
     };
     if (!aiEnabled) return res.json(fallback);
 
+    // ─── CHAT MODE — short conversational reply, no heavy orchestration ─
+    if (mode === "chat") {
+      const sys = buildPersonaSystem({
+        agentName: agent_name, tone, focus, language, accent, role, context, mode: "chat",
+      });
+      const histText = (history ?? []).slice(-6).map(h => `${h.role === "user" ? "User" : "You"}: ${h.text}`).join("\n");
+      const userText = histText ? `${histText}\nUser: ${message}` : message;
+      const raw = await aiChat({
+        system: sys,
+        user: userText,
+        provider,
+        maxTokens: 350,
+      });
+      const replyText = stripTrailingJson(raw || "");
+      const actions = detectActions(message, raw || "");
+      return res.json({
+        reply: replyText || fallback.reply,
+        suggestions: [],
+        agents_used: [],
+        data_used: [],
+        actions,
+        mode,
+        provider,
+        duration_ms: Date.now() - t0,
+      });
+    }
+
+    // ─── RESEARCH MODE — Perplexity for live web data ───────────────────
+    if (mode === "research") {
+      const sys = buildPersonaSystem({
+        agentName: agent_name, tone, focus, language, accent, role, context, mode: "research",
+      });
+      const raw = await aiChat({
+        system: sys + "\nCite concrete facts, numbers, and dates. Use [1] [2] inline citations when possible.",
+        user: message,
+        provider: "perplexity",
+        maxTokens: 800,
+      });
+      const replyText = stripTrailingJson(raw || "");
+      const actions = detectActions(message, raw || "");
+      return res.json({
+        reply: replyText || fallback.reply,
+        suggestions: [],
+        agents_used: [{ key: "researcher" as AgentKey, label: "Researcher (Perplexity)" }],
+        data_used: ["web_search:perplexity"],
+        actions,
+        mode,
+        provider: "perplexity" as AiProvider,
+        duration_ms: Date.now() - t0,
+      });
+    }
+
+    // ─── ANALYZE MODE — full multi-agent orchestration (existing path) ──
     // 1) ROUTE — pick which agents/tools
     const route = await pickAgents(message, role, context ?? "");
     const evidence: Record<string, any> = {};
@@ -263,6 +483,7 @@ Always JSON: { "reply": "<answer>", "suggestions": ["...","...","..."] }`;
       ? `\n\n— ${agents_used.map(a => a.label).join(" + ")}${dataUsed.length ? ` · live data: ${dataUsed.length} sources` : ""}`
       : "";
 
+    const actions = detectActions(message, replyText);
     return res.json({
       reply: replyText + attrib,
       suggestions: (parsed.suggestions && Array.isArray(parsed.suggestions) && parsed.suggestions.length)
@@ -270,12 +491,47 @@ Always JSON: { "reply": "<answer>", "suggestions": ["...","...","..."] }`;
         : fallback.suggestions,
       agents_used,
       data_used: dataUsed,
+      actions,
+      mode,
+      provider,
       routing_reason: route.reasoning,
       duration_ms: Date.now() - t0,
     });
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "AI assistant failed" });
+  }
+});
+
+// ─── Whisper transcription endpoint (for Safari/iPad/Firefox fallback) ──────
+router.post("/transcribe", async (req, res) => {
+  try {
+    const { audio_base64, mime, language } = req.body as {
+      audio_base64?: string;
+      mime?: string;
+      language?: "en" | "ar";
+    };
+    if (!audio_base64 || typeof audio_base64 !== "string") {
+      return res.status(400).json({ error: "Missing audio_base64" });
+    }
+    // 18MB cap of base64 ≈ 13.5MB binary, fits the 25MB JSON body limit
+    if (audio_base64.length > 18 * 1024 * 1024) {
+      return res.status(413).json({ error: "Audio too large (max ~13MB)" });
+    }
+    const buffer = Buffer.from(audio_base64, "base64");
+    const ext = (mime || "audio/webm").includes("mp4") ? "m4a"
+      : (mime || "audio/webm").includes("mpeg") ? "mp3"
+      : (mime || "audio/webm").includes("wav") ? "wav"
+      : "webm";
+    const out = await aiTranscribe({
+      audio: buffer,
+      filename: `voice.${ext}`,
+      language: language === "ar" ? "ar" : language === "en" ? "en" : undefined,
+    });
+    return res.json({ text: out.text, language: out.language });
+  } catch (err: any) {
+    req.log.error(err);
+    return res.status(500).json({ error: err?.message ?? "Transcription failed" });
   }
 });
 
