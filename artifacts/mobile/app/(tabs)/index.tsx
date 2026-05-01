@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -23,12 +23,23 @@ import { PersonaSwitcher } from "@/components/PersonaSwitcher";
 import { usePersona } from "@/lib/personas";
 import { formatCurrency, getTimeOfDay } from "@/data/mockData";
 import {
+  apiPost,
   initials,
   useDashboardSummary,
   useSignalSummary,
   useTopContacts,
   useForgottenLeads,
 } from "@/lib/api";
+
+// Provider-routed AI models (mirrors web /assistant + /marketing-assistant).
+const AI_PROVIDERS = [
+  { key: "auto",       label: "Auto",       color: "#B8A0C8" },
+  { key: "anthropic",  label: "Claude 4.6", color: "#C8A880" },
+  { key: "openai",     label: "GPT-4o",     color: "#88B8B0" },
+  { key: "gemini",     label: "Gemini 2.5", color: "#90B8D8" },
+  { key: "perplexity", label: "Perplexity", color: "#B8B880" },
+] as const;
+type ProviderKey = typeof AI_PROVIDERS[number]["key"];
 
 // ─── Static data (mirrors web briefing.tsx) ───────────────────────────────────
 const TODAY_AGENDA = [
@@ -94,9 +105,21 @@ export default function CommandCenterScreen() {
 
   const [tab, setTab] = useState<Tab>("overview");
   const [tasks, setTasks] = useState(AUTO_TASKS);
-  const [aiMessages, setAiMessages] = useState(INITIAL_AI_MSGS);
+  const [aiMessages, setAiMessages] = useState<{ role: string; text: string; provider?: string }[]>(INITIAL_AI_MSGS);
   const [aiInput, setAiInput] = useState("");
+  const [aiProvider, setAiProvider] = useState<ProviderKey>("auto");
+  const [aiProviderOpen, setAiProviderOpen] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+
+  // Reset chat + provider UI when the persona switches so Sara's pipeline
+  // context doesn't bleed into Maya's marketing chat.
+  useEffect(() => {
+    setAiMessages(INITIAL_AI_MSGS);
+    setAiInput("");
+    setAiProviderOpen(false);
+    setAiBusy(false);
+  }, [persona.key]);
 
   const summary = useDashboardSummary();
   const top = useTopContacts(3);
@@ -132,18 +155,32 @@ export default function CommandCenterScreen() {
     setTasks(ts => ts.map(t => t.id === id ? { ...t, done: !t.done } : t));
   };
 
-  const sendAi = () => {
-    if (!aiInput.trim()) return;
-    const txt = aiInput;
+  const sendAi = async () => {
+    if (!aiInput.trim() || aiBusy) return;
+    const txt = aiInput.trim();
     setAiMessages(m => [...m, { role: "user", text: txt }]);
     setAiInput("");
-    setTimeout(() => {
-      setAiMessages(m => [...m, {
-        role: "ai",
-        text: "Based on your pipeline and today's signals, focus on Sara Al-Mansouri first (funding signal + high score), then tackle the 2 overdue follow-ups before noon. This sequence optimizes your probability of 3 conversions today. Want me to draft the outreach messages?"
-      }]);
-    }, 900);
+    setAiBusy(true);
+    try {
+      const r = await apiPost<{ reply: string; provider_used?: string }>(
+        "/assistant/chat",
+        {
+          message: txt,
+          provider: aiProvider,
+          history: aiMessages
+            .slice(-6)
+            .map(m => ({ role: m.role === "ai" ? "assistant" : "user", text: m.text })),
+        },
+      );
+      setAiMessages(m => [...m, { role: "ai", text: r.reply || "(no reply)", provider: r.provider_used ?? aiProvider }]);
+    } catch (err: any) {
+      setAiMessages(m => [...m, { role: "ai", text: `Couldn't reach the AI right now (${err?.message ?? "error"}). Try a different model or check your connection.` }]);
+    } finally {
+      setAiBusy(false);
+    }
   };
+
+  const currentProvider = AI_PROVIDERS.find(p => p.key === aiProvider) ?? AI_PROVIDERS[0];
 
   const TABS: { k: Tab; label: string; icon: string; badge?: number }[] = [
     { k: "overview", label: "Overview", icon: "bar-chart-2" },
@@ -525,14 +562,49 @@ export default function CommandCenterScreen() {
               <LinearGradient colors={["#B8A0C8", "#88B8B0", "#C8A880"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.chatAvatar}>
                 <Feather name="cpu" size={18} color="#fff" />
               </LinearGradient>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={[s.chatName, { color: colors.foreground }]}>NexFlow AI Assistant</Text>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                  <View style={[s.onlineDot, { backgroundColor: colors.teal }]} />
-                  <Text style={[s.chatStatus, { color: colors.mutedForeground }]}>Online · Analysing your pipeline</Text>
+                  <View style={[s.onlineDot, { backgroundColor: currentProvider.color }]} />
+                  <Text style={[s.chatStatus, { color: colors.mutedForeground }]}>
+                    via {currentProvider.label}
+                  </Text>
                 </View>
               </View>
+              {/* Provider toggle */}
+              <Pressable
+                onPress={() => { if (Platform.OS !== "web") Haptics.selectionAsync(); setAiProviderOpen(o => !o); }}
+                style={[s.providerBtn, { backgroundColor: colors.secondary, borderColor: colors.border }]}
+              >
+                <View style={[s.providerDot, { backgroundColor: currentProvider.color }]} />
+                <Text style={[s.providerLabel, { color: colors.foreground }]}>{currentProvider.label}</Text>
+                <Feather name={aiProviderOpen ? "chevron-up" : "chevron-down"} size={11} color={colors.mutedForeground} />
+              </Pressable>
             </View>
+
+            {/* Provider dropdown */}
+            {aiProviderOpen && (
+              <View style={[s.providerMenu, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+                {AI_PROVIDERS.map(p => (
+                  <Pressable
+                    key={p.key}
+                    onPress={() => {
+                      if (Platform.OS !== "web") Haptics.selectionAsync();
+                      setAiProvider(p.key);
+                      setAiProviderOpen(false);
+                    }}
+                    style={[
+                      s.providerOpt,
+                      { backgroundColor: aiProvider === p.key ? colors.muted : "transparent" },
+                    ]}
+                  >
+                    <View style={[s.providerDot, { backgroundColor: p.color }]} />
+                    <Text style={[s.providerOptText, { color: colors.foreground }]}>{p.label}</Text>
+                    {aiProvider === p.key && <Feather name="check" size={14} color={p.color} />}
+                  </Pressable>
+                ))}
+              </View>
+            )}
 
             {/* Messages */}
             <ScrollView style={s.chatMessages} contentContainerStyle={{ gap: 12, padding: 14 }} showsVerticalScrollIndicator={false}>
@@ -544,8 +616,13 @@ export default function CommandCenterScreen() {
                     </LinearGradient>
                   )}
                   {msg.role === "ai" ? (
-                    <View style={[s.msgBubble, s.msgBubbleAi, { backgroundColor: colors.secondary }]}>
-                      <Text style={[s.msgText, { color: colors.foreground }]}>{msg.text}</Text>
+                    <View style={{ flex: 1 }}>
+                      <View style={[s.msgBubble, s.msgBubbleAi, { backgroundColor: colors.secondary }]}>
+                        <Text style={[s.msgText, { color: colors.foreground }]}>{msg.text}</Text>
+                      </View>
+                      {msg.provider && (
+                        <Text style={[s.msgMeta, { color: colors.mutedForeground }]}>via {msg.provider}</Text>
+                      )}
                     </View>
                   ) : (
                     <LinearGradient colors={["#B8A0C8", "#88B8B0"]} style={[s.msgBubble, s.msgBubbleUser]}>
@@ -554,6 +631,17 @@ export default function CommandCenterScreen() {
                   )}
                 </View>
               ))}
+              {aiBusy && (
+                <View style={[s.msgRow, s.msgRowAi]}>
+                  <LinearGradient colors={["#B8A0C8", "#88B8B0"]} style={s.msgAiAvatar}>
+                    <Feather name="zap" size={12} color="#fff" />
+                  </LinearGradient>
+                  <View style={[s.msgBubble, s.msgBubbleAi, { backgroundColor: colors.secondary, flexDirection: "row", alignItems: "center", gap: 8 }]}>
+                    <ActivityIndicator size="small" color={currentProvider.color} />
+                    <Text style={[s.msgText, { color: colors.mutedForeground }]}>Thinking via {currentProvider.label}…</Text>
+                  </View>
+                </View>
+              )}
             </ScrollView>
 
             {/* Quick suggestions */}
@@ -714,4 +802,18 @@ const s = StyleSheet.create({
   chatInputRow: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderTopWidth: 1 },
   chatInput: { flex: 1, borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10, fontFamily: "Inter_400Regular", fontSize: 13 },
   sendBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  msgMeta: { fontFamily: "Inter_500Medium", fontSize: 9, marginTop: 4, marginLeft: 6, textTransform: "uppercase", letterSpacing: 0.5 },
+  providerBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 999, borderWidth: 1,
+  },
+  providerDot: { width: 8, height: 8, borderRadius: 4 },
+  providerLabel: { fontFamily: "Inter_600SemiBold", fontSize: 11 },
+  providerMenu: { borderBottomWidth: 1, paddingVertical: 4 },
+  providerOpt: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    paddingHorizontal: 14, paddingVertical: 10,
+  },
+  providerOptText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 13 },
 });
