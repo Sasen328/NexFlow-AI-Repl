@@ -28,7 +28,10 @@ const EXPECTED_MIN_CONTACTS = 30;
  */
 async function ensureSchema() {
   const has = await db.execute(sql`SELECT to_regclass('public.contacts') AS r`);
-  const row = (has as any).rows?.[0] ?? (Array.isArray(has) ? has[0] : undefined);
+  const result = has as unknown as
+    | { rows?: Array<{ r: string | null }> }
+    | Array<{ r: string | null }>;
+  const row = Array.isArray(result) ? result[0] : result.rows?.[0];
   if (row?.r) return;
 
   const candidates = [
