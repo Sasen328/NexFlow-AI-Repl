@@ -2,19 +2,24 @@
  * /api/assistant — Unified NexFlow AI assistant.
  *
  *   • Pulls REAL dashboard / pipeline / contact / signal data from the DB.
- *   • Stuffs that data into a GCC-tuned system prompt.
+ *   • Stuffs that data into a GCC-tuned, persona/tone/focus-aware system prompt.
  *   • Sends to OpenRouter (auto-routes Anthropic / OpenAI / Gemini /
- *     Perplexity by user-selected provider).
- *   • Returns a single answer + suggested next actions.
+ *     Perplexity by user-selected provider, with auto-routing for research).
+ *   • Returns a single answer + suggested next actions + structured commands
+ *     the client can render as buttons (open path, run shortcut, draft msg).
  *
- * The frontend AssistantPage hits POST /api/assistant/chat with
- *   { message, provider?, conversationId? }.
+ * The frontend AssistantPanel hits POST /api/assistant/chat with
+ *   { message, provider?, mode?, tone?, focus?, language?, accent?,
+ *     agent_name?, history?[] }.
+ *
+ * It also hits POST /api/assistant/transcribe with
+ *   { audio_base64, mime?, language? } to get text from a recorded clip.
  */
 
 import { Router, type IRouter } from "express";
 import { db, contacts, deals, signals, activities } from "@workspace/db";
-import { sql, desc, eq } from "drizzle-orm";
-import { aiChat, type AiProvider } from "../lib/ai.js";
+import { sql, desc } from "drizzle-orm";
+import { aiChat, aiTranscribe, type AiProvider } from "../lib/ai.js";
 
 const router: IRouter = Router();
 
@@ -89,25 +94,152 @@ async function buildDashboardContext() {
   };
 }
 
-// ─── System prompt — GCC-tuned, multi-skill ─────────────────────────────
-const SYSTEM = `You are NexFlow's AI Sales Assistant, fluent in English and Gulf Arabic, deeply tuned for the GCC B2B context (Saudi Arabia, UAE, Kuwait, Qatar, Bahrain, Oman).
+// ─── Persona / tone / focus / accent system-prompt builder ──────────────
+type Tone = "conversational" | "concise" | "coach" | "enthusiastic" | "formal";
+type Mode = "chat" | "research" | "analysis" | "command";
+type Focus = "sales" | "marketing" | "research" | "general";
+type Accent = "saudi" | "uae" | "egyptian" | "default";
 
-You answer using the LIVE pipeline data injected below. Never invent numbers. If a number isn't in the data, say so. Use the data for:
-  • Pipeline insights & forecasting
-  • Performance review (hot contacts, stalled deals, signals)
-  • Drafting emails, WhatsApp messages, call scripts (English or Khaleeji Arabic)
-  • Objection handling, talk-tracks
-  • Daily briefing, "what should I focus on now?"
+const TONE_GUIDE: Record<Tone, string> = {
+  conversational:
+    "Default to a warm, conversational style — chat like a trusted colleague. Use 1–3 short paragraphs. Ask one clarifying question at the end if helpful. Avoid heavy headings, bullet floods, or lecture-style analysis unless the user explicitly asks for analysis.",
+  concise:
+    "Be terse and direct. 1–3 sentences. No headings. No fluff. Bullets only when listing options.",
+  coach:
+    "Coach the user. Reflect what they said, suggest the next concrete action, and end with one question that moves them forward.",
+  enthusiastic:
+    "Be high-energy and encouraging. Use confident, motivating language. Still grounded in real data — never invent numbers.",
+  formal:
+    "Be professional and structured. Use clear headings, bullet points, and a polished register suitable for an executive briefing.",
+};
 
-Format crisply: short sections with bold headings, bullets, and concrete next actions. Always end with 1–3 suggested follow-up questions.
+const FOCUS_GUIDE: Record<Focus, string> = {
+  sales:
+    "Bias toward sales actions: opening deals, calls, follow-ups, objection-handling, pipeline movement.",
+  marketing:
+    "Bias toward marketing: campaign ideas, audience cuts, timing, channel mix, A/B testing, cultural localization.",
+  research:
+    "Bias toward research: pull recent web context, cite sources, summarise findings into digestible briefs with key links.",
+  general:
+    "Be a balanced revenue copilot — answer whatever is asked.",
+};
 
-If the user writes in Arabic, reply in Arabic with Gulf-dialect warmth (e.g. "تمام", "إن شاء الله", "حياك الله"). Default tone is professional, direct, no fluff.`;
+const ACCENT_GUIDE: Record<Accent, string> = {
+  saudi:
+    "When replying in Arabic, use Najdi Saudi register: 'حياك الله', 'تمام', 'إن شاء الله', 'ابشر'.",
+  uae:
+    "When replying in Arabic, use Khaleeji UAE register: 'هلا والله', 'مع السلامة', 'إن شاء الله'.",
+  egyptian:
+    "When replying in Arabic, use Egyptian register: 'إزيك', 'حاضر', 'إن شاء الله'.",
+  default: "When replying in Arabic, use neutral Modern Standard Arabic with light Gulf warmth.",
+};
+
+const MODE_GUIDE: Record<Mode, string> = {
+  chat:
+    "This is a back-and-forth chat. Conversation first, analysis only when explicitly asked. Default to short replies.",
+  research:
+    "Run a research-style answer. Cite sources inline like [name](url) when you used the web. Summarise crisply at the top, then add details.",
+  analysis:
+    "Produce a structured analysis: 3–6 bullets of insights, a numbered next-action list, and a one-line bottom-line takeaway.",
+  command:
+    "The user wants you to RUN a command in the app. Acknowledge, execute conceptually, and emit an `actions` block in the JSON tail (see below).",
+};
+
+function buildSystemPrompt(opts: {
+  agentName: string;
+  tone: Tone;
+  mode: Mode;
+  focus: Focus;
+  language: "auto" | "en" | "ar";
+  accent: Accent;
+}): string {
+  const langLine =
+    opts.language === "auto"
+      ? "Reply in the language the user wrote in. Mirror their script (English ↔ Arabic)."
+      : opts.language === "ar"
+        ? "Reply ONLY in Arabic. Even if the user writes English, reply in Arabic."
+        : "Reply ONLY in English. Even if the user writes Arabic, reply in English.";
+
+  return `You are ${opts.agentName}, NexFlow's AI revenue copilot. You are fluent in English and Gulf Arabic, deeply tuned for the GCC B2B context (Saudi Arabia, UAE, Kuwait, Qatar, Bahrain, Oman).
+
+You always answer using the LIVE pipeline data injected below. Never invent numbers. If a number is not in the data, say so plainly.
+
+${MODE_GUIDE[opts.mode]}
+
+${TONE_GUIDE[opts.tone]}
+
+${FOCUS_GUIDE[opts.focus]}
+
+${langLine}
+
+${ACCENT_GUIDE[opts.accent]}
+
+When the user asks you to OPEN, FIND, GO TO, or START something inside the app (e.g. "open my hot leads", "show pipeline", "start a call with Rashid", "draft an email to Sara") you must end your reply with a single fenced JSON block:
+
+\`\`\`json
+{ "actions": [ { "kind": "open"|"start_call"|"draft_email"|"draft_whatsapp", "label": "Open hot leads", "path": "/comms" } ] }
+\`\`\`
+
+Valid \`kind\` values: open, start_call, draft_email, draft_whatsapp, run_research.
+Valid \`path\` values for kind=open: /, /crm, /comms, /enrichment, /marketing, /pipeline, /insights.
+Always include a friendly \`label\` so the client can render it as a button.
+If no app action is needed, OMIT the JSON block entirely. Never wrap a normal answer in JSON.`;
+}
+
+// ─── Auto-routing helpers ───────────────────────────────────────────────
+function looksLikeResearch(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    /\bnews\b|latest|today's|recent|update on|search the web|google|find me articles|what's happening|what is happening|fetch.*data|fetch.*news|research/i
+      .test(m)
+  );
+}
+
+function pickProvider(provider: AiProvider, mode: Mode, message: string): AiProvider {
+  if (provider !== "auto") return provider;
+  if (mode === "research" || looksLikeResearch(message)) return "perplexity";
+  if (mode === "analysis") return "anthropic";
+  return "openai";
+}
+
+// ─── Action extraction (find the LAST ```json block in the reply) ──────
+function extractActions(reply: string): { cleanText: string; actions: any[] } {
+  if (!reply) return { cleanText: reply, actions: [] };
+  // Match every fenced json block, take the last one (model can append a
+  // friendly trailing line after the JSON).
+  const re = /```json\s*([\s\S]*?)\s*```/g;
+  let lastMatch: RegExpExecArray | null = null;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(reply)) !== null) lastMatch = m;
+  if (!lastMatch) return { cleanText: reply, actions: [] };
+  try {
+    const parsed = JSON.parse(lastMatch[1]!);
+    const actions = Array.isArray(parsed?.actions) ? parsed.actions : [];
+    const cleanText =
+      reply.slice(0, lastMatch.index) +
+      reply.slice(lastMatch.index + lastMatch[0]!.length);
+    return { cleanText: cleanText.trim(), actions };
+  } catch {
+    return { cleanText: reply, actions: [] };
+  }
+}
 
 // ─── POST /api/assistant/chat ───────────────────────────────────────────
 router.post("/chat", async (req, res) => {
   const message: string = String(req.body?.message ?? "").trim();
   const provider: AiProvider = (req.body?.provider ?? "auto") as AiProvider;
-  const history: Array<{ role: "user" | "assistant"; text: string }> = Array.isArray(req.body?.history) ? req.body.history.slice(-6) : [];
+  const mode: Mode = ((req.body?.mode ?? "chat") as string).toLowerCase() as Mode;
+  const tone: Tone = ((req.body?.tone ?? "conversational") as string).toLowerCase() as Tone;
+  const focus: Focus = ((req.body?.focus ?? "general") as string).toLowerCase() as Focus;
+  const language: "auto" | "en" | "ar" =
+    ((req.body?.language ?? "auto") as string).toLowerCase() as "auto" | "en" | "ar";
+  const accent: Accent = ((req.body?.accent ?? "default") as string).toLowerCase() as Accent;
+  const agentName: string = String(req.body?.agent_name ?? "NexFlow AI").slice(0, 40);
+  const history: Array<{ role: "user" | "assistant"; text: string }> = Array.isArray(
+    req.body?.history,
+  )
+    ? req.body.history.slice(-8)
+    : [];
 
   if (!message) {
     res.status(400).json({ error: "message required" });
@@ -127,29 +259,41 @@ router.post("/chat", async (req, res) => {
     : `LIVE DATA: (unavailable — answer generally and suggest the user retry)`;
 
   const historyBlock = history.length
-    ? `\n\nRECENT CONVERSATION:\n${history.map((h) => `${h.role === "user" ? "USER" : "ASSISTANT"}: ${h.text}`).join("\n")}`
+    ? `\n\nRECENT CONVERSATION:\n${history
+        .map((h) => `${h.role === "user" ? "USER" : "ASSISTANT"}: ${h.text}`)
+        .join("\n")}`
     : "";
+
+  const chosenProvider = pickProvider(provider, mode, message);
+  const system = buildSystemPrompt({ agentName, tone, mode, focus, language, accent });
 
   try {
     const reply = await aiChat({
-      system: SYSTEM,
-      user: `${dataBlock}${historyBlock}\n\nUSER QUESTION: ${message}`,
-      provider,
-      maxTokens: 1200,
+      system,
+      user: `${dataBlock}${historyBlock}\n\nUSER MESSAGE: ${message}`,
+      provider: chosenProvider,
+      maxTokens: tone === "concise" ? 400 : 1200,
     });
 
     if (!reply) {
       res.json({
-        reply: "I couldn't reach the AI provider right now. Please try again in a moment.",
-        provider_used: "none",
+        reply:
+          language === "ar"
+            ? "لم أستطع الاتصال بمزود الذكاء الآن. حاول بعد لحظات."
+            : "I couldn't reach the AI provider right now. Please try again in a moment.",
+        provider_used: chosenProvider,
+        actions: [],
         data_used: ctx ? Object.keys(ctx) : [],
       });
       return;
     }
 
+    const { cleanText, actions } = extractActions(reply);
+
     res.json({
-      reply,
-      provider_used: provider,
+      reply: cleanText,
+      provider_used: chosenProvider,
+      actions,
       data_used: ctx ? Object.keys(ctx) : [],
     });
   } catch (err: any) {
@@ -158,10 +302,55 @@ router.post("/chat", async (req, res) => {
   }
 });
 
-// ─── POST /api/assistant/voice — Gemini-style TTS sample ────────────────
-// Returns a synthetic audio stream (base64 wav) using the configured TTS
-// provider. The frontend uses this to play the AI assistant's voice.
-// Falls back to browser's SpeechSynthesis when no TTS provider is set.
+// ─── POST /api/assistant/transcribe — Whisper STT for voice input ──────
+router.post("/transcribe", async (req, res) => {
+  const audio_base64: string = String(req.body?.audio_base64 ?? "");
+  const mime: string = String(req.body?.mime ?? "audio/webm");
+  const language: string | undefined = req.body?.language ? String(req.body.language) : undefined;
+
+  if (!audio_base64) {
+    res.status(400).json({ error: "audio_base64 required" });
+    return;
+  }
+  // Strip data-URL prefix if present.
+  const b64 = audio_base64.includes(",") ? audio_base64.split(",", 2)[1]! : audio_base64;
+  let buf: Buffer;
+  try {
+    buf = Buffer.from(b64, "base64");
+  } catch {
+    res.status(400).json({ error: "invalid base64" });
+    return;
+  }
+  // Express body limit is 25mb; base64 inflates ~33%, so cap raw at 18mb.
+  if (buf.length === 0 || buf.length > 18 * 1024 * 1024) {
+    res.status(400).json({ error: "audio empty or too large (18mb max)" });
+    return;
+  }
+
+  const ext = mime.includes("mp3")
+    ? "mp3"
+    : mime.includes("wav")
+      ? "wav"
+      : mime.includes("m4a") || mime.includes("mp4")
+        ? "m4a"
+        : mime.includes("ogg")
+          ? "ogg"
+          : "webm";
+
+  try {
+    const { text } = await aiTranscribe({
+      audio: buf,
+      filename: `voice.${ext}`,
+      language,
+    });
+    res.json({ text, language });
+  } catch (err: any) {
+    req.log.error({ err }, "[assistant] transcribe failed");
+    res.status(500).json({ error: err?.message ?? "transcribe_failed" });
+  }
+});
+
+// ─── POST /api/assistant/voice — TTS metadata for the client ───────────
 router.post("/voice", async (req, res) => {
   const text: string = String(req.body?.text ?? "").trim();
   const voiceId: string = String(req.body?.voice_id ?? "layla");
@@ -169,21 +358,19 @@ router.post("/voice", async (req, res) => {
     res.status(400).json({ error: "text required" });
     return;
   }
-  // Currently no server-side TTS provider is wired — return a directive
-  // for the browser to use SpeechSynthesisUtterance with the matching
-  // language hint. Frontend already handles this fallback.
   const voiceMap: Record<string, { lang: string; gender: "female" | "male"; label: string }> = {
-    layla:  { lang: "ar-SA", gender: "female", label: "Layla — Gulf Arabic Female" },
-    faisal: { lang: "ar-SA", gender: "male",   label: "Faisal — Gulf Arabic Male" },
-    noor:   { lang: "ar",    gender: "female", label: "Noor — Bilingual AR/EN" },
-    adam:   { lang: "en-US", gender: "male",   label: "Adam — English Male" },
+    layla: { lang: "ar-SA", gender: "female", label: "Layla — Gulf Arabic Female" },
+    faisal: { lang: "ar-SA", gender: "male", label: "Faisal — Gulf Arabic Male" },
+    noor: { lang: "ar", gender: "female", label: "Noor — Bilingual AR/EN" },
+    adam: { lang: "en-US", gender: "male", label: "Adam — English Male" },
+    sara: { lang: "en-US", gender: "female", label: "Sara — English Female" },
   };
   const v = voiceMap[voiceId.toLowerCase()] ?? voiceMap["layla"]!;
   res.json({
     mode: "browser_tts",
     text,
     voice: { id: voiceId, ...v },
-    note: "Browser SpeechSynthesis will speak in the requested language; install ElevenLabs/Gemini TTS provider for premium audio.",
+    note: "Browser SpeechSynthesis / expo-speech speaks in the requested language; install ElevenLabs/Gemini TTS for premium audio.",
   });
 });
 
