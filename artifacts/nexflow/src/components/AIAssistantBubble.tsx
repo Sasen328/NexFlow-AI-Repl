@@ -21,7 +21,7 @@ import {
   Sparkles, Mic, MicOff, X, Volume2, VolumeX, Send, Bot,
   Phone, Mail, MessageSquare, ArrowRight,
   Settings as SettingsIcon, AlertTriangle, Loader2,
-  MessageCircle, Search, BarChart3, ChevronLeft,
+  ChevronLeft,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import {
@@ -29,6 +29,7 @@ import {
 } from "@/lib/marketing-auth";
 import {
   createRecognizer, speak, stopSpeaking,
+  speakViaServer, pickServerVoice,
   isSpeechRecognitionSupported, isSpeechSynthesisSupported,
   type RecognizerHandle,
 } from "@/lib/voice";
@@ -39,11 +40,9 @@ const STORAGE_POS      = "nf:assistant:pos";
 const STORAGE_TTS      = "nf:assistant:tts";
 const STORAGE_LANG     = "nf:assistant:lang";
 const STORAGE_SETTINGS = "nf:assistant:settings:v1";
-const STORAGE_MODE     = "nf:assistant:mode";
 
 // ─── Types ───────────────────────────────────────────────────────────
-type ChatMode = "chat" | "research" | "analyze";
-type AiProvider = "auto" | "openai" | "anthropic" | "gemini" | "perplexity";
+type AiProvider = "auto" | "openai" | "anthropic" | "gemini" | "perplexity" | "openrouter";
 type Tone = "conversational" | "concise" | "coach" | "enthusiastic" | "formal";
 type Focus = "general" | "sales" | "marketing" | "research";
 type Language = "auto" | "en" | "ar";
@@ -188,12 +187,6 @@ function loadLang(): "en" | "ar" {
   return window.localStorage.getItem(STORAGE_LANG) === "ar" ? "ar" : "en";
 }
 
-function loadMode(): ChatMode {
-  if (typeof window === "undefined") return "chat";
-  const v = window.localStorage.getItem(STORAGE_MODE);
-  return v === "research" || v === "analyze" ? v : "chat";
-}
-
 function ttsLangFor(uiLang: "en" | "ar", accent: Accent): string {
   if (uiLang !== "ar") return "en-US";
   switch (accent) {
@@ -237,7 +230,6 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
   const [position, setPosition] = useState<{ x: number; y: number } | null>(loadPosition);
   const [ttsOn, setTtsOn] = useState<boolean>(loadTTS);
   const [uiLang, setUiLang] = useState<"en" | "ar">(loadLang);
-  const [mode, setMode] = useState<ChatMode>(loadMode);
   const [settings, setSettings] = useState<AssistantSettings>(loadSettings);
   const [pending, setPending] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -296,11 +288,15 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
     try { window.localStorage.setItem(STORAGE_LANG, uiLang); } catch {/* ignore */}
   }, [uiLang]);
   useEffect(() => {
-    try { window.localStorage.setItem(STORAGE_MODE, mode); } catch {/* ignore */}
-  }, [mode]);
-  useEffect(() => {
     try { window.localStorage.setItem(STORAGE_SETTINGS, JSON.stringify(settings)); } catch {/* ignore */}
   }, [settings]);
+
+  // Keep the visible UI language in sync with the user's settings choice.
+  // settings.language === "auto" leaves uiLang untouched (browser preference wins).
+  useEffect(() => {
+    if (settings.language === "ar" && uiLang !== "ar") setUiLang("ar");
+    else if (settings.language === "en" && uiLang !== "en") setUiLang("en");
+  }, [settings.language]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Listen for global "open assistant" requests from anywhere in the app
   useEffect(() => {
@@ -344,18 +340,24 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
 
   const speakReply = useCallback((text: string) => {
     if (!ttsOn || !text.trim()) return;
-    speak(text.replace(/\[\d+\]/g, "").slice(0, 600), {
-      lang: ttsLangFor(uiLang, settings.accent),
-      gender: voiceGenderFor(settings.voice),
+    const clean = text.replace(/\[\d+\]/g, "").slice(0, 600);
+    const serverVoice = pickServerVoice({
+      lang: uiLang === "ar" ? "ar" : "en",
+      gender: voiceGenderFor(settings.voice) === "male" ? "male" : "female",
+      name: settings.voice,
+    });
+    // Use high-quality server TTS; gracefully falls back to browser SpeechSynthesis on error.
+    speakViaServer(clean, serverVoice).catch(() => {
+      speak(clean, {
+        lang: ttsLangFor(uiLang, settings.accent),
+        gender: voiceGenderFor(settings.voice),
+      });
     });
   }, [ttsOn, uiLang, settings.accent, settings.voice]);
 
   const runAction = useCallback((a: AssistantAction) => {
-    if (a.kind === "switch_mode" && a.payload?.mode) {
-      const m = String(a.payload.mode);
-      if (m === "chat" || m === "research" || m === "analyze") setMode(m);
-      return;
-    }
+    // Mode switching has been retired in favour of fully auto-orchestrated routing.
+    if (a.kind === "switch_mode") return;
     if (a.path) {
       navigate(a.path);
       setOpen(false);
@@ -393,7 +395,7 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
               message: text,
               role: { key: role.key, name: role.name, title: role.title },
               context: typeof window !== "undefined" ? window.location.pathname : "/",
-              mode,
+              mode: "auto",
               tone: settings.tone,
               focus: settings.focus,
               language: settings.language,
@@ -422,7 +424,7 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
         }
       })();
     },
-    [messages, mode, role, settings, uiLang, t.thinking, speakReply],
+    [messages, role, settings, uiLang, t.thinking, speakReply],
   );
 
   useEffect(() => { submitRef.current = submit; }, [submit]);
@@ -662,7 +664,11 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
     : `${t.ready} · ${role.label}`;
 
   return (
-    <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-40" dir={uiLang === "ar" ? "rtl" : "ltr"}>
+    // NOTE: keep this outer fixed wrapper in LTR even in Arabic mode — the
+    // absolute-positioned panel below uses explicit `right`/`left` pixel
+    // offsets, and an RTL parent flips those in Tailwind v4 → panel ends up
+    // off-screen and "disappears". The inner content gets dir="rtl" itself.
+    <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-40" dir="ltr">
       <div
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -718,14 +724,16 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
               transition={{ type: "spring", stiffness: 260, damping: 24 }}
               className={cn(
                 "absolute bg-background border border-border/40 rounded-2xl shadow-2xl flex flex-col overflow-hidden",
-                panelOnLeft ? "right-16" : "left-16",
               )}
               style={{
                 width: 380, height: 580,
                 maxHeight: "min(580px, calc(100vh - 32px))",
                 top: startPos.y > 200 ? "auto" : 0,
                 bottom: startPos.y > 200 ? 0 : "auto",
+                // Use explicit physical-axis offsets so RTL never flips the panel off-screen.
+                ...(panelOnLeft ? { right: "4rem" } : { left: "4rem" }),
               }}
+              dir={uiLang === "ar" ? "rtl" : "ltr"}
               role="dialog" aria-modal="false" aria-label={settings.agentName}
             >
               {/* Header */}
@@ -790,32 +798,6 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
                 />
               ) : (
                 <>
-                  {/* Mode pills */}
-                  <div className="px-3 pt-2 pb-1 flex gap-1.5 border-b border-border/20">
-                    {([
-                      { k: "chat" as const,     label: t.chat,     icon: MessageCircle },
-                      { k: "research" as const, label: t.research, icon: Search },
-                      { k: "analyze" as const,  label: t.analyze,  icon: BarChart3 },
-                    ]).map(({ k, label, icon: Icon }) => {
-                      const active = mode === k;
-                      return (
-                        <button
-                          key={k}
-                          type="button"
-                          onClick={() => setMode(k)}
-                          className={cn(
-                            "flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors",
-                            active ? "text-white" : "text-muted-foreground hover:text-foreground border-border/40",
-                          )}
-                          style={active ? { background: accent, borderColor: accent } : undefined}
-                        >
-                          <Icon className="w-3 h-3" />
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-
                   {/* Transcript */}
                   <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5">
                     {messages.map((m) => (

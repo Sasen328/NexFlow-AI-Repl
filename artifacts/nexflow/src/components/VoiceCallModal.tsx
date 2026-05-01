@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/hooks/useApi";
+import { speakViaServer, pickServerVoice, stopServerSpeak, type ServerVoiceId } from "@/lib/voice";
 
 interface VoiceCallModalProps {
   contact: {
@@ -22,6 +23,8 @@ interface VoiceCallModalProps {
   };
   onClose: () => void;
   onCallSaved?: (callId: string) => void;
+  /** Optional voice ID from the Voice Library — if set, used for AI TTS instead of the language default. */
+  serverVoice?: ServerVoiceId;
 }
 
 interface Message {
@@ -54,7 +57,7 @@ function ScoreBar({ score, label, feedback }: { score: number; label: string; fe
   );
 }
 
-export default function VoiceCallModal({ contact, onClose, onCallSaved }: VoiceCallModalProps) {
+export default function VoiceCallModal({ contact, onClose, onCallSaved, serverVoice }: VoiceCallModalProps) {
   const contactName = `${contact.first_name ?? ""} ${contact.last_name ?? ""}`.trim() || "Prospect";
 
   const [callState, setCallState] = useState<CallState>("idle");
@@ -75,6 +78,13 @@ export default function VoiceCallModal({ contact, onClose, onCallSaved }: VoiceC
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
+  // Mirror call state to a ref so async TTS callbacks see the latest value
+  // (closure capture would otherwise let "speak finished" restart listening
+  // after the user already hung up).
+  const callStateRef = useRef<CallState>("idle");
+  useEffect(() => { callStateRef.current = callState; }, [callState]);
+  // Ensure server-side audio stops if the modal unmounts mid-call.
+  useEffect(() => () => { stopServerSpeak(); }, []);
 
   const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
   const speechSupported = Boolean(SpeechRecognitionAPI);
@@ -95,16 +105,34 @@ export default function VoiceCallModal({ contact, onClose, onCallSaved }: VoiceC
   }, [callState]);
 
   function speakText(text: string) {
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = lang === "ar" ? "ar-SA" : "en-US";
-    utter.rate = 0.95;
-    utter.pitch = 1.05;
-    utter.volume = isMuted ? 0 : 1;
+    // Stop any prior browser TTS just in case some other path queued one up.
+    if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+    stopServerSpeak();
+    if (isMuted) {
+      // Skip audio but keep the conversation flowing on the listening side.
+      setIsAiSpeaking(false);
+      if (callStateRef.current !== "ended") startListening();
+      return;
+    }
     setIsAiSpeaking(true);
-    utter.onend = () => { setIsAiSpeaking(false); if (callState !== "ended") startListening(); };
-    synthRef.current = utter;
-    window.speechSynthesis.speak(utter);
+    // Use the voice the user picked in the Voice Library when one is supplied;
+    // otherwise fall back to the language default (Layla for AR, Sara for EN).
+    const sv: ServerVoiceId = serverVoice
+      ?? pickServerVoice({ lang: lang === "ar" ? "ar" : "en", gender: "female" });
+    void speakViaServer(text, sv, {
+      onEnd: () => {
+        setIsAiSpeaking(false);
+        // Use the ref so a hang-up that happened during playback prevents
+        // accidentally re-opening the mic for an "ended" call.
+        if (callStateRef.current !== "ended") startListening();
+      },
+      onError: () => {
+        // speakViaServer will call onEnd again after the fallback finishes —
+        // do NOT start listening here, otherwise the mic captures the fallback
+        // TTS as if it were the user speaking.
+        setIsAiSpeaking(false);
+      },
+    });
   }
 
   const getAiResponse = useCallback(async (userMessage: string, history: Message[]) => {
@@ -136,17 +164,20 @@ export default function VoiceCallModal({ contact, onClose, onCallSaved }: VoiceC
 
   function startListening() {
     if (!speechSupported || isMuted) return;
+    // Don't open the mic if the user already hung up (defends against stale
+    // TTS callbacks restarting recognition after endCall()).
+    if (callStateRef.current === "ended") return;
     const rec = new SpeechRecognitionAPI();
     rec.continuous = false;
     rec.interimResults = true;
     rec.lang = lang === "ar" ? "ar-SA" : "en-US";
-    rec.onstart = () => setCallState("listening");
+    rec.onstart = () => { if (callStateRef.current !== "ended") setCallState("listening"); };
     rec.onresult = (e: any) => {
       const transcript = Array.from(e.results as any).map((r: any) => r[0].transcript).join("");
       setCurrentTranscript(transcript);
       if (e.results[0].isFinal) {
         const finalText = transcript.trim();
-        if (finalText) {
+        if (finalText && callStateRef.current !== "ended") {
           setCurrentTranscript("");
           const userMsg: Message = { role: "user", content: finalText, ts: Date.now() };
           setMessages(prev => {
@@ -157,10 +188,14 @@ export default function VoiceCallModal({ contact, onClose, onCallSaved }: VoiceC
         }
       }
     };
-    rec.onend = () => { if (callState === "listening") setCallState("active"); };
-    rec.onerror = () => { setCallState("active"); };
+    rec.onend = () => {
+      if (callStateRef.current === "listening") setCallState("active");
+    };
+    rec.onerror = () => {
+      if (callStateRef.current !== "ended") setCallState("active");
+    };
     recognitionRef.current = rec;
-    rec.start();
+    try { rec.start(); } catch { /* already started or denied */ }
   }
 
   async function startCall() {
@@ -180,9 +215,13 @@ export default function VoiceCallModal({ contact, onClose, onCallSaved }: VoiceC
   }
 
   async function endCall() {
-    window.speechSynthesis.cancel();
+    // Tear down both audio paths so a stale TTS clip can't keep playing or
+    // re-trigger the mic via onEnd after hang-up.
+    if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+    stopServerSpeak();
     if (recognitionRef.current) { try { recognitionRef.current.stop(); } catch {} }
     if (timerRef.current) clearInterval(timerRef.current);
+    callStateRef.current = "ended";
     setCallState("ended");
     setIsAiSpeaking(false);
 
