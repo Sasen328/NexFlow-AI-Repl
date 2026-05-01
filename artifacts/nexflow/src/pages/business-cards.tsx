@@ -4,34 +4,43 @@ import {
   ScanLine, Upload, Camera, Sparkles, User, Mail, Phone, Building2,
   Globe, MapPin, Linkedin, Languages, Wand2, ArrowRight, Loader2,
   Check, X, FileImage, AlertCircle, Trash2, RefreshCw, Hash,
-  ShieldAlert, ShieldCheck, Clock, CheckCircle2, XCircle,
+  ShieldAlert, ShieldCheck, Clock, CheckCircle2, XCircle, Cpu,
+  Eye, BrainCircuit, Search, Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/hooks/useApi";
 
 const FIELD_META: Record<string, { label: string; icon: any }> = {
-  name_en:  { label: "Name (English)",  icon: User },
-  name_ar:  { label: "Name (Arabic)",   icon: Languages },
-  title:    { label: "Title",           icon: User },
-  company:  { label: "Company",         icon: Building2 },
-  company_ar: { label: "Company (Arabic)", icon: Languages },
-  email:    { label: "Email",           icon: Mail },
-  mobile:   { label: "Mobile",          icon: Phone },
-  office:   { label: "Office",          icon: Phone },
-  fax:      { label: "Fax",             icon: Phone },
-  website:  { label: "Website",         icon: Globe },
-  address:  { label: "Address",         icon: MapPin },
-  city:     { label: "City",            icon: MapPin },
-  country:  { label: "Country",         icon: MapPin },
-  linkedin: { label: "LinkedIn",        icon: Linkedin },
-  twitter:  { label: "Twitter / X",     icon: Hash },
-  industry_guess: { label: "Industry",  icon: Building2 },
+  name_en:       { label: "Name (English)",     icon: User },
+  name_ar:       { label: "Name (Arabic)",      icon: Languages },
+  title:         { label: "Title",              icon: User },
+  company:       { label: "Company",            icon: Building2 },
+  company_ar:    { label: "Company (Arabic)",   icon: Languages },
+  email:         { label: "Email",              icon: Mail },
+  mobile:        { label: "Mobile",             icon: Phone },
+  office:        { label: "Office",             icon: Phone },
+  fax:           { label: "Fax",                icon: Phone },
+  website:       { label: "Website",            icon: Globe },
+  address:       { label: "Address",            icon: MapPin },
+  city:          { label: "City",               icon: MapPin },
+  country:       { label: "Country",            icon: MapPin },
+  linkedin:      { label: "LinkedIn",           icon: Linkedin },
+  twitter:       { label: "Twitter / X",        icon: Hash },
+  industry_guess:{ label: "Industry",           icon: Building2 },
 };
 
 const FIELD_ORDER = [
   "name_en", "name_ar", "title", "company", "email",
   "mobile", "office", "website", "linkedin", "address",
   "city", "country", "industry_guess",
+];
+
+// Multi-agent pipeline step definitions
+const PIPELINE_STEPS = [
+  { id: "agent1", icon: Eye,          label: "Gemini Vision",     sub: "OCR + field extraction",            color: "#88B8B0" },
+  { id: "agent2", icon: BrainCircuit, label: "Claude / GPT-4o",   sub: "Validation + normalisation",        color: "#B8A0C8" },
+  { id: "agent3", icon: Search,       label: "Web Enrichment",    sub: "Company profile from public web",   color: "#C8A880" },
+  { id: "agent4", icon: Star,         label: "OpenAI Scoring",    sub: "Lead score + bilingual summary",    color: "#90B8C8" },
 ];
 
 type ExtractField = { key: string; confidence: number; bbox?: { x: number; y: number; w: number; h: number } };
@@ -41,17 +50,32 @@ export default function BusinessCardsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [scanState, setScanState] = useState<"empty" | "scanning" | "rejected" | "complete" | "error">("empty");
+  const [scanStep, setScanStep]  = useState(0); // 0..3 — which agent is running
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [extracted, setExtracted] = useState<Record<string, string | null>>({});
+  const [fullExtracted, setFullExtracted] = useState<any>({});
   const [confidences, setConfidences] = useState<Record<string, number>>({});
   const [bboxes, setBboxes] = useState<ExtractField[]>([]);
+  const [pipelineTrace, setPipelineTrace] = useState<Record<string, any> | null>(null);
+  const [agentsUsed, setAgentsUsed] = useState<string[]>([]);
   const [savingState, setSavingState] = useState<"idle" | "saving" | "saved" | "duplicate" | "approval">("idle");
   const [savedContactId, setSavedContactId] = useState<string | null>(null);
   const [approvalReasons, setApprovalReasons] = useState<string[]>([]);
   const [recent, setRecent] = useState<any[]>([]);
 
   useEffect(() => { loadRecent(); }, []);
+
+  // Animate through pipeline steps during scanning
+  useEffect(() => {
+    if (scanState !== "scanning") return;
+    setScanStep(0);
+    const timings = [0, 2000, 4500, 7000];
+    const timers = timings.map((ms, i) =>
+      setTimeout(() => setScanStep(i), ms)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [scanState]);
 
   async function loadRecent() {
     try {
@@ -86,8 +110,11 @@ export default function BusinessCardsPage() {
   async function runScan(dataUrl: string) {
     setScanState("scanning");
     setExtracted({});
+    setFullExtracted({});
     setConfidences({});
     setBboxes([]);
+    setPipelineTrace(null);
+    setAgentsUsed([]);
     setSavingState("idle");
     setSavedContactId(null);
     setRejectionReason(null);
@@ -99,7 +126,10 @@ export default function BusinessCardsPage() {
       });
       const ex = r.extracted ?? {};
 
-      // Gemini validation check
+      setPipelineTrace(r.pipeline_trace ?? null);
+      setAgentsUsed(r.agents_used ?? []);
+      setFullExtracted(ex);
+
       if (ex.is_business_card === false) {
         setScanState("rejected");
         setRejectionReason(ex.rejection_reason ?? "This does not appear to be a business card.");
@@ -109,7 +139,7 @@ export default function BusinessCardsPage() {
       const fieldsMap: Record<string, string | null> = {};
       const confMap: Record<string, number> = {};
       for (const k of Object.keys(FIELD_META)) {
-        if (ex[k] !== undefined) fieldsMap[k] = ex[k];
+        if (ex[k] !== undefined && ex[k] !== null) fieldsMap[k] = ex[k];
       }
       const fields = Array.isArray(ex.fields) ? ex.fields : [];
       for (const f of fields) {
@@ -138,9 +168,10 @@ export default function BusinessCardsPage() {
   async function saveContact() {
     setSavingState("saving");
     try {
+      // Send full extracted (includes pipeline_trace, lead_score, summaries, company_web_profile)
       const r: any = await apiFetch("/business-cards/save", {
         method: "POST",
-        body: JSON.stringify({ extracted }),
+        body: JSON.stringify({ extracted: { ...fullExtracted, ...extracted } }),
       });
       setSavedContactId(r.contact_id);
       if (r.duplicate) {
@@ -161,6 +192,7 @@ export default function BusinessCardsPage() {
   function reset() {
     setImageDataUrl(null);
     setExtracted({});
+    setFullExtracted({});
     setConfidences({});
     setBboxes([]);
     setScanState("empty");
@@ -168,9 +200,15 @@ export default function BusinessCardsPage() {
     setSavedContactId(null);
     setRejectionReason(null);
     setApprovalReasons([]);
+    setPipelineTrace(null);
+    setAgentsUsed([]);
     setError(null);
     if (fileRef.current) fileRef.current.value = "";
   }
+
+  const avgConf = Object.keys(confidences).length
+    ? Math.round(Object.values(confidences).reduce((s, c) => s + c, 0) / Object.keys(confidences).length)
+    : null;
 
   return (
     <div className="p-5 space-y-4">
@@ -184,12 +222,12 @@ export default function BusinessCardsPage() {
               <ScanLine className="w-5 h-5 text-white" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight">Business Card Scanner</h1>
-            <span className="px-2 py-0.5 rounded-md bg-[#88B8B0]/15 text-[#88B8B0] text-[10px] font-bold uppercase tracking-wide border border-[#88B8B0]/30">
-              Live · Gemini Vision
+            <span className="px-2 py-0.5 rounded-md bg-[#88B8B0]/15 text-[#88B8B0] text-[10px] font-bold uppercase tracking-wide border border-[#88B8B0]/30 flex items-center gap-1">
+              <Cpu className="w-2.5 h-2.5" /> Live · 4-Agent Pipeline
             </span>
           </div>
           <p className="text-sm text-muted-foreground ml-11">
-            Snap a card — AI validates it's a real business card, extracts fields bilingually, checks ICP fit, then saves to your contacts.
+            4 AI agents in sequence: Gemini Vision → Claude reasoning → Web enrichment → OpenAI scoring. Validates, extracts bilingually, checks ICP fit, then saves.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -216,9 +254,61 @@ export default function BusinessCardsPage() {
       <div className="grid grid-cols-4 gap-3">
         <Stat label="TOTAL SCANS" value={recent.length} accent="#B8A0C8" />
         <Stat label="THIS WEEK" value={recent.filter(r => Date.now() - new Date(r.created_at).getTime() < 7*86400_000).length} accent="#88B8B0" />
-        <Stat label="AVG CONFIDENCE" value={Object.keys(confidences).length ? `${Math.round(Object.values(confidences).reduce((s, c) => s + c, 0) / Object.keys(confidences).length)}%` : "—"} accent="#C8A880" />
-        <Stat label="OCR ENGINE" value="Gemini" accent="#90B8B8" sub="vision AI" />
+        <Stat label="AVG CONFIDENCE" value={avgConf !== null ? `${avgConf}%` : "—"} accent="#C8A880" />
+        <Stat label="PIPELINE" value="4-Agent" accent="#90B8C8" sub="Gemini · Claude · GPT-4o" />
       </div>
+
+      {/* Pipeline step indicator (visible during scan and after) */}
+      {(scanState === "scanning" || scanState === "complete") && (
+        <div className="glass-panel p-3">
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <Cpu className="w-3 h-3" /> Multi-Agent Pipeline
+            {scanState === "complete" && pipelineTrace?.total_ms && (
+              <span className="ml-auto text-[10px] text-muted-foreground">Total: {pipelineTrace.total_ms}ms</span>
+            )}
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {PIPELINE_STEPS.map((step, i) => {
+              const isActive = scanState === "scanning" && scanStep === i;
+              const isDone   = scanState === "complete" || (scanState === "scanning" && scanStep > i);
+              const traceKey = Object.keys(pipelineTrace ?? {}).find(k => k.includes(`agent${i + 1}`));
+              const trace = traceKey ? pipelineTrace![traceKey] : null;
+              const Icon = step.icon;
+              return (
+                <div key={step.id} className={cn(
+                  "rounded-lg p-2.5 border transition-all",
+                  isActive ? "border-[#B8A0C8]/60 bg-[#B8A0C8]/10" :
+                  isDone   ? "border-[#88B8B0]/30 bg-[#88B8B0]/5" :
+                             "border-border/20 bg-muted/10 opacity-40"
+                )}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    {isActive ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: step.color }} />
+                    ) : isDone ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#88B8B0]" />
+                    ) : (
+                      <Icon className="w-3.5 h-3.5 text-muted-foreground" />
+                    )}
+                    <span className="text-[11px] font-semibold truncate" style={{ color: isDone || isActive ? step.color : undefined }}>
+                      {step.label}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">{step.sub}</div>
+                  {trace?.ms && (
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{trace.ms}ms</div>
+                  )}
+                  {trace?.scraped === false && i === 2 && (
+                    <div className="text-[10px] text-amber-500 mt-0.5">no website found</div>
+                  )}
+                  {trace?.scraped === true && i === 2 && (
+                    <div className="text-[10px] text-[#88B8B0] mt-0.5 truncate">✓ {trace.website}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-12 gap-4">
         {/* Card preview */}
@@ -237,10 +327,19 @@ export default function BusinessCardsPage() {
             <div className="relative w-full aspect-[16/10] rounded-xl overflow-hidden bg-muted">
               <img src={imageDataUrl} alt="Card" className="w-full h-full object-contain" />
               {scanState === "scanning" && (
-                <div className="absolute inset-0 bg-background/70 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
+                <div className="absolute inset-0 bg-background/75 backdrop-blur-sm flex flex-col items-center justify-center gap-3 p-4">
                   <Loader2 className="w-8 h-8 text-[#B8A0C8] animate-spin" />
-                  <div className="text-sm font-semibold">Gemini Vision reading card…</div>
-                  <div className="text-xs text-muted-foreground">validating + extracting fields</div>
+                  <div className="text-sm font-bold text-center">
+                    {PIPELINE_STEPS[scanStep]?.label}…
+                  </div>
+                  <div className="text-xs text-muted-foreground text-center">
+                    {PIPELINE_STEPS[scanStep]?.sub}
+                  </div>
+                  <div className="flex gap-1 mt-1">
+                    {PIPELINE_STEPS.map((_, i) => (
+                      <span key={i} className={cn("w-1.5 h-1.5 rounded-full transition-all", i <= scanStep ? "bg-[#B8A0C8]" : "bg-muted")} />
+                    ))}
+                  </div>
                 </div>
               )}
               {scanState === "rejected" && (
@@ -267,9 +366,27 @@ export default function BusinessCardsPage() {
             </div>
           )}
 
+          {/* AI summaries */}
+          {scanState === "complete" && fullExtracted.summary_en && (
+            <div className="mt-3 rounded-lg bg-[#88B8B0]/5 border border-[#88B8B0]/20 p-2.5 space-y-1.5">
+              <div className="text-[10px] font-bold text-[#88B8B0] uppercase tracking-wide">AI Profile</div>
+              <p className="text-xs text-foreground/80 leading-relaxed">{fullExtracted.summary_en}</p>
+              {fullExtracted.summary_ar && (
+                <p className="text-xs text-foreground/70 leading-relaxed text-right" dir="rtl">{fullExtracted.summary_ar}</p>
+              )}
+              {fullExtracted.next_actions?.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {fullExtracted.next_actions.map((a: string, i: number) => (
+                    <span key={i} className="px-1.5 py-0.5 rounded text-[10px] bg-[#B8A0C8]/10 text-[#B8A0C8] border border-[#B8A0C8]/20">{a}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {scanState === "rejected" && (
             <div className="mt-3 space-y-2">
-              <div className="text-[11px] text-muted-foreground text-center">AI detected this is not a business card</div>
+              <div className="text-[11px] text-muted-foreground text-center">Gemini Vision detected this is not a business card</div>
               <button onClick={reset} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-border/40 hover:bg-muted/50 transition">
                 <Upload className="w-3.5 h-3.5" /> Try a different image
               </button>
@@ -284,13 +401,13 @@ export default function BusinessCardsPage() {
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Extracted fields</div>
               <div className="text-sm font-semibold mt-0.5">
                 {scanState === "empty" && "Upload a card to begin"}
-                {scanState === "scanning" && "Validating + reading…"}
+                {scanState === "scanning" && `Running ${PIPELINE_STEPS[scanStep]?.label}…`}
                 {scanState === "rejected" && (
                   <span className="flex items-center gap-1.5 text-red-600 dark:text-red-400">
                     <XCircle className="w-4 h-4" /> Invalid image rejected
                   </span>
                 )}
-                {scanState === "complete" && `${Object.values(extracted).filter(Boolean).length} fields detected`}
+                {scanState === "complete" && `${Object.values(extracted).filter(Boolean).length} fields · lead score ${fullExtracted.lead_score ?? "—"} · ${fullExtracted.confidence ?? "—"}% confidence`}
                 {scanState === "error" && "Scan failed"}
               </div>
             </div>
@@ -348,7 +465,7 @@ export default function BusinessCardsPage() {
                 ))}
               </ul>
               <div className="text-[11px] text-muted-foreground mt-2">
-                The contact has been saved with "pending_approval" status. Your sales manager will receive an alert to review.
+                Saved with "pending_approval" status. Your sales manager will receive an alert to review.
               </div>
             </div>
           )}
@@ -448,10 +565,11 @@ export default function BusinessCardsPage() {
 
       {/* Footer info */}
       <div className="glass-panel p-3 flex items-center gap-3 text-xs">
-        <Wand2 className="w-4 h-4 text-[#B8A0C8]" />
+        <Cpu className="w-4 h-4 text-[#B8A0C8]" />
         <span className="text-muted-foreground">
-          Gemini Vision validates each upload is a real business card, then extracts fields bilingually. ICP rules auto-route non-target contacts for manager approval.
-          Cards are <span className="font-bold text-foreground">not stored</span> — only the extracted fields and activity log.
+          <span className="font-semibold text-foreground">4-Agent Pipeline:</span>{" "}
+          Gemini Vision (OCR) → Claude/GPT-4o (validation) → Python Enrichment Scraper (company web profile) → OpenAI (lead score + bilingual summary).
+          ICP rules auto-route non-target contacts for manager approval. Card images are <span className="font-bold text-foreground">not stored</span>.
         </span>
       </div>
     </div>
