@@ -14,6 +14,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 
 const KEY_ROLE = "nf:role";
+const KEY_SIGNED_IN = "nf:signed-in";
 
 export type RoleKey = "sales" | "marketing";
 
@@ -76,15 +77,36 @@ async function writeStoredRole(role: RoleKey): Promise<void> {
   }
 }
 
+async function readStoredSignedIn(): Promise<boolean> {
+  try {
+    const v = await AsyncStorage.getItem(KEY_SIGNED_IN);
+    return v === "1";
+  } catch {
+    return false;
+  }
+}
+
+async function writeStoredSignedIn(value: boolean): Promise<void> {
+  try {
+    await AsyncStorage.setItem(KEY_SIGNED_IN, value ? "1" : "0");
+  } catch {
+    /* no-op */
+  }
+}
+
 // ── Pub-sub (so all hooks see updates instantly) ───────────────────────────
-type Listener = (role: RoleKey) => void;
+type Listener = (role: RoleKey, signedIn: boolean) => void;
 const listeners = new Set<Listener>();
 let currentRole: RoleKey = "sales";
+let currentSignedIn = false;
+let hydrated = false;
 
 // Hydrate on first import. Best-effort; safe if it races.
-readStoredRole().then((r) => {
+Promise.all([readStoredRole(), readStoredSignedIn()]).then(([r, s]) => {
   currentRole = r;
-  for (const l of listeners) l(r);
+  currentSignedIn = s;
+  hydrated = true;
+  for (const l of listeners) l(r, s);
 });
 
 export function getPersona(): PersonaProfile {
@@ -95,23 +117,48 @@ export async function setPersona(role: RoleKey): Promise<void> {
   if (role !== "sales" && role !== "marketing") return;
   currentRole = role;
   await writeStoredRole(role);
-  for (const l of listeners) l(role);
+  for (const l of listeners) l(role, currentSignedIn);
+}
+
+/** Mark the user as signed in (after they pick a role on the sign-in screen). */
+export async function signIn(role: RoleKey): Promise<void> {
+  if (role !== "sales" && role !== "marketing") return;
+  currentRole = role;
+  currentSignedIn = true;
+  await Promise.all([writeStoredRole(role), writeStoredSignedIn(true)]);
+  for (const l of listeners) l(role, true);
+}
+
+/** Sign out — clears the signed-in flag but keeps the last-used role. */
+export async function signOut(): Promise<void> {
+  currentSignedIn = false;
+  await writeStoredSignedIn(false);
+  for (const l of listeners) l(currentRole, false);
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────
 /**
- * `usePersona()` returns the live persona profile and a setter.
- * The component re-renders whenever any other code calls `setPersona(...)`.
+ * `usePersona()` returns the live persona profile, a setter, and the
+ * sign-in state. The component re-renders whenever any other code calls
+ * `setPersona(...)`, `signIn(...)`, or `signOut(...)`.
  */
 export function usePersona() {
   const [role, setRoleState] = useState<RoleKey>(currentRole);
+  const [signedIn, setSignedInState] = useState<boolean>(currentSignedIn);
+  const [ready, setReady] = useState<boolean>(hydrated);
 
   useEffect(() => {
-    const listener: Listener = (r) => setRoleState(r);
+    const listener: Listener = (r, s) => {
+      setRoleState(r);
+      setSignedInState(s);
+      setReady(true);
+    };
     listeners.add(listener);
     // Refresh once on mount in case the async hydration completed
     // between import and mount.
     setRoleState(currentRole);
+    setSignedInState(currentSignedIn);
+    setReady(hydrated);
     return () => {
       listeners.delete(listener);
     };
@@ -121,6 +168,10 @@ export function usePersona() {
     role,
     persona: PERSONAS[role],
     setPersona,
+    signIn,
+    signOut,
+    signedIn,
+    ready,
     list: PERSONA_LIST,
   };
 }
