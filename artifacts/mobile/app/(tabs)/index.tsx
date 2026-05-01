@@ -19,6 +19,8 @@ import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
+import { PersonaSwitcher } from "@/components/PersonaSwitcher";
+import { usePersona } from "@/lib/personas";
 import { formatCurrency, getTimeOfDay } from "@/data/mockData";
 import {
   initials,
@@ -83,6 +85,11 @@ export default function CommandCenterScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const tod = getTimeOfDay();
+  const { persona } = usePersona();
+  const firstName = persona.name.split(" ")[0];
+  const personaSubtitle = persona.key === "marketing"
+    ? "Daily Marketing Hub"
+    : "Daily Command Center";
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
   const [tab, setTab] = useState<Tab>("overview");
@@ -156,13 +163,16 @@ export default function CommandCenterScreen() {
         <View style={s.headerRow}>
           <View style={{ flex: 1 }}>
             <Text style={[s.dateText, { color: colors.mutedForeground }]}>{today} · Riyadh</Text>
-            <Text style={[s.greeting, { color: colors.foreground }]}>{tod.label}, Admin</Text>
-            <Text style={[s.cmdLabel, { color: colors.violet }]}>Daily Command Center</Text>
+            <Text style={[s.greeting, { color: colors.foreground }]}>{tod.label}, {firstName}</Text>
+            <Text style={[s.cmdLabel, { color: persona.accent }]}>{personaSubtitle}</Text>
           </View>
-          <Pressable style={[s.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => tap("/notifications")}>
-            <Feather name="bell" size={17} color={colors.foreground} />
-            {hotSignals > 0 && <View style={[s.badgeDot, { backgroundColor: colors.violet }]} />}
-          </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <PersonaSwitcher compact />
+            <Pressable style={[s.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => tap("/notifications")}>
+              <Feather name="bell" size={17} color={colors.foreground} />
+              {hotSignals > 0 && <View style={[s.badgeDot, { backgroundColor: colors.violet }]} />}
+            </Pressable>
+          </View>
         </View>
 
         {/* Tab pills */}
