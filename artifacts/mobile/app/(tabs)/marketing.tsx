@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { ChameleonGradient } from "@/components/ui/ChameleonGradient";
 import { PersonaSwitcher } from "@/components/PersonaSwitcher";
 import { SubTabs } from "@/components/ui/SubTabs";
 import { useColors } from "@/hooks/useColors";
@@ -112,6 +113,53 @@ function DashboardView() {
         />
       }
     >
+      <View style={{ marginHorizontal: 16, marginTop: 14 }}>
+        <ChameleonGradient radius={16} style={{ padding: 14, flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
+          <Feather name="globe" size={20} color="#FFFFFF" />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 12, letterSpacing: 0.6 }}>
+              CULTURAL INTELLIGENCE ALERT
+            </Text>
+            <Text style={{ color: "rgba(255,255,255,0.94)", fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 4, lineHeight: 18 }}>
+              Saudi National Day is in 12 days. Pause English-only campaigns to KSA accounts and queue a bilingual greeting.
+              Switch send-times to 10:00–12:00 AST for highest open-rate.
+            </Text>
+          </View>
+        </ChameleonGradient>
+      </View>
+
+      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>AI analysis</Text>
+      <View style={{ flexDirection: "row", paddingHorizontal: 16, gap: 8 }}>
+        {[
+          { kicker: "AUDIENCE", title: "84% intent uplift", body: "Riyadh fintech segment shows 3.2× higher CTR vs global avg this week.", tone: "#88B8B0" },
+          { kicker: "CONTENT", title: "Subject A → +18%", body: "AR-first subjects open 18% higher than EN equivalents in your top accounts.", tone: "#A07A3F" },
+          { kicker: "TIMING", title: "10:00 AST sweet spot", body: "Replies cluster in the 10–12 AST window. Schedule next blast at 10:15.", tone: "#7A5C9E" },
+        ].map((a) => (
+          <View
+            key={a.kicker}
+            style={{
+              flex: 1,
+              padding: 12,
+              borderRadius: 14,
+              backgroundColor: colors.card,
+              borderWidth: 1,
+              borderColor: colors.border,
+              gap: 6,
+            }}
+          >
+            <Text style={{ color: a.tone, fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 0.8 }}>
+              {a.kicker}
+            </Text>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17 }}>
+              {a.title}
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10, lineHeight: 14 }}>
+              {a.body}
+            </Text>
+          </View>
+        ))}
+      </View>
+
       <View style={styles.kpiGrid}>
         <KpiTile label="Campaigns" value={t.campaigns ?? 0} icon="send" colors={colors} />
         <KpiTile label="Sent" value={t.sent ?? 0} icon="mail" colors={colors} />

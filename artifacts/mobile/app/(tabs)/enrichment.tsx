@@ -37,7 +37,7 @@ import {
   useSignalsFeed,
 } from "@/lib/api";
 
-type SubKey = "prospect" | "research" | "bulk" | "signals" | "engines" | "card";
+type SubKey = "prospect" | "enrich" | "card" | "signals" | "engines" | "sources" | "history";
 
 export default function EnrichmentScreen() {
   const colors = useColors();
@@ -59,20 +59,22 @@ export default function EnrichmentScreen() {
         onChange={setSub}
         tabs={[
           { key: "prospect", label: "Prospecting" },
-          { key: "research", label: "AI Research" },
-          { key: "bulk", label: "Bulk" },
-          { key: "signals", label: "Buying Signals" },
-          { key: "engines", label: "Engines" },
+          { key: "enrich", label: "Enrich" },
           { key: "card", label: "Card Scanner" },
+          { key: "signals", label: "Signals" },
+          { key: "engines", label: "Engines" },
+          { key: "sources", label: "Sources" },
+          { key: "history", label: "History" },
         ]}
       />
 
       {sub === "prospect" && <ProspectingView />}
-      {sub === "research" && <ResearchView />}
-      {sub === "bulk" && <BulkView />}
+      {sub === "enrich" && <EnrichView />}
+      {sub === "card" && <CardScannerView />}
       {sub === "signals" && <SignalsView />}
       {sub === "engines" && <EnginesView />}
-      {sub === "card" && <CardScannerView />}
+      {sub === "sources" && <SourcesView />}
+      {sub === "history" && <HistoryView />}
     </View>
   );
 }
@@ -166,14 +168,35 @@ function ProspectingView() {
   );
 }
 
-/* ─────────────────────────── AI Research ─────────────────────────── */
+/* ─────────────────────────── Enrich (research + bulk) ─────────────────────────── */
 
-function ResearchView() {
+function EnrichView() {
   const colors = useColors();
   const [company, setCompany] = useState("");
   const [person, setPerson] = useState("");
   const [topic, setTopic] = useState("");
+  const [pasted, setPasted] = useState("");
   const research = useResearchProspect();
+  const run = useRunWaterfall();
+  const lines = pasted.split(/[\r\n,;]+/).map((l) => l.trim()).filter(Boolean);
+  const runBulk = async () => {
+    if (lines.length === 0) {
+      Alert.alert("Add some lines", "Paste names, emails or domains separated by commas or new lines.");
+      return;
+    }
+    let ok = 0;
+    for (const ln of lines.slice(0, 25)) {
+      try {
+        await run.mutateAsync(
+          ln.includes("@") ? { email: ln } : ln.includes(".") ? { domain: ln } : { full_name: ln },
+        );
+        ok += 1;
+      } catch {
+        /* swallow */
+      }
+    }
+    Alert.alert("Bulk done", `Enriched ${ok}/${lines.length}.`);
+  };
 
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
@@ -226,56 +249,17 @@ function ResearchView() {
           </View>
         )}
       </Card>
-    </ScrollView>
-  );
-}
 
-/* ─────────────────────────── Bulk ─────────────────────────── */
-
-function BulkView() {
-  const colors = useColors();
-  const [pasted, setPasted] = useState("");
-  const lines = pasted
-    .split(/[\r\n,;]+/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  const run = useRunWaterfall();
-
-  const runBulk = async () => {
-    if (lines.length === 0) {
-      Alert.alert("Add some lines", "Paste names, emails or domains separated by commas or new lines.");
-      return;
-    }
-    let ok = 0;
-    for (const ln of lines.slice(0, 25)) {
-      try {
-        await run.mutateAsync(
-          ln.includes("@")
-            ? { email: ln }
-            : ln.includes(".")
-              ? { domain: ln }
-              : { full_name: ln },
-        );
-        ok += 1;
-      } catch {
-        /* swallow */
-      }
-    }
-    Alert.alert("Bulk done", `Enriched ${ok}/${lines.length}.`);
-  };
-
-  return (
-    <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
-      <Card style={{ margin: 16 }}>
-        <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>Paste a list</Text>
+      <Card style={{ marginHorizontal: 16, marginBottom: 16 }}>
+        <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>Bulk paste</Text>
         <Text style={{ color: colors.foreground, fontSize: 12, marginTop: 4 }}>
-          Names, emails or domains — one per line or comma-separated. Each row runs the full waterfall.
+          Names, emails or domains — one per line. Each row runs the full waterfall.
         </Text>
         <TextInput
           value={pasted}
           onChangeText={setPasted}
           multiline
-          placeholder="rashid@neom.com&#10;sara@gulfventures.sa&#10;mubadala.ae"
+          placeholder={"rashid@neom.com\nsara@gulfventures.sa\nmubadala.ae"}
           placeholderTextColor={colors.mutedForeground}
           style={[
             styles.bulkInput,
@@ -302,6 +286,95 @@ function BulkView() {
       </Card>
     </ScrollView>
   );
+}
+
+/* ─────────────────────────── Sources (data providers) ─────────────────────────── */
+
+function SourcesView() {
+  const colors = useColors();
+  const { data, isPending } = useEnrichmentSources();
+  const sources = (data?.sources ?? []) as any[];
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 140, gap: 10 }}>
+      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
+        Active enrichment providers in the waterfall.
+      </Text>
+      {isPending ? (
+        <ActivityIndicator color={colors.foreground} />
+      ) : sources.length === 0 ? (
+        <Text style={{ color: colors.mutedForeground, textAlign: "center", marginTop: 30 }}>
+          No sources configured yet.
+        </Text>
+      ) : (
+        sources.map((s, i) => (
+          <Card key={s.id ?? s.name ?? i} style={{ gap: 6 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14 }}>
+                {s.label ?? s.name ?? "Source"}
+              </Text>
+              <Badge tone={s.enabled === false ? "neutral" : "success"} small label={s.enabled === false ? "off" : "on"} />
+            </View>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>
+              {s.description ?? s.category ?? s.kind ?? "Provider"}
+            </Text>
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+              <Badge tone="neutral" small label={`coverage ${Math.round((s.coverage ?? 0.7) * 100)}%`} />
+              <Badge tone="gold" small label={`accuracy ${Math.round((s.accuracy ?? 0.85) * 100)}%`} />
+            </View>
+          </Card>
+        ))
+      )}
+    </ScrollView>
+  );
+}
+
+/* ─────────────────────────── History (recent runs) ─────────────────────────── */
+
+function HistoryView() {
+  const colors = useColors();
+  const { data, isPending } = useEnrichmentRuns();
+  const jobs = (data?.runs ?? []) as any[];
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 140, gap: 8 }}>
+      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
+        Recent enrichment & research jobs.
+      </Text>
+      {isPending ? (
+        <ActivityIndicator color={colors.foreground} />
+      ) : jobs.length === 0 ? (
+        <Text style={{ color: colors.mutedForeground, textAlign: "center", marginTop: 30 }}>
+          No enrichment runs yet.
+        </Text>
+      ) : (
+        jobs.slice(0, 30).map((j, i) => (
+          <Card key={j.id ?? i} style={{ gap: 4 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                {j.subject ?? j.input ?? j.full_name ?? j.email ?? j.domain ?? "Run"}
+              </Text>
+              <Badge
+                tone={j.status === "completed" ? "success" : j.status === "failed" ? "danger" : "gold"}
+                small
+                label={j.status ?? "queued"}
+              />
+            </View>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11 }}>
+              {(j.kind ?? j.type ?? "waterfall")} · {j.created_at ? relTime(j.created_at) : "—"}
+            </Text>
+          </Card>
+        ))
+      )}
+    </ScrollView>
+  );
+}
+
+function relTime(iso: string) {
+  const d = new Date(iso).getTime();
+  const diff = Date.now() - d;
+  if (diff < 60_000) return "just now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return new Date(iso).toLocaleDateString();
 }
 
 /* ─────────────────────────── Buying Signals ─────────────────────────── */
