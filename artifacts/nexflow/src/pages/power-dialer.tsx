@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/hooks/useApi";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
+import { speakViaServer, stopServerSpeak, pickServerVoice } from "@/lib/voice";
 import {
   Phone, PhoneIncoming, PhoneOutgoing, PhoneOff, PhoneMissed, Bot, Sparkles,
   ChevronRight, CheckCircle2, X, Loader2, Zap, Trophy, Clock, TrendingUp,
@@ -75,6 +76,8 @@ const PRE_CALL_TIPS_BY_SCORE = (score: number): string[] => {
 
 export default function PowerDialerPage() {
   const qc = useQueryClient();
+  const search = useSearch();
+  const listId = useMemo(() => new URLSearchParams(search).get("list") ?? undefined, [search]);
   const [mode, setMode] = useState<Mode>("manual");
   const [activeIdx, setActiveIdx] = useState(0);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -82,6 +85,7 @@ export default function PowerDialerPage() {
   const [notes, setNotes] = useState("");
   const [transcript, setTranscript] = useState<typeof TRANSCRIPT_SCRIPT>([]);
   const [muted, setMuted] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [autoQueueIdx, setAutoQueueIdx] = useState(0);
   const [autoCycling, setAutoCycling] = useState(false);
@@ -98,9 +102,9 @@ export default function PowerDialerPage() {
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
   const transcriptTimerRef = useRef<number | null>(null);
 
-  const { data: queueData, isLoading } = useQuery<{ count: number; queue: QueueItem[] }>({
-    queryKey: ["power-dialer-queue"],
-    queryFn: () => apiFetch("/power-dialer/queue?limit=20"),
+  const { data: queueData, isLoading } = useQuery<{ count: number; queue: QueueItem[]; list_id?: string | null }>({
+    queryKey: ["power-dialer-queue", listId],
+    queryFn: () => apiFetch(`/power-dialer/queue?limit=20${listId ? `&list_id=${listId}` : ""}`),
   });
 
   const { data: stats } = useQuery<any>({
@@ -181,6 +185,20 @@ export default function PowerDialerPage() {
       transcriptScrollRef.current.scrollTop = transcriptScrollRef.current.scrollHeight;
     }
   }, [transcript]);
+
+  // Speak the newest transcript line via TTS when AI agent mode + audio enabled
+  useEffect(() => {
+    if (!audioEnabled || mode !== "ai_agent" || phase !== "connected" || transcript.length === 0) return;
+    const newest = transcript[transcript.length - 1];
+    if (newest.speaker !== "agent") return;
+    const voice = pickServerVoice({ lang: "ar-SA", gender: "Female", name: "Layla" });
+    void speakViaServer(newest.text, voice, {});
+  }, [transcript, audioEnabled, mode, phase]);
+
+  // Stop TTS when call ends
+  useEffect(() => {
+    if (phase !== "connected") stopServerSpeak();
+  }, [phase]);
 
   // Auto-dial next in queue when in auto mode and call wraps up
   useEffect(() => {
@@ -357,12 +375,27 @@ export default function PowerDialerPage() {
           <div className="text-sm flex-1">
             <span className="font-semibold text-violet-900 dark:text-violet-200">AI Voice Agent mode:</span>
             <span className="text-violet-700 dark:text-violet-300"> Layla (Arabic · Female) places the calls, qualifies, and books meetings. You'll see live transcript & be paged for human handoff.</span>
+            <span className="text-violet-600 dark:text-violet-400 ml-2 text-xs">Press 🔊 during the call to hear Layla speak.</span>
           </div>
           <Link
             href="/contact-center-setup"
             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-violet-600 text-white hover:bg-violet-700 flex items-center gap-1"
           >
             <Settings2 /> Configure
+          </Link>
+        </div>
+      )}
+
+      {/* List filter banner */}
+      {listId && (
+        <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900 px-4 py-3 flex items-center gap-3">
+          <Zap className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="text-sm flex-1">
+            <span className="font-semibold text-emerald-900 dark:text-emerald-200">Dialing from a smart list</span>
+            <span className="text-emerald-700 dark:text-emerald-300"> — queue is filtered to contacts with phone numbers from your selected list.</span>
+          </div>
+          <Link href="/lists" className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition">
+            Back to lists
           </Link>
         </div>
       )}
@@ -515,9 +548,21 @@ export default function PowerDialerPage() {
                   >
                     {muted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                   </button>
-                  <button className="w-10 h-10 rounded-full bg-muted hover:bg-muted/70 flex items-center justify-center">
-                    <Volume2 className="w-4 h-4" />
-                  </button>
+                  {mode === "ai_agent" && (
+                    <button
+                      onClick={() => {
+                        if (audioEnabled) { stopServerSpeak(); setAudioEnabled(false); }
+                        else setAudioEnabled(true);
+                      }}
+                      title={audioEnabled ? "Mute Layla's voice" : "Hear Layla speak (AI voice)"}
+                      className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center transition",
+                        audioEnabled ? "bg-violet-600 text-white" : "bg-muted hover:bg-muted/70"
+                      )}
+                    >
+                      <Volume2 className="w-4 h-4" />
+                    </button>
+                  )}
                   <button
                     onClick={endCall}
                     className="px-4 h-10 rounded-full bg-rose-500 text-white text-sm font-semibold hover:bg-rose-600 transition flex items-center gap-1"

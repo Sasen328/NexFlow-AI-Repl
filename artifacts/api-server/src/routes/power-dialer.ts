@@ -1,17 +1,31 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { contacts, calls, activities, deals } from "@workspace/db";
-import { eq, and, sql, desc, isNull, or } from "drizzle-orm";
+import { contacts, calls, activities, deals, static_list_members } from "@workspace/db";
+import { eq, and, sql, desc, isNull, or, inArray } from "drizzle-orm";
 import { aiJson } from "../lib/ai.js";
 import { randomUUID } from "crypto";
 
 const router: IRouter = Router();
 
 // GET /api/power-dialer/queue — prioritized list of who to call right now
+// ?list_id=<uuid> — filter to members of a specific smart list
 router.get("/queue", async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit ?? 25), 100);
-    // Score = lead_score + (open deal value / 1000) - days_since_last_contact*2
+    const listId = req.query.list_id as string | undefined;
+
+    let listContactIds: string[] | null = null;
+    if (listId) {
+      const members = await db
+        .select({ entity_id: static_list_members.entity_id })
+        .from(static_list_members)
+        .where(eq(static_list_members.list_id, listId));
+      listContactIds = members.map((m) => m.entity_id);
+      if (listContactIds.length === 0) {
+        return res.json({ count: 0, queue: [], list_id: listId });
+      }
+    }
+
     const rows = await db.execute(sql`
       with last_call as (
         select contact_id, max(created_at) as last_at, count(*) as call_count
@@ -38,11 +52,12 @@ router.get("/queue", async (req, res) => {
       left join last_call lc on lc.contact_id = c.id
       left join open_deals od on od.contact_id = c.id
       where c.phone is not null and c.phone <> ''
+        ${listContactIds ? sql`and c.id = any(${listContactIds}::uuid[])` : sql``}
       order by priority_score desc nulls last
       limit ${limit}
     `);
     const items = (rows as any).rows ?? rows;
-    res.json({ count: items.length, queue: items });
+    res.json({ count: items.length, queue: items, list_id: listId ?? null });
   } catch (err: any) {
     res.status(500).json({ error: err?.message ?? "Failed" });
   }
