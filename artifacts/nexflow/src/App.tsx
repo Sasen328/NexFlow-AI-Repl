@@ -262,7 +262,6 @@ function AppLayout() {
         </Switch>
         </main>
       </div>
-      <AIAssistantBubble />
     </div>
   );
 }
@@ -312,6 +311,14 @@ function App() {
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <RootRoutes />
+          {/* Mount the floating AI assistant at the very top of the tree so it
+              renders on EVERY page (marketing, auth, investors data-room, and
+              every CRM route) in EVERY browser (Safari, Chrome, Edge,
+              Firefox — desktop or iPad). The component has its own internal
+              `signed-in` gate, so it stays hidden for unauthenticated visitors
+              on the marketing pages, but the moment a persona is picked the
+              bubble is available across the whole app. */}
+          <AIAssistantBubble />
         </WouterRouter>
         <Toaster />
       </TooltipProvider>
