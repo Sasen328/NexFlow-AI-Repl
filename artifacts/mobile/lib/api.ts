@@ -755,17 +755,45 @@ export function useSignalsFeed(limit = 30) {
 // ---------- AI Assistant ----------
 export type AssistantHistoryItem = { role: "user" | "assistant"; text: string };
 export type AssistantProvider = "auto" | "anthropic" | "openai" | "gemini" | "perplexity";
+export type AssistantMode = "chat" | "research" | "analysis" | "command";
+export type AssistantTone = "conversational" | "concise" | "coach" | "enthusiastic" | "formal";
+export type AssistantFocus = "sales" | "marketing" | "research" | "general";
+export type AssistantLanguage = "auto" | "en" | "ar";
+export type AssistantAccent = "saudi" | "uae" | "egyptian" | "default";
+
+export type AssistantAction = {
+  kind: "open" | "start_call" | "draft_email" | "draft_whatsapp" | "run_research";
+  label: string;
+  path?: string;
+  payload?: Record<string, unknown>;
+};
+
+export type AssistantChatResponse = {
+  reply: string;
+  provider_used?: string;
+  actions?: AssistantAction[];
+  data_used?: string[];
+};
 
 export function useAssistantSend() {
   return useMutation({
     mutationFn: (input: {
       message: string;
       provider?: AssistantProvider;
+      mode?: AssistantMode;
+      tone?: AssistantTone;
+      focus?: AssistantFocus;
+      language?: AssistantLanguage;
+      accent?: AssistantAccent;
+      agent_name?: string;
       history?: AssistantHistoryItem[];
-    }) =>
-      apiPost<{ reply: string; provider_used?: string; data_used?: string[] }>(
-        "/assistant/chat",
-        input,
-      ),
+    }) => apiPost<AssistantChatResponse>("/assistant/chat", input),
+  });
+}
+
+export function useAssistantTranscribe() {
+  return useMutation({
+    mutationFn: (input: { audio_base64: string; mime?: string; language?: string }) =>
+      apiPost<{ text: string; language?: string }>("/assistant/transcribe", input),
   });
 }

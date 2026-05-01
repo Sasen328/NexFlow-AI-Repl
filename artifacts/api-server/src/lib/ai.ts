@@ -40,6 +40,34 @@ const providerModelMap: Record<AiProvider, string> = {
   auto: "openai/gpt-4o-mini",
 };
 
+/** Transcribe an audio buffer with OpenAI Whisper via the integration. */
+export async function aiTranscribe(opts: {
+  audio: Buffer;
+  filename?: string;
+  language?: string;
+}): Promise<{ text: string; language?: string }> {
+  if (!aiEnabled) {
+    throw new Error("OpenAI integration not configured");
+  }
+  const client = openai();
+  // Lazy import — only this code path needs the File polyfill on Node 18.
+  const { toFile } = await import("openai/uploads");
+  const file = await toFile(opts.audio, opts.filename ?? "audio.webm", {
+    type: "audio/webm",
+  });
+  try {
+    const r = await client.audio.transcriptions.create({
+      file,
+      model: "whisper-1",
+      language: opts.language,
+    });
+    return { text: (r as any).text ?? "", language: opts.language };
+  } catch (err: any) {
+    console.error("[ai] transcribe failed:", err?.message ?? err);
+    throw new Error(err?.message ?? "transcribe_failed");
+  }
+}
+
 export async function aiChat(opts: {
   system?: string;
   user: string;
