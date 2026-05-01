@@ -404,3 +404,48 @@ export function dealHealth(d: { probability: number; stage: string }): "hot" | "
   if (d.probability >= 40) return "warm";
   return "at-risk";
 }
+
+// ── Marketing ──────────────────────────────────────────────────────────────
+export type ApiCampaign = {
+  id: string;
+  name: string;
+  status: string;
+  channel: string | null;
+  created_at: string;
+  sent_count?: number;
+  open_count?: number;
+  click_count?: number;
+};
+
+export function useCampaigns() {
+  return useQuery<{ campaigns: ApiCampaign[] }>({
+    queryKey: ["campaigns"],
+    queryFn: () => apiFetch("/campaigns"),
+  });
+}
+
+export type MarketingAnalytics = {
+  totals?: {
+    campaigns?: number;
+    sent?: number;
+    opens?: number;
+    clicks?: number;
+    open_rate?: number;
+    click_rate?: number;
+  };
+  recent?: Array<{ id: string; name: string; sent: number; opens: number; clicks: number }>;
+};
+
+export function useMarketingAnalytics() {
+  return useQuery<MarketingAnalytics>({
+    queryKey: ["marketing-analytics"],
+    queryFn: () => apiFetch("/marketing/analytics"),
+  });
+}
+
+export function useGenerateAiStrategy() {
+  return useMutation({
+    mutationFn: (input: { goal: string; audience: string; channel?: string; lang?: "en" | "ar" }) =>
+      apiPost("/campaigns/ai-strategy", input),
+  });
+}
