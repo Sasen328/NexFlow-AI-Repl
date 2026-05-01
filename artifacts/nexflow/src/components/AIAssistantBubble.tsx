@@ -305,6 +305,16 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
   // Listen for global "open assistant" requests from anywhere in the app
   useEffect(() => {
     function onOpen(e: Event) {
+      // Always force the bubble back to a guaranteed-visible spot first so
+      // the panel that anchors to it is on-screen.
+      try {
+        const safe = {
+          x: Math.max(8, window.innerWidth - 80),
+          y: Math.max(8, window.innerHeight - 96),
+        };
+        setPosition(safe);
+        window.localStorage.setItem(STORAGE_POS, JSON.stringify(safe));
+      } catch {/* ignore */}
       setOpen(true);
       const detail = (e as CustomEvent).detail;
       if (detail?.text && typeof detail.text === "string") {

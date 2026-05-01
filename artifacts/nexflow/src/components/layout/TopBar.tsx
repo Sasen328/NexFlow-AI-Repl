@@ -146,6 +146,19 @@ export function TopBar({ dark, onDark }: TopBarProps) {
             <Search className="w-4 h-4" />
           </button>
 
+          {/* Always-visible AI assistant entry — opens the floating bubble panel */}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("nf:open-assistant"))}
+            className="relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white text-[11px] font-bold shadow-sm hover:opacity-90 transition-opacity"
+            style={{ background: "linear-gradient(135deg,#88B8B0,#B8A0C8)" }}
+            aria-label="Open AI Assistant"
+            title="Open AI Assistant"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">AI Assistant</span>
+          </button>
+
           <Link href="/notifications">
             <button
               className={cn(
