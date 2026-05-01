@@ -31,29 +31,22 @@ function checkIcp(extracted: Record<string, any>): { passes: boolean; failed: st
 async function agent1GeminiOCR(imageDataUrl: string): Promise<{ result: any; error?: string }> {
   const prompt = `You are an expert business-card OCR specialist for GCC/Middle-East B2B markets. Your job is to extract contact data from business cards.
 
-STEP 1 — VALIDATION (be GENEROUS):
-A business card is ANY printed or digital card that conveys professional contact information for a person.
-Business cards come in many styles: dark backgrounds (black, navy, maroon, dark red, dark green), metallic/gold, white, minimalist, luxury, textured, bilingual Arabic/English, QR-code only cards, digital cards on screens.
+CRITICAL RULE: You MUST default to is_business_card=true unless the image is OBVIOUSLY something completely different (e.g. a selfie/portrait photo of a person's face, a landscape/nature photo, food image, meme, random document page, official government ID with photo like passport or driver's licence).
 
-Only return is_business_card=false for CLEAR non-cards: selfie photos, landscape photos, food images, memes, social media screenshots, random documents, invoices, official government ID cards (e.g. passport, national ID, driver's license), product advertisements.
+Dark, colored, metallic, luxury, minimal, or low-quality images ARE business cards. Treat them as such.
 
-If you see ANY of these on the image, it IS a business card (is_business_card=true):
-- A person's name (even partially visible)
-- A job title or company name
-- A phone number or email address
-- A logo combined with contact details
-- A QR code on what appears to be a card-shaped image
-- Arabic text that looks like contact information
+Business cards in GCC often have: very dark backgrounds (black, navy, maroon, dark red, burgundy, dark green), gold/silver text that may be hard to read, luxury card stock, bilingual Arabic + English text, just a logo + QR code, or ultra-minimalist designs. These are ALL valid business cards.
 
-When in doubt, assume it IS a business card and attempt extraction.
+Only mark is_business_card=false for images that are clearly NOT a card at all: portrait selfies, food photos, nature scenes, memes, invoices, official government identity documents with a person's face photo.
 
-STEP 2 — EXTRACT every visible field accurately, even from low-quality or dark images.
-For dark/low-contrast images: increase effort on reading light-colored text on dark backgrounds.
+For ALL other images (even if you cannot read the text clearly): set is_business_card=true and make your best effort extraction.
+
+EXTRACTION: Extract every visible field. For dark/low-contrast cards, look specifically for light-colored text (white, gold, silver, cream) on dark backgrounds. Even partial reads are valuable.
 
 Return ONLY valid JSON:
 {
   "is_business_card": true|false,
-  "rejection_reason": null|"one clear sentence — only set if clearly NOT a business card",
+  "rejection_reason": null|"only set if clearly a selfie/food/nature/govt-ID — null for all cards",
   "name_en": string|null,
   "name_ar": string|null,
   "title": string|null,
@@ -80,13 +73,65 @@ Rules:
 - Return null (never empty string) for absent fields
 - Arabic names must use proper Arabic script
 - Guess industry from company name / context
-- For dark cards: try harder — white/gold/silver text on dark backgrounds is common in luxury GCC cards`;
+- If the image is dark and you see any text at all, set is_business_card=true and extract it`;
 
   try {
-    const result = await aiGeminiVisionJson({ prompt, imageDataUrl });
+    const result = await aiGeminiVisionJson({ prompt, imageDataUrl, maxTokens: 2500 });
     return { result };
   } catch (err: any) {
     return { result: { is_business_card: false, rejection_reason: err.message }, error: err.message };
+  }
+}
+
+// ─── AGENT 1B: Gemini Vision second-pass for dark/failed cards ─────────────
+// Called only when first pass returns is_business_card=false with no data.
+// This pass skips the classification check entirely and just extracts.
+async function agent1GeminiOCRSecondPass(imageDataUrl: string): Promise<{ result: any; error?: string }> {
+  const prompt = `You are examining a business card image. This has been confirmed to be a business card by the user. Your only job is to extract every piece of text you can see.
+
+The card may have:
+- A very dark background (black, maroon, navy, dark green, burgundy)
+- Light-colored text: white, gold, silver, cream, or pale colors
+- Metallic or embossed text that is difficult to read
+- Arabic text, English text, or both
+- Minimal information (just a name, logo, phone, or QR code)
+
+Instructions:
+1. Look carefully at ALL areas of the image
+2. Try to read any text regardless of contrast or quality
+3. Extract whatever you can — even partial names, numbers, or domain fragments
+4. Set is_business_card=true always (this IS confirmed to be a card)
+5. Set ocr_confidence based on how much you could read (low is OK)
+
+Return ONLY valid JSON. Every field may be null if truly invisible:
+{
+  "is_business_card": true,
+  "rejection_reason": null,
+  "name_en": string|null,
+  "name_ar": string|null,
+  "title": string|null,
+  "company": string|null,
+  "company_ar": string|null,
+  "email": string|null,
+  "mobile": string|null,
+  "office": string|null,
+  "fax": string|null,
+  "website": string|null,
+  "address": string|null,
+  "city": string|null,
+  "country": string|null,
+  "linkedin": string|null,
+  "twitter": string|null,
+  "industry_guess": string|null,
+  "ocr_confidence": 0-100,
+  "fields": []
+}`;
+
+  try {
+    const result = await aiGeminiVisionJson({ prompt, imageDataUrl, maxTokens: 2000 });
+    return { result: { ...result, is_business_card: true, rejection_reason: null } };
+  } catch (err: any) {
+    return { result: { is_business_card: true, ocr_confidence: 0 }, error: err.message };
   }
 }
 
@@ -248,23 +293,32 @@ router.post("/scan", async (req, res) => {
       error: ocr.error ?? null,
     };
 
-    // Short-circuit if clearly not a business card — but override if Gemini
-    // still extracted contact data (dark/colored cards are often mis-rejected).
+    // If first-pass Gemini flagged as non-card with no data extracted, run a
+    // dedicated second-pass that skips classification and just extracts text.
+    // We NEVER reject outright — dark/luxury GCC cards routinely fail pass 1.
     const ocrData = ocr.result ?? {};
-    const hasContactData =
-      ocrData.name_en || ocrData.name_ar || ocrData.email ||
-      ocrData.mobile || ocrData.office || ocrData.company;
-    if (ocrData.is_business_card === false && !hasContactData) {
-      res.json({
-        extracted: ocrData,
-        model: "gemini-2.5-flash",
-        pipeline_trace,
-        agents_used: ["gemini-vision"],
-      });
-      return;
-    }
-    // If Gemini said false but found data anyway, override and keep going
-    if (ocrData.is_business_card === false && hasContactData) {
+    const hasContactData = (d: any) =>
+      d.name_en || d.name_ar || d.email || d.mobile || d.office || d.company;
+
+    if (ocrData.is_business_card === false && !hasContactData(ocrData)) {
+      pipeline_trace.agent1_gemini_vision.note = "first_pass_no_data_running_second_pass";
+      const ocr2 = await agent1GeminiOCRSecondPass(image_data_url);
+      const d2 = ocr2.result ?? {};
+      pipeline_trace.agent1b_second_pass = {
+        ms: Date.now() - t0 - (pipeline_trace.agent1_gemini_vision.ms ?? 0),
+        has_data: Boolean(hasContactData(d2)),
+        ocr_confidence: d2.ocr_confidence ?? 0,
+        error: ocr2.error ?? null,
+      };
+      // Merge second-pass result and continue pipeline
+      Object.assign(ocrData, d2);
+      ocrData.is_business_card = true;
+      ocrData.rejection_reason = null;
+      ocrData.scan_note = hasContactData(d2)
+        ? "Low-contrast card — data partially extracted on second pass"
+        : "Very low contrast card — please verify fields manually";
+    } else if (ocrData.is_business_card === false && hasContactData(ocrData)) {
+      // Gemini said false but did extract data — trust the data
       ocrData.is_business_card = true;
       ocrData.rejection_reason = null;
       pipeline_trace.agent1_gemini_vision.override = "data_found_despite_false_flag";

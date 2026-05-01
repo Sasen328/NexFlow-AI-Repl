@@ -1,6 +1,7 @@
-import { useContacts, useViews, useLists, useUsers, useBulkEnrich, useBulkAddToLists, useSaveView, useDeleteView, useCreateContact } from "@/hooks/useApi";
-import { Search, Plus, Sparkles, FolderPlus, Bookmark, X, Loader2, Save, Phone, MessageSquare, Mail, Zap, TrendingUp, AlertTriangle, Star, Filter } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useContacts, useViews, useLists, useUsers, useBulkEnrich, useBulkAddToLists, useSaveView, useDeleteView, useCreateContact, apiFetch } from "@/hooks/useApi";
+import { Search, Plus, Sparkles, FolderPlus, Bookmark, X, Loader2, Save, Phone, MessageSquare, Mail, Zap, TrendingUp, AlertTriangle, Star, Filter, Upload, FileText, CheckCircle2 } from "lucide-react";
+import { useMemo, useState, useRef, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
@@ -43,9 +44,11 @@ export default function ContactsPage() {
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showAddContact, setShowAddContact] = useState(false);
+  const [showImportCSV, setShowImportCSV] = useState(false);
   const [showAddToList, setShowAddToList] = useState(false);
   const [showSaveView, setShowSaveView] = useState(false);
   const [viewName, setViewName] = useState("");
+  const queryClient = useQueryClient();
   const [, navigate] = useLocation();
 
   const queryParams = useMemo(() => {
@@ -126,13 +129,22 @@ export default function ContactsPage() {
           <h1 className="text-2xl font-bold text-foreground">Contacts</h1>
           <p className="text-muted-foreground text-sm mt-0.5">{data?.total ?? 0} contacts {hasActiveFilters && "match filters"}</p>
         </div>
-        <button
-          onClick={() => setShowAddContact(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity"
-        >
-          <Plus className="w-4 h-4" />
-          Add Contact
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowImportCSV(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/70 border border-border/40 text-foreground text-sm font-semibold hover:bg-muted transition-colors"
+          >
+            <Upload className="w-4 h-4" />
+            Import CSV
+          </button>
+          <button
+            onClick={() => setShowAddContact(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity"
+          >
+            <Plus className="w-4 h-4" />
+            Add Contact
+          </button>
+        </div>
       </div>
 
       {/* AI Intelligence Panel — spec §3 */}
@@ -482,6 +494,16 @@ export default function ContactsPage() {
           submitting={createContact.isPending}
         />
       )}
+
+      {showImportCSV && (
+        <ImportCSVModal
+          onClose={() => setShowImportCSV(false)}
+          onImported={() => {
+            queryClient.invalidateQueries({ queryKey: ["contacts"] });
+            setShowImportCSV(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -605,6 +627,186 @@ function AddToListModal({ lists, onClose, onSubmit, submitting, count }: any) {
             {submitting ? "Adding…" : `Add to ${picked.size} list${picked.size === 1 ? "" : "s"}`}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CSV Import Modal ──────────────────────────────────────────────────────
+const CSV_COLUMNS = ["first_name", "last_name", "email", "phone", "title", "status", "notes"] as const;
+type CsvCol = typeof CSV_COLUMNS[number];
+
+function parseCSV(text: string): { headers: string[]; rows: Record<string, string>[] } {
+  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim().split("\n");
+  if (lines.length < 2) return { headers: [], rows: [] };
+  const parseLine = (line: string) => {
+    const out: string[] = [];
+    let cur = "", inQ = false;
+    for (const ch of line) {
+      if (ch === '"') { inQ = !inQ; continue; }
+      if (ch === "," && !inQ) { out.push(cur.trim()); cur = ""; continue; }
+      cur += ch;
+    }
+    out.push(cur.trim());
+    return out;
+  };
+  const headers = parseLine(lines[0]);
+  const rows = lines.slice(1).filter(l => l.trim()).map(l => {
+    const vals = parseLine(l);
+    const row: Record<string, string> = {};
+    headers.forEach((h, i) => { row[h] = vals[i] ?? ""; });
+    return row;
+  });
+  return { headers, rows };
+}
+
+function autoMapColumn(header: string): CsvCol | "" {
+  const h = header.toLowerCase().replace(/[^a-z_]/g, "");
+  if (h.includes("first") || h === "firstname") return "first_name";
+  if (h.includes("last") || h === "lastname") return "last_name";
+  if (h.includes("email") || h.includes("mail")) return "email";
+  if (h.includes("phone") || h.includes("mobile") || h.includes("tel")) return "phone";
+  if (h.includes("title") || h.includes("role") || h.includes("position") || h.includes("job")) return "title";
+  if (h.includes("status")) return "status";
+  if (h.includes("note")) return "notes";
+  return "";
+}
+
+function ImportCSVModal({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
+  const [phase, setPhase] = useState<"upload" | "map" | "done">("upload");
+  const [csvData, setCsvData] = useState<{ headers: string[]; rows: Record<string, string>[] } | null>(null);
+  const [mapping, setMapping] = useState<Record<string, CsvCol | "">>({});
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const processFile = useCallback((file: File) => {
+    if (!file.name.endsWith(".csv") && file.type !== "text/csv") {
+      setError("Please select a .csv file"); return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const parsed = parseCSV(text);
+      if (!parsed.headers.length) { setError("CSV appears to be empty or invalid"); return; }
+      const autoMap: Record<string, CsvCol | ""> = {};
+      parsed.headers.forEach(h => { autoMap[h] = autoMapColumn(h); });
+      setCsvData(parsed);
+      setMapping(autoMap);
+      setPhase("map");
+      setError(null);
+    };
+    reader.readAsText(file);
+  }, []);
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault(); setDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  }
+
+  async function handleImport() {
+    if (!csvData) return;
+    setLoading(true); setError(null);
+    try {
+      const rows = csvData.rows.map(row => {
+        const contact: Record<string, string> = {};
+        Object.entries(mapping).forEach(([header, col]) => {
+          if (col && row[header]) contact[col] = row[header];
+        });
+        return contact;
+      }).filter(r => r.first_name || r.email);
+      if (!rows.length) { setError("No valid rows (need first_name or email per row)"); setLoading(false); return; }
+      const res = await apiFetch("/contacts/bulk", { method: "POST", body: JSON.stringify({ rows }) });
+      setResult({ created: res.created, skipped: res.skipped, errors: res.errors ?? [] });
+      setPhase("done");
+    } catch (err: any) {
+      setError(err?.message ?? "Import failed");
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="glass-card rounded-2xl p-6 w-full max-w-xl bg-background" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <Upload className="w-4 h-4 text-[#B8A0C8]" />
+            <h3 className="text-base font-bold text-foreground">Import Contacts from CSV</h3>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+        </div>
+
+        {phase === "upload" && (
+          <div className="space-y-4">
+            <div
+              className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${dragging ? "border-[#B8A0C8] bg-[#B8A0C8]/10" : "border-border/50 hover:border-[#B8A0C8]/60"}`}
+              onClick={() => fileRef.current?.click()}
+              onDragOver={e => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={handleDrop}
+            >
+              <FileText className="w-10 h-10 mx-auto mb-3 text-muted-foreground/60" />
+              <p className="text-sm font-semibold text-foreground">Drop your CSV here or click to browse</p>
+              <p className="text-xs text-muted-foreground mt-1">Columns: first_name, last_name, email, phone, title, status, notes</p>
+              <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) processFile(f); }} />
+            </div>
+            <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+              <p className="font-semibold text-foreground mb-1">Example CSV:</p>
+              <code className="text-[11px] text-[#90B8B8]">first_name,last_name,email,phone,title<br />Sara,Al-Mansouri,sara@wealth.ae,+97150123,Head of Wealth</code>
+            </div>
+            {error && <p className="text-xs text-red-500">{error}</p>}
+          </div>
+        )}
+
+        {phase === "map" && csvData && (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">{csvData.rows.length} rows detected. Map your CSV columns:</p>
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              {csvData.headers.map(header => (
+                <div key={header} className="flex items-center gap-3">
+                  <span className="text-xs font-mono text-foreground/70 w-32 truncate flex-shrink-0">{header}</span>
+                  <span className="text-muted-foreground text-xs">→</span>
+                  <select
+                    value={mapping[header] ?? ""}
+                    onChange={e => setMapping(m => ({ ...m, [header]: e.target.value as CsvCol | "" }))}
+                    className="flex-1 px-2 py-1.5 rounded-lg bg-muted/60 border border-border/40 text-xs text-foreground outline-none focus:border-[#B8A0C8]"
+                  >
+                    <option value="">(skip)</option>
+                    {CSV_COLUMNS.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              ))}
+            </div>
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <div className="flex justify-end gap-2 pt-1">
+              <button onClick={() => { setCsvData(null); setPhase("upload"); }} className="px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground">Back</button>
+              <button onClick={handleImport} disabled={loading}
+                className="px-4 py-2 rounded-lg text-sm font-semibold nf-chameleon-bg text-white disabled:opacity-50 flex items-center gap-1.5">
+                {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Import {csvData.rows.length} contacts
+              </button>
+            </div>
+          </div>
+        )}
+
+        {phase === "done" && result && (
+          <div className="text-center py-6 space-y-4">
+            <CheckCircle2 className="w-12 h-12 mx-auto text-emerald-500" />
+            <div>
+              <p className="text-lg font-bold text-foreground">{result.created} contacts imported</p>
+              {result.skipped > 0 && <p className="text-sm text-muted-foreground mt-1">{result.skipped} skipped (duplicates or missing name)</p>}
+              {result.errors.length > 0 && (
+                <div className="mt-2 text-xs text-amber-600 space-y-0.5">
+                  {result.errors.map((e, i) => <p key={i}>{e}</p>)}
+                </div>
+              )}
+            </div>
+            <button onClick={onImported} className="px-6 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold">Done</button>
+          </div>
+        )}
       </div>
     </div>
   );
