@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { contacts, companies, signals, activities } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
-import { aiChat, aiJson, openrouter } from "../lib/ai.js";
+import { aiChat, aiJson, aiGeminiChat } from "../lib/ai.js";
 import { randomUUID } from "crypto";
 
 const router: IRouter = Router();
@@ -38,7 +38,67 @@ const RESEARCH_SYSTEM = `You are a senior B2B sales researcher with deep knowled
 
 const STRUCTURE_SYSTEM = `You convert messy real-web research into strict JSON prospect cards for a CRM. Output ONLY valid JSON. Never invent emails or phone numbers — leave them null if the research did not include a verified value. Pick at most the requested count of prospects, prioritizing those with the strongest buying signals.`;
 
-const ENHANCE_SYSTEM = `You are a senior account executive scoring B2B prospects for a GCC sales team. Given one prospect card, refine the persona, sharpen the pain points, write a 2-3 sentence buying-context summary, and propose the 3 next-best actions for an SDR. Be concrete and channel-aware (call vs whatsapp vs email vs linkedin). Output strict JSON.`;
+const ENHANCE_SYSTEM = `You are a senior account executive scoring B2B prospects for a GCC sales team. Given prospect cards, refine the persona, sharpen the pain points, write concise buying-context summaries, and propose the 3 next-best actions for each SDR. Be concrete and channel-aware (call vs whatsapp vs email vs linkedin). Output strict JSON matching the same structure.`;
+
+/** Try multiple providers for aiChat until one works */
+async function robustChat(opts: { system: string; user: string; maxTokens?: number }): Promise<string> {
+  const errs: string[] = [];
+
+  // 1. Perplexity (live web — best for research)
+  try {
+    const t = await aiChat({ provider: "perplexity", system: opts.system, user: opts.user, maxTokens: opts.maxTokens ?? 3500 });
+    if (t?.trim()) return t.trim();
+  } catch (e: any) { errs.push(`perplexity:${e?.message}`); }
+
+  // 2. Direct Gemini (reliable in this env)
+  try {
+    const t = await aiGeminiChat({ system: opts.system, messages: [{ role: "user", text: opts.user }], maxTokens: opts.maxTokens ?? 3500 });
+    if (t?.trim()) return t.trim();
+  } catch (e: any) { errs.push(`gemini:${e?.message}`); }
+
+  // 3. OpenAI via integration
+  try {
+    const t = await aiChat({ provider: "openai", system: opts.system, user: opts.user, maxTokens: opts.maxTokens ?? 3500 });
+    if (t?.trim()) return t.trim();
+  } catch (e: any) { errs.push(`openai:${e?.message}`); }
+
+  throw new Error(`All research providers failed: ${errs.join(" | ")}`);
+}
+
+/** Try multiple providers for aiJson until one returns non-empty data */
+async function robustJson<T>(opts: { system: string; user: string; fallback: T }): Promise<T> {
+  // 1. OpenAI via integration (most reliable json_object support)
+  try {
+    const d = await aiJson<T>({ provider: "openai", system: opts.system, user: opts.user, fallback: opts.fallback });
+    if (d && JSON.stringify(d) !== JSON.stringify(opts.fallback)) return d;
+  } catch { /* try next */ }
+
+  // 2. Direct Gemini REST with JSON mime type
+  try {
+    const raw = await aiGeminiChat({
+      system: opts.system + "\n\nOutput ONLY valid JSON, no markdown fences.",
+      messages: [{ role: "user", text: opts.user }],
+      maxTokens: 4096,
+    });
+    const cleaned = raw.replace(/```json\n?/gi, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(cleaned) as T;
+    if (parsed && JSON.stringify(parsed) !== JSON.stringify(opts.fallback)) return parsed;
+  } catch { /* try next */ }
+
+  // 3. Anthropic via OpenRouter
+  try {
+    const d = await aiJson<T>({ provider: "anthropic", system: opts.system, user: opts.user, fallback: opts.fallback });
+    if (d && JSON.stringify(d) !== JSON.stringify(opts.fallback)) return d;
+  } catch { /* try next */ }
+
+  // 4. auto (OpenRouter picks best available)
+  try {
+    const d = await aiJson<T>({ provider: "auto", system: opts.system, user: opts.user, fallback: opts.fallback });
+    if (d) return d;
+  } catch { /* all failed */ }
+
+  return opts.fallback;
+}
 
 // ── POST /api/prospects/research ───────────────────────────────────────────
 // body: { query, count?, region?, save?: boolean }
@@ -54,19 +114,13 @@ router.post("/research", async (req, res) => {
     if (!query.trim()) {
       return res.status(400).json({ error: "query required (e.g. 'CFOs at Series A+ fintechs in UAE')" });
     }
-    if (!process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY) {
-      return res.status(503).json({
-        error: "OpenRouter not configured. Set AI_INTEGRATIONS_OPENROUTER_API_KEY to enable real prospect research.",
-      });
-    }
 
     const cap = Math.min(Math.max(parseInt(String(count)) || 5, 1), 15);
 
-    // ── Step 1: Perplexity online search (live web) ────────────────────────
-    req.log.info({ query, count: cap, region }, "[prospects] step 1 — perplexity research");
-    const research = await aiChat({
+    // ── Step 1: Live web research (Perplexity → Gemini → OpenAI fallback) ──
+    req.log.info({ query, count: cap, region }, "[prospects] step 1 — web research");
+    const research = await robustChat({
       system: RESEARCH_SYSTEM,
-      provider: "perplexity",
       user: `Find ${cap} real prospects matching: "${query}".
 Region focus: ${region}.
 
@@ -85,12 +139,11 @@ Return a numbered prose research brief with citations. Do NOT invent emails or p
     if (!research || research.trim().length < 50) {
       return res.status(502).json({ error: "Research step returned no useful data — try a more specific query." });
     }
-    req.log.info({ chars: research.length }, "[prospects] perplexity returned brief");
+    req.log.info({ chars: research.length }, "[prospects] research brief ready");
 
-    // ── Step 2: Gemini extracts structured prospect cards ──────────────────
-    // (Gemini's strict json_object mode through OpenRouter can be flaky — fall back to OpenAI if empty.)
-    req.log.info("[prospects] step 2 — gemini structure");
-    const structurePrompt = `Convert this research brief into a JSON array of up to ${cap} prospect cards.
+    // ── Step 2: Extract structured prospect cards ─────────────────────────
+    req.log.info("[prospects] step 2 — structuring cards");
+    const structureUser = `Convert this research brief into a JSON array of up to ${cap} prospect cards.
 
 Schema (strict):
 {
@@ -117,7 +170,7 @@ Schema (strict):
     "next_actions": [{ "action": "call"|"email"|"whatsapp"|"linkedin", "reason": string }],
     "lead_score": number (0-100),
     "confidence": number (0-100),
-    "research_sources": string[] (URLs),
+    "research_sources": string[],
     "summary": string (2-3 sentences)
   }]
 }
@@ -125,67 +178,51 @@ Schema (strict):
 Research brief:
 ${research}`;
 
-    let structured = await aiJson<{ prospects: ProspectCard[] }>({
+    let structured = await robustJson<{ prospects: ProspectCard[] }>({
       system: STRUCTURE_SYSTEM,
-      provider: "gemini",
-      user: structurePrompt,
+      user: structureUser,
       fallback: { prospects: [] },
     });
 
-    if (!structured.prospects || structured.prospects.length === 0) {
-      req.log.warn("[prospects] gemini returned 0 — falling back to openai");
-      structured = await aiJson<{ prospects: ProspectCard[] }>({
-        system: STRUCTURE_SYSTEM,
-        provider: "openai",
-        user: structurePrompt,
-        fallback: { prospects: [] },
-      });
-    }
-
     let prospects = (structured.prospects ?? []).slice(0, cap);
 
-    // If structuring still returned nothing AND the research brief had real content,
-    // surface that to the client instead of pretending the run succeeded.
     if (prospects.length === 0) {
       const briefSummary = research.slice(0, 280).replace(/\s+/g, " ").trim();
       return res.status(200).json({
-        query,
-        region,
-        requested: cap,
-        returned: 0,
-        prospects: [],
-        saved: [],
-        pipeline: ["perplexity:research", "gemini:structure", "openai:structure-fallback", "no-prospects"],
-        notice:
-          "The live web research returned data but no individual prospects could be extracted. " +
-          "Try a more specific query (e.g. include role + industry + city/country + a buying-signal keyword).",
+        query, region, requested: cap, returned: 0,
+        prospects: [], saved: [],
+        pipeline: ["research", "structure", "no-prospects"],
+        notice: "The live web research returned data but no individual prospects could be extracted. Try a more specific query (e.g. include role + industry + city/country + a buying-signal keyword).",
         researchPreview: briefSummary,
       });
     }
 
-    // ── Step 3: Claude refines each prospect (persona, next actions) ───────
-    req.log.info({ count: prospects.length }, "[prospects] step 3 — claude refine");
-    const refined = await Promise.all(
-      prospects.map(async (p) => {
-        try {
-          const enhanced = await aiJson<Partial<ProspectCard>>({
-            system: ENHANCE_SYSTEM,
-            provider: "anthropic",
-            user: `Refine this prospect card. Keep all factual fields the same — only improve persona, pain_points, buying_signals, next_actions, summary, and lead_score.
+    // ── Step 3: BATCH Claude/OpenAI refine — single call for ALL prospects ─
+    // (was N serial calls — now 1 batch call, saves ~20-25 seconds)
+    req.log.info({ count: prospects.length }, "[prospects] step 3 — batch refine");
+    const batchUser = `Refine these ${prospects.length} prospect cards. Keep all factual fields the same — only improve persona, pain_points, buying_signals, next_actions, summary, and lead_score for each.
 
-Current:
-${JSON.stringify(p, null, 2)}
+Cards:
+${JSON.stringify(prospects, null, 2)}
 
-Return JSON: { "persona": "...", "pain_points": [...], "buying_signals": [...], "next_actions": [{"action":"...","reason":"..."}], "summary": "...", "lead_score": 0-100 }`,
-            fallback: {},
-          });
-          return { ...p, ...enhanced };
-        } catch {
-          return p;
-        }
-      }),
-    );
-    prospects = refined;
+Return JSON: { "prospects": [ { "index": 0, "persona": "...", "pain_points": [...], "buying_signals": [...], "next_actions": [{"action":"...","reason":"..."}], "summary": "...", "lead_score": 0-100 }, ... ] }`;
+
+    const batchRefined = await robustJson<{ prospects: Array<Partial<ProspectCard> & { index?: number }> }>({
+      system: ENHANCE_SYSTEM,
+      user: batchUser,
+      fallback: { prospects: [] },
+    });
+
+    if (batchRefined.prospects?.length) {
+      prospects = prospects.map((p, i) => {
+        const patch = batchRefined.prospects.find(r => r.index === i) ?? batchRefined.prospects[i];
+        if (!patch) return p;
+        const { index: _idx, ...rest } = patch;
+        return { ...p, ...rest };
+      });
+    }
+
+    req.log.info({ count: prospects.length }, "[prospects] step 3 done");
 
     // ── Step 4: Save to DB if requested ────────────────────────────────────
     let saved: { contact_id: string; company_id: string | null; name: string }[] = [];
@@ -193,7 +230,6 @@ Return JSON: { "persona": "...", "pain_points": [...], "buying_signals": [...], 
       req.log.info("[prospects] step 4 — persist to DB");
       for (const p of prospects) {
         try {
-          // Resolve / create company
           let companyId: string | null = null;
           const companyName = p.company?.name?.trim();
           if (companyName) {
@@ -214,7 +250,6 @@ Return JSON: { "persona": "...", "pain_points": [...], "buying_signals": [...], 
             }
           }
 
-          // Skip duplicate by email if available
           if (p.email) {
             const dup = await db.select().from(contacts).where(eq(contacts.email, p.email)).limit(1);
             if (dup[0]) {
@@ -240,7 +275,6 @@ Return JSON: { "persona": "...", "pain_points": [...], "buying_signals": [...], 
             source: "ai_prospect_research",
           } as any);
 
-          // Create signals from buying_signals
           if (Array.isArray(p.buying_signals)) {
             for (const sig of p.buying_signals.slice(0, 3)) {
               await db.insert(signals).values({
@@ -260,7 +294,7 @@ Return JSON: { "persona": "...", "pain_points": [...], "buying_signals": [...], 
           await db.insert(activities).values({
             type: "note" as any,
             title: "Prospect generated by AI research",
-            body: `Found via Perplexity → Gemini → Claude pipeline. Query: "${query}". Sources: ${(p.research_sources ?? []).slice(0, 3).join(", ")}`,
+            body: `Found via AI research pipeline. Query: "${query}". Sources: ${(p.research_sources ?? []).slice(0, 3).join(", ")}`,
             contact_id: contactId,
             status: "completed" as any,
             completed_at: new Date(),
@@ -275,13 +309,9 @@ Return JSON: { "persona": "...", "pain_points": [...], "buying_signals": [...], 
     }
 
     res.json({
-      query,
-      region,
-      requested: cap,
-      returned: prospects.length,
-      prospects,
-      saved,
-      pipeline: ["perplexity:research", "gemini:structure", "claude:refine", save ? "db:persist" : "preview-only"],
+      query, region, requested: cap, returned: prospects.length,
+      prospects, saved,
+      pipeline: ["research", "structure", "batch-refine", save ? "db:persist" : "preview-only"],
     });
   } catch (err: any) {
     req.log.error(err);

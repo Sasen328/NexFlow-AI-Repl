@@ -216,6 +216,44 @@ old `/contacts`, `/deals`, `/calls`, `/email`, `/whatsapp`, `/segments`,
 routes resolving to the correct new tab so the side strip stays highlighted on
 deep-link entry.
 
+## Intelligence Engines (API: `artifacts/api-server/src/routes/engines.ts`)
+
+Four AI-driven engines stored in `engine_runs` DB table. All return
+`{ id, durationMs, sourcesUsed, report }` from `POST /api/engines/{kind}/run`.
+
+| Engine | Route | File | Typical time |
+|--------|-------|------|-------------|
+| Masaar (KSA CR) | `/engines/masaar/run` | `engines/masaar.ts` | ~10s |
+| Person Intel | `/engines/person-intel/run` | `engines/prosengine-person.ts` | 76-90s |
+| Company Intel | `/engines/company-intel/run` | `engines/prosengine-company.ts` | ~45s |
+| Lead Finder | `/engines/lead-finder/run` | `engines/lead-finder.ts` | ~30s |
+
+**Person Intel (ProsEngine)**: 16 parallel agents (Perplexity ×9, Gemini ×5,
+Claude ×1, GPT-4o-mini ×1) + LinkedIn/website crawls. Synthesis via
+`synthesizeJson` waterfall (Gemini direct → Claude → GPT → fallback).
+`fanOut` timeout is 55 s per agent.
+
+**Lead Finder**: 10 parallel agents + Cheerio/Playwright/Crawl4AI web crawls.
+Added aggressive synthesis prompt + 0-leads retry (GPT-4o-mini second pass).
+
+**History/Detail**: `GET /api/engines/runs` · `GET /api/engines/runs/:id`
+(returns `{ row }`) · `PATCH /api/engines/runs/:id` (saved/tags/notes).
+Frontend: `intel-engines-tab.tsx` — use `const d: any = await apiFetch(...)`,
+NOT `await apiFetch(...).json()` (apiFetch returns parsed JSON, not Response).
+
+## Business Card Scanner (API: `artifacts/api-server/src/routes/business-cards.ts`)
+
+5-agent pipeline: Gemini Vision OCR → Claude validation → Perplexity live
+search → BS4 scraper (company website) → GPT-4o-mini lead scoring.
+
+Key rules:
+- Agent 1 (Gemini) is now generous: dark/colored/luxury GCC cards are accepted.
+  `is_business_card=false` is ONLY for clear non-cards (selfies, invoices, IDs).
+- Data-found override: if Gemini says `false` but still extracted name/phone/
+  email/company, the pipeline overrides to `true` and continues.
+- ICP check (industry + region) may flag cards for manager approval; it does
+  NOT reject them — it routes them to an approval queue.
+
 ## Bug fixes (April 2026)
 
 - **Logo** — `src/assets/logo_mark.png` and `logo_full.png` replaced with the
@@ -228,3 +266,17 @@ deep-link entry.
   `firstName`/`lastName` with a 400 instead of swallowing the error; frontend
   modal surfaces the inline error and, on success, navigates to
   `/contacts/:id` so the just-created record is visible.
+
+## Bug fixes (May 2026)
+
+- **Activities API** — `GET /api/activities` now filters by `contact_id`
+  (was returning all activities for every contact).
+- **Intel Engines tab** (`intel-engines-tab.tsx`) — `r.json is not a function`
+  crash fixed: `apiFetch` returns parsed JSON, never call `.json()` on it.
+  `RunDetailModal` uses `d?.row ?? d` to handle `{ row: {...} }` response shape.
+- **Business Card Scanner** — Agent 1 prompt relaxed to accept dark/red/colored
+  GCC luxury cards. Data-found override added so partial extractions aren't
+  silently dropped.
+- **Lead Finder synthesis** — Changed from "Never fabricate" to aggressive name
+  extraction. Added 0-leads retry with GPT-4o-mini second pass when bundle
+  is non-empty but synthesis returns empty leads array.

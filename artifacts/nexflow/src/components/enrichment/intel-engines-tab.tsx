@@ -929,9 +929,8 @@ function RunDetailModal({ id, onClose, onChanged }: { id: string; onClose: () =>
 
   useEffect(() => {
     (async () => {
-      const r = await apiFetch(`/engines/runs/${id}`);
-      const d = await r.json();
-      setRow(d.row);
+      const d: any = await apiFetch(`/engines/runs/${id}`);
+      setRow(d?.row ?? d);
       setBusy(false);
     })();
   }, [id]);
