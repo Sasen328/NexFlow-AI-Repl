@@ -61,6 +61,9 @@ export default function LeadEnrichPage() {
     company: "",
     linkedin_url: "",
     notes: "",
+    country: "",
+    seniority: "",
+    industry: "",
   });
   const [result, setResult] = useState<any>(null);
   const [waterfall, setWaterfall] = useState<WaterfallResult | null>(null);
@@ -135,6 +138,11 @@ export default function LeadEnrichPage() {
           <div className="grid grid-cols-2 gap-3">
             <Field label="Company" value={seed.company} onChange={(v) => setSeed({ ...seed, company: v })} placeholder="Emirates Capital" />
             <Field label="LinkedIn URL" value={seed.linkedin_url} onChange={(v) => setSeed({ ...seed, linkedin_url: v })} placeholder="linkedin.com/in/..." />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <SelectField label="Country" value={seed.country} onChange={(v) => setSeed({ ...seed, country: v })} options={["", "KSA", "UAE", "Qatar", "Bahrain", "Kuwait", "Oman", "Egypt", "Jordan", "Lebanon"]} />
+            <SelectField label="Seniority" value={seed.seniority} onChange={(v) => setSeed({ ...seed, seniority: v })} options={["", "C-suite", "VP", "Director", "Manager", "Individual"]} />
+            <SelectField label="Industry" value={seed.industry} onChange={(v) => setSeed({ ...seed, industry: v })} options={["", "Technology", "Banking", "Real Estate", "Energy", "Healthcare", "Retail", "Manufacturing", "Telecom", "Government", "Logistics", "Education", "Media"]} />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Free-text notes (e.g. business card OCR, conference bio)</label>
@@ -267,6 +275,23 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
         placeholder={placeholder}
         className="w-full mt-1 rounded-xl border border-border bg-background px-3 py-2 text-sm"
       />
+    </div>
+  );
+}
+
+function SelectField({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[] }) {
+  return (
+    <div>
+      <label className="text-xs text-muted-foreground">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full mt-1 rounded-xl border border-border bg-background px-3 py-2 text-sm"
+      >
+        {options.map((o) => (
+          <option key={o} value={o}>{o || `Any ${label}`}</option>
+        ))}
+      </select>
     </div>
   );
 }

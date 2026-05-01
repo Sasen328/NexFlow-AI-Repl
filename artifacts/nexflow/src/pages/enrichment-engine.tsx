@@ -664,12 +664,26 @@ interface BulkWaterfallRow {
   error?: string;
 }
 
+const GCC_REGIONS = ["KSA", "UAE", "Qatar", "Bahrain", "Kuwait", "Oman", "Egypt"] as const;
+
 function BulkEnrichmentTab() {
+  const [sourceMode, setSourceMode] = useState<"preset" | "manual">("preset");
   const [queue, setQueue] = useState<keyof typeof BULK_QUEUES>("segment_finance_gcc");
-  const [rows, setRows] = useState<BulkLead[]>(() => BULK_QUEUES.segment_finance_gcc.rows);
+  const [rows, setRows] = useState<BulkLead[]>(() => BULK_QUEUES.segment_finance_gcc.rows.map(r => ({ ...r })));
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState<Record<string, BulkWaterfallRow>>({});
   const [progressIdx, setProgressIdx] = useState(0);
+
+  // Manual entry form state
+  const [manualName, setManualName] = useState("");
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualCompany, setManualCompany] = useState("");
+  const [manualIndustry, setManualIndustry] = useState("");
+  const [manualRegion, setManualRegion] = useState<typeof GCC_REGIONS[number]>("KSA");
+  const [manualHeadcount, setManualHeadcount] = useState("1000");
+  const [pasteText, setPasteText] = useState("");
+  const [showPaste, setShowPaste] = useState(false);
+
   const queueMeta = BULK_QUEUES[queue];
 
   function loadQueue(k: keyof typeof BULK_QUEUES) {
@@ -679,29 +693,82 @@ function BulkEnrichmentTab() {
     setProgressIdx(0);
   }
 
-  /**
-   * Walk the queue one row at a time so the user sees realistic per-row
-   * progress. Each row hits /api/enrichment/run with dry_run=true so no
-   * counters get bumped from a demo. If the orchestrator fails for any
-   * reason the row still flips to "enriched" (graceful) but its result
-   * card shows the error.
-   */
+  function addManualLead() {
+    if (!manualName.trim() || !manualCompany.trim()) return;
+    const newLead: BulkLead = {
+      id: `m${Date.now()}`,
+      name: manualName.trim(),
+      title: manualTitle.trim() || "Executive",
+      company: manualCompany.trim(),
+      industry: manualIndustry.trim() || "General",
+      region: manualRegion,
+      headcount: parseInt(manualHeadcount) || 1000,
+      enriched: false,
+    };
+    setRows((cur) => [...cur, newLead]);
+    setManualName(""); setManualTitle(""); setManualCompany(""); setManualIndustry("");
+  }
+
+  function parsePasteLeads() {
+    const lines = pasteText.trim().split("\n").filter(Boolean);
+    const newLeads: BulkLead[] = lines.map((line, i) => {
+      // Support: "Name, Company, Title, Region" or "Name | Company | Title" or just "Name, Company"
+      const parts = line.split(/[,|;\t]/).map(s => s.trim());
+      return {
+        id: `p${Date.now()}${i}`,
+        name: parts[0] || "Unknown",
+        company: parts[1] || "Unknown Company",
+        title: parts[2] || "Executive",
+        industry: parts[3] || "General",
+        region: (GCC_REGIONS.includes(parts[4] as any) ? parts[4] : "KSA") as typeof GCC_REGIONS[number],
+        headcount: 1000,
+        enriched: false,
+      };
+    });
+    setRows((cur) => [...cur, ...newLeads]);
+    setPasteText("");
+    setShowPaste(false);
+  }
+
+  function removeRow(id: string) {
+    setRows((cur) => cur.filter(r => r.id !== id));
+    setResults((cur) => { const n = { ...cur }; delete n[id]; return n; });
+  }
+
+  function clearAll() {
+    setRows([]);
+    setResults({});
+    setProgressIdx(0);
+  }
+
   async function runWaterfall() {
     setRunning(true);
     setResults({});
     setProgressIdx(0);
-    for (let i = 0; i < rows.length; i++) {
-      const r = rows[i]!;
+    const pendingRows = rows.filter(r => !r.enriched);
+    for (let i = 0; i < pendingRows.length; i++) {
+      const r = pendingRows[i]!;
       setProgressIdx(i + 1);
       try {
-        const data = await apiFetch("/enrichment/run", {
+        const data = await apiFetch("/lead-enrich/quick", {
           method: "POST",
-          body: JSON.stringify({
-            seed: { name: r.name, company: r.company, country: r.region },
-            dry_run: true,
-          }),
-        }) as BulkWaterfallRow;
-        setResults((cur) => ({ ...cur, [r.id]: data }));
+          body: JSON.stringify({ name: r.name, company: r.company, save: false }),
+        }) as { enriched: Record<string, unknown> };
+        const enriched = data?.enriched ?? {};
+        const fieldCount = Object.values(enriched).filter(v => v && v !== "" && !Array.isArray(v)).length;
+        setResults((cur) => ({
+          ...cur,
+          [r.id]: {
+            fields: Object.fromEntries(
+              Object.entries(enriched)
+                .filter(([, v]) => v && v !== "")
+                .map(([k, v]) => [k, { value: v, source_key: "ai", source_name: "AI Enrichment" }])
+            ),
+            per_source: [{ source_name: "AI Enrichment", status: "ok", fields_filled: Object.keys(enriched).filter(k => enriched[k]) }],
+            total_ms: 0,
+            total_cost_usd: 0,
+          },
+        }));
       } catch (e) {
         setResults((cur) => ({
           ...cur,
@@ -711,12 +778,13 @@ function BulkEnrichmentTab() {
           },
         }));
       }
-      setRows((cur) => cur.map((row, idx) => idx === i ? { ...row, enriched: true } : row));
+      setRows((cur) => cur.map((row) => row.id === r.id ? { ...row, enriched: true } : row));
     }
     setRunning(false);
   }
 
   const enrichedRows = rows.filter((r) => r.enriched);
+  const pendingCount = rows.filter(r => !r.enriched).length;
 
   return (
     <div className="space-y-5">
@@ -729,16 +797,35 @@ function BulkEnrichmentTab() {
           <div className="flex-1">
             <div className="font-semibold">Bulk Enrichment — waterfall for an existing pool</div>
             <p className="text-sm text-muted-foreground mt-1">
-              Pick a saved segment or recently-uploaded list, choose which signals to pull, run the GCC waterfall, then push the survivors into CRM with the dedup + ICP gate.
+              Add leads manually, paste a list, or pick a saved segment — then run AI enrichment on all of them and push survivors into CRM.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Source picker + signals */}
-      <div className="glass-card rounded-2xl p-5 grid lg:grid-cols-[1fr_auto] gap-4">
-        <div className="space-y-2">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">Source pool</div>
+      {/* Source mode toggle */}
+      <div className="glass-card rounded-2xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="flex bg-muted rounded-lg p-0.5 text-xs font-medium">
+            <button
+              onClick={() => setSourceMode("preset")}
+              className={cn("px-3 py-1.5 rounded-md transition", sourceMode === "preset" ? "bg-background shadow text-foreground" : "text-muted-foreground")}
+            >
+              Saved segments
+            </button>
+            <button
+              onClick={() => setSourceMode("manual")}
+              className={cn("px-3 py-1.5 rounded-md transition", sourceMode === "manual" ? "bg-background shadow text-foreground" : "text-muted-foreground")}
+            >
+              Manual entry
+            </button>
+          </div>
+          {rows.length > 0 && (
+            <span className="text-xs text-muted-foreground ml-auto">{rows.length} lead{rows.length !== 1 ? "s" : ""} in queue</span>
+          )}
+        </div>
+
+        {sourceMode === "preset" && (
           <div className="flex flex-wrap gap-2">
             {Object.entries(BULK_QUEUES).map(([k, v]) => (
               <button
@@ -754,80 +841,199 @@ function BulkEnrichmentTab() {
               </button>
             ))}
           </div>
-        </div>
-        <div className="flex items-center gap-2 self-end">
+        )}
+
+        {sourceMode === "manual" && (
+          <div className="space-y-3">
+            {/* Single lead form */}
+            <div className="rounded-xl border border-border bg-background p-4 space-y-3">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Add a lead</div>
+              <div className="grid sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-muted-foreground mb-1 block">Full name <span className="text-rose-500">*</span></label>
+                  <input
+                    value={manualName}
+                    onChange={e => setManualName(e.target.value)}
+                    placeholder="Khalid Al-Rashid"
+                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-[#88B8B0]/40"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground mb-1 block">Title</label>
+                  <input
+                    value={manualTitle}
+                    onChange={e => setManualTitle(e.target.value)}
+                    placeholder="VP Sales"
+                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-[#88B8B0]/40"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground mb-1 block">Company <span className="text-rose-500">*</span></label>
+                  <input
+                    value={manualCompany}
+                    onChange={e => setManualCompany(e.target.value)}
+                    placeholder="Saudi Aramco"
+                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-[#88B8B0]/40"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground mb-1 block">Industry</label>
+                  <input
+                    value={manualIndustry}
+                    onChange={e => setManualIndustry(e.target.value)}
+                    placeholder="Energy, Fintech, Real Estate…"
+                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-[#88B8B0]/40"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground mb-1 block">Region</label>
+                  <select
+                    value={manualRegion}
+                    onChange={e => setManualRegion(e.target.value as typeof GCC_REGIONS[number])}
+                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-[#88B8B0]/40"
+                  >
+                    {GCC_REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground mb-1 block">Est. headcount</label>
+                  <select
+                    value={manualHeadcount}
+                    onChange={e => setManualHeadcount(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-[#88B8B0]/40"
+                  >
+                    {[["50", "< 50"], ["200", "51-200"], ["1000", "201-1000"], ["5000", "1001-5000"], ["20000", "5000+"]].map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <button
+                onClick={addManualLead}
+                disabled={!manualName.trim() || !manualCompany.trim()}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#88B8B0] text-white text-sm font-medium hover:opacity-90 disabled:opacity-40 transition"
+              >
+                <Plus className="w-4 h-4" /> Add to queue
+              </button>
+            </div>
+
+            {/* Paste CSV leads */}
+            <div className="rounded-xl border border-dashed border-border p-3">
+              <button
+                onClick={() => setShowPaste(s => !s)}
+                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                {showPaste ? "Hide" : "Paste a list (CSV / one-per-line)"}
+              </button>
+              {showPaste && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-[10px] text-muted-foreground">One lead per line. Columns: <code className="bg-muted px-1 rounded">Name, Company, Title, Industry, Region</code> — only Name and Company are required.</p>
+                  <textarea
+                    value={pasteText}
+                    onChange={e => setPasteText(e.target.value)}
+                    placeholder={"Khalid Al-Rashid, Saudi Aramco, VP Sales, Energy, KSA\nReem Al-Otaibi, Emirates NBD, CFO, Banking, UAE"}
+                    rows={4}
+                    className="w-full px-3 py-2 text-xs rounded-md border border-border bg-background font-mono resize-y focus:outline-none"
+                  />
+                  <button
+                    onClick={parsePasteLeads}
+                    disabled={!pasteText.trim()}
+                    className="px-3 py-1.5 rounded-lg bg-foreground text-background text-xs font-medium hover:opacity-90 disabled:opacity-40 transition"
+                  >
+                    Import {pasteText.trim().split("\n").filter(Boolean).length} leads
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Run button */}
+        <div className="flex items-center gap-3 pt-1">
           <button
             onClick={runWaterfall}
-            disabled={running || rows.every((r) => r.enriched)}
+            disabled={running || pendingCount === 0}
             className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
           >
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {running
-              ? `Running waterfall… ${progressIdx}/${rows.length}`
-              : `Run waterfall on ${rows.length} leads`}
+            {running ? `Enriching… ${progressIdx}/${pendingCount + progressIdx - 1}` : `Enrich ${pendingCount} lead${pendingCount !== 1 ? "s" : ""}`}
           </button>
+          {rows.length > 0 && !running && (
+            <button onClick={clearAll} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition">
+              <X className="w-3 h-3" /> Clear all
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Result table */}
-      <div className="glass-card rounded-2xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-          <div className="text-sm font-semibold">{queueMeta.label}</div>
-          <div className="text-xs text-muted-foreground">
-            {enrichedRows.length} / {rows.length} enriched
+      {/* Result table — only show when there are leads */}
+      {rows.length > 0 && (
+        <div className="glass-card rounded-2xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+            <div className="text-sm font-semibold">
+              {sourceMode === "manual" ? `Manual queue (${rows.length} leads)` : queueMeta.label}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {enrichedRows.length} / {rows.length} enriched
+            </div>
           </div>
-        </div>
-        <ul className="divide-y divide-border">
-          {rows.map((r) => {
-            const wf = results[r.id];
-            const filledFields = wf ? Object.entries(wf.fields) : [];
-            return (
-              <li key={r.id} className="px-5 py-2.5">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-muted grid place-items-center text-xs font-semibold">
-                    {r.name.split(" ").map((s) => s[0]).slice(0, 2).join("")}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{r.name} <span className="text-xs text-muted-foreground">· {r.title}</span></div>
-                    <div className="text-xs text-muted-foreground truncate">{r.company} · {r.industry} · {r.region} · {r.headcount.toLocaleString()} staff</div>
-                  </div>
-                  {wf?.error ? (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-600 dark:text-red-300 font-medium flex items-center gap-1">
-                      <AlertTriangle className="w-2.5 h-2.5" /> Error
-                    </span>
-                  ) : r.enriched ? (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-medium flex items-center gap-1">
-                      <Check className="w-2.5 h-2.5" /> {filledFields.length} field{filledFields.length === 1 ? "" : "s"}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Queued</span>
-                  )}
-                </div>
-                {/* Per-source attribution chips */}
-                {wf && filledFields.length > 0 && (
-                  <div className="ml-11 mt-1.5 flex flex-wrap gap-1">
-                    {filledFields.map(([f, v]) => (
-                      <span
-                        key={f}
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-[#88B8B0]/10 text-[#3f7a72] dark:text-[#9ae0d6] border border-[#88B8B0]/30"
-                        title={String(v.value)}
-                      >
-                        <strong>{f}</strong> · {v.source_name}
+          <ul className="divide-y divide-border">
+            {rows.map((r) => {
+              const wf = results[r.id];
+              const filledFields = wf ? Object.entries(wf.fields) : [];
+              return (
+                <li key={r.id} className="px-5 py-2.5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-muted grid place-items-center text-xs font-semibold flex-shrink-0">
+                      {r.name.split(" ").map((s) => s[0]).slice(0, 2).join("")}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{r.name} <span className="text-xs text-muted-foreground">· {r.title}</span></div>
+                      <div className="text-xs text-muted-foreground truncate">{r.company} · {r.industry} · {r.region}</div>
+                    </div>
+                    {wf?.error ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-600 dark:text-red-300 font-medium flex items-center gap-1">
+                        <AlertTriangle className="w-2.5 h-2.5" /> Error
                       </span>
-                    ))}
-                    <span className="text-[10px] text-muted-foreground self-center">
-                      {wf.total_ms}ms · ${wf.total_cost_usd.toFixed(3)}
-                    </span>
+                    ) : r.enriched ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-medium flex items-center gap-1">
+                        <Check className="w-2.5 h-2.5" /> Enriched
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Queued</span>
+                    )}
+                    {!running && !r.enriched && (
+                      <button onClick={() => removeRow(r.id)} className="text-muted-foreground hover:text-rose-500 transition flex-shrink-0">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                )}
-                {wf?.error && (
-                  <div className="ml-11 mt-1.5 text-[11px] text-red-500">{wf.error}</div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+                  {wf && filledFields.length > 0 && (
+                    <div className="ml-11 mt-1.5 flex flex-wrap gap-1">
+                      {filledFields.slice(0, 6).map(([f, v]) => (
+                        <span
+                          key={f}
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-[#88B8B0]/10 text-[#3f7a72] dark:text-[#9ae0d6] border border-[#88B8B0]/30"
+                          title={String(v.value)}
+                        >
+                          {f}
+                        </span>
+                      ))}
+                      {filledFields.length > 6 && (
+                        <span className="text-[10px] text-muted-foreground self-center">+{filledFields.length - 6} more</span>
+                      )}
+                    </div>
+                  )}
+                  {wf?.error && (
+                    <div className="ml-11 mt-1.5 text-[11px] text-red-500">{wf.error}</div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* Push-to-CRM */}
       {enrichedRows.length > 0 && (

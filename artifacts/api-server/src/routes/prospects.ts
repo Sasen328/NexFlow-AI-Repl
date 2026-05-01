@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { contacts, companies, signals, activities } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
-import { aiChat, aiJson, aiGeminiChat } from "../lib/ai.js";
+import { aiChat, aiJson } from "../lib/ai.js";
 import { randomUUID } from "crypto";
 
 const router: IRouter = Router();
@@ -73,16 +73,13 @@ async function robustJson<T>(opts: { system: string; user: string; fallback: T }
     if (d && JSON.stringify(d) !== JSON.stringify(opts.fallback)) return d;
   } catch { /* try next */ }
 
-  // 2. Direct Gemini REST with JSON mime type
+  // 2. Direct Gemini with responseMimeType: "application/json" — forces valid JSON always
   try {
-    const raw = await aiGeminiChat({
-      system: opts.system + "\n\nOutput ONLY valid JSON, no markdown fences.",
-      messages: [{ role: "user", text: opts.user }],
-      maxTokens: 4096,
-    });
-    const cleaned = raw.replace(/```json\n?/gi, "").replace(/```/g, "").trim();
-    const parsed = JSON.parse(cleaned) as T;
-    if (parsed && JSON.stringify(parsed) !== JSON.stringify(opts.fallback)) return parsed;
+    const raw = await aiChat({ provider: "gemini", system: opts.system, user: opts.user, json: true, maxTokens: 4096 });
+    if (raw?.trim()) {
+      const parsed = JSON.parse(raw) as T;
+      if (parsed && JSON.stringify(parsed) !== JSON.stringify(opts.fallback)) return parsed;
+    }
   } catch { /* try next */ }
 
   // 3. Anthropic via OpenRouter
