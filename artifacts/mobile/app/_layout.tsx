@@ -14,6 +14,8 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AssistantBubble } from "@/components/AssistantBubble";
+import { View } from "react-native";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -22,12 +24,15 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   return (
-    <Stack screenOptions={{ headerBackTitle: "Back" }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="contact/[id]" options={{ headerShown: false }} />
-      <Stack.Screen name="sourcing" options={{ headerShown: false, presentation: "modal" }} />
-      <Stack.Screen name="notifications" options={{ headerShown: false, presentation: "modal" }} />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerBackTitle: "Back" }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="contact/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="sourcing" options={{ headerShown: false, presentation: "modal" }} />
+        <Stack.Screen name="notifications" options={{ headerShown: false, presentation: "modal" }} />
+      </Stack>
+      <AssistantBubble />
+    </View>
   );
 }
 
