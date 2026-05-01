@@ -164,8 +164,10 @@ Output JSON: {"angle":"why they may have stalled","channel":"whatsapp|email|call
 // ── 1.5 — Marketing AI Assistant (chat) ────────────────────────────────────
 router.post("/assistant-chat", async (req, res) => {
   try {
-    const { message = "", history = [] } = req.body ?? {};
+    const { message = "", history = [], provider: rawProvider = "auto" } = req.body ?? {};
     if (!message.trim()) return res.status(400).json({ error: "message required" });
+    const VALID_PROVIDERS = ["auto", "anthropic", "openai", "gemini", "perplexity"] as const;
+    const provider = (VALID_PROVIDERS as readonly string[]).includes(rawProvider) ? rawProvider : "auto";
 
     // Pull live marketing context
     const allCampaigns = await db.select().from(campaigns).orderBy(desc(campaigns.created_at)).limit(20);
@@ -198,8 +200,13 @@ User: ${message}`;
       system: sys,
       user: fullPrompt,
       maxTokens: 800,
+      provider,
     });
-    res.json({ reply: reply || "I couldn't reach the AI right now — try again in a moment.", context_summary: ctx.totals });
+    res.json({
+      reply: reply || "I couldn't reach the AI right now — try again in a moment.",
+      provider_used: provider,
+      context_summary: ctx.totals,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err?.message ?? "Failed" });
   }
