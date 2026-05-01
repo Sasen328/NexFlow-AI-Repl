@@ -5,10 +5,15 @@ const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
 const openrouterBaseUrl = process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
 const openrouterApiKey = process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY;
 
+// Direct OpenAI key for endpoints the Replit proxy does not support (e.g. /audio/speech).
+const directOpenaiKey = process.env.OPENAI_API_KEY;
+
 export const aiEnabled = Boolean(openaiBaseUrl && openaiApiKey);
+export const ttsEnabled = Boolean(directOpenaiKey);
 
 let _openaiClient: OpenAI | null = null;
 let _openrouterClient: OpenAI | null = null;
+let _directClient: OpenAI | null = null;
 
 export function openai(): OpenAI {
   if (!aiEnabled) {
@@ -18,6 +23,15 @@ export function openai(): OpenAI {
     _openaiClient = new OpenAI({ apiKey: openaiApiKey!, baseURL: openaiBaseUrl! });
   }
   return _openaiClient;
+}
+
+/** Direct OpenAI client (bypasses the Replit proxy) — required for audio/speech. */
+function openaiDirect(): OpenAI {
+  if (!directOpenaiKey) throw new Error("OPENAI_API_KEY not configured");
+  if (!_directClient) {
+    _directClient = new OpenAI({ apiKey: directOpenaiKey });
+  }
+  return _directClient;
 }
 
 export function openrouter(): OpenAI {
@@ -80,8 +94,8 @@ export async function aiSpeak(opts: {
   instructions?: string;
   format?: "mp3" | "wav" | "opus" | "aac" | "flac";
 }): Promise<Buffer> {
-  if (!aiEnabled) throw new Error("OpenAI integration not configured");
-  const client = openai();
+  if (!ttsEnabled) throw new Error("OPENAI_API_KEY not configured for TTS");
+  const client = openaiDirect();
   const voice = (opts.voice ?? "shimmer") as any;
   const format = opts.format ?? "mp3";
   try {
