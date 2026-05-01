@@ -1,5 +1,7 @@
-import { useSignals } from "@/hooks/useApi";
-import { Zap, ExternalLink, Eye, TrendingUp, Users, AlertCircle, Package } from "lucide-react";
+import { useState } from "react";
+import { useSignals, apiFetch } from "@/hooks/useApi";
+import { useQueryClient } from "@tanstack/react-query";
+import { Zap, ExternalLink, Eye, TrendingUp, Users, AlertCircle, Package, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TYPE_CONFIG: Record<string, { label: string; icon: any; color: string; bg: string }> = {
@@ -13,7 +15,32 @@ const TYPE_CONFIG: Record<string, { label: string; icon: any; color: string; bg:
 
 export default function SignalsPage() {
   const { data, isLoading } = useSignals();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
   const signals = data?.signals ?? [];
+
+  async function refreshFromWamda() {
+    setRefreshing(true);
+    setRefreshMsg(null);
+    try {
+      const result = await apiFetch("/signals/refresh-wamda", { method: "POST" });
+      const inserted = result?.inserted ?? 0;
+      const dup = result?.skipped_duplicate ?? 0;
+      const matched = result?.matched_to_company ?? 0;
+      setRefreshMsg(
+        inserted > 0
+          ? `${inserted} new from Wamda · ${matched} matched to companies`
+          : `Up to date · ${dup} already in feed`,
+      );
+      await queryClient.invalidateQueries({ queryKey: ["signals"] });
+    } catch (err: any) {
+      setRefreshMsg(`Couldn't reach Wamda · ${err?.message ?? "unknown"}`);
+    } finally {
+      setRefreshing(false);
+      setTimeout(() => setRefreshMsg(null), 6000);
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -22,9 +49,25 @@ export default function SignalsPage() {
           <h1 className="text-2xl font-bold text-foreground">Signals</h1>
           <p className="text-muted-foreground text-sm mt-0.5">AI-monitored buying signals and triggers</p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Zap className="w-4 h-4 text-[#B8B880]" />
-          <span>{signals.filter((s: any) => s.status === "new").length} new signals</span>
+        <div className="flex items-center gap-3">
+          {refreshMsg && (
+            <span className="text-xs text-muted-foreground bg-[#1F1B2E]/40 px-3 py-1.5 rounded-full border border-white/5">
+              {refreshMsg}
+            </span>
+          )}
+          <button
+            onClick={refreshFromWamda}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-[#88B8B0]/15 text-[#88B8B0] hover:bg-[#88B8B0]/25 transition disabled:opacity-50"
+            title="Pull live MENA startup signals from Wamda"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5", refreshing && "animate-spin")} />
+            {refreshing ? "Pulling…" : "Pull from Wamda"}
+          </button>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Zap className="w-4 h-4 text-[#B8B880]" />
+            <span>{signals.filter((s: any) => s.status === "new").length} new</span>
+          </div>
         </div>
       </div>
 
