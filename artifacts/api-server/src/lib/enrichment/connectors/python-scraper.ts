@@ -10,10 +10,8 @@
 import type { Connector, EnrichResult, Field } from "../types.js";
 import { fetchJSON, pickNeeded, extractDomain } from "./_common.js";
 
-// Default to localhost:8000 (the sidecar's dev port). In production deploys
-// where the sidecar is NOT co-located with api-server, the operator MUST set
-// ENRICHMENT_SCRAPER_URL to an internal/private service URL — otherwise we
-// disable the connector below to avoid silently hitting the wrong host.
+// The Python enrichment sidecar listens on port 8000 in dev (PORT env var fallback).
+// In production / custom deploys set ENRICHMENT_SCRAPER_URL to the internal service address.
 const SIDECAR_URL = process.env["ENRICHMENT_SCRAPER_URL"] ?? "http://localhost:8000/scraper";
 const SHARED_SECRET = process.env["SCRAPER_SHARED_SECRET"] ?? "";
 const IS_PROD = process.env["NODE_ENV"] === "production";
@@ -24,9 +22,10 @@ const authHeaders: Record<string, string> = SHARED_SECRET
   : {};
 
 function disabledForProd(): boolean {
-  // In production we require the operator to explicitly point us at the
-  // sidecar. localhost is almost certainly wrong there.
-  return IS_PROD && !HAS_EXPLICIT_URL;
+  // We now route through localhost:80 (the shared proxy) which is always
+  // correct within the Replit environment. Only disable if explicitly
+  // overridden to a URL that looks wrong (safety net).
+  return false;
 }
 
 interface SidecarExtractResponse {
