@@ -30,14 +30,15 @@ export function openrouter(): OpenAI {
   return _openrouterClient;
 }
 
-export type AiProvider = "openai" | "anthropic" | "gemini" | "perplexity" | "auto";
+export type AiProvider = "openai" | "anthropic" | "gemini" | "perplexity" | "openrouter" | "auto";
 
 const providerModelMap: Record<AiProvider, string> = {
   openai: "openai/gpt-4o-mini",
   anthropic: "anthropic/claude-sonnet-4.6",
   gemini: "google/gemini-2.5-flash",
   perplexity: "perplexity/sonar",
-  auto: "openai/gpt-4o-mini",
+  openrouter: "openrouter/auto",
+  auto: "openrouter/auto",
 };
 
 /** Transcribe an audio buffer with OpenAI Whisper via the integration. */
@@ -65,6 +66,37 @@ export async function aiTranscribe(opts: {
   } catch (err: any) {
     console.error("[ai] transcribe failed:", err?.message ?? err);
     throw new Error(err?.message ?? "transcribe_failed");
+  }
+}
+
+/**
+ * High-quality TTS via OpenAI gpt-4o-mini-tts.
+ * Voices: alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse.
+ * The `instructions` field tunes accent / style (e.g. warm Saudi female).
+ */
+export async function aiSpeak(opts: {
+  text: string;
+  voice?: string;
+  instructions?: string;
+  format?: "mp3" | "wav" | "opus" | "aac" | "flac";
+}): Promise<Buffer> {
+  if (!aiEnabled) throw new Error("OpenAI integration not configured");
+  const client = openai();
+  const voice = (opts.voice ?? "shimmer") as any;
+  const format = opts.format ?? "mp3";
+  try {
+    const resp = await client.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice,
+      input: opts.text.slice(0, 4000),
+      response_format: format,
+      ...(opts.instructions ? { instructions: opts.instructions } : {}),
+    } as any);
+    const arrayBuf = await resp.arrayBuffer();
+    return Buffer.from(arrayBuf);
+  } catch (err: any) {
+    console.error("[ai] speak failed:", err?.message ?? err);
+    throw new Error(err?.message ?? "tts_failed");
   }
 }
 

@@ -143,4 +143,113 @@ export function speak(
 
 export function stopSpeaking(): void {
   if (isSpeechSynthesisSupported()) window.speechSynthesis.cancel();
+  stopServerSpeak();
+}
+
+// ─── Server-side TTS via /api/ai/tts (OpenAI gpt-4o-mini-tts) ────────────────
+//
+// Voice IDs map to backend personas — see artifacts/api-server/src/routes/ai.ts
+// TTS_VOICES catalogue:
+//   Arabic female: layla (warm Khaleeji), noor (energetic Saudi)
+//   Arabic male:   khalid (warm Khaleeji), faisal (formal Saudi)
+//   English female: sara (friendly), amelia (professional)
+//   English male:   adam (authoritative), james (energetic)
+
+let _activeAudio: HTMLAudioElement | null = null;
+let _activeUrl: string | null = null;
+
+export type ServerVoiceId =
+  | "layla" | "noor" | "khalid" | "faisal"
+  | "sara"  | "amelia" | "adam" | "james";
+
+export function pickServerVoice(opts: {
+  lang?: "ar" | "en" | string;
+  gender?: "Female" | "Male" | "female" | "male" | "any";
+  name?: string;
+}): ServerVoiceId {
+  // Direct name match first (case-insensitive)
+  const lower = (opts.name ?? "").toLowerCase().trim();
+  if (lower === "layla" || lower === "ليلى") return "layla";
+  if (lower === "noor"  || lower === "نور")   return "noor";
+  if (lower === "khalid"|| lower === "خالد") return "khalid";
+  if (lower === "faisal"|| lower === "فيصل") return "faisal";
+  if (lower === "sara"  || lower === "sarah") return "sara";
+  if (lower === "amelia") return "amelia";
+  if (lower === "adam") return "adam";
+  if (lower === "james") return "james";
+
+  const isArabic = (opts.lang ?? "").toLowerCase().startsWith("ar");
+  const gender = String(opts.gender ?? "").toLowerCase();
+  const female = gender === "female" || gender === "f";
+  if (isArabic) return female ? "layla" : "khalid";
+  return female ? "sara" : "adam";
+}
+
+export async function speakViaServer(
+  text: string,
+  voice: ServerVoiceId,
+  opts?: { onEnd?: () => void; onError?: (msg: string) => void; signal?: AbortSignal },
+): Promise<void> {
+  if (!text.trim()) return;
+  stopServerSpeak();
+  // Stop any browser TTS too so they don't overlap.
+  if (isSpeechSynthesisSupported()) window.speechSynthesis.cancel();
+  try {
+    const r = await fetch("/api/ai/tts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: text.slice(0, 3500), voice }),
+      signal: opts?.signal,
+    });
+    if (!r.ok) {
+      const msg = `TTS HTTP ${r.status}`;
+      opts?.onError?.(msg);
+      // Fall back to browser TTS so the user still hears something.
+      // Critically: only fire onEnd when the fallback finishes, otherwise
+      // turn-taking callers (voice-call modal) will start the mic while the
+      // assistant is still talking and capture itself.
+      const fallbackLang = (voice === "layla" || voice === "noor" || voice === "khalid" || voice === "faisal") ? "ar-SA" : "en-US";
+      speak(text, { lang: fallbackLang, onEnd: () => opts?.onEnd?.() });
+      return;
+    }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    _activeAudio = audio;
+    _activeUrl = url;
+    audio.onended = () => {
+      if (_activeUrl === url) { URL.revokeObjectURL(url); _activeUrl = null; _activeAudio = null; }
+      opts?.onEnd?.();
+    };
+    audio.onerror = () => {
+      if (_activeUrl === url) { URL.revokeObjectURL(url); _activeUrl = null; _activeAudio = null; }
+      opts?.onError?.("audio_error");
+      // Single onEnd — caller's turn-taking should resume now since playback failed.
+      opts?.onEnd?.();
+    };
+    await audio.play().catch((e) => {
+      opts?.onError?.(e?.message ?? "play_blocked");
+      // play() failed (e.g. autoplay block). onerror may not fire — release the
+      // turn now so the conversation does not stall.
+      if (_activeUrl === url) { URL.revokeObjectURL(url); _activeUrl = null; _activeAudio = null; }
+      opts?.onEnd?.();
+    });
+  } catch (e: any) {
+    if (e?.name === "AbortError") return;
+    opts?.onError?.(e?.message ?? "tts_failed");
+    // Last-resort browser fallback so the assistant still feels alive.
+    // Wait for fallback to finish before signalling onEnd to the caller.
+    speak(text, { lang: "en-US", onEnd: () => opts?.onEnd?.() });
+  }
+}
+
+export function stopServerSpeak(): void {
+  if (_activeAudio) {
+    try { _activeAudio.pause(); } catch { /* noop */ }
+    _activeAudio = null;
+  }
+  if (_activeUrl) {
+    try { URL.revokeObjectURL(_activeUrl); } catch { /* noop */ }
+    _activeUrl = null;
+  }
 }

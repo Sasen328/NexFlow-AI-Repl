@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { contacts, signals, calls, deals, activities, companies, ai_agents, ai_agent_runs } from "@workspace/db";
 import { desc, eq, sql, and, gte } from "drizzle-orm";
-import { aiChat, aiEnabled, aiTranscribe, type AiProvider } from "../lib/ai.js";
+import { aiChat, aiEnabled, aiTranscribe, aiSpeak, type AiProvider } from "../lib/ai.js";
 
 const router = Router();
 
@@ -339,13 +339,25 @@ router.post("/assistant", async (req, res) => {
       mode = "analyze";
     }
 
-    // Pick provider — explicit override wins, else auto-route by mode
+    // ── Multi-agent orchestration: pick the best provider for the question.
+    //   • explicit user override wins
+    //   • Arabic-heavy or multilingual → Gemini (best Arabic)
+    //   • live web / news / "today" / current data → Perplexity
+    //   • deep analysis / "analyse" / KPIs → Anthropic Claude
+    //   • code / "write a function" → OpenAI
+    //   • everything else → OpenRouter (auto-picks the best model)
+    const arabicChars = (message.match(/[\u0600-\u06FF]/g) ?? []).length;
+    const isArabicHeavy = arabicChars > Math.max(8, message.length * 0.15);
+    const wantsCode = /\b(code|function|sql|regex|script|json|api|endpoint|typescript|python|bug|stack trace)\b/i.test(message);
+
     const provider: AiProvider =
-      (rawProvider && ["openai","anthropic","gemini","perplexity","auto"].includes(rawProvider))
+      (rawProvider && ["openai","anthropic","gemini","perplexity","openrouter","auto"].includes(rawProvider))
         ? rawProvider
         : mode === "research" ? "perplexity"
         : mode === "analyze" ? "anthropic"
-        : "openai";
+        : wantsCode ? "openai"
+        : isArabicHeavy ? "gemini"
+        : "openrouter";
 
     // Static fallback if AI integration is missing.
     const fallback = {
@@ -532,6 +544,89 @@ router.post("/transcribe", async (req, res) => {
   } catch (err: any) {
     req.log.error(err);
     return res.status(500).json({ error: err?.message ?? "Transcription failed" });
+  }
+});
+
+// ─── High-quality TTS — replaces the rubbish browser SpeechSynthesis ───────
+//
+// Voices catalogue (OpenAI gpt-4o-mini-tts, with custom instructions to coax
+// Arabic Gulf accents and gendered tone):
+//   layla   → Arabic female, warm Khaleeji
+//   noor    → Arabic female, energetic Saudi
+//   khalid  → Arabic male, warm Khaleeji
+//   faisal  → Arabic male, formal Saudi
+//   sara    → English female, friendly
+//   amelia  → English female, professional
+//   adam    → English male, authoritative
+//   james   → English male, energetic
+const TTS_VOICES: Record<string, { voice: string; instructions: string; lang: "ar" | "en" }> = {
+  layla:  { voice: "shimmer", lang: "ar", instructions: "Speak in warm, friendly Khaleeji Arabic — soft, female, conversational, slightly slow." },
+  noor:   { voice: "nova",    lang: "ar", instructions: "Speak in confident, energetic Saudi Arabic — female, professional newsreader cadence." },
+  khalid: { voice: "onyx",    lang: "ar", instructions: "Speak in warm, deep Khaleeji Arabic — male, calm, friendly." },
+  faisal: { voice: "ash",     lang: "ar", instructions: "Speak in formal Saudi Arabic — male, authoritative, business tone." },
+  sara:   { voice: "shimmer", lang: "en", instructions: "Speak in friendly, professional English — female, mid-Atlantic, clear." },
+  amelia: { voice: "coral",   lang: "en", instructions: "Speak in calm, professional British English — female, warm, polished." },
+  adam:   { voice: "onyx",    lang: "en", instructions: "Speak in authoritative American English — male, confident, executive." },
+  james:  { voice: "verse",   lang: "en", instructions: "Speak in energetic, charismatic English — male, mid-Atlantic, sales-pro tone." },
+};
+
+router.get("/tts/voices", (_req, res) => {
+  res.json({
+    voices: Object.entries(TTS_VOICES).map(([id, v]) => ({
+      id, lang: v.lang, label: id.charAt(0).toUpperCase() + id.slice(1),
+    })),
+  });
+});
+
+// Simple in-memory rate limiter for TTS to prevent paid-API cost abuse.
+// 30 generations per IP per 60s — enough for normal call/preview use, hard
+// stop on a runaway client. Sliding-window kept tiny so memory stays bounded.
+const _ttsHits = new Map<string, number[]>();
+const TTS_WINDOW_MS = 60_000;
+const TTS_MAX = 30;
+function ttsRateLimitOk(ip: string): boolean {
+  const now = Date.now();
+  const arr = (_ttsHits.get(ip) ?? []).filter((t) => now - t < TTS_WINDOW_MS);
+  if (arr.length >= TTS_MAX) { _ttsHits.set(ip, arr); return false; }
+  arr.push(now);
+  _ttsHits.set(ip, arr);
+  // Best-effort GC so the map doesn't grow unbounded across many IPs.
+  if (_ttsHits.size > 5000) {
+    for (const [k, v] of _ttsHits) {
+      const live = v.filter((t) => now - t < TTS_WINDOW_MS);
+      if (live.length === 0) _ttsHits.delete(k); else _ttsHits.set(k, live);
+    }
+  }
+  return true;
+}
+
+router.post("/tts", async (req, res) => {
+  try {
+    const ip = (req.ip || req.socket.remoteAddress || "unknown").toString();
+    if (!ttsRateLimitOk(ip)) {
+      return res.status(429).json({ error: "Too many TTS requests, slow down." });
+    }
+    const { text, voice: voiceId } = req.body as { text?: string; voice?: string };
+    if (!text || typeof text !== "string") {
+      return res.status(400).json({ error: "Missing text" });
+    }
+    if (text.length > 4000) {
+      return res.status(413).json({ error: "Text too long (max 4000 chars)" });
+    }
+    const cfg = TTS_VOICES[voiceId ?? "layla"] ?? TTS_VOICES.layla;
+    const buffer = await aiSpeak({
+      text,
+      voice: cfg.voice,
+      instructions: cfg.instructions,
+      format: "mp3",
+    });
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Length", String(buffer.length));
+    return res.end(buffer);
+  } catch (err: any) {
+    req.log.error(err);
+    return res.status(500).json({ error: err?.message ?? "TTS failed" });
   }
 });
 

@@ -9,6 +9,7 @@ import {
 import { useState, lazy, Suspense } from "react";
 import { cn } from "@/lib/utils";
 import VoiceCallModal from "@/components/VoiceCallModal";
+import { speakViaServer, pickServerVoice, stopServerSpeak } from "@/lib/voice";
 
 const ConversationIntelligencePage = lazy(() => import("./conversation-intelligence"));
 
@@ -99,10 +100,22 @@ const OBJECTION_PROMPTS = [
 ];
 
 const VOICE_LIBRARY = [
-  { name: "Layla (Arabic)", lang: "ar", gender: "Female", tone: "Professional", active: true },
-  { name: "Khalid (Arabic)", lang: "ar", gender: "Male", tone: "Warm", active: false },
-  { name: "Sarah (English)", lang: "en", gender: "Female", tone: "Energetic", active: false },
-  { name: "James (English)", lang: "en", gender: "Male", tone: "Authoritative", active: false },
+  { name: "Layla",  display: "Layla (Arabic Gulf)",     lang: "ar", gender: "Female", tone: "Warm Khaleeji",     active: true,
+    sample: "مرحبا، أنا ليلى من نكسفلو. كيف أقدر أساعدك اليوم؟" },
+  { name: "Noor",   display: "Noor (Arabic Saudi)",     lang: "ar", gender: "Female", tone: "Energetic Saudi",   active: false,
+    sample: "أهلين، أنا نور من نكسفلو. عندي خبر زين عن الحلول الجديدة." },
+  { name: "Khalid", display: "Khalid (Arabic Gulf)",    lang: "ar", gender: "Male",   tone: "Warm Khaleeji",     active: false,
+    sample: "حياك الله، أنا خالد من نكسفلو. خل أعطيك فكرة سريعة عن النظام." },
+  { name: "Faisal", display: "Faisal (Arabic Saudi)",   lang: "ar", gender: "Male",   tone: "Formal Saudi",      active: false,
+    sample: "السلام عليكم، أنا فيصل من نكسفلو. متى يناسبك نتكلم؟" },
+  { name: "Sara",   display: "Sara (English)",          lang: "en", gender: "Female", tone: "Friendly",          active: false,
+    sample: "Hi, I'm Sara from NexFlow — happy to walk you through how we help GCC sales teams." },
+  { name: "Amelia", display: "Amelia (English UK)",     lang: "en", gender: "Female", tone: "Professional UK",   active: false,
+    sample: "Hello, this is Amelia at NexFlow. May I share a quick overview of our platform?" },
+  { name: "Adam",   display: "Adam (English)",          lang: "en", gender: "Male",   tone: "Authoritative",     active: false,
+    sample: "Hi, this is Adam from NexFlow. Have you got a quick minute to talk?" },
+  { name: "James",  display: "James (English)",         lang: "en", gender: "Male",   tone: "Energetic",         active: false,
+    sample: "Hey, James here from NexFlow — got something I think your team will love." },
 ];
 
 type CoachTab = "coaching" | "objections" | "scripts" | "voice";
@@ -119,8 +132,31 @@ function CallScoringView() {
   const [callModalContact, setCallModalContact] = useState<any>(null);
   const [coachTab, setCoachTab] = useState<CoachTab>("coaching");
   const [voiceToggle, setVoiceToggle] = useState(true);
+  const [activeVoice, setActiveVoice] = useState<string>("Layla");
+  const [playingVoice, setPlayingVoice] = useState<string | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [search, setSearch] = useState("");
+
+  function previewVoice(v: typeof VOICE_LIBRARY[number]) {
+    stopServerSpeak();
+    setPlayingVoice(v.name);
+    const sv = pickServerVoice({ lang: v.lang, gender: v.gender as "Female" | "Male", name: v.name });
+    void speakViaServer(v.sample, sv, {
+      onEnd:   () => setPlayingVoice((cur) => (cur === v.name ? null : cur)),
+      onError: () => setPlayingVoice((cur) => (cur === v.name ? null : cur)),
+    });
+  }
+
+  function startTestCall() {
+    setCallModalContact({
+      id: "test-call",
+      first_name: "Test",
+      last_name: "Prospect",
+      title: "Decision Maker",
+      company_name: `${activeVoice} demo call`,
+    });
+    setShowCallModal(true);
+  }
 
   const completedCalls = calls.filter((c: any) => c.status === "completed");
   const scored = completedCalls.filter((c: any) => c.call_score !== null);
@@ -387,33 +423,73 @@ function CallScoringView() {
                     <div className="flex items-center gap-2">
                       <Volume2 className="w-3.5 h-3.5 text-[#B8A0C8]" />
                       <span className="text-xs font-bold text-foreground">AI Voice Library</span>
-                      <button onClick={() => setVoiceToggle(!voiceToggle)} className="ml-auto">
+                      <button onClick={() => setVoiceToggle(!voiceToggle)} className="ml-auto" aria-label="Toggle voice agent">
                         {voiceToggle
                           ? <ToggleRight className="w-5 h-5 text-[#B8A0C8]" />
                           : <ToggleLeft className="w-5 h-5 text-muted-foreground" />}
                       </button>
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-1">
-                      {voiceToggle ? "AI voice agent is active and available." : "Voice agent is paused — human agent mode."}
+                      {voiceToggle
+                        ? `Active voice: ${activeVoice} — high-quality AI TTS, female & male, Arabic Gulf + English.`
+                        : "Voice agent is paused — human agent mode."}
                     </p>
+                    <button
+                      type="button"
+                      onClick={startTestCall}
+                      disabled={!voiceToggle}
+                      className={cn(
+                        "mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-white transition-all",
+                        voiceToggle ? "bg-gradient-to-r from-[#B8A0C8] to-[#88B8B0] hover:opacity-90" : "bg-muted text-muted-foreground cursor-not-allowed",
+                      )}
+                    >
+                      <PhoneOutgoing className="w-3.5 h-3.5" />
+                      Start Test Call with {activeVoice}
+                    </button>
                   </div>
-                  {VOICE_LIBRARY.map((v, i) => (
-                    <div key={i} className={cn("glass-card rounded-xl p-3.5 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md",
-                      v.active && "border border-[#B8A0C8]/30 bg-[#B8A0C8]/5")}>
-                      <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs text-white"
-                        style={{ background: v.active ? "linear-gradient(135deg, #B8A0C8, #88B8B0)" : "#e2dde6" }}>
-                        {v.name[0]}
+                  {VOICE_LIBRARY.map((v, i) => {
+                    const isActive = activeVoice === v.name;
+                    const isPlaying = playingVoice === v.name;
+                    return (
+                      <div key={i} className={cn(
+                        "glass-card rounded-xl p-3.5 flex items-center gap-3 transition-all hover:shadow-md",
+                        isActive && "border border-[#B8A0C8]/30 bg-[#B8A0C8]/5",
+                      )}>
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0"
+                          style={{ background: isActive ? "linear-gradient(135deg, #B8A0C8, #88B8B0)" : "#e2dde6" }}>
+                          {v.name[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-semibold text-foreground flex items-center gap-1">
+                            {v.display}
+                            {isActive && <Star className="w-3 h-3 text-[#C8A880] fill-current" />}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">{v.tone} · {v.gender} · {v.lang.toUpperCase()}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => previewVoice(v)}
+                          title="Preview voice"
+                          aria-label={`Preview ${v.name}`}
+                          className="p-1.5 rounded-lg border border-border/40 text-muted-foreground hover:text-foreground hover:border-[#B8A0C8]/50"
+                        >
+                          {isPlaying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveVoice(v.name)}
+                          className={cn(
+                            "text-[11px] font-bold px-2 py-1 rounded-lg border transition-colors",
+                            isActive
+                              ? "text-white border-transparent bg-gradient-to-r from-[#B8A0C8] to-[#88B8B0]"
+                              : "text-muted-foreground border-border/40 hover:text-foreground hover:border-[#B8A0C8]/50",
+                          )}
+                        >
+                          {isActive ? "Active" : "Use"}
+                        </button>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-semibold text-foreground">{v.name}</div>
-                        <div className="text-[10px] text-muted-foreground">{v.tone} · {v.lang.toUpperCase()}</div>
-                      </div>
-                      {v.active && <Star className="w-3.5 h-3.5 text-[#C8A880] fill-current flex-shrink-0" />}
-                      <button className="text-xs px-2 py-1 rounded-lg border text-muted-foreground border-border/40 hover:text-foreground">
-                        {v.active ? "Active" : "Use"}
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -423,19 +499,28 @@ function CallScoringView() {
 
       {openCall && <CallDetailModal call={openCall} onClose={() => setOpenCall(null)} />}
 
-      {showCallModal && (
-        <VoiceCallModal
-          contact={callModalContact ?? {
-            id: "general",
-            first_name: "New",
-            last_name: "Prospect",
-            title: "Decision Maker",
-            company_name: "",
-          }}
-          onClose={() => setShowCallModal(false)}
-          onCallSaved={() => setShowCallModal(false)}
-        />
-      )}
+      {showCallModal && (() => {
+        // Resolve the Voice Library selection (e.g. "Layla", "Faisal") into the
+        // server-side voice ID so the AI agent on the call uses the picked voice.
+        const picked = VOICE_LIBRARY.find(v => v.name === activeVoice);
+        const sv = picked
+          ? pickServerVoice({ lang: picked.lang, gender: picked.gender as "Female" | "Male", name: picked.name })
+          : undefined;
+        return (
+          <VoiceCallModal
+            contact={callModalContact ?? {
+              id: "general",
+              first_name: "New",
+              last_name: "Prospect",
+              title: "Decision Maker",
+              company_name: "",
+            }}
+            serverVoice={sv}
+            onClose={() => setShowCallModal(false)}
+            onCallSaved={() => setShowCallModal(false)}
+          />
+        );
+      })()}
     </div>
   );
 }

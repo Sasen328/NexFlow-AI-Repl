@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAgents, useCreate, useAiDraftAgent, useRunAiAgent } from "@/hooks/useApi";
+import { speakViaServer, pickServerVoice, stopServerSpeak } from "@/lib/voice";
 
 // Default voices for outbound/inbound calls — Gulf Arabic FEMALE (Layla) is the
 // platform default. Faisal is the Gulf Arabic MALE counterpart. English voices
@@ -34,33 +35,23 @@ export default function VoiceAgentsPage() {
   const { data, isLoading } = useAgents();
   const agents = data?.agents ?? [];
 
-  // Real browser-side TTS using SpeechSynthesis. The voice's language hint
-  // (ar-SA / en-US) is sent so the OS picks the closest male/female voice.
-  function speak(text: string, lang: string, gender: string, idForState: string) {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      setPlayingVoice(idForState);
-      setTimeout(() => setPlayingVoice(null), 2400);
-      return;
-    }
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = lang;
-    u.rate = 1.0;
-    u.pitch = gender === "Female" ? 1.1 : 0.95;
-    const list = window.speechSynthesis.getVoices();
-    const langMatch = list.filter(s => s.lang.toLowerCase().startsWith(lang.toLowerCase().slice(0, 2)));
-    const exact = langMatch.find(s => s.name.toLowerCase().includes(gender.toLowerCase())) ?? langMatch[0];
-    if (exact) u.voice = exact;
-    u.onend = () => setPlayingVoice(null);
-    u.onerror = () => setPlayingVoice(null);
+  // High-quality TTS via the backend (OpenAI gpt-4o-mini-tts with
+  // gender + Gulf-accent instructions). This produces real female and male
+  // voices instead of the rubbish browser SpeechSynthesis defaults.
+  function speak(text: string, lang: string, gender: string, idForState: string, voiceName?: string) {
+    stopServerSpeak();
     setPlayingVoice(idForState);
-    window.speechSynthesis.speak(u);
+    const serverVoice = pickServerVoice({ lang, gender: gender as "Female" | "Male", name: voiceName });
+    void speakViaServer(text, serverVoice, {
+      onEnd:   () => setPlayingVoice((cur) => (cur === idForState ? null : cur)),
+      onError: () => setPlayingVoice((cur) => (cur === idForState ? null : cur)),
+    });
   }
 
   function playVoice(id: string) {
     const v = VOICES.find(x => x.id === id);
     if (!v) return;
-    speak(aiTestText[id] || v.sample, v.lang, v.gender, id);
+    speak(aiTestText[id] || v.sample, v.lang, v.gender, id, v.name);
   }
 
   // "AI Test" — calls the real backend, generates a fresh greeting using the
@@ -78,9 +69,9 @@ export default function VoiceAgentsPage() {
       const data = await r.json();
       const text: string = data?.text || v.sample;
       setAiTestText(t => ({ ...t, [id]: text }));
-      speak(text, v.lang, v.gender, id);
+      speak(text, v.lang, v.gender, id, v.name);
     } catch {
-      speak(v.sample, v.lang, v.gender, id);
+      speak(v.sample, v.lang, v.gender, id, v.name);
     } finally {
       setAiTestingVoice(null);
     }
