@@ -4,6 +4,7 @@ import {
   ScanLine, Upload, Camera, Sparkles, User, Mail, Phone, Building2,
   Globe, MapPin, Linkedin, Languages, Wand2, ArrowRight, Loader2,
   Check, X, FileImage, AlertCircle, Trash2, RefreshCw, Hash,
+  ShieldAlert, ShieldCheck, Clock, CheckCircle2, XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/hooks/useApi";
@@ -39,20 +40,22 @@ export default function BusinessCardsPage() {
   const [, navigate] = useLocation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
-  const [scanState, setScanState] = useState<"empty" | "scanning" | "complete" | "error">("empty");
+  const [scanState, setScanState] = useState<"empty" | "scanning" | "rejected" | "complete" | "error">("empty");
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [extracted, setExtracted] = useState<Record<string, string | null>>({});
   const [confidences, setConfidences] = useState<Record<string, number>>({});
   const [bboxes, setBboxes] = useState<ExtractField[]>([]);
-  const [savingState, setSavingState] = useState<"idle" | "saving" | "saved" | "duplicate">("idle");
+  const [savingState, setSavingState] = useState<"idle" | "saving" | "saved" | "duplicate" | "approval">("idle");
   const [savedContactId, setSavedContactId] = useState<string | null>(null);
+  const [approvalReasons, setApprovalReasons] = useState<string[]>([]);
   const [recent, setRecent] = useState<any[]>([]);
 
   useEffect(() => { loadRecent(); }, []);
 
   async function loadRecent() {
     try {
-      const r = await apiFetch<{ scans: any[] }>("/business-cards/recent");
+      const r: any = await apiFetch("/business-cards/recent");
       setRecent(r.scans ?? []);
     } catch {}
   }
@@ -71,7 +74,6 @@ export default function BusinessCardsPage() {
       return;
     }
     setError(null);
-
     const reader = new FileReader();
     reader.onload = async () => {
       const dataUrl = reader.result as string;
@@ -88,12 +90,22 @@ export default function BusinessCardsPage() {
     setBboxes([]);
     setSavingState("idle");
     setSavedContactId(null);
+    setRejectionReason(null);
+    setApprovalReasons([]);
     try {
-      const r = await apiFetch<{ extracted: any }>("/business-cards/scan", {
+      const r: any = await apiFetch("/business-cards/scan", {
         method: "POST",
         body: JSON.stringify({ image_data_url: dataUrl }),
       });
       const ex = r.extracted ?? {};
+
+      // Gemini validation check
+      if (ex.is_business_card === false) {
+        setScanState("rejected");
+        setRejectionReason(ex.rejection_reason ?? "This does not appear to be a business card.");
+        return;
+      }
+
       const fieldsMap: Record<string, string | null> = {};
       const confMap: Record<string, number> = {};
       for (const k of Object.keys(FIELD_META)) {
@@ -105,7 +117,6 @@ export default function BusinessCardsPage() {
           confMap[f.key] = typeof f.confidence === "number" ? f.confidence : 80;
         }
       }
-      // default confidence for fields without explicit value
       for (const k of Object.keys(fieldsMap)) {
         if (fieldsMap[k] && confMap[k] === undefined) confMap[k] = 88;
       }
@@ -114,7 +125,6 @@ export default function BusinessCardsPage() {
       setBboxes(fields);
       setScanState("complete");
     } catch (err: any) {
-      console.error(err);
       setError(err?.message ?? "Scan failed. Check your connection and try again.");
       setScanState("error");
     }
@@ -128,15 +138,21 @@ export default function BusinessCardsPage() {
   async function saveContact() {
     setSavingState("saving");
     try {
-      const r = await apiFetch<{ contact_id: string; duplicate: boolean }>("/business-cards/save", {
+      const r: any = await apiFetch("/business-cards/save", {
         method: "POST",
         body: JSON.stringify({ extracted }),
       });
       setSavedContactId(r.contact_id);
-      setSavingState(r.duplicate ? "duplicate" : "saved");
+      if (r.duplicate) {
+        setSavingState("duplicate");
+      } else if (r.requires_approval) {
+        setSavingState("approval");
+        setApprovalReasons(r.approval_reasons ?? []);
+      } else {
+        setSavingState("saved");
+      }
       loadRecent();
     } catch (err: any) {
-      console.error(err);
       setError(err?.message ?? "Save failed");
       setSavingState("idle");
     }
@@ -150,6 +166,8 @@ export default function BusinessCardsPage() {
     setScanState("empty");
     setSavingState("idle");
     setSavedContactId(null);
+    setRejectionReason(null);
+    setApprovalReasons([]);
     setError(null);
     if (fileRef.current) fileRef.current.value = "";
   }
@@ -167,11 +185,11 @@ export default function BusinessCardsPage() {
             </div>
             <h1 className="text-2xl font-bold tracking-tight">Business Card Scanner</h1>
             <span className="px-2 py-0.5 rounded-md bg-[#88B8B0]/15 text-[#88B8B0] text-[10px] font-bold uppercase tracking-wide border border-[#88B8B0]/30">
-              Live · GPT-4o Vision
+              Live · Gemini Vision
             </span>
           </div>
           <p className="text-sm text-muted-foreground ml-11">
-            Snap a card — real OCR via vision AI, bilingual (Arabic + English), saves directly to your contacts in 3 seconds.
+            Snap a card — AI validates it's a real business card, extracts fields bilingually, checks ICP fit, then saves to your contacts.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -199,7 +217,7 @@ export default function BusinessCardsPage() {
         <Stat label="TOTAL SCANS" value={recent.length} accent="#B8A0C8" />
         <Stat label="THIS WEEK" value={recent.filter(r => Date.now() - new Date(r.created_at).getTime() < 7*86400_000).length} accent="#88B8B0" />
         <Stat label="AVG CONFIDENCE" value={Object.keys(confidences).length ? `${Math.round(Object.values(confidences).reduce((s, c) => s + c, 0) / Object.keys(confidences).length)}%` : "—"} accent="#C8A880" />
-        <Stat label="OCR ENGINE" value="GPT-4o" accent="#90B8B8" sub="vision" />
+        <Stat label="OCR ENGINE" value="Gemini" accent="#90B8B8" sub="vision AI" />
       </div>
 
       <div className="grid grid-cols-12 gap-4">
@@ -221,18 +239,20 @@ export default function BusinessCardsPage() {
               {scanState === "scanning" && (
                 <div className="absolute inset-0 bg-background/70 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
                   <Loader2 className="w-8 h-8 text-[#B8A0C8] animate-spin" />
-                  <div className="text-sm font-semibold">Vision AI extracting fields…</div>
-                  <div className="text-xs text-muted-foreground">~3 seconds</div>
+                  <div className="text-sm font-semibold">Gemini Vision reading card…</div>
+                  <div className="text-xs text-muted-foreground">validating + extracting fields</div>
+                </div>
+              )}
+              {scanState === "rejected" && (
+                <div className="absolute inset-0 bg-red-950/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2 p-4">
+                  <XCircle className="w-10 h-10 text-red-400" />
+                  <div className="text-sm font-bold text-white text-center">Not a business card</div>
+                  <div className="text-xs text-red-300 text-center">{rejectionReason}</div>
                 </div>
               )}
               {scanState === "complete" && bboxes.map((f, i) => f.bbox ? (
-                <div
-                  key={i}
-                  className="absolute border-2 border-[#88B8B0] bg-[#88B8B0]/10 rounded"
-                  style={{
-                    left: `${f.bbox.x}%`, top: `${f.bbox.y}%`,
-                    width: `${f.bbox.w}%`, height: `${f.bbox.h}%`,
-                  }}
+                <div key={i} className="absolute border-2 border-[#88B8B0] bg-[#88B8B0]/10 rounded"
+                  style={{ left: `${f.bbox.x}%`, top: `${f.bbox.y}%`, width: `${f.bbox.w}%`, height: `${f.bbox.h}%` }}
                   title={`${FIELD_META[f.key]?.label ?? f.key} · ${f.confidence}%`}
                 />
               ) : null)}
@@ -246,6 +266,15 @@ export default function BusinessCardsPage() {
               <Legend color="#C8A880" label="Low <85" />
             </div>
           )}
+
+          {scanState === "rejected" && (
+            <div className="mt-3 space-y-2">
+              <div className="text-[11px] text-muted-foreground text-center">AI detected this is not a business card</div>
+              <button onClick={reset} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-border/40 hover:bg-muted/50 transition">
+                <Upload className="w-3.5 h-3.5" /> Try a different image
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Extracted fields */}
@@ -254,33 +283,75 @@ export default function BusinessCardsPage() {
             <div>
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Extracted fields</div>
               <div className="text-sm font-semibold mt-0.5">
-                {scanState === "empty" ? "Upload a card to begin" : scanState === "scanning" ? "Reading…" : `${Object.values(extracted).filter(Boolean).length} fields detected`}
+                {scanState === "empty" && "Upload a card to begin"}
+                {scanState === "scanning" && "Validating + reading…"}
+                {scanState === "rejected" && (
+                  <span className="flex items-center gap-1.5 text-red-600 dark:text-red-400">
+                    <XCircle className="w-4 h-4" /> Invalid image rejected
+                  </span>
+                )}
+                {scanState === "complete" && `${Object.values(extracted).filter(Boolean).length} fields detected`}
+                {scanState === "error" && "Scan failed"}
               </div>
             </div>
-            {scanState === "complete" && savingState !== "saved" && savingState !== "duplicate" && (
+
+            {/* Save button area */}
+            {scanState === "complete" && savingState === "idle" && (
               <button
                 onClick={saveContact}
-                disabled={savingState === "saving" || !extracted.name_en}
+                disabled={!extracted.name_en}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm transition",
-                  savingState === "saving" || !extracted.name_en
-                    ? "bg-muted text-muted-foreground cursor-not-allowed"
-                    : "nf-chameleon-bg"
+                  !extracted.name_en ? "bg-muted text-muted-foreground cursor-not-allowed" : "nf-chameleon-bg"
                 )}
               >
-                {savingState === "saving" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                {savingState === "saving" ? "Saving…" : "Save as contact"}
+                <Sparkles className="w-3.5 h-3.5" /> Save as contact
               </button>
             )}
-            {(savingState === "saved" || savingState === "duplicate") && (
-              <button
-                onClick={() => savedContactId && navigate(`/contacts/${savedContactId}`)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#88B8B0]/15 text-[#88B8B0] border border-[#88B8B0]/30"
-              >
-                <Check className="w-3.5 h-3.5" /> {savingState === "duplicate" ? "Updated" : "Saved"} · view contact <ArrowRight className="w-3.5 h-3.5" />
+            {savingState === "saving" && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-muted text-muted-foreground">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving…
+              </div>
+            )}
+            {savingState === "saved" && (
+              <button onClick={() => savedContactId && navigate(`/contacts/${savedContactId}`)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#88B8B0]/15 text-[#88B8B0] border border-[#88B8B0]/30">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Saved · view contact <ArrowRight className="w-3.5 h-3.5" />
               </button>
+            )}
+            {savingState === "duplicate" && (
+              <button onClick={() => savedContactId && navigate(`/contacts/${savedContactId}`)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#C8A880]/15 text-[#C8A880] border border-[#C8A880]/30">
+                <Check className="w-3.5 h-3.5" /> Duplicate updated <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {savingState === "approval" && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                <Clock className="w-3.5 h-3.5" /> Pending manager approval
+              </div>
             )}
           </div>
+
+          {/* ICP approval warning */}
+          {savingState === "approval" && approvalReasons.length > 0 && (
+            <div className="mb-3 rounded-xl border border-amber-500/30 bg-amber-50/40 dark:bg-amber-950/10 p-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <ShieldAlert className="w-4 h-4 text-amber-600" />
+                <div className="text-sm font-semibold text-amber-800 dark:text-amber-300">Outside target segment — sent for approval</div>
+              </div>
+              <ul className="space-y-1">
+                {approvalReasons.map((r, i) => (
+                  <li key={i} className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                    {r}
+                  </li>
+                ))}
+              </ul>
+              <div className="text-[11px] text-muted-foreground mt-2">
+                The contact has been saved with "pending_approval" status. Your sales manager will receive an alert to review.
+              </div>
+            </div>
+          )}
 
           {scanState === "empty" && (
             <div className="py-12 text-center text-sm text-muted-foreground">
@@ -296,8 +367,17 @@ export default function BusinessCardsPage() {
             </div>
           )}
 
+          {scanState === "rejected" && (
+            <div className="py-12 text-center space-y-3">
+              <XCircle className="w-12 h-12 text-red-400 mx-auto" />
+              <div className="text-sm font-semibold text-red-600 dark:text-red-400">Image rejected — not a business card</div>
+              <div className="text-xs text-muted-foreground max-w-sm mx-auto">{rejectionReason}</div>
+              <div className="text-xs text-muted-foreground">Please upload a real business card with a person's name and contact details.</div>
+            </div>
+          )}
+
           {scanState === "complete" && (
-            <div className="space-y-1.5 max-h-[460px] overflow-y-auto pr-1">
+            <div className="space-y-1.5 max-h-[400px] overflow-y-auto pr-1">
               {FIELD_ORDER.filter(k => extracted[k]).map((key) => {
                 const meta = FIELD_META[key];
                 const Icon = meta?.icon ?? Hash;
@@ -354,7 +434,10 @@ export default function BusinessCardsPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-semibold truncate">{r.name}</div>
-                  <div className="text-[11px] text-muted-foreground truncate">{r.title ?? "—"}</div>
+                  <div className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
+                    {r.status === "pending_approval" && <Clock className="w-2.5 h-2.5 text-amber-500" />}
+                    {r.title ?? "—"}
+                  </div>
                 </div>
                 <span className="text-[10px] text-muted-foreground">{relTime(r.created_at)}</span>
               </button>
@@ -367,8 +450,8 @@ export default function BusinessCardsPage() {
       <div className="glass-panel p-3 flex items-center gap-3 text-xs">
         <Wand2 className="w-4 h-4 text-[#B8A0C8]" />
         <span className="text-muted-foreground">
-          Vision OCR runs on your inference quota — bilingual extraction (English + Arabic), normalized phone numbers, deduplication on email.
-          Cards are <span className="font-bold text-foreground">not stored</span> — only the extracted fields and a reference activity log.
+          Gemini Vision validates each upload is a real business card, then extracts fields bilingually. ICP rules auto-route non-target contacts for manager approval.
+          Cards are <span className="font-bold text-foreground">not stored</span> — only the extracted fields and activity log.
         </span>
       </div>
     </div>

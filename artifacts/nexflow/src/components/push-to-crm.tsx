@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 import { scoreIcp, type IcpRecord, type IcpFitResult } from "@/lib/icp";
 import { addApproval } from "@/lib/approvals";
 import { dedupCheck, type DedupVerdict } from "@/lib/dedup-check";
+import { apiFetch } from "@/hooks/useApi";
 
 // ────────────────────────────────────────────────────────────────────────
 // Types
@@ -135,12 +136,56 @@ export function PushToCrm<T>({
     }
   }
 
-  function pushNow(rows: { record: T; key: string }[]) {
-    // Simulated CRM write — in a real wiring this would POST /api/contacts
-    setPushedCount((n) => n + rows.length);
+  async function pushNow(rows: { record: T; key: string }[]) {
+    let pushed = 0;
+    for (const row of rows) {
+      try {
+        const probe = toIcp?.(row.record) ?? {};
+        const nameParts = (probe.name ?? "Unknown").trim().split(/\s+/);
+        const first_name = nameParts[0] ?? "Unknown";
+        const last_name = nameParts.slice(1).join(" ") || "—";
+
+        // Find or create company
+        let company_id: string | undefined;
+        if (probe.company) {
+          try {
+            const coRes: any = await apiFetch("/companies", {
+              method: "POST",
+              body: JSON.stringify({
+                name: probe.company,
+                industry: (probe as any).industry ?? null,
+                country: (probe as any).region ?? null,
+              }),
+            });
+            company_id = coRes?.id;
+          } catch { /* company may already exist — skip */ }
+        }
+
+        await apiFetch("/contacts", {
+          method: "POST",
+          body: JSON.stringify({
+            first_name,
+            last_name,
+            email: probe.email ?? null,
+            phone: (probe as any).phone ?? null,
+            title: (probe as any).title ?? null,
+            company_id: company_id ?? null,
+            status: "new",
+            tags: ["enrichment-push", source.toLowerCase().replace(/\s+/g, "-")],
+            notes: `Pushed from: ${source}`,
+            lead_score: probe.score ?? null,
+          }),
+        });
+        pushed++;
+      } catch {
+        // Single row failure — skip and continue
+      }
+    }
+    setPushedCount((n) => n + pushed);
     const next = new Set(selected);
     rows.forEach((r) => next.delete(r.key));
     setSelected(next);
+    // Selection cleared — newly pushed contacts visible on next dedup scan
   }
 
   function sendForApproval(rows: { record: T; key: string; fit: IcpFitResult }[]) {

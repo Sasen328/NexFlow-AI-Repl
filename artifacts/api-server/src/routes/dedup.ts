@@ -265,4 +265,131 @@ router.post("/check", async (req, res) => {
   }
 });
 
+// POST /api/dedup/check-batch — pre-import dedup for a list of staged leads
+// body: { leads: Array<{ id, name, email?, phone?, company? }> }
+// resp: { results: Array<{ id, status, match_name?, contact_id?, match_reason? }> }
+router.post("/check-batch", async (req, res) => {
+  try {
+    const { leads } = req.body ?? {};
+    if (!Array.isArray(leads) || !leads.length) {
+      return res.status(400).json({ error: "leads[] required" });
+    }
+
+    const all = await db.select({
+      id: contacts.id,
+      first_name: contacts.first_name,
+      last_name: contacts.last_name,
+      email: contacts.email,
+      phone: contacts.phone,
+      company_id: contacts.company_id,
+    }).from(contacts);
+
+    const results = leads.map((lead: any) => {
+      const probeEmail = normalizeEmail(lead.email);
+      const probePhone = normalizePhone(lead.phone);
+      const probeName  = normalizeName(`${lead.name ?? lead.first_name ?? ""} ${lead.last_name ?? ""}`);
+      const probeCo    = normalizeName(lead.company ?? "");
+
+      // Pass 1: exact email
+      if (probeEmail) {
+        const hit = all.find((c) => normalizeEmail(c.email as any) === probeEmail);
+        if (hit) return {
+          id: lead.id,
+          status: "duplicate",
+          match_reason: `Same email: ${probeEmail}`,
+          match_name: `${hit.first_name} ${hit.last_name}`,
+          contact_id: hit.id,
+          confidence: 0.99,
+        };
+      }
+      // Pass 2: exact phone
+      if (probePhone && probePhone.length >= 7) {
+        const hit = all.find((c) => normalizePhone(c.phone as any) === probePhone);
+        if (hit) return {
+          id: lead.id,
+          status: "duplicate",
+          match_reason: `Same phone: ${probePhone}`,
+          match_name: `${hit.first_name} ${hit.last_name}`,
+          contact_id: hit.id,
+          confidence: 0.95,
+        };
+      }
+      // Pass 3: fuzzy name + same company
+      if (probeName && probeCo) {
+        const hit = all.find((c) => {
+          const cName = normalizeName(`${c.first_name ?? ""} ${c.last_name ?? ""}`);
+          const nameSim = similarity(probeName, cName);
+          return nameSim >= 0.85;
+        });
+        if (hit) {
+          const cName = normalizeName(`${hit.first_name ?? ""} ${hit.last_name ?? ""}`);
+          const sim = similarity(probeName, cName);
+          return {
+            id: lead.id,
+            status: sim >= 0.95 ? "duplicate" : "possible",
+            match_reason: `Similar name (${Math.round(sim * 100)}%)`,
+            match_name: `${hit.first_name} ${hit.last_name}`,
+            contact_id: hit.id,
+            confidence: sim * 0.9,
+          };
+        }
+      }
+
+      return { id: lead.id, status: "new", confidence: 0 };
+    });
+
+    const summary = {
+      total: results.length,
+      duplicates: results.filter((r) => r.status === "duplicate").length,
+      possible: results.filter((r) => r.status === "possible").length,
+      new: results.filter((r) => r.status === "new").length,
+    };
+
+    res.json({ results, summary });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Batch check failed" });
+  }
+});
+
+// POST /api/dedup/push-staged — push a list of staged (new) leads to contacts
+// body: { leads: Array<{ name, email?, phone?, company?, title?, industry?, region? }> }
+router.post("/push-staged", async (req, res) => {
+  try {
+    const { leads } = req.body ?? {};
+    if (!Array.isArray(leads) || !leads.length) {
+      return res.status(400).json({ error: "leads[] required" });
+    }
+
+    const created: string[] = [];
+    const skipped: string[] = [];
+
+    for (const lead of leads) {
+      try {
+        const nameParts = (lead.name ?? "").trim().split(/\s+/);
+        const first_name = nameParts[0] || "Unknown";
+        const last_name = nameParts.slice(1).join(" ") || "";
+
+        const [contact] = await db.insert(contacts).values({
+          first_name,
+          last_name,
+          email: lead.email ?? null,
+          phone: lead.phone ?? null,
+          title: lead.title ?? null,
+          source: "list_import",
+          status: "new",
+          tags: ["dedup-import"],
+          lead_score: 50,
+        }).returning();
+        created.push(contact.id);
+      } catch {
+        skipped.push(lead.name ?? "unknown");
+      }
+    }
+
+    res.json({ created: created.length, skipped: skipped.length, contact_ids: created });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Push staged failed" });
+  }
+});
+
 export default router;
