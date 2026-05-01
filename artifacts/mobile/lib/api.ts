@@ -797,3 +797,10 @@ export function useAssistantTranscribe() {
       apiPost<{ text: string; language?: string }>("/assistant/transcribe", input),
   });
 }
+
+export function useVoiceAgentCall() {
+  return useMutation({
+    mutationFn: (input: { phone: string; voice?: string; script?: string; test_mode?: boolean }) =>
+      apiPost<{ ok: boolean; call_sid?: string; message?: string }>("/power-dialer/voice-agent-call", input),
+  });
+}
