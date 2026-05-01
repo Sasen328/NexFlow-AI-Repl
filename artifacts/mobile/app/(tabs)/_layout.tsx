@@ -14,11 +14,11 @@ function NativeTabLayout() {
     <NativeTabs>
       <NativeTabs.Trigger name="index">
         <Icon sf={{ default: "sparkles", selected: "sparkles" }} />
-        <Label>Command Center</Label>
+        <Label>Home</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="pipeline">
         <Icon sf={{ default: "chart.bar", selected: "chart.bar.fill" }} />
-        <Label>Pipeline</Label>
+        <Label>CRM</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="contacts">
         <Icon sf={{ default: "person.2", selected: "person.2.fill" }} />
@@ -28,9 +28,13 @@ function NativeTabLayout() {
         <Icon sf={{ default: "phone", selected: "phone.fill" }} />
         <Label>Calls</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="enrichment">
+        <Icon sf={{ default: "wand.and.stars", selected: "wand.and.stars" }} />
+        <Label>Enrichment</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="agents">
         <Icon sf={{ default: "waveform", selected: "waveform" }} />
-        <Label>Agents</Label>
+        <Label>Assistant</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -69,7 +73,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Command Center",
+          title: "Home",
           tabBarIcon: ({ color, focused }) =>
             isIOS ? (
               <SymbolView name={focused ? "sparkles" : "sparkles"} tintColor={color} size={24} />
@@ -81,7 +85,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="pipeline"
         options={{
-          title: "Pipeline",
+          title: "CRM",
           tabBarIcon: ({ color, focused }) =>
             isIOS ? (
               <SymbolView name={focused ? "chart.bar.fill" : "chart.bar"} tintColor={color} size={24} />
@@ -115,9 +119,21 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
+        name="enrichment"
+        options={{
+          title: "Enrichment",
+          tabBarIcon: ({ color, focused }) =>
+            isIOS ? (
+              <SymbolView name={focused ? "wand.and.stars" : "wand.and.stars"} tintColor={color} size={24} />
+            ) : (
+              <Feather name="zap" size={20} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
         name="agents"
         options={{
-          title: "Agents",
+          title: "Assistant",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="waveform" tintColor={color} size={24} />
