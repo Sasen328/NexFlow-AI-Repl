@@ -487,7 +487,7 @@ export default function ContactProfilePage({ params }: Props) {
             ts: Date.now() - 1000 * 60 * 60 * 24,
           },
         ];
-        const displayItems = items.length > 0 ? items : MOCK_ENGAGEMENTS;
+        const displayItems = items.length >= 3 ? items : [...items, ...MOCK_ENGAGEMENTS.slice(0, 3 - items.length)];
 
         const counts = {
           call:       items.filter(i => i.kind === "call").length,
