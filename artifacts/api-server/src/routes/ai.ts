@@ -936,5 +936,28 @@ ${language.startsWith("ar") ? "ALWAYS respond in warm Khaleeji (Gulf) Arabic." :
   }
 });
 
+// ── POST /api/ai/suggest-next-action — per-contact AI recommended action ─────
+router.post("/suggest-next-action", async (req, res) => {
+  try {
+    const { contact_name, title, company, lead_score, last_activity_count } = req.body ?? {};
+    const text = await aiChat({
+      provider: "auto",
+      system: `You are a GCC B2B sales coach. Given a contact profile, suggest ONE specific, actionable next outreach step.
+Be direct. 2 sentences max. Include the recommended channel (call/email/WhatsApp/LinkedIn), timing, and a specific talk track or subject line idea.
+Examples:
+- "Send a WhatsApp voice note today referencing their Q2 expansion plans — keep it under 60 seconds and propose a 15-minute call this week."
+- "Call them Friday morning at 10 AM Riyadh time. Lead with: 'We helped three Emaar-size property groups cut their sales cycle by 40% — worth 15 minutes?'"`,
+      user: `Contact: ${contact_name ?? "Unknown"}, ${title ?? "executive"} at ${company ?? "unknown company"}.
+Lead score: ${lead_score ?? "N/A"}. Past touchpoints: ${last_activity_count ?? 0}.
+Suggest the single best next action to advance this deal.`,
+      maxTokens: 150,
+    });
+    res.json({ suggestion: text?.trim() ?? "No suggestion available." });
+  } catch (err: any) {
+    req.log.error(err);
+    res.status(500).json({ suggestion: "Could not generate suggestion right now." });
+  }
+});
+
 export default router;
 
