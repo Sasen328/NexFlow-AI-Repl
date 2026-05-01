@@ -166,7 +166,14 @@ function loadPosition(): { x: number; y: number } | null {
     const raw = window.localStorage.getItem(STORAGE_POS);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (typeof parsed?.x === "number" && typeof parsed?.y === "number") return parsed;
+    if (typeof parsed?.x !== "number" || typeof parsed?.y !== "number") return null;
+    // Clamp to current viewport so a stale off-screen position from a
+    // previous, larger window never hides the bubble.
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const x = Math.max(8, Math.min(w - 64, parsed.x));
+    const y = Math.max(8, Math.min(h - 64, parsed.y));
+    return { x, y };
   } catch {/* ignore */}
   return null;
 }
@@ -572,13 +579,21 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
   }
 
   useEffect(() => {
-    function onResize() {
+    function ensureOnScreen() {
       const cur = position ?? defaultPos;
       const c = clamp(cur.x, cur.y);
       if (c.x !== cur.x || c.y !== cur.y) persistPosition(c);
     }
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    // Clamp on mount + on resize + on iPad orientation change. This guarantees
+    // the bubble can always be found, even after the window shrinks or the
+    // device rotates between sessions.
+    ensureOnScreen();
+    window.addEventListener("resize", ensureOnScreen);
+    window.addEventListener("orientationchange", ensureOnScreen);
+    return () => {
+      window.removeEventListener("resize", ensureOnScreen);
+      window.removeEventListener("orientationchange", ensureOnScreen);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [position]);
 
