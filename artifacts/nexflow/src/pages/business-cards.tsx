@@ -35,12 +35,13 @@ const FIELD_ORDER = [
   "city", "country", "industry_guess",
 ];
 
-// Multi-agent pipeline step definitions
+// Multi-agent pipeline step definitions (5-agent parallel orchestration)
 const PIPELINE_STEPS = [
-  { id: "agent1", icon: Eye,          label: "Gemini Vision",     sub: "OCR + field extraction",            color: "#88B8B0" },
-  { id: "agent2", icon: BrainCircuit, label: "Claude / GPT-4o",   sub: "Validation + normalisation",        color: "#B8A0C8" },
-  { id: "agent3", icon: Search,       label: "Web Enrichment",    sub: "Company profile from public web",   color: "#C8A880" },
-  { id: "agent4", icon: Star,         label: "OpenAI Scoring",    sub: "Lead score + bilingual summary",    color: "#90B8C8" },
+  { id: "agent1", icon: Eye,          label: "Gemini Vision",       sub: "OCR + field extraction (gemini-2.5-flash)",  color: "#88B8B0" },
+  { id: "agent2", icon: BrainCircuit, label: "Claude Validation",   sub: "Normalisation + ICP check (OpenRouter)",     color: "#B8A0C8" },
+  { id: "agent3", icon: Search,       label: "Perplexity Search",   sub: "Live web intel on person + company",         color: "#C8B880" },
+  { id: "agent4", icon: Search,       label: "Web Scraper",         sub: "BeautifulSoup company profile",              color: "#C8A880" },
+  { id: "agent5", icon: Star,         label: "GPT-4o Scoring",      sub: "Lead score + bilingual summary",             color: "#90B8C8" },
 ];
 
 type ExtractField = { key: string; confidence: number; bbox?: { x: number; y: number; w: number; h: number } };
@@ -70,7 +71,7 @@ export default function BusinessCardsPage() {
   useEffect(() => {
     if (scanState !== "scanning") return;
     setScanStep(0);
-    const timings = [0, 2000, 4500, 7000];
+    const timings = [0, 2000, 4000, 6000, 8500];
     const timers = timings.map((ms, i) =>
       setTimeout(() => setScanStep(i), ms)
     );
@@ -223,7 +224,7 @@ export default function BusinessCardsPage() {
             </div>
             <h1 className="text-2xl font-bold tracking-tight">Business Card Scanner</h1>
             <span className="px-2 py-0.5 rounded-md bg-[#88B8B0]/15 text-[#88B8B0] text-[10px] font-bold uppercase tracking-wide border border-[#88B8B0]/30 flex items-center gap-1">
-              <Cpu className="w-2.5 h-2.5" /> Live · 4-Agent Pipeline
+              <Cpu className="w-2.5 h-2.5" /> Live · 5-Agent Pipeline
             </span>
           </div>
           <p className="text-sm text-muted-foreground ml-11">
@@ -255,7 +256,7 @@ export default function BusinessCardsPage() {
         <Stat label="TOTAL SCANS" value={recent.length} accent="#B8A0C8" />
         <Stat label="THIS WEEK" value={recent.filter(r => Date.now() - new Date(r.created_at).getTime() < 7*86400_000).length} accent="#88B8B0" />
         <Stat label="AVG CONFIDENCE" value={avgConf !== null ? `${avgConf}%` : "—"} accent="#C8A880" />
-        <Stat label="PIPELINE" value="4-Agent" accent="#90B8C8" sub="Gemini · Claude · GPT-4o" />
+        <Stat label="PIPELINE" value="5-Agent" accent="#90B8C8" sub="Gemini · Perplexity · Claude · GPT-4o" />
       </div>
 
       {/* Pipeline step indicator (visible during scan and after) */}
@@ -567,7 +568,7 @@ export default function BusinessCardsPage() {
       <div className="glass-panel p-3 flex items-center gap-3 text-xs">
         <Cpu className="w-4 h-4 text-[#B8A0C8]" />
         <span className="text-muted-foreground">
-          <span className="font-semibold text-foreground">4-Agent Pipeline:</span>{" "}
+          <span className="font-semibold text-foreground">5-Agent Pipeline:</span>{" "}
           Gemini Vision (OCR) → Claude/GPT-4o (validation) → Python Enrichment Scraper (company web profile) → OpenAI (lead score + bilingual summary).
           ICP rules auto-route non-target contacts for manager approval. Card images are <span className="font-bold text-foreground">not stored</span>.
         </span>

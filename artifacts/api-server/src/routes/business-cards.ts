@@ -126,9 +126,9 @@ async function agent3WebEnrich(website: string): Promise<{ result: any } | null>
   if (!website) return null;
   const url = website.startsWith("http") ? website : `https://${website}`;
   try {
-    // Route through the shared proxy (localhost:80 → /scraper/* → enrichment-scraper sidecar)
-    const scraperBase = `http://127.0.0.1:80`;
-    const r = await fetch(`${scraperBase}/scraper/extract`, {
+    // Python enrichment sidecar runs on port 8000 in dev (PORT env var default)
+    const scraperBase = process.env["ENRICHMENT_SCRAPER_URL"] ?? "http://localhost:8000/scraper";
+    const r = await fetch(`${scraperBase}/extract`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url, mode: "bs4", respect_robots: true, timeout_seconds: 8 }),
@@ -143,8 +143,12 @@ async function agent3WebEnrich(website: string): Promise<{ result: any } | null>
   }
 }
 
-// ─── AGENT 4: OpenAI — final scoring & profile assembly ───────────────────
-async function agent4FinalScore(validated: any, webProfile: any): Promise<{
+// ─── AGENT 5: GPT-4o-mini — final merge, scoring & bilingual summary ──────
+async function agent4FinalScore(
+  validated: any,
+  webProfile: any,
+  perplexityIntel: string | null = null,
+): Promise<{
   lead_score: number;
   confidence: number;
   summary_en: string;
@@ -152,21 +156,26 @@ async function agent4FinalScore(validated: any, webProfile: any): Promise<{
   next_actions: string[];
 }> {
   const systemPrompt = `You are a GCC B2B revenue intelligence analyst.
-Combine business card data + company web profile to produce a final contact assessment.
+Combine all available intelligence sources to produce a final contact assessment.
 Output ONLY valid JSON:
 {
   "lead_score": 0-100,
   "confidence": 0-100,
-  "summary_en": "2-sentence English contact profile",
-  "summary_ar": "2-sentence Arabic contact profile (in Arabic script)",
-  "next_actions": ["top 2-3 recommended outreach actions"]
+  "summary_en": "2-3 sentence English contact profile using all available intelligence",
+  "summary_ar": "2-3 sentence Arabic contact profile in Arabic script (not transliteration)",
+  "next_actions": ["top 3 specific recommended outreach actions for this person"]
 }`;
 
-  const userPrompt = `Contact card data:
+  const userPrompt = `Business card extracted data:
 ${JSON.stringify({ ...validated, fields: undefined }, null, 2)}
 
-Company web profile:
-${webProfile ? JSON.stringify(webProfile, null, 2) : "(not available)"}`;
+Company web profile (BeautifulSoup scrape):
+${webProfile ? JSON.stringify(webProfile, null, 2) : "(not available)"}
+
+Perplexity live web intelligence on this person:
+${perplexityIntel ? perplexityIntel.slice(0, 800) : "(not available)"}
+
+Based on all three sources, produce the final JSON assessment:`;
 
   try {
     const r = await aiJson<any>({
@@ -176,9 +185,9 @@ ${webProfile ? JSON.stringify(webProfile, null, 2) : "(not available)"}`;
       fallback: {
         lead_score: 60,
         confidence: 50,
-        summary_en: `${validated.name_en ?? "Contact"} from ${validated.company ?? "Unknown"}.`,
-        summary_ar: `${validated.name_ar ?? validated.name_en ?? "جهة الاتصال"} من ${validated.company ?? "غير معروف"}.`,
-        next_actions: ["Send intro email", "Connect on LinkedIn"],
+        summary_en: `${validated?.name_en ?? "Contact"} is ${validated?.title ?? "a professional"} at ${validated?.company ?? "Unknown"}.`,
+        summary_ar: `${validated?.name_ar ?? validated?.name_en ?? "جهة الاتصال"} يعمل في ${validated?.company ?? "غير معروف"}.`,
+        next_actions: ["Send personalised intro email", "Connect on LinkedIn", "Schedule discovery call"],
       },
     });
     return r;
@@ -186,14 +195,22 @@ ${webProfile ? JSON.stringify(webProfile, null, 2) : "(not available)"}`;
     return {
       lead_score: 60,
       confidence: 40,
-      summary_en: `${validated.name_en ?? "Contact"} from ${validated.company ?? "Unknown"}.`,
-      summary_ar: `${validated.name_ar ?? "جهة الاتصال"} من ${validated.company ?? "غير معروف"}.`,
-      next_actions: ["Send intro email", "Connect on LinkedIn"],
+      summary_en: `${validated?.name_en ?? "Contact"} is ${validated?.title ?? "a professional"} at ${validated?.company ?? "Unknown"}.`,
+      summary_ar: `${validated?.name_ar ?? "جهة الاتصال"} يعمل في ${validated?.company ?? "غير معروف"}.`,
+      next_actions: ["Send personalised intro email", "Connect on LinkedIn", "Schedule discovery call"],
     };
   }
 }
 
-// ─── POST /scan — 4-agent orchestration pipeline ──────────────────────────
+// ─── POST /scan — 5-agent parallel orchestration pipeline ─────────────────
+//
+//  Stage 1 (sequential): Agent 1 — Gemini 2.5 Flash Vision OCR
+//  Stage 2 (parallel):   Agents 2-4 fire simultaneously
+//    Agent 2 — Claude (OpenRouter)      : validation, normalisation, ICP check
+//    Agent 3 — Perplexity (OpenRouter)  : live web search on person + company
+//    Agent 4 — BeautifulSoup (Python)   : company website structured scrape
+//  Stage 3 (sequential): Agent 5 — GPT-4o-mini (OpenRouter): final merge + scoring
+//
 router.post("/scan", async (req, res) => {
   try {
     const { image_data_url } = req.body ?? {};
@@ -207,51 +224,80 @@ router.post("/scan", async (req, res) => {
     const pipeline_trace: Record<string, any> = {};
     const t0 = Date.now();
 
-    // Agent 1: Gemini Vision OCR
+    // ── STAGE 1: Gemini Vision OCR (must run first — gates the rest)
     const ocr = await agent1GeminiOCR(image_data_url);
     pipeline_trace.agent1_gemini_vision = {
-      model: "gemini-2.0-flash-exp",
+      model: "gemini-2.5-flash",
       ms: Date.now() - t0,
       is_business_card: ocr.result?.is_business_card,
       error: ocr.error ?? null,
     };
 
-    // Short-circuit if clearly not a business card (no need to burn more tokens)
+    // Short-circuit if clearly not a business card
     if (ocr.result?.is_business_card === false) {
       res.json({
         extracted: ocr.result,
-        model: "gemini-2.0-flash-exp",
+        model: "gemini-2.5-flash",
         pipeline_trace,
         agents_used: ["gemini-vision"],
       });
       return;
     }
 
-    // Agent 2: Claude/GPT-4o reasoning — runs in parallel with Agent 3 kickoff
-    const t2 = Date.now();
-    const validated = await agent2ReasoningValidate(ocr.result);
-    pipeline_trace.agent2_reasoning = {
-      model: validated.model,
-      ms: Date.now() - t2,
-    };
+    // ── STAGE 2: Agents 2-4 run in PARALLEL
+    const website = ocr.result?.website ?? null;
+    const nameForSearch = [ocr.result?.name_en, ocr.result?.title, ocr.result?.company]
+      .filter(Boolean).join(" ");
 
-    // Agent 3: Python Enrichment Scraper (company web) — parallel-ish after Agent 1
-    const t3 = Date.now();
-    const website = validated.result?.website ?? ocr.result?.website;
-    const webEnrich = website ? await agent3WebEnrich(website) : null;
-    pipeline_trace.agent3_web_enrichment = {
-      model: "python-enrichment-scraper",
-      ms: Date.now() - t3,
+    const [validated, perplexityIntel, webEnrich] = await Promise.all([
+      // Agent 2: Claude validation/normalisation
+      agent2ReasoningValidate(ocr.result),
+
+      // Agent 3: Perplexity live search — real-time web intelligence on the person
+      (async () => {
+        const t3p = Date.now();
+        if (!nameForSearch) return { text: "", ms: 0 };
+        try {
+          const text = await aiChat({
+            provider: "perplexity",
+            system: "You are a B2B sales intelligence assistant. Find and summarise public information about this person. Be specific — include LinkedIn URL if found, company role, career history, any news mentions. Bullet points.",
+            user: `Research this person from their business card: ${nameForSearch}. Find their LinkedIn profile URL, career background, notable achievements, and any recent news.`,
+            maxTokens: 600,
+          });
+          return { text: text ?? "", ms: Date.now() - t3p };
+        } catch { return { text: "", ms: Date.now() - t3p }; }
+      })(),
+
+      // Agent 4: BeautifulSoup — company website structured scrape
+      website ? agent3WebEnrich(website) : Promise.resolve(null),
+    ]);
+
+    pipeline_trace.agent2_claude_validation = {
+      model: "claude-via-openrouter",
+      ms: 0,
+      provider: validated.model,
+    };
+    pipeline_trace.agent3_perplexity_search = {
+      model: "perplexity/sonar",
+      ms: perplexityIntel.ms,
+      found: Boolean(perplexityIntel.text),
+    };
+    pipeline_trace.agent4_bs4_scraper = {
+      model: "python-bs4-scraper",
       scraped: Boolean(webEnrich),
       website: website ?? null,
     };
 
-    // Agent 4: OpenAI final scoring
-    const t4 = Date.now();
-    const finalScore = await agent4FinalScore(validated.result, webEnrich?.result ?? null);
-    pipeline_trace.agent4_openai_scoring = {
+    // ── STAGE 3: GPT-4o-mini — final merge, scoring, bilingual summary
+    const t5 = Date.now();
+    const finalScore = await agent4FinalScore(
+      validated.result,
+      webEnrich?.result ?? null,
+      perplexityIntel.text || null,
+    );
+    pipeline_trace.agent5_gpt_scoring = {
       model: "gpt-4o-mini",
-      ms: Date.now() - t4,
+      ms: Date.now() - t5,
       lead_score: finalScore.lead_score,
       confidence: finalScore.confidence,
     };
@@ -261,15 +307,30 @@ router.post("/scan", async (req, res) => {
       ...validated.result,
       ...finalScore,
       company_web_profile: webEnrich?.result ?? null,
+      perplexity_intel: perplexityIntel.text || null,
     };
+
+    // Auto-fill LinkedIn from Perplexity if not already extracted
+    if (!extracted.linkedin && perplexityIntel.text) {
+      const liMatch = perplexityIntel.text.match(/linkedin\.com\/in\/([A-Za-z0-9_-]+)/);
+      if (liMatch) extracted.linkedin = `linkedin.com/in/${liMatch[1]}`;
+    }
 
     pipeline_trace.total_ms = Date.now() - t0;
 
+    const agentsUsed = [
+      "gemini-2.5-flash-vision",
+      validated.model,
+      perplexityIntel.text ? "perplexity/sonar" : null,
+      webEnrich ? "python-bs4-scraper" : null,
+      "gpt-4o-mini-scoring",
+    ].filter(Boolean) as string[];
+
     res.json({
       extracted,
-      model: "multi-agent",
+      model: "5-agent-orchestration",
       pipeline_trace,
-      agents_used: ["gemini-vision", validated.model, webEnrich ? "python-enrichment-scraper" : null, "gpt-4o-scoring"].filter(Boolean),
+      agents_used: agentsUsed,
     });
   } catch (err: any) {
     req.log?.error?.({ err }, "[business-cards] scan failed");
