@@ -40,6 +40,7 @@ import enrichmentRouter from "./enrichment";
 import enginesRouter from "./engines";
 import briefingRouter from "./briefing";
 import assistantRouter from "./assistant";
+import webEngineRouter from "./web-engine";
 
 const router: IRouter = Router();
 
@@ -84,5 +85,6 @@ router.use("/enrichment", enrichmentRouter);
 router.use("/engines", enginesRouter);
 router.use("/briefing", briefingRouter);
 router.use("/assistant", assistantRouter);
+router.use("/engine", webEngineRouter);
 
 export default router;
