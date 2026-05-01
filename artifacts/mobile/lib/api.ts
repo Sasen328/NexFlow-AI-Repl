@@ -239,6 +239,31 @@ export function useLogCall() {
   });
 }
 
+export function useLogActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      type: "whatsapp" | "email" | "note" | "meeting" | "call";
+      title: string;
+      body?: string;
+      contact_id?: string;
+      status?: "completed" | "scheduled";
+      metadata?: Record<string, unknown>;
+    }) =>
+      apiPost<{ activity: any }>("/activities", {
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        ...input,
+      }),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["activities-feed"] });
+      if (vars.contact_id) {
+        qc.invalidateQueries({ queryKey: ["contact", vars.contact_id, "activities"] });
+      }
+    },
+  });
+}
+
 export function useContactActivities(id?: string) {
   return useQuery({
     queryKey: ["contact", id, "activities"],

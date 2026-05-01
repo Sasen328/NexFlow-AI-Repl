@@ -7,6 +7,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { ChameleonGradient } from "@/components/ui/ChameleonGradient";
+import { GlassCard } from "@/components/ui/GlassCard";
 import { formatCurrency } from "@/data/mockData";
 import {
   apiFetch,
@@ -26,7 +28,7 @@ import {
   useUpsertPropertyValue,
 } from "@/lib/api";
 
-const TABS = ["Overview", "Engagement", "Calls", "Deals", "Enrichment"] as const;
+const TABS = ["Overview", "Engagement", "Calls", "Deals", "Network", "Enrichment"] as const;
 type TabKey = (typeof TABS)[number];
 
 const ENRICHMENT_SOURCES = [
@@ -262,22 +264,48 @@ export default function ContactDetail() {
           </View>
         </View>
 
-        {/* Tabs */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 16 }}>
-          <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
-            {TABS.map((t) => {
-              const active = t === activeTab;
-              const count = t === "Calls" ? calls.length : t === "Deals" ? myDeals.length : null;
-              return (
-                <Pressable key={t} onPress={() => setActiveTab(t)} style={styles.tab}>
-                  <Text style={[styles.tabText, { color: active ? "#88B8B0" : colors.mutedForeground }]}>
-                    {t}{count != null ? ` (${count})` : ""}
-                  </Text>
-                  {active && <View style={styles.tabUnderline} />}
-                </Pressable>
-              );
-            })}
-          </View>
+        {/* Tabs — chameleon active pill */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ marginTop: 14 }}
+          contentContainerStyle={{ paddingHorizontal: 12, gap: 6 }}
+        >
+          {TABS.map((t) => {
+            const active = t === activeTab;
+            const count = t === "Calls" ? calls.length : t === "Deals" ? myDeals.length : null;
+            const label = `${t}${count != null ? ` (${count})` : ""}`;
+            return (
+              <Pressable key={t} onPress={() => setActiveTab(t)}>
+                {active ? (
+                  <ChameleonGradient
+                    radius={12}
+                    style={{ paddingHorizontal: 14, paddingVertical: 8 }}
+                  >
+                    <Text style={[styles.tabPillText, { color: "#FFFFFF" }]}>{label}</Text>
+                  </ChameleonGradient>
+                ) : (
+                  <View
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 8,
+                      borderRadius: 12,
+                      backgroundColor: colors.muted,
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.tabPillText,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
         </ScrollView>
 
         <View style={{ padding: 16, gap: 12 }}>
@@ -304,6 +332,10 @@ export default function ContactDetail() {
 
           {activeTab === "Deals" && (
             <DealsTab colors={colors} loading={dealsQ.isPending} deals={myDeals} />
+          )}
+
+          {activeTab === "Network" && (
+            <NetworkTab colors={colors} contact={contact} />
           )}
 
           {activeTab === "Enrichment" && (
@@ -919,6 +951,138 @@ function DealsTab({ colors, loading, deals }: any) {
   );
 }
 
+// ── Network tab — mutual connections & relationship graph ─────────────────
+function NetworkTab({ colors, contact }: any) {
+  const company = contact?.company_name ?? "their company";
+  const mutuals = [
+    {
+      name: "Khalid Al-Sayed",
+      role: "VP Engineering · Aramco",
+      relation: "Worked together 2019",
+      strength: 92,
+    },
+    {
+      name: "Layla Al-Suwaidi",
+      role: "CFO · Mada Bank",
+      relation: "Mutual board contact",
+      strength: 78,
+    },
+    {
+      name: "Omar Al-Harbi",
+      role: "Head of Sales · STC",
+      relation: "Met at LEAP 2024",
+      strength: 64,
+    },
+  ];
+  const stack = [
+    { name: "Salesforce", category: "CRM", since: "2019" },
+    { name: "Snowflake", category: "Data Warehouse", since: "2022" },
+    { name: "Slack", category: "Comms", since: "2020" },
+    { name: "DocuSign", category: "eSignature", since: "2021" },
+  ];
+  return (
+    <>
+      <GlassCard padded>
+        <Text style={[styles.cardKicker, { color: "#7A5C9E", marginBottom: 8 }]}>
+          MUTUAL CONNECTIONS
+        </Text>
+        {mutuals.map((m, i) => (
+          <View
+            key={m.name}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
+              paddingVertical: 12,
+              borderTopWidth: i === 0 ? 0 : 1,
+              borderTopColor: colors.border,
+            }}
+          >
+            <ChameleonGradient
+              radius={20}
+              style={{
+                width: 40,
+                height: 40,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 12 }}>
+                {m.name
+                  .split(" ")
+                  .map((p) => p[0])
+                  .slice(0, 2)
+                  .join("")}
+              </Text>
+            </ChameleonGradient>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                {m.name}
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 }}>
+                {m.role}
+              </Text>
+              <Text style={{ color: "#7A5C9E", fontFamily: "Inter_500Medium", fontSize: 11, marginTop: 2 }}>
+                {m.relation}
+              </Text>
+            </View>
+            <View
+              style={{
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 6,
+                backgroundColor: "rgba(136,184,176,0.18)",
+              }}
+            >
+              <Text style={{ color: "#4F8B82", fontFamily: "Inter_700Bold", fontSize: 11 }}>
+                {m.strength}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </GlassCard>
+
+      <GlassCard padded>
+        <Text style={[styles.cardKicker, { color: "#7A5C9E", marginBottom: 8 }]}>
+          {company.toUpperCase()} · TECH STACK
+        </Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {stack.map((s) => (
+            <View
+              key={s.name}
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 8,
+                backgroundColor: colors.muted,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+                {s.name}
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10, marginTop: 2 }}>
+                {s.category} · since {s.since}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </GlassCard>
+
+      <GlassCard padded>
+        <Text style={[styles.cardKicker, { color: "#7A5C9E", marginBottom: 8 }]}>
+          RELATIONSHIP INSIGHTS
+        </Text>
+        <Text style={{ color: colors.foreground, fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19 }}>
+          You share <Text style={{ fontFamily: "Inter_700Bold" }}>3 strong mutuals</Text> with {company}. Khalid Al-Sayed has a 92 strength score and previously
+          championed a similar deal — consider asking for a warm intro.
+        </Text>
+      </GlassCard>
+    </>
+  );
+}
+
 // ── Enrichment tab ─────────────────────────────────────────────────────────
 function EnrichmentTab({ colors }: any) {
   return (
@@ -1441,10 +1605,7 @@ const styles = StyleSheet.create({
   nextActionLabel: { fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 0.8 },
   nextActionText: { fontFamily: "Inter_600SemiBold", fontSize: 13, lineHeight: 18 },
   executeBtn: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  tabBar: { flexDirection: "row", paddingHorizontal: 16, borderBottomWidth: 1 },
-  tab: { paddingVertical: 12, paddingHorizontal: 14, position: "relative" },
-  tabText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
-  tabUnderline: { position: "absolute", bottom: -1, left: 14, right: 14, height: 2, backgroundColor: "#88B8B0", borderRadius: 1 },
+  tabPillText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
   cardKicker: { fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 1 },
   cardBigValue: { fontFamily: "Inter_700Bold", fontSize: 18 },
   cardSub: { fontFamily: "Inter_400Regular", fontSize: 10 },

@@ -1,11 +1,17 @@
 /**
  * Floating AI Assistant bubble — visible on every screen.
  *
- *   • Tap the bubble to open a slide-up chat
- *   • 5-provider toggle: Auto · Claude · GPT-4o · Gemini · Perplexity
- *   • Posts to /api/assistant/chat with conversation history
+ * Mirrors the web `AIAssistantBubble.tsx`:
+ *   • Chameleon-gradient bubble in the bottom-right
+ *   • Slide-up glass panel with chat
+ *   • 8 Action GPT shortcuts (Find contact / Draft email / Pipeline summary /
+ *     Today's tasks / Schedule call / Start a call / At-risk deals / Hot signals)
+ *   • Mic button for voice input (web: Web Speech API; native: graceful fallback)
+ *   • Arabic / English language toggle
+ *   • TTS playback of assistant replies via expo-speech (Arabic ar-SA voice
+ *     when toggle = AR)
  */
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -19,40 +25,136 @@ import {
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import * as Speech from "expo-speech";
 
 import { useColors } from "@/hooks/useColors";
-import {
-  useAssistantSend,
-  type AssistantHistoryItem,
-  type AssistantProvider,
-} from "@/lib/api";
+import { ChameleonGradient } from "@/components/ui/ChameleonGradient";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { useAssistantSend, type AssistantHistoryItem } from "@/lib/api";
 
-const PROVIDERS: { id: AssistantProvider; label: string; icon: any }[] = [
-  { id: "auto", label: "Auto", icon: "shuffle" },
-  { id: "anthropic", label: "Claude", icon: "feather" },
-  { id: "openai", label: "GPT-4o", icon: "cpu" },
-  { id: "gemini", label: "Gemini", icon: "star" },
-  { id: "perplexity", label: "Perplexity", icon: "search" },
+type Lang = "en" | "ar";
+
+type ActionGpt = {
+  id: string;
+  label: string;
+  labelAr: string;
+  icon: keyof typeof Feather.glyphMap;
+  prompt: string;
+  promptAr: string;
+};
+
+const ACTION_GPTS: ActionGpt[] = [
+  {
+    id: "find-contact",
+    label: "Find contact",
+    labelAr: "ابحث عن جهة",
+    icon: "search",
+    prompt: "Find me my top 3 contacts at companies in the banking sector.",
+    promptAr: "ابحث عن أفضل 3 جهات اتصال لدي في شركات قطاع البنوك.",
+  },
+  {
+    id: "draft-email",
+    label: "Draft email",
+    labelAr: "اكتب إيميل",
+    icon: "mail",
+    prompt: "Draft a follow-up email for my last open opportunity.",
+    promptAr: "اكتب إيميل متابعة لآخر فرصة مفتوحة لدي.",
+  },
+  {
+    id: "pipeline-summary",
+    label: "Pipeline summary",
+    labelAr: "ملخص خط المبيعات",
+    icon: "git-branch",
+    prompt: "Give me a 5-bullet summary of my open pipeline by stage.",
+    promptAr: "أعطني ملخصاً من 5 نقاط لخط المبيعات المفتوح حسب المرحلة.",
+  },
+  {
+    id: "todays-tasks",
+    label: "Today's tasks",
+    labelAr: "مهام اليوم",
+    icon: "check-square",
+    prompt: "What's on my plate today and what should I prioritise?",
+    promptAr: "ما هي مهامي اليوم وما الذي يجب أن أركز عليه؟",
+  },
+  {
+    id: "schedule-call",
+    label: "Schedule call",
+    labelAr: "جدولة مكالمة",
+    icon: "calendar",
+    prompt: "Suggest the best 2 time slots this week to call my top hot lead.",
+    promptAr: "اقترح أفضل وقتين هذا الأسبوع للاتصال بأفضل عميل ساخن لدي.",
+  },
+  {
+    id: "start-call",
+    label: "Start a call",
+    labelAr: "ابدأ مكالمة",
+    icon: "phone-call",
+    prompt: "Set up an AI call with my top hot lead — give me the talk track.",
+    promptAr: "جهّز مكالمة AI مع أفضل عميل ساخن — أعطني نقاط الحديث.",
+  },
+  {
+    id: "at-risk",
+    label: "At-risk deals",
+    labelAr: "صفقات في خطر",
+    icon: "alert-triangle",
+    prompt: "Which deals are stalled or at risk and what can I do today?",
+    promptAr: "ما الصفقات المتعثرة أو في خطر وما الذي يمكنني فعله اليوم؟",
+  },
+  {
+    id: "hot-signals",
+    label: "Hot signals",
+    labelAr: "إشارات ساخنة",
+    icon: "zap",
+    prompt: "What buying signals fired in the last 24h that I should act on?",
+    promptAr: "ما إشارات الشراء التي ظهرت آخر 24 ساعة ويجب أن أتحرك بناءً عليها؟",
+  },
 ];
 
+const GREETING: Record<Lang, string> = {
+  en: "Hi — I'm your NexFlow AI. Tap a shortcut, type, or hold the mic to speak. I can help with contacts, deals, calls and more.",
+  ar: "مرحباً — أنا مساعدك الذكي في نكس فلو. اختر اختصاراً، اكتب، أو اضغط الميكروفون للتحدث. أساعدك في جهات الاتصال والصفقات والمكالمات.",
+};
+
+// ---------------------------------------------------------------------------
+// Web-Speech bridge (works in the Expo web build; safe no-op on native).
+// ---------------------------------------------------------------------------
+function getWebRecognizer(lang: Lang): any | null {
+  if (Platform.OS !== "web") return null;
+  if (typeof window === "undefined") return null;
+  const w: any = window;
+  const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+  if (!SR) return null;
+  const rec = new SR();
+  rec.continuous = false;
+  rec.interimResults = false;
+  rec.lang = lang === "ar" ? "ar-SA" : "en-US";
+  return rec;
+}
+
+// ---------------------------------------------------------------------------
+// Floating bubble
+// ---------------------------------------------------------------------------
 export function AssistantBubble() {
-  const colors = useColors();
   const [open, setOpen] = useState(false);
 
   return (
     <>
       <Pressable
         onPress={() => setOpen(true)}
-        style={[
-          styles.bubble,
-          {
-            backgroundColor: colors.foreground,
-            shadowColor: "#000",
-          },
-        ]}
-        hitSlop={8}
+        hitSlop={10}
+        style={[styles.bubble, { shadowColor: "#000" }]}
       >
-        <Feather name="message-circle" size={22} color={colors.background} />
+        <ChameleonGradient
+          radius={32}
+          style={{
+            width: 60,
+            height: 60,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Feather name="message-circle" size={26} color="#FFFFFF" />
+        </ChameleonGradient>
       </Pressable>
 
       <Modal visible={open} animationType="slide" transparent>
@@ -62,22 +164,96 @@ export function AssistantBubble() {
   );
 }
 
-/* Reusable chat surface — also used by the dedicated /agents tab. */
+// ---------------------------------------------------------------------------
+// Reusable panel (used by both bubble Modal and the dedicated Assistant tab)
+// ---------------------------------------------------------------------------
 export function AssistantPanel({ onClose }: { onClose?: () => void }) {
   const colors = useColors();
-  const [provider, setProvider] = useState<AssistantProvider>("auto");
+  const [lang, setLang] = useState<Lang>("en");
   const [history, setHistory] = useState<AssistantHistoryItem[]>([
-    {
-      role: "assistant",
-      text: "Hi — I'm your NexFlow AI. Ask me about your pipeline, draft a follow-up, or run live web research. Switch the model below.",
-    },
+    { role: "assistant", text: GREETING.en },
   ]);
   const [draft, setDraft] = useState("");
+  const [listening, setListening] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+
   const send = useAssistantSend();
   const scrollRef = useRef<ScrollView>(null);
+  const recognizerRef = useRef<any>(null);
 
-  const submit = async () => {
-    const text = draft.trim();
+  // Swap greeting when the language toggles.
+  useEffect(() => {
+    setHistory((h) => {
+      if (h.length === 1 && h[0].role === "assistant") {
+        return [{ role: "assistant", text: GREETING[lang] }];
+      }
+      return h;
+    });
+  }, [lang]);
+
+  // Stop any in-flight TTS when closing the panel.
+  useEffect(() => {
+    return () => {
+      Speech.stop().catch(() => {});
+    };
+  }, []);
+
+  const speak = (text: string) => {
+    Speech.stop().catch(() => {});
+    setSpeaking(true);
+    Speech.speak(text, {
+      language: lang === "ar" ? "ar-SA" : "en-US",
+      rate: 1.0,
+      pitch: 1.0,
+      onDone: () => setSpeaking(false),
+      onStopped: () => setSpeaking(false),
+      onError: () => setSpeaking(false),
+    });
+  };
+
+  const stopSpeaking = () => {
+    Speech.stop().catch(() => {});
+    setSpeaking(false);
+  };
+
+  const startListening = () => {
+    const rec = getWebRecognizer(lang);
+    if (!rec) {
+      // Native (or unsupported web browser) — surface a guidance reply.
+      const msg =
+        lang === "ar"
+          ? "الإدخال الصوتي يعمل حالياً على المتصفح فقط. اكتب رسالتك أو استخدم اختصاراً."
+          : "Voice input is currently supported in the web preview. Type or pick a shortcut for now.";
+      setHistory((h) => [...h, { role: "assistant", text: msg }]);
+      return;
+    }
+    setListening(true);
+    rec.onresult = (event: any) => {
+      const transcript = event.results?.[0]?.[0]?.transcript ?? "";
+      setListening(false);
+      if (transcript) submit(transcript);
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    try {
+      rec.start();
+      recognizerRef.current = rec;
+    } catch {
+      setListening(false);
+    }
+  };
+
+  const stopListening = () => {
+    try {
+      recognizerRef.current?.stop?.();
+    } catch {
+      /* ignore */
+    }
+    setListening(false);
+  };
+
+  const submit = async (overrideText?: string) => {
+    const text = (overrideText ?? draft).trim();
     if (!text || send.isPending) return;
     const userTurn: AssistantHistoryItem = { role: "user", text };
     const newHistory = [...history, userTurn];
@@ -88,154 +264,278 @@ export function AssistantPanel({ onClose }: { onClose?: () => void }) {
     try {
       const r = await send.mutateAsync({
         message: text,
-        provider,
+        provider: "auto",
         history: newHistory,
       });
-      setHistory((h) => [...h, { role: "assistant", text: r.reply ?? "(no reply)" }]);
+      const reply = r.reply ?? "(no reply)";
+      setHistory((h) => [...h, { role: "assistant", text: reply }]);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
+      // Auto-speak short replies; longer ones the user can tap to play.
+      if (reply.length < 320) speak(reply);
     } catch (e: any) {
-      setHistory((h) => [...h, { role: "assistant", text: `⚠️ ${e?.message ?? "Failed"}` }]);
+      setHistory((h) => [
+        ...h,
+        { role: "assistant", text: `⚠️ ${e?.message ?? "Failed"}` },
+      ]);
     }
   };
 
+  const runShortcut = (s: ActionGpt) => {
+    submit(lang === "ar" ? s.promptAr : s.prompt);
+  };
+
+  const t = (en: string, ar: string) => (lang === "ar" ? ar : en);
   const inline = !onClose;
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, justifyContent: "flex-end" }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={[
+        inline ? styles.inlineWrap : styles.modalWrap,
+        { backgroundColor: inline ? "transparent" : "rgba(20,16,32,0.45)" },
+      ]}
     >
-      {!inline && <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />}
-
       <View
         style={[
-          styles.panel,
-          inline && { height: "100%", borderTopLeftRadius: 0, borderTopRightRadius: 0, borderWidth: 0 },
-          { backgroundColor: colors.background, borderColor: colors.border },
+          inline ? styles.inlinePanel : styles.modalPanel,
+          { backgroundColor: colors.background },
         ]}
       >
-        {/* Header */}
-        {!inline && (
-        <View style={[styles.panelHeader, { borderBottomColor: colors.border }]}>
-          <View>
-            <Text style={[styles.kicker, { color: colors.mutedForeground }]}>AI ASSISTANT</Text>
-            <Text style={{ color: colors.foreground, fontWeight: "800", fontSize: 18 }}>
-              Ask me anything
-            </Text>
-          </View>
-          {onClose && (
-            <Pressable onPress={onClose} hitSlop={10}>
-              <Feather name="x" size={22} color={colors.foreground} />
-            </Pressable>
-          )}
-        </View>
-        )}
-
-        {/* Provider toggle */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ flexGrow: 0, maxHeight: 52 }}
-          contentContainerStyle={{
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-            gap: 6,
-            alignItems: "center",
-          }}
+        {/* Chameleon header */}
+        <ChameleonGradient
+          radius={inline ? 0 : 24}
+          style={[
+            styles.header,
+            inline && { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
+          ]}
         >
-          {PROVIDERS.map((p) => {
-            const active = provider === p.id;
-            return (
-              <Pressable
-                key={p.id}
-                onPress={() => setProvider(p.id)}
-                style={[
-                  styles.providerChip,
-                  {
-                    backgroundColor: active ? colors.foreground : "transparent",
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Feather
-                  name={p.icon}
-                  size={12}
-                  color={active ? colors.background : colors.foreground}
-                />
-                <Text
-                  style={{
-                    color: active ? colors.background : colors.foreground,
-                    fontWeight: "600",
-                    fontSize: 12,
-                  }}
-                >
-                  {p.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: "rgba(255,255,255,0.22)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Feather name="zap" size={18} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headerTitle}>NexFlow AI</Text>
+              <Text style={styles.headerSub}>
+                {t("Your always-on revenue copilot", "مساعدك الذكي للمبيعات")}
+              </Text>
+            </View>
 
-        {/* Conversation */}
+            {/* Language toggle */}
+            <Pressable
+              onPress={() => setLang(lang === "en" ? "ar" : "en")}
+              style={styles.langPill}
+            >
+              <Feather name="globe" size={12} color="#FFFFFF" />
+              <Text style={styles.langText}>
+                {lang === "en" ? "EN" : "AR"}
+              </Text>
+            </Pressable>
+
+            {onClose && (
+              <Pressable
+                onPress={() => {
+                  stopSpeaking();
+                  stopListening();
+                  onClose();
+                }}
+                hitSlop={10}
+                style={{ padding: 4 }}
+              >
+                <Feather name="x" size={20} color="#FFFFFF" />
+              </Pressable>
+            )}
+          </View>
+        </ChameleonGradient>
+
+        {/* Action GPT chips */}
+        <View
+          style={[
+            styles.actionsWrap,
+            { borderBottomColor: colors.border, backgroundColor: colors.muted },
+          ]}
+        >
+          <Text
+            style={{
+              fontFamily: "Inter_700Bold",
+              fontSize: 10,
+              color: colors.mutedForeground,
+              letterSpacing: 0.6,
+              marginBottom: 8,
+              textAlign: lang === "ar" ? "right" : "left",
+            }}
+          >
+            {t("ACTION GPTs", "اختصارات الذكاء")}
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8 }}
+          >
+            {ACTION_GPTS.map((s) => (
+              <Pressable key={s.id} onPress={() => runShortcut(s)}>
+                <View
+                  style={[
+                    styles.actionChip,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: "rgba(184,160,200,0.45)",
+                    },
+                  ]}
+                >
+                  <Feather name={s.icon} size={12} color="#7A5C9E" />
+                  <Text
+                    style={[styles.actionLabel, { color: colors.foreground }]}
+                  >
+                    {lang === "ar" ? s.labelAr : s.label}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Chat history */}
         <ScrollView
           ref={scrollRef}
           style={{ flex: 1 }}
-          contentContainerStyle={{ padding: 14, gap: 10, paddingBottom: 20 }}
+          contentContainerStyle={{ padding: 14, gap: 10 }}
         >
-          {history.map((m, i) => (
-            <View
-              key={i}
-              style={[
-                styles.bubbleRow,
-                m.role === "user"
-                  ? { alignSelf: "flex-end", backgroundColor: colors.foreground }
-                  : { alignSelf: "flex-start", backgroundColor: colors.muted },
-              ]}
-            >
-              <Text
+          {history.map((h, i) => {
+            const isUser = h.role === "user";
+            return (
+              <View
+                key={i}
                 style={{
-                  color: m.role === "user" ? colors.background : colors.foreground,
-                  fontSize: 14,
-                  lineHeight: 20,
+                  alignSelf: isUser ? "flex-end" : "flex-start",
+                  maxWidth: "85%",
                 }}
               >
-                {m.text}
-              </Text>
-            </View>
-          ))}
+                {isUser ? (
+                  <ChameleonGradient
+                    radius={14}
+                    style={{ paddingHorizontal: 14, paddingVertical: 10 }}
+                  >
+                    <Text style={styles.bubbleTextLight}>{h.text}</Text>
+                  </ChameleonGradient>
+                ) : (
+                  <GlassCard padded={false} style={{ padding: 12 }}>
+                    <Text
+                      style={[styles.bubbleText, { color: colors.foreground }]}
+                    >
+                      {h.text}
+                    </Text>
+                    <Pressable
+                      onPress={() => (speaking ? stopSpeaking() : speak(h.text))}
+                      style={{ marginTop: 8, alignSelf: "flex-start" }}
+                      hitSlop={6}
+                    >
+                      <View style={{ flexDirection: "row", gap: 4, alignItems: "center" }}>
+                        <Feather
+                          name={speaking ? "volume-x" : "volume-2"}
+                          size={12}
+                          color="#7A5C9E"
+                        />
+                        <Text
+                          style={{
+                            fontFamily: "Inter_600SemiBold",
+                            fontSize: 11,
+                            color: "#7A5C9E",
+                          }}
+                        >
+                          {speaking
+                            ? t("Stop", "إيقاف")
+                            : t("Play", "استمع")}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  </GlassCard>
+                )}
+              </View>
+            );
+          })}
           {send.isPending && (
-            <View style={[styles.bubbleRow, { alignSelf: "flex-start", backgroundColor: colors.muted }]}>
-              <ActivityIndicator size="small" color={colors.foreground} />
+            <View
+              style={{
+                alignSelf: "flex-start",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                paddingHorizontal: 4,
+              }}
+            >
+              <ActivityIndicator color="#7A5C9E" />
+              <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
+                {t("Thinking…", "جارٍ التفكير…")}
+              </Text>
             </View>
           )}
         </ScrollView>
 
         {/* Composer */}
-        <View style={[styles.composer, { borderTopColor: colors.border }]}>
+        <View
+          style={[
+            styles.composer,
+            { borderTopColor: colors.border, backgroundColor: colors.background },
+          ]}
+        >
+          <Pressable
+            onPress={listening ? stopListening : startListening}
+            style={[
+              styles.micBtn,
+              {
+                backgroundColor: listening ? "#C25151" : colors.muted,
+              },
+            ]}
+            hitSlop={6}
+          >
+            <Feather
+              name={listening ? "square" : "mic"}
+              size={16}
+              color={listening ? "#FFFFFF" : "#7A5C9E"}
+            />
+          </Pressable>
           <TextInput
             value={draft}
             onChangeText={setDraft}
-            placeholder="Ask anything…"
+            placeholder={t("Ask anything…", "اسألني أي شيء…")}
             placeholderTextColor={colors.mutedForeground}
+            onSubmitEditing={() => submit()}
+            returnKeyType="send"
             multiline
             style={[
               styles.input,
-              { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.muted },
-            ]}
-            onSubmitEditing={submit}
-          />
-          <Pressable
-            onPress={submit}
-            disabled={send.isPending || !draft.trim()}
-            style={[
-              styles.sendBtn,
               {
-                backgroundColor: colors.foreground,
-                opacity: send.isPending || !draft.trim() ? 0.5 : 1,
+                color: colors.foreground,
+                backgroundColor: colors.muted,
+                textAlign: lang === "ar" ? "right" : "left",
               },
             ]}
+          />
+          <Pressable
+            onPress={() => submit()}
+            disabled={!draft.trim() || send.isPending}
+            style={{ opacity: !draft.trim() || send.isPending ? 0.5 : 1 }}
           >
-            <Feather name="send" size={16} color={colors.background} />
+            <ChameleonGradient
+              radius={20}
+              style={{
+                width: 40,
+                height: 40,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Feather name="arrow-up" size={18} color="#FFFFFF" />
+            </ChameleonGradient>
           </Pressable>
         </View>
       </View>
@@ -246,73 +546,110 @@ export function AssistantPanel({ onClose }: { onClose?: () => void }) {
 const styles = StyleSheet.create({
   bubble: {
     position: "absolute",
-    right: 18,
-    bottom: Platform.OS === "ios" ? 110 : 90,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
+    right: 16,
+    bottom: 96,
+    width: 60,
+    height: 60,
+    borderRadius: 32,
     shadowOpacity: 0.25,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-    zIndex: 999,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+    zIndex: 99,
   },
-  panel: {
-    height: "82%",
+
+  modalWrap: { flex: 1, justifyContent: "flex-end" },
+  modalPanel: {
+    height: "92%",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
   },
-  panelHeader: {
+
+  inlineWrap: { flex: 1 },
+  inlinePanel: { flex: 1 },
+
+  header: {
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 14,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  headerTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 16,
+    color: "#FFFFFF",
+  },
+  headerSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    color: "rgba(255,255,255,0.85)",
+    marginTop: 2,
+  },
+  langPill: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    borderRadius: 8,
   },
-  kicker: { fontSize: 10, letterSpacing: 1, fontWeight: "700", textTransform: "uppercase" },
-  providerChip: {
-    flexDirection: "row",
-    gap: 5,
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
+  langText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 11,
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
   },
-  bubbleRow: {
-    maxWidth: "85%",
+
+  actionsWrap: {
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 14,
+    borderBottomWidth: 1,
   },
+  actionChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  actionLabel: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
+
+  bubbleText: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19 },
+  bubbleTextLight: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    lineHeight: 19,
+    color: "#FFFFFF",
+  },
+
   composer: {
     flexDirection: "row",
-    gap: 8,
-    padding: 10,
-    paddingBottom: Platform.OS === "ios" ? 28 : 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
     alignItems: "flex-end",
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 18,
-    paddingHorizontal: 14,
+    gap: 8,
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 14,
-    maxHeight: 120,
+    borderTopWidth: 1,
   },
-  sendBtn: {
+  micBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+  },
+  input: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 120,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 18,
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
   },
 });
