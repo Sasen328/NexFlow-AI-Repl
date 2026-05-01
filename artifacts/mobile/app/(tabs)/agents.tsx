@@ -1,12 +1,64 @@
-import React from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+/**
+ * AI Assistant tab — full chat surface + background agents catalog.
+ * Provider toggle: Auto · Claude · GPT-4o · Gemini · Perplexity.
+ */
+import React, { useState } from "react";
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useColors } from "@/hooks/useColors";
-import { Card } from "@/components/ui/Card";
+
 import { Badge } from "@/components/ui/Badge";
-import { Avatar } from "@/components/ui/Avatar";
+import { Card } from "@/components/ui/Card";
+import { PersonaSwitcher } from "@/components/PersonaSwitcher";
+import { SubTabs } from "@/components/ui/SubTabs";
+import { AssistantPanel } from "@/components/AssistantBubble";
+import { useColors } from "@/hooks/useColors";
 import { useAgents, type ApiAgent } from "@/lib/api";
+
+type SubKey = "chat" | "agents";
+
+export default function AgentsScreen() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const [sub, setSub] = useState<SubKey>("chat");
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <View>
+          <Text style={[styles.kicker, { color: colors.mutedForeground }]}>AI</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>Assistant</Text>
+        </View>
+        <PersonaSwitcher />
+      </View>
+
+      <SubTabs<SubKey>
+        value={sub}
+        onChange={setSub}
+        tabs={[
+          { key: "chat", label: "Chat" },
+          { key: "agents", label: "Background agents" },
+        ]}
+      />
+
+      {sub === "chat" ? (
+        <View style={{ flex: 1 }}>
+          <AssistantPanel />
+        </View>
+      ) : (
+        <BackgroundAgents />
+      )}
+    </View>
+  );
+}
 
 function timeAgo(iso: string | null) {
   if (!iso) return "Never run";
@@ -20,142 +72,108 @@ function timeAgo(iso: string | null) {
   return `${d}d ago`;
 }
 
-export default function AgentsScreen() {
+function BackgroundAgents() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
-  const { data, isPending, isError, refetch, isRefetching } = useAgents();
+  const { data, isPending, isError } = useAgents();
   const agents: ApiAgent[] = data?.agents ?? [];
+
+  if (isPending) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator color={colors.foreground} />
+      </View>
+    );
+  }
+  if (isError) {
+    return (
+      <View style={{ padding: 16 }}>
+        <Text style={{ color: colors.foreground }}>Could not load agents.</Text>
+      </View>
+    );
+  }
 
   const enabledCount = agents.filter((a) => a.enabled).length;
   const totalRuns = agents.reduce((s, a) => s + (a.run_count || 0), 0);
-  const scheduled = agents.filter((a) => a.trigger_type === "schedule").length;
 
   return (
-    <ScrollView
-      style={{ backgroundColor: colors.background }}
-      contentContainerStyle={{
-        paddingTop: insets.top + (Platform.OS === "web" ? 67 : 12),
-        paddingBottom: 120,
-        paddingHorizontal: 16,
-        gap: 16,
-      }}
-      showsVerticalScrollIndicator={false}
-      refreshControl={undefined}
-    >
-      <View>
-        <Text style={[styles.kicker, { color: colors.mutedForeground }]}>AI WORKFORCE</Text>
-        <Text style={[styles.title, { color: colors.foreground }]}>Agents</Text>
+    <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
+      <View style={styles.statsStrip}>
+        <Stat label="Agents" value={`${agents.length}`} colors={colors} />
+        <Stat label="Enabled" value={`${enabledCount}`} colors={colors} />
+        <Stat label="Runs" value={`${totalRuns}`} colors={colors} />
       </View>
 
-      <View style={{ flexDirection: "row", gap: 10 }}>
-        <Card style={{ flex: 1, gap: 4 }}>
-          <Text style={[styles.kicker, { color: colors.mutedForeground }]}>ENABLED</Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <View style={[styles.livePulse, { backgroundColor: "#7FB069" }]} />
-            <Text style={[styles.bigValue, { color: colors.foreground }]}>{enabledCount}</Text>
-          </View>
-        </Card>
-        <Card style={{ flex: 1, gap: 4 }}>
-          <Text style={[styles.kicker, { color: colors.mutedForeground }]}>TOTAL RUNS</Text>
-          <Text style={[styles.bigValue, { color: "#B8A0C8" }]}>{totalRuns}</Text>
-        </Card>
-        <Card style={{ flex: 1, gap: 4 }}>
-          <Text style={[styles.kicker, { color: colors.mutedForeground }]}>SCHEDULED</Text>
-          <Text style={[styles.bigValue, { color: "#88B8B0" }]}>{scheduled}</Text>
-        </Card>
-      </View>
-
-      <View style={styles.sectionHeader}>
-        <View style={styles.sectionTitleRow}>
-          <Feather name="cpu" size={16} color={colors.mutedForeground} />
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>All Agents · {agents.length}</Text>
-        </View>
-        <Pressable onPress={() => refetch()}>
-          <Feather
-            name="refresh-cw"
-            size={14}
-            color={colors.mutedForeground}
-            style={{ opacity: isRefetching ? 0.4 : 1 }}
-          />
-        </Pressable>
-      </View>
-
-      {isPending ? (
-        <View style={{ paddingVertical: 40, alignItems: "center" }}>
-          <ActivityIndicator color={colors.mutedForeground} />
-        </View>
-      ) : isError ? (
-        <Card style={{ alignItems: "center", gap: 8 }}>
-          <Feather name="wifi-off" size={24} color={colors.mutedForeground} />
-          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium" }}>
-            Couldn't load agents.
-          </Text>
-        </Card>
-      ) : agents.length === 0 ? (
-        <Card style={{ alignItems: "center", gap: 8 }}>
-          <Feather name="cpu" size={24} color={colors.mutedForeground} />
-          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium" }}>
-            No agents configured yet.
-          </Text>
-        </Card>
-      ) : (
-        agents.map((a) => {
-          const enabled = a.enabled;
-          const statusColor = enabled ? "#7FB069" : "#C8A880";
-          const initials = (a.name || "?")
-            .split(" ")
-            .map((w) => w[0])
-            .filter(Boolean)
-            .slice(0, 2)
-            .join("")
-            .toUpperCase();
-          return (
-            <Card key={a.id} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-              <Avatar initials={initials} size={48} />
-              <View style={{ flex: 1, gap: 4 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  <Text style={[styles.agentName, { color: colors.foreground }]} numberOfLines={1}>
-                    {a.name}
-                  </Text>
-                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusColor }} />
-                  <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: statusColor }}>
-                    {enabled ? "ENABLED" : "PAUSED"}
-                  </Text>
-                </View>
-                {a.description ? (
-                  <Text style={[styles.agentSub, { color: colors.mutedForeground }]} numberOfLines={2}>
-                    {a.description}
-                  </Text>
-                ) : null}
-                <View style={{ flexDirection: "row", gap: 8, marginTop: 4, alignItems: "center", flexWrap: "wrap" }}>
-                  <Badge label={a.trigger_type.toUpperCase()} tone="violet" small />
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                    <Feather name="zap" size={10} color={colors.mutedForeground} />
-                    <Text style={[styles.agentMeta, { color: colors.mutedForeground }]}>{a.run_count} runs</Text>
-                  </View>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                    <Feather name="clock" size={10} color={colors.mutedForeground} />
-                    <Text style={[styles.agentMeta, { color: colors.mutedForeground }]}>{timeAgo(a.last_run_at)}</Text>
-                  </View>
-                </View>
+      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Always-on agents</Text>
+      <View style={{ paddingHorizontal: 16, gap: 8 }}>
+        {agents.map((a) => (
+          <Card key={a.id}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 8,
+                  backgroundColor: a.enabled ? "#88B8B033" : colors.muted,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Feather name="zap" size={16} color={a.enabled ? "#3F726B" : colors.mutedForeground} />
               </View>
-            </Card>
-          );
-        })
-      )}
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.foreground, fontWeight: "700" }}>{a.name}</Text>
+                <Text style={{ color: colors.mutedForeground, fontSize: 11 }} numberOfLines={2}>
+                  {a.description ?? a.model}
+                </Text>
+              </View>
+              <Badge tone={a.enabled ? "success" : "neutral"} small label={a.enabled ? "on" : "off"} />
+            </View>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                marginTop: 8,
+                paddingTop: 8,
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderTopColor: colors.border,
+              }}
+            >
+              <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>
+                {a.run_count} run{a.run_count === 1 ? "" : "s"}
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>
+                {timeAgo(a.last_run_at)}
+              </Text>
+            </View>
+          </Card>
+        ))}
+      </View>
     </ScrollView>
   );
 }
 
+function Stat({ label, value, colors }: { label: string; value: string; colors: ReturnType<typeof useColors> }) {
+  return (
+    <View style={[styles.statTile, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <Text style={{ color: colors.foreground, fontWeight: "800", fontSize: 16 }}>{value}</Text>
+      <Text style={{ color: colors.mutedForeground, fontSize: 11, marginTop: 2 }}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  kicker: { fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 1.2 },
-  title: { fontFamily: "Inter_700Bold", fontSize: 28, marginTop: 2 },
-  bigValue: { fontFamily: "Inter_700Bold", fontSize: 22 },
-  livePulse: { width: 8, height: 8, borderRadius: 4 },
-  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
-  sectionTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  sectionTitle: { fontFamily: "Inter_700Bold", fontSize: 16 },
-  agentName: { fontFamily: "Inter_700Bold", fontSize: 15, flexShrink: 1 },
-  agentSub: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 17 },
-  agentMeta: { fontFamily: "Inter_500Medium", fontSize: 11 },
+  header: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === "web" ? 16 : 8,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  kicker: { fontSize: 11, letterSpacing: 1, textTransform: "uppercase", marginBottom: 4, fontWeight: "600" },
+  title: { fontSize: 22, fontWeight: "800" },
+  sectionTitle: { fontSize: 14, fontWeight: "700", paddingHorizontal: 16, marginTop: 22, marginBottom: 10 },
+  statsStrip: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 14 },
+  statTile: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1 },
 });

@@ -1,18 +1,15 @@
 /**
- * Enrichment screen (mobile).
- *
- * Live AI-powered lead enrichment that calls the same /api/lead-enrich/quick
- * endpoint the web app uses. Type a name + company (or just a name, or just
- * an email) and the engine returns a fully drafted contact profile with
- * scoring, persona, suggested next actions, and source attribution.
+ * Enrichment tab — Prospecting · AI Research · Bulk · Signals · Engines · Card Scanner
+ * Native mirror of the web Enrichment Engine.
  */
-
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
+  Alert,
+  Image,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,533 +17,654 @@ import {
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 
-import { useColors } from "@/hooks/useColors";
-import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { apiPost } from "@/lib/api";
+import { Card } from "@/components/ui/Card";
+import { PersonaSwitcher } from "@/components/PersonaSwitcher";
+import { SubTabs } from "@/components/ui/SubTabs";
+import { useColors } from "@/hooks/useColors";
+import {
+  useBusinessCards,
+  useEnrichmentRuns,
+  useEnrichmentSources,
+  useResearchProspect,
+  useRunWaterfall,
+  useSaveBusinessCard,
+  useScanBusinessCard,
+  useSignalsFeed,
+} from "@/lib/api";
 
-interface EnrichmentResult {
-  first_name?: string;
-  last_name?: string;
-  email?: string;
-  phone?: string;
-  title?: string;
-  linkedin_url?: string;
-  company?: {
-    name?: string;
-    industry?: string;
-    country?: string;
-    size?: string;
-    website?: string;
-  };
-  seniority?: string;
-  tags?: string[];
-  persona?: string;
-  summary?: string;
-  next_actions?: { action: string; reason: string }[];
-  lead_score?: number;
-  confidence?: number;
-  enriched_fields?: string[];
-}
-
-const ACTION_ICON: Record<string, string> = {
-  call: "phone",
-  email: "mail",
-  whatsapp: "message-circle",
-  linkedin: "linkedin",
-};
+type SubKey = "prospect" | "research" | "bulk" | "signals" | "engines" | "card";
 
 export default function EnrichmentScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [company, setCompany] = useState("");
-  const [linkedin, setLinkedin] = useState("");
-  const [notes, setNotes] = useState("");
-
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<EnrichmentResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const canSubmit = (name.trim() || email.trim() || company.trim() || linkedin.trim()) && !loading;
-
-  const reset = () => {
-    setName(""); setEmail(""); setCompany(""); setLinkedin(""); setNotes("");
-    setResult(null); setError(null);
-  };
-
-  const submit = async () => {
-    if (!canSubmit) return;
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLoading(true); setError(null); setResult(null);
-    try {
-      const r = await apiPost<{ enriched: EnrichmentResult; saved: boolean }>(
-        "/lead-enrich/quick",
-        { name, email, company, linkedin_url: linkedin, notes },
-      );
-      setResult(r.enriched);
-      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (e: any) {
-      setError(e?.message ?? "Enrichment failed");
-      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fullName = result ? `${result.first_name ?? ""} ${result.last_name ?? ""}`.trim() : "";
+  const [sub, setSub] = useState<SubKey>("prospect");
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={{
-          paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16),
-          paddingHorizontal: 16,
-          paddingBottom: 140,
-          gap: 16,
-        }}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Header */}
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View>
-          <Text style={[s.title, { color: colors.foreground }]}>Enrichment Engine</Text>
-          <Text style={[s.subtitle, { color: colors.mutedForeground }]}>
-            Provide any seed — name, email, company, LinkedIn — and the engine drafts a full contact profile.
-          </Text>
+          <Text style={[styles.kicker, { color: colors.mutedForeground }]}>ENRICHMENT</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>Find · Research · Enrich</Text>
         </View>
+        <PersonaSwitcher />
+      </View>
 
-        {/* Input form */}
-        <Card>
-          <View style={{ gap: 10 }}>
-            <Field
-              icon="user"
-              label="Name"
-              value={name}
-              onChange={setName}
-              placeholder="e.g. Ahmed Al-Rashidi"
-              colors={colors}
-            />
-            <Field
-              icon="briefcase"
-              label="Company"
-              value={company}
-              onChange={setCompany}
-              placeholder="e.g. Aramco Digital"
-              colors={colors}
-            />
-            <Field
-              icon="mail"
-              label="Email"
-              value={email}
-              onChange={setEmail}
-              placeholder="optional"
-              keyboardType="email-address"
-              colors={colors}
-            />
-            <Field
-              icon="linkedin"
-              label="LinkedIn URL"
-              value={linkedin}
-              onChange={setLinkedin}
-              placeholder="optional"
-              colors={colors}
-            />
-            <Field
-              icon="file-text"
-              label="Notes"
-              value={notes}
-              onChange={setNotes}
-              placeholder="any extra context"
-              multiline
-              colors={colors}
-            />
+      <SubTabs<SubKey>
+        value={sub}
+        onChange={setSub}
+        tabs={[
+          { key: "prospect", label: "Prospecting" },
+          { key: "research", label: "AI Research" },
+          { key: "bulk", label: "Bulk" },
+          { key: "signals", label: "Buying Signals" },
+          { key: "engines", label: "Engines" },
+          { key: "card", label: "Card Scanner" },
+        ]}
+      />
 
-            <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
-              <Pressable
-                onPress={submit}
-                disabled={!canSubmit}
-                style={({ pressed }) => [{ flex: 1, opacity: !canSubmit || pressed ? 0.6 : 1 }]}
-              >
-                <LinearGradient
-                  colors={["#B8A0C8", "#88B8B0", "#C8A880"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={s.runBtn}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <>
-                      <Feather name="zap" size={16} color="#fff" />
-                      <Text style={s.runBtnText}>Run Enrichment</Text>
-                    </>
-                  )}
-                </LinearGradient>
-              </Pressable>
-              {(result || error) && (
-                <Pressable
-                  onPress={reset}
-                  style={({ pressed }) => [
-                    s.resetBtn,
-                    { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
-                  ]}
-                >
-                  <Feather name="refresh-ccw" size={14} color={colors.foreground} />
-                </Pressable>
-              )}
-            </View>
-          </View>
-        </Card>
-
-        {/* Error */}
-        {error && (
-          <Card>
-            <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
-              <Feather name="alert-circle" size={16} color="#C8A880" style={{ marginTop: 2 }} />
-              <Text style={[s.errorText, { color: colors.foreground, flex: 1 }]}>{error}</Text>
-            </View>
-          </Card>
-        )}
-
-        {/* Loading hint */}
-        {loading && (
-          <Card>
-            <View style={{ gap: 8 }}>
-              <Text style={[s.stepText, { color: colors.foreground }]}>Enriching…</Text>
-              {[
-                "Looking up the company",
-                "Inferring role and seniority",
-                "Scoring intent + buying signals",
-                "Drafting next actions",
-              ].map((step) => (
-                <View key={step} style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-                  <ActivityIndicator size="small" color={colors.violet} />
-                  <Text style={[s.stepLine, { color: colors.mutedForeground }]}>{step}</Text>
-                </View>
-              ))}
-            </View>
-          </Card>
-        )}
-
-        {/* Result */}
-        {result && (
-          <>
-            {/* Identity card */}
-            <Card>
-              <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
-                <LinearGradient
-                  colors={["#B8A0C8", "#88B8B0"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={s.avatarLg}
-                >
-                  <Text style={s.avatarLgText}>
-                    {(result.first_name?.[0] ?? "?")}
-                    {(result.last_name?.[0] ?? "")}
-                  </Text>
-                </LinearGradient>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={[s.resultName, { color: colors.foreground }]} numberOfLines={1}>
-                    {fullName || "Enriched contact"}
-                  </Text>
-                  {result.title && (
-                    <Text style={[s.resultTitle, { color: colors.mutedForeground }]} numberOfLines={2}>
-                      {result.title}
-                    </Text>
-                  )}
-                  {result.company?.name && (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-                      <Feather name="briefcase" size={11} color={colors.mutedForeground} />
-                      <Text style={[s.resultCompany, { color: colors.foreground }]} numberOfLines={1}>
-                        {result.company.name}
-                      </Text>
-                      {result.company.country && (
-                        <Text style={[s.resultCompany, { color: colors.mutedForeground }]}>
-                          · {result.company.country}
-                        </Text>
-                      )}
-                    </View>
-                  )}
-                </View>
-                {typeof result.lead_score === "number" && (
-                  <View style={[s.scoreBadge, { borderColor: scoreColor(result.lead_score) }]}>
-                    <Text style={[s.scoreText, { color: scoreColor(result.lead_score) }]}>
-                      {result.lead_score}
-                    </Text>
-                    <Text style={[s.scoreLabel, { color: colors.mutedForeground }]}>score</Text>
-                  </View>
-                )}
-              </View>
-
-              {result.tags && result.tags.length > 0 && (
-                <View style={s.tagRow}>
-                  {result.tags.slice(0, 6).map((t) => (
-                    <View key={t} style={[s.tagPill, { backgroundColor: colors.muted }]}>
-                      <Text style={[s.tagText, { color: colors.foreground }]}>{t}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {result.summary && (
-                <Text style={[s.summaryText, { color: colors.mutedForeground }]}>{result.summary}</Text>
-              )}
-            </Card>
-
-            {/* Detail rows */}
-            <Card>
-              <SectionTitle colors={colors}>Profile</SectionTitle>
-              <Detail label="Persona" value={result.persona} colors={colors} />
-              <Detail label="Seniority" value={result.seniority} colors={colors} />
-              <Detail label="Email" value={result.email} colors={colors} />
-              <Detail label="Phone" value={result.phone} colors={colors} />
-              <Detail label="LinkedIn" value={result.linkedin_url} colors={colors} />
-              <Detail label="Industry" value={result.company?.industry} colors={colors} />
-              <Detail label="Company size" value={result.company?.size} colors={colors} />
-              <Detail label="Website" value={result.company?.website} colors={colors} />
-              <Detail
-                label="Confidence"
-                value={typeof result.confidence === "number" ? `${result.confidence}%` : undefined}
-                colors={colors}
-              />
-            </Card>
-
-            {/* Next actions */}
-            {result.next_actions && result.next_actions.length > 0 && (
-              <Card>
-                <SectionTitle colors={colors}>Suggested next actions</SectionTitle>
-                <View style={{ gap: 8, marginTop: 8 }}>
-                  {result.next_actions.map((a, i) => (
-                    <View
-                      key={i}
-                      style={[
-                        s.actionRow,
-                        { borderColor: colors.border, backgroundColor: colors.muted },
-                      ]}
-                    >
-                      <View style={[s.actionIcon, { backgroundColor: colors.background }]}>
-                        <Feather
-                          name={(ACTION_ICON[a.action] ?? "play") as any}
-                          size={14}
-                          color={colors.violet}
-                        />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[s.actionLabel, { color: colors.foreground }]}>
-                          {a.action.toUpperCase()}
-                        </Text>
-                        <Text style={[s.actionReason, { color: colors.mutedForeground }]}>
-                          {a.reason}
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              </Card>
-            )}
-
-            {/* Sources */}
-            {result.enriched_fields && result.enriched_fields.length > 0 && (
-              <Card>
-                <SectionTitle colors={colors}>Fields enriched</SectionTitle>
-                <View style={[s.tagRow, { marginTop: 6 }]}>
-                  {result.enriched_fields.map((f) => (
-                    <Badge key={f} label={f} tone="violet" />
-                  ))}
-                </View>
-              </Card>
-            )}
-          </>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+      {sub === "prospect" && <ProspectingView />}
+      {sub === "research" && <ResearchView />}
+      {sub === "bulk" && <BulkView />}
+      {sub === "signals" && <SignalsView />}
+      {sub === "engines" && <EnginesView />}
+      {sub === "card" && <CardScannerView />}
+    </View>
   );
 }
 
-// ── Sub-components ──────────────────────────────────────────────────────────
+/* ─────────────────────────── Prospecting (waterfall) ─────────────────────────── */
+
+function ProspectingView() {
+  const colors = useColors();
+  const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
+  const [domain, setDomain] = useState("");
+  const [linkedin, setLinkedin] = useState("");
+  const run = useRunWaterfall();
+  const recent = useEnrichmentRuns();
+
+  const submit = () => {
+    if (!name && !company && !domain && !linkedin) {
+      Alert.alert("Add at least one field", "Name, company, domain or LinkedIn.");
+      return;
+    }
+    run.mutate(
+      { full_name: name, company, domain, linkedin },
+      {
+        onSuccess: () => {
+          recent.refetch();
+          Alert.alert("Enrichment complete", "Check the result card below.");
+        },
+        onError: (e: any) => Alert.alert("Failed", e.message),
+      },
+    );
+  };
+
+  return (
+    <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
+      <Card style={{ margin: 16 }}>
+        <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>Single-lead waterfall</Text>
+        <Text style={{ color: colors.foreground, fontSize: 13, marginTop: 6 }}>
+          Runs your sources in priority order (Apollo → Lusha → Wathiq → Argaam) until we hit verified email + phone.
+        </Text>
+
+        <Field label="Full name" value={name} onChange={setName} placeholder="e.g. Sara Al-Mansouri" />
+        <Field label="Company" value={company} onChange={setCompany} placeholder="e.g. Gulf Ventures" />
+        <Field label="Domain" value={domain} onChange={setDomain} placeholder="e.g. gulfventures.sa" />
+        <Field label="LinkedIn URL" value={linkedin} onChange={setLinkedin} placeholder="linkedin.com/in/..." />
+
+        <Pressable
+          onPress={submit}
+          disabled={run.isPending}
+          style={[styles.cta, { backgroundColor: colors.foreground, opacity: run.isPending ? 0.6 : 1 }]}
+        >
+          {run.isPending ? (
+            <ActivityIndicator color={colors.background} />
+          ) : (
+            <>
+              <Feather name="zap" size={16} color={colors.background} />
+              <Text style={{ color: colors.background, fontWeight: "700" }}>Run waterfall</Text>
+            </>
+          )}
+        </Pressable>
+
+        {run.data && (
+          <View style={{ marginTop: 14, padding: 12, backgroundColor: colors.muted, borderRadius: 10 }}>
+            <Text style={{ color: colors.foreground, fontWeight: "700", marginBottom: 6 }}>Enriched result</Text>
+            <Text style={{ color: colors.foreground, fontSize: 12, lineHeight: 18 }}>
+              {JSON.stringify(run.data.result ?? run.data, null, 2)}
+            </Text>
+          </View>
+        )}
+      </Card>
+
+      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Recent enrichments</Text>
+      <View style={{ paddingHorizontal: 16, gap: 8 }}>
+        {recent.isPending ? (
+          <ActivityIndicator color={colors.foreground} />
+        ) : (recent.data?.runs ?? []).length === 0 ? (
+          <Text style={{ color: colors.mutedForeground }}>No runs yet — try the waterfall above.</Text>
+        ) : (
+          (recent.data?.runs ?? []).slice(0, 8).map((r: any) => (
+            <Card key={r.id}>
+              <Text style={{ color: colors.foreground, fontWeight: "700" }}>
+                {r.seed?.full_name || r.seed?.company || r.seed?.domain || "Run"}
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontSize: 11, marginTop: 4 }}>
+                {r.status ?? "ok"} · {new Date(r.created_at).toLocaleString()}
+              </Text>
+            </Card>
+          ))
+        )}
+      </View>
+    </ScrollView>
+  );
+}
+
+/* ─────────────────────────── AI Research ─────────────────────────── */
+
+function ResearchView() {
+  const colors = useColors();
+  const [company, setCompany] = useState("");
+  const [person, setPerson] = useState("");
+  const [topic, setTopic] = useState("");
+  const research = useResearchProspect();
+
+  return (
+    <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
+      <Card style={{ margin: 16 }}>
+        <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>Multi-model research lab</Text>
+        <Text style={{ color: colors.foreground, fontSize: 13, marginTop: 6 }}>
+          Live web research with Perplexity + Claude. Returns a structured brief.
+        </Text>
+
+        <Field label="Company" value={company} onChange={setCompany} placeholder="NEOM Tech & Digital" />
+        <Field label="Person" value={person} onChange={setPerson} placeholder="Rashid Al-Ghamdi" />
+        <Field label="Topic" value={topic} onChange={setTopic} placeholder="Vision 2030 spend, partners…" />
+
+        <Pressable
+          onPress={() =>
+            research.mutate(
+              { company, person, topic },
+              { onError: (e: any) => Alert.alert("Failed", e.message) },
+            )
+          }
+          disabled={research.isPending}
+          style={[styles.cta, { backgroundColor: colors.foreground, opacity: research.isPending ? 0.6 : 1 }]}
+        >
+          {research.isPending ? (
+            <ActivityIndicator color={colors.background} />
+          ) : (
+            <>
+              <Feather name="search" size={16} color={colors.background} />
+              <Text style={{ color: colors.background, fontWeight: "700" }}>Run research</Text>
+            </>
+          )}
+        </Pressable>
+
+        {research.data && (
+          <View style={{ marginTop: 14 }}>
+            <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>Brief</Text>
+            <Text style={{ color: colors.foreground, fontSize: 13, lineHeight: 20, marginTop: 8 }}>
+              {research.data.summary}
+            </Text>
+            {(research.data.sources ?? []).length > 0 && (
+              <View style={{ marginTop: 10, gap: 4 }}>
+                <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>Sources</Text>
+                {(research.data.sources ?? []).slice(0, 6).map((s: any, i: number) => (
+                  <Text key={i} style={{ color: colors.mutedForeground, fontSize: 11 }} numberOfLines={1}>
+                    • {s.title || s.url}
+                  </Text>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+      </Card>
+    </ScrollView>
+  );
+}
+
+/* ─────────────────────────── Bulk ─────────────────────────── */
+
+function BulkView() {
+  const colors = useColors();
+  const [pasted, setPasted] = useState("");
+  const lines = pasted
+    .split(/[\r\n,;]+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const run = useRunWaterfall();
+
+  const runBulk = async () => {
+    if (lines.length === 0) {
+      Alert.alert("Add some lines", "Paste names, emails or domains separated by commas or new lines.");
+      return;
+    }
+    let ok = 0;
+    for (const ln of lines.slice(0, 25)) {
+      try {
+        await run.mutateAsync(
+          ln.includes("@")
+            ? { email: ln }
+            : ln.includes(".")
+              ? { domain: ln }
+              : { full_name: ln },
+        );
+        ok += 1;
+      } catch {
+        /* swallow */
+      }
+    }
+    Alert.alert("Bulk done", `Enriched ${ok}/${lines.length}.`);
+  };
+
+  return (
+    <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
+      <Card style={{ margin: 16 }}>
+        <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>Paste a list</Text>
+        <Text style={{ color: colors.foreground, fontSize: 12, marginTop: 4 }}>
+          Names, emails or domains — one per line or comma-separated. Each row runs the full waterfall.
+        </Text>
+        <TextInput
+          value={pasted}
+          onChangeText={setPasted}
+          multiline
+          placeholder="rashid@neom.com&#10;sara@gulfventures.sa&#10;mubadala.ae"
+          placeholderTextColor={colors.mutedForeground}
+          style={[
+            styles.bulkInput,
+            { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.muted },
+          ]}
+        />
+        <Text style={{ color: colors.mutedForeground, fontSize: 11, marginTop: 6 }}>
+          {lines.length} row{lines.length === 1 ? "" : "s"} detected
+        </Text>
+        <Pressable
+          onPress={runBulk}
+          disabled={run.isPending || lines.length === 0}
+          style={[styles.cta, { backgroundColor: colors.foreground, opacity: run.isPending ? 0.6 : 1 }]}
+        >
+          {run.isPending ? (
+            <ActivityIndicator color={colors.background} />
+          ) : (
+            <>
+              <Feather name="upload-cloud" size={16} color={colors.background} />
+              <Text style={{ color: colors.background, fontWeight: "700" }}>Run bulk waterfall</Text>
+            </>
+          )}
+        </Pressable>
+      </Card>
+    </ScrollView>
+  );
+}
+
+/* ─────────────────────────── Buying Signals ─────────────────────────── */
+
+function SignalsView() {
+  const colors = useColors();
+  const { data, isPending, isRefetching, refetch } = useSignalsFeed(40);
+
+  return (
+    <ScrollView
+      contentContainerStyle={{ paddingBottom: 140 }}
+      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.foreground} />}
+    >
+      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Live buying intent</Text>
+      <View style={{ paddingHorizontal: 16, gap: 8 }}>
+        {isPending ? (
+          <ActivityIndicator color={colors.foreground} />
+        ) : (data ?? []).length === 0 ? (
+          <Text style={{ color: colors.mutedForeground }}>No signals yet.</Text>
+        ) : (
+          (data ?? []).map((s: any) => (
+            <Pressable
+              key={s.id}
+              onPress={() => s.contact_id && router.push(`/contact/${s.contact_id}` as any)}
+            >
+              <Card>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <Badge tone={s.score >= 70 ? "success" : "gold"} small label={`${s.score ?? 0}`} />
+                  {s.type && <Badge tone="violet" small label={s.type} />}
+                </View>
+                <Text style={{ color: colors.foreground, fontWeight: "700" }}>{s.title}</Text>
+                {s.body && (
+                  <Text style={{ color: colors.mutedForeground, fontSize: 12, marginTop: 4 }} numberOfLines={3}>
+                    {s.body}
+                  </Text>
+                )}
+                <Text style={{ color: colors.mutedForeground, fontSize: 11, marginTop: 6 }}>
+                  {s.contact_name || s.company_name || "—"} · {new Date(s.created_at).toLocaleDateString()}
+                </Text>
+              </Card>
+            </Pressable>
+          ))
+        )}
+      </View>
+    </ScrollView>
+  );
+}
+
+/* ─────────────────────────── Engines (sources) ─────────────────────────── */
+
+function EnginesView() {
+  const colors = useColors();
+  const { data, isPending, isRefetching, refetch } = useEnrichmentSources();
+  const sources = data?.sources ?? [];
+
+  return (
+    <ScrollView
+      contentContainerStyle={{ paddingBottom: 140 }}
+      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.foreground} />}
+    >
+      <View style={styles.statsStrip}>
+        <StatChip label="Sources" value={sources.length.toString()} colors={colors} />
+        <StatChip label="Enabled" value={sources.filter((s) => s.enabled).length.toString()} colors={colors} />
+        <StatChip label="Keyed" value={sources.filter((s) => s.has_key).length.toString()} colors={colors} />
+      </View>
+
+      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Intel engines</Text>
+      <View style={{ paddingHorizontal: 16, gap: 8 }}>
+        {isPending ? (
+          <ActivityIndicator color={colors.foreground} />
+        ) : (
+          sources
+            .sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
+            .map((s) => (
+              <Card key={s.id}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 8,
+                      backgroundColor: s.enabled ? "#7FB06922" : colors.muted,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Feather
+                      name={s.enabled ? "check-circle" : "circle"}
+                      size={16}
+                      color={s.enabled ? "#5C8C4A" : colors.mutedForeground}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.foreground, fontWeight: "700" }}>{s.name}</Text>
+                    <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>
+                      {s.category ?? "general"} · priority {s.priority ?? "—"}
+                    </Text>
+                  </View>
+                  {s.has_key ? (
+                    <Badge tone="success" small label="API key" />
+                  ) : (
+                    <Badge tone="neutral" small label="no key" />
+                  )}
+                </View>
+                {s.capabilities && s.capabilities.length > 0 && (
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                    {s.capabilities.map((c: string) => (
+                      <Badge key={c} tone="violet" small label={c} />
+                    ))}
+                  </View>
+                )}
+              </Card>
+            ))
+        )}
+      </View>
+    </ScrollView>
+  );
+}
+
+/* ─────────────────────────── Business Card Scanner ─────────────────────────── */
+
+function CardScannerView() {
+  const colors = useColors();
+  const scan = useScanBusinessCard();
+  const save = useSaveBusinessCard();
+  const cards = useBusinessCards();
+  const [preview, setPreview] = useState<string | null>(null);
+  const [extracted, setExtracted] = useState<any | null>(null);
+
+  const pick = async (source: "camera" | "library") => {
+    if (source === "camera") {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert("Camera permission denied");
+        return;
+      }
+    }
+    const res = source === "camera"
+      ? await ImagePicker.launchCameraAsync({
+          base64: true,
+          quality: 0.7,
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        })
+      : await ImagePicker.launchImageLibraryAsync({
+          base64: true,
+          quality: 0.7,
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        });
+    if (res.canceled || !res.assets?.[0]) return;
+    const asset = res.assets[0];
+    if (!asset.base64) {
+      Alert.alert("Could not read image");
+      return;
+    }
+    const dataUrl = `data:${asset.mimeType ?? "image/jpeg"};base64,${asset.base64}`;
+    setPreview(asset.uri);
+    scan.mutate(
+      { image_data_url: dataUrl },
+      {
+        onSuccess: (data) => setExtracted(data.extracted ?? null),
+        onError: (e: any) => Alert.alert("Scan failed", e.message),
+      },
+    );
+  };
+
+  const saveContact = () => {
+    if (!extracted) return;
+    save.mutate(
+      { extracted },
+      {
+        onSuccess: (r) => {
+          Alert.alert(r.duplicate ? "Already in CRM" : "Saved to CRM", "Opening contact…");
+          if (r.contact_id) router.push(`/contact/${r.contact_id}` as any);
+        },
+        onError: (e: any) => Alert.alert("Save failed", e.message),
+      },
+    );
+  };
+
+  return (
+    <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
+      <Card style={{ margin: 16 }}>
+        <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>Business card scanner</Text>
+        <Text style={{ color: colors.foreground, fontSize: 13, marginTop: 6 }}>
+          Snap a card — AI extracts every field (Arabic + English) and pushes it straight into your CRM.
+        </Text>
+
+        <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
+          <Pressable
+            onPress={() => pick("camera")}
+            style={[styles.cta, { backgroundColor: colors.foreground, flex: 1 }]}
+          >
+            <Feather name="camera" size={16} color={colors.background} />
+            <Text style={{ color: colors.background, fontWeight: "700" }}>Camera</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => pick("library")}
+            style={[styles.cta, { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border, flex: 1 }]}
+          >
+            <Feather name="image" size={16} color={colors.foreground} />
+            <Text style={{ color: colors.foreground, fontWeight: "700" }}>From gallery</Text>
+          </Pressable>
+        </View>
+
+        {preview && (
+          <Image
+            source={{ uri: preview }}
+            style={{ width: "100%", height: 180, borderRadius: 10, marginTop: 14, resizeMode: "cover" }}
+          />
+        )}
+
+        {scan.isPending && (
+          <View style={{ marginTop: 14, alignItems: "center" }}>
+            <ActivityIndicator color={colors.foreground} />
+            <Text style={{ color: colors.mutedForeground, fontSize: 12, marginTop: 6 }}>
+              Reading card with GPT-4o Vision…
+            </Text>
+          </View>
+        )}
+
+        {extracted && (
+          <View style={{ marginTop: 14, gap: 6 }}>
+            <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>Extracted fields</Text>
+            <Field2 label="Name" value={extracted.name_en} colors={colors} />
+            {extracted.name_ar && <Field2 label="الاسم" value={extracted.name_ar} colors={colors} />}
+            <Field2 label="Title" value={extracted.title} colors={colors} />
+            <Field2 label="Company" value={extracted.company} colors={colors} />
+            <Field2 label="Email" value={extracted.email} colors={colors} />
+            <Field2 label="Mobile" value={extracted.mobile} colors={colors} />
+            <Field2 label="Country" value={extracted.country} colors={colors} />
+            <Field2 label="LinkedIn" value={extracted.linkedin} colors={colors} />
+
+            <Pressable
+              onPress={saveContact}
+              disabled={save.isPending}
+              style={[styles.cta, { backgroundColor: "#88B8B0", marginTop: 12 }]}
+            >
+              {save.isPending ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Feather name="user-plus" size={16} color="#fff" />
+                  <Text style={{ color: "#fff", fontWeight: "700" }}>Save to CRM</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        )}
+      </Card>
+
+      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Recent scans</Text>
+      <View style={{ paddingHorizontal: 16, gap: 8 }}>
+        {cards.isPending ? (
+          <ActivityIndicator color={colors.foreground} />
+        ) : (cards.data?.scans ?? []).length === 0 ? (
+          <Text style={{ color: colors.mutedForeground }}>No scans yet.</Text>
+        ) : (
+          (cards.data?.scans ?? []).slice(0, 8).map((c) => (
+            <Card key={c.id}>
+              <Text style={{ color: colors.foreground, fontWeight: "700" }}>{c.full_name ?? "—"}</Text>
+              <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
+                {c.title ?? "—"} · {c.company ?? "—"}
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>
+                {c.email ?? "—"} · {c.phone ?? "—"}
+              </Text>
+            </Card>
+          ))
+        )}
+      </View>
+    </ScrollView>
+  );
+}
+
+/* ─────────────────────────── helpers ─────────────────────────── */
+
 function Field({
-  icon,
   label,
   value,
   onChange,
   placeholder,
-  multiline,
-  keyboardType,
-  colors,
 }: {
-  icon: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
-  multiline?: boolean;
-  keyboardType?: "default" | "email-address";
-  colors: any;
 }) {
+  const colors = useColors();
   return (
-    <View>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
-        <Feather name={icon as any} size={11} color={colors.mutedForeground} />
-        <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>{label}</Text>
-      </View>
+    <View style={{ marginTop: 12 }}>
+      <Text style={{ color: colors.mutedForeground, fontSize: 11, fontWeight: "600", marginBottom: 4 }}>
+        {label.toUpperCase()}
+      </Text>
       <TextInput
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
         placeholderTextColor={colors.mutedForeground}
-        multiline={multiline}
-        keyboardType={keyboardType ?? "default"}
-        autoCapitalize="words"
-        style={[
-          s.input,
-          {
-            backgroundColor: colors.muted,
-            borderColor: colors.border,
-            color: colors.foreground,
-            minHeight: multiline ? 60 : 38,
-          },
-        ]}
+        style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.muted }]}
       />
     </View>
   );
 }
 
-function Detail({ label, value, colors }: { label: string; value?: string; colors: any }) {
+function Field2({ label, value, colors }: { label: string; value: any; colors: ReturnType<typeof useColors> }) {
   if (!value) return null;
   return (
-    <View style={[s.detailRow, { borderTopColor: colors.border }]}>
-      <Text style={[s.detailLabel, { color: colors.mutedForeground }]}>{label}</Text>
-      <Text style={[s.detailValue, { color: colors.foreground }]} numberOfLines={2}>
-        {value}
-      </Text>
+    <View style={{ flexDirection: "row", paddingVertical: 4 }}>
+      <Text style={{ color: colors.mutedForeground, fontSize: 12, width: 100 }}>{label}</Text>
+      <Text style={{ color: colors.foreground, fontSize: 13, flex: 1 }}>{String(value)}</Text>
     </View>
   );
 }
 
-function SectionTitle({ colors, children }: { colors: any; children: React.ReactNode }) {
+function StatChip({ label, value, colors }: { label: string; value: string; colors: ReturnType<typeof useColors> }) {
   return (
-    <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>{children}</Text>
+    <View style={[styles.statChip, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 16 }}>{value}</Text>
+      <Text style={{ color: colors.mutedForeground, fontSize: 11, marginTop: 2 }}>{label}</Text>
+    </View>
   );
 }
 
-function scoreColor(n: number): string {
-  if (n >= 80) return "#88B8B0";
-  if (n >= 60) return "#C8A880";
-  if (n >= 40) return "#B8A0C8";
-  return "#7A7090";
-}
-
-const s = StyleSheet.create({
-  title: { fontFamily: "Inter_700Bold", fontSize: 24 },
-  subtitle: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 4, lineHeight: 18 },
-
-  fieldLabel: { fontFamily: "Inter_600SemiBold", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 },
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === "web" ? 16 : 8,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  kicker: { fontSize: 11, letterSpacing: 1, textTransform: "uppercase", marginBottom: 4, fontWeight: "600" },
+  title: { fontSize: 22, fontWeight: "800" },
+  cardLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase" },
+  sectionTitle: { fontSize: 14, fontWeight: "700", paddingHorizontal: 16, marginTop: 22, marginBottom: 10 },
+  statsStrip: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 14 },
+  statChip: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1 },
   input: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+  },
+  bulkInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 13,
+    minHeight: 140,
+    marginTop: 8,
+    textAlignVertical: "top",
   },
-
-  runBtn: {
+  cta: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
     gap: 8,
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 12,
-    borderRadius: 14,
+    borderRadius: 10,
+    marginTop: 14,
   },
-  runBtnText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14 },
-  resetBtn: {
-    width: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-
-  errorText: { fontFamily: "Inter_500Medium", fontSize: 13 },
-
-  stepText: { fontFamily: "Inter_700Bold", fontSize: 14, marginBottom: 4 },
-  stepLine: { fontFamily: "Inter_400Regular", fontSize: 12 },
-
-  avatarLg: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarLgText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 18 },
-
-  resultName: { fontFamily: "Inter_700Bold", fontSize: 17 },
-  resultTitle: { fontFamily: "Inter_500Medium", fontSize: 12, marginTop: 2 },
-  resultCompany: { fontFamily: "Inter_500Medium", fontSize: 12 },
-
-  scoreBadge: {
-    width: 52,
-    paddingVertical: 6,
-    alignItems: "center",
-    borderRadius: 12,
-    borderWidth: 1.5,
-  },
-  scoreText: { fontFamily: "Inter_700Bold", fontSize: 18, lineHeight: 22 },
-  scoreLabel: { fontFamily: "Inter_500Medium", fontSize: 9, marginTop: -2 },
-
-  tagRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 12 },
-  tagPill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
-  tagText: { fontFamily: "Inter_500Medium", fontSize: 10 },
-
-  summaryText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 12,
-  },
-
-  sectionTitle: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    marginBottom: 4,
-  },
-  detailRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    gap: 12,
-  },
-  detailLabel: { fontFamily: "Inter_500Medium", fontSize: 11, flexShrink: 0 },
-  detailValue: { fontFamily: "Inter_600SemiBold", fontSize: 12, flex: 1, textAlign: "right" },
-
-  actionRow: {
-    flexDirection: "row",
-    gap: 10,
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-  },
-  actionIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  actionLabel: { fontFamily: "Inter_700Bold", fontSize: 11, letterSpacing: 0.6 },
-  actionReason: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2, lineHeight: 16 },
 });

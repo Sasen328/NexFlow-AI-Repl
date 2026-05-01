@@ -1,12 +1,8 @@
 /**
  * Bottom tab bar — role-aware, mirrors the web TopNav exactly.
  *
- * Same architecture as `artifacts/nexflow/src/lib/sections.ts`:
- *   • Sales rep (Sara)  → Home · CRM · Comms · Enrichment · Marketing
- *   • Marketing (Maya)  → Home · Marketing · Insights · Enrichment · Assistant
- *
- * All tab routes are registered up-front; `href: null` hides the ones the
- * current persona shouldn't see while keeping them deep-linkable.
+ *   Sales (Sara) → Home · CRM · Comms · Enrichment · Marketing
+ *   Marketing (Maya) → Home · Marketing · Enrichment · Insights · Assistant
  */
 
 import { Feather } from "@expo/vector-icons";
@@ -40,7 +36,6 @@ export default function TabsLayout() {
         tabBarLabelStyle: { fontFamily: "Inter_500Medium", fontSize: 10 },
       }}
     >
-      {/* ── Always visible ───────────────────────────────────────────── */}
       <Tabs.Screen
         name="index"
         options={{
@@ -49,9 +44,9 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* ── Sales-only tabs ──────────────────────────────────────────── */}
+      {/* Sales-only tabs */}
       <Tabs.Screen
-        name="pipeline"
+        name="crm"
         options={
           isSales
             ? {
@@ -64,7 +59,7 @@ export default function TabsLayout() {
         }
       />
       <Tabs.Screen
-        name="calls"
+        name="comms"
         options={
           isSales
             ? {
@@ -77,14 +72,12 @@ export default function TabsLayout() {
         }
       />
 
-      {/* ── Common ───────────────────────────────────────────────────── */}
+      {/* Common */}
       <Tabs.Screen
         name="enrichment"
         options={{
           title: "Enrichment",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="zap" size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Feather name="zap" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -97,7 +90,7 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* ── Marketing-only tabs ──────────────────────────────────────── */}
+      {/* Marketing-only tabs */}
       <Tabs.Screen
         name="insights"
         options={
@@ -125,7 +118,9 @@ export default function TabsLayout() {
         }
       />
 
-      {/* ── Always hidden — accessible via deep links from screens ───── */}
+      {/* Hidden but deep-linkable */}
+      <Tabs.Screen name="pipeline" options={hide} />
+      <Tabs.Screen name="calls" options={hide} />
       <Tabs.Screen name="contacts" options={hide} />
     </Tabs>
   );

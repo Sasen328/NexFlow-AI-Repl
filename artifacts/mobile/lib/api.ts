@@ -35,8 +35,12 @@ export async function apiFetch<T = any>(path: string, opts?: RequestInit): Promi
   return res.json() as Promise<T>;
 }
 
-export async function apiPost<T = any>(path: string, body: any): Promise<T> {
-  return apiFetch<T>(path, { method: "POST", body: JSON.stringify(body ?? {}) });
+export async function apiPost<T = any>(
+  path: string,
+  body: any,
+  method: "POST" | "PATCH" | "PUT" | "DELETE" = "POST",
+): Promise<T> {
+  return apiFetch<T>(path, { method, body: JSON.stringify(body ?? {}) });
 }
 
 // ---------- Types (loose) ----------
@@ -411,6 +415,11 @@ export type ApiCampaign = {
   name: string;
   status: string;
   channel: string | null;
+  subject?: string | null;
+  content?: string | null;
+  goal?: string | null;
+  audience_filter?: any;
+  ai_generated?: boolean;
   created_at: string;
   sent_count?: number;
   open_count?: number;
@@ -445,7 +454,293 @@ export function useMarketingAnalytics() {
 
 export function useGenerateAiStrategy() {
   return useMutation({
-    mutationFn: (input: { goal: string; audience: string; channel?: string; lang?: "en" | "ar" }) =>
-      apiPost("/campaigns/ai-strategy", input),
+    mutationFn: (input: { goal: string; audience: string; budget?: string; platforms?: string[] }) =>
+      apiPost<any>("/campaigns/ai-strategy", input),
+  });
+}
+
+export function useCreateCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      name: string;
+      channel: string;
+      goal?: string;
+      audience_filter?: any;
+      subject?: string;
+      content?: string;
+      status?: string;
+    }) => apiPost<ApiCampaign>("/campaigns", input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["campaigns"] }),
+  });
+}
+
+export function useUpdateCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string } & Partial<ApiCampaign>) =>
+      apiPost<ApiCampaign>(`/campaigns/${id}`, body, "PATCH"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["campaigns"] }),
+  });
+}
+
+export function useGenerateCampaignContent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; audience?: string; goal?: string; tone?: string }) =>
+      apiPost<ApiCampaign>(`/campaigns/${id}/generate-content`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["campaigns"] }),
+  });
+}
+
+export function useSendCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiPost<{ sent: number; failed: number }>(`/campaigns/${id}/send`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["campaigns"] }),
+  });
+}
+
+export function useDormantMessage() {
+  return useMutation({
+    mutationFn: (input: { contact: any; dormant_days?: number }) =>
+      apiPost<{
+        whatsapp_message: string;
+        email_subject: string;
+        email_body: string;
+        platform_recommendation: string;
+        reason: string;
+        urgency: string;
+      }>("/campaigns/dormant-message", input),
+  });
+}
+
+// ---------- Activities feed (used for Comms unified inbox) ----------
+export type ApiActivityFeed = {
+  id: string;
+  contact_id: string | null;
+  contact_name?: string | null;
+  type: string;
+  title: string | null;
+  body: string | null;
+  status: string | null;
+  created_at: string;
+};
+
+export function useActivitiesFeed(params?: { type?: string; limit?: number }) {
+  const qs = params
+    ? "?" +
+      new URLSearchParams(
+        Object.fromEntries(
+          Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]),
+        ),
+      ).toString()
+    : "";
+  return useQuery({
+    queryKey: ["activities", params],
+    queryFn: () => apiFetch<ApiActivityFeed[]>(`/activities${qs}`),
+    staleTime: 30_000,
+  });
+}
+
+// ---------- Single call detail (transcript + sentiment + AI insights) ----------
+export type ApiCallDetail = {
+  id: string;
+  contact_id: string | null;
+  contact_name?: string | null;
+  direction: string | null;
+  status: string | null;
+  duration_seconds: number | null;
+  recording_url: string | null;
+  transcript: string | null;
+  sentiment_score: number | null;
+  call_score: number | null;
+  ai_insights: any;
+  coaching_notes: string | null;
+  outcome: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  created_at: string;
+};
+
+export function useCall(id?: string) {
+  return useQuery({
+    queryKey: ["call", id],
+    queryFn: () => apiFetch<ApiCallDetail>(`/calls/${id}`),
+    enabled: !!id,
+  });
+}
+
+// ---------- Business cards ----------
+export type ApiBusinessCard = {
+  id: string;
+  full_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  company?: string | null;
+  title?: string | null;
+  raw_text?: string | null;
+  image_url?: string | null;
+  enriched?: boolean;
+  created_at?: string;
+};
+
+export function useBusinessCards() {
+  return useQuery({
+    queryKey: ["business-cards"],
+    queryFn: () => apiFetch<{ scans: ApiBusinessCard[] }>("/business-cards/recent"),
+    staleTime: 30_000,
+  });
+}
+
+export function useScanBusinessCard() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { image_data_url: string }) =>
+      apiPost<{ extracted: any; model?: string }>("/business-cards/scan", input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["business-cards"] }),
+  });
+}
+
+export function useSaveBusinessCard() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => apiPost<{ contact_id: string; company_id?: string; duplicate?: boolean }>(
+      "/business-cards/save",
+      input,
+    ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["business-cards"] }),
+  });
+}
+
+// ---------- Insights / analytics ----------
+export type ForecastResp = {
+  likely: number;
+  best: number;
+  worst: number;
+  target: number;
+  confidence: number;
+  monthly?: { date: string; value: number; label: string }[];
+};
+
+type RawForecast = {
+  current_quarter_target: number;
+  current_quarter_likely: number;
+  current_quarter_best_case: number;
+  current_quarter_worst_case: number;
+  confidence: number;
+  monthly_projections?: { date: string; value: number; label: string }[];
+};
+
+export function useForecast() {
+  return useQuery<ForecastResp>({
+    queryKey: ["forecast"],
+    queryFn: async () => {
+      const r = await apiFetch<RawForecast>("/analytics/forecast");
+      return {
+        target: r.current_quarter_target,
+        likely: r.current_quarter_likely,
+        best: r.current_quarter_best_case,
+        worst: r.current_quarter_worst_case,
+        confidence: r.confidence,
+        monthly: r.monthly_projections,
+      };
+    },
+    staleTime: 60_000,
+  });
+}
+
+export type RevenueTrendPoint = { date: string; value: number };
+
+export function useRevenueTrend(period: "7d" | "30d" | "90d" | "1y" = "30d") {
+  return useQuery<RevenueTrendPoint[]>({
+    queryKey: ["revenue-trend", period],
+    queryFn: () => apiFetch(`/analytics/revenue-trend?period=${period}`),
+    staleTime: 60_000,
+  });
+}
+
+export type CallStats = {
+  total_calls: number;
+  avg_duration_seconds: number;
+  avg_call_score: number;
+  avg_sentiment: number;
+  calls_by_day: { date: string; value: number }[];
+};
+
+export function useCallStats() {
+  return useQuery<CallStats>({
+    queryKey: ["call-stats"],
+    queryFn: () => apiFetch("/analytics/call-stats"),
+    staleTime: 60_000,
+  });
+}
+
+// ---------- Enrichment ----------
+export type EnrichmentSource = {
+  id: string;
+  source_id: string;
+  name: string;
+  enabled: boolean;
+  priority: number;
+  status?: string | null;
+  category?: string | null;
+  has_key?: boolean;
+  capabilities?: string[];
+};
+
+export function useEnrichmentSources() {
+  return useQuery({
+    queryKey: ["enrichment-sources"],
+    queryFn: () => apiFetch<{ sources: EnrichmentSource[] }>("/enrichment/sources"),
+    staleTime: 60_000,
+  });
+}
+
+export function useEnrichmentRuns() {
+  return useQuery({
+    queryKey: ["enrichment-runs"],
+    queryFn: () => apiFetch<{ runs: any[] }>("/enrichment/runs"),
+    staleTime: 30_000,
+  });
+}
+
+export function useRunWaterfall() {
+  return useMutation({
+    mutationFn: (seed: { full_name?: string; company?: string; email?: string; domain?: string; linkedin?: string }) =>
+      apiPost<{ run: any; result: any }>("/enrichment/run", { seed }),
+  });
+}
+
+export function useResearchProspect() {
+  return useMutation({
+    mutationFn: (input: { company?: string; person?: string; topic?: string }) =>
+      apiPost<{ summary: string; sources?: any[] }>("/prospects/research", input),
+  });
+}
+
+export function useSignalsFeed(limit = 30) {
+  return useQuery({
+    queryKey: ["signals-feed", limit],
+    queryFn: () => apiFetch<any[]>(`/signals?limit=${limit}`),
+    staleTime: 60_000,
+  });
+}
+
+// ---------- AI Assistant ----------
+export type AssistantHistoryItem = { role: "user" | "assistant"; text: string };
+export type AssistantProvider = "auto" | "anthropic" | "openai" | "gemini" | "perplexity";
+
+export function useAssistantSend() {
+  return useMutation({
+    mutationFn: (input: {
+      message: string;
+      provider?: AssistantProvider;
+      history?: AssistantHistoryItem[];
+    }) =>
+      apiPost<{ reply: string; provider_used?: string; data_used?: string[] }>(
+        "/assistant/chat",
+        input,
+      ),
   });
 }
