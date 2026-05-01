@@ -72,41 +72,41 @@ export default function App() {
       case "hero":
         return (
           <Suspense fallback={<VideoLoader />}>
-            <VideoWithControls Template={HeroTemplate} sceneDurations={HERO_DURATIONS} />
+            <VideoWithControls Template={HeroTemplate} sceneDurations={HERO_DURATIONS} narrationSlug="hero" />
           </Suspense>
         );
       case "layla":
         return (
           <Suspense fallback={<VideoLoader />}>
-            <VideoWithControls Template={LaylaTemplate} sceneDurations={LAYLA_DURATIONS} />
+            <VideoWithControls Template={LaylaTemplate} sceneDurations={LAYLA_DURATIONS} narrationSlug="layla" />
           </Suspense>
         );
       case "replace5":
         return (
           <Suspense fallback={<VideoLoader />}>
-            <VideoWithControls Template={Replace5Template} sceneDurations={REPLACE5_DURATIONS} />
+            <VideoWithControls Template={Replace5Template} sceneDurations={REPLACE5_DURATIONS} narrationSlug="replace5" />
           </Suspense>
         );
       case "mobile":
         return (
           <Suspense fallback={<VideoLoader />}>
-            <VideoWithControls Template={MobileTemplate} sceneDurations={MOBILE_DURATIONS} />
+            <VideoWithControls Template={MobileTemplate} sceneDurations={MOBILE_DURATIONS} narrationSlug="mobile" />
           </Suspense>
         );
       case "narrative":
         return (
           <Suspense fallback={<VideoLoader />}>
-            <VideoWithControls Template={NarrativeTemplate} sceneDurations={NARRATIVE_DURATIONS} />
+            <VideoWithControls Template={NarrativeTemplate} sceneDurations={NARRATIVE_DURATIONS} narrationSlug="narrative" />
           </Suspense>
         );
       case "tutorial":
         return (
           <Suspense fallback={<VideoLoader />}>
-            <VideoWithControls Template={TutorialTemplate} sceneDurations={TUTORIAL_DURATIONS} />
+            <VideoWithControls Template={TutorialTemplate} sceneDurations={TUTORIAL_DURATIONS} narrationSlug="tutorial" />
           </Suspense>
         );
       case "investor":
-        // Original long-form investor pitch — uses default VideoTemplate
+        // Original long-form investor pitch — no narration slug
         return <VideoWithControls />;
     }
   }, [route]);
