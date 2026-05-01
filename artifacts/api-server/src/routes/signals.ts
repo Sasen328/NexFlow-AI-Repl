@@ -2,8 +2,22 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { signals, contacts, companies } from "@workspace/db";
 import { eq, desc, sql, and } from "drizzle-orm";
+import { ingestWamdaFeed } from "../lib/signals/wamda-feed.js";
 
 const router = Router();
+
+// Pull live entrepreneurship signals from Wamda's public RSS feed
+// (startup news across MENA/GCC: funding rounds, exec moves, expansions).
+// Returns counts of items fetched/inserted/duplicate. Idempotent.
+router.post("/refresh-wamda", async (req, res) => {
+  try {
+    const result = await ingestWamdaFeed("default");
+    res.json({ ok: true, source: "wamda", ...result });
+  } catch (err: any) {
+    req.log?.error?.({ err: err?.message ?? String(err) }, "wamda ingest failed");
+    res.status(502).json({ ok: false, error: err?.message ?? "wamda ingest failed" });
+  }
+});
 
 router.get("/", async (req, res) => {
   try {
