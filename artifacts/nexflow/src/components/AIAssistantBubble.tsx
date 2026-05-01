@@ -1,27 +1,27 @@
 /**
- * Global floating AI Assistant bubble.
+ * Global floating AI Assistant bubble — production-ready.
  *
- * • Draggable to anywhere on screen, position persisted in localStorage.
+ * • Draggable, position persisted in localStorage.
  * • Click to expand into a chat panel anchored to the bubble.
- * • Voice (mic) toggle uses Web Speech API for live transcription.
- * • Speaker toggle reads AI replies aloud via speech synthesis.
- * • Configurable "Action GPTs" — a settings drawer lets the user toggle
- *   which actions are available; the assistant routes natural-language
- *   requests to enabled actions.
- *
- * The bubble is mounted globally inside <AppLayout> so it follows the
- * user across every CRM page. It reads the current persona on mount and
- * subscribes to nf:role-change so its tone stays in sync with the avatar
- * menu.
+ * • Voice input: Web Speech API on Chrome/Edge, MediaRecorder→Whisper
+ *   fallback for Safari / iPad / Firefox so it works in production.
+ * • TTS via Web Speech Synthesis with Arabic Gulf voice support.
+ * • Conversational by default (Chat mode). Pick Research or Analyze
+ *   from the mode pills to route to Perplexity / Claude / multi-agent.
+ * • Full Settings drawer: agent name, AI provider, tone, focus,
+ *   language, Arabic accent, voice, accent colour.
+ * • Action buttons returned by the backend route the user (open page,
+ *   start a call, draft email/WhatsApp).
+ * • Bilingual EN ⇄ AR labels.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, Mic, MicOff, X, Volume2, VolumeX, Send, Bot,
-  ListTodo, Target, Phone, Mail, Calendar, Search,
-  Settings as SettingsIcon, AlertTriangle,
-  Zap, type LucideIcon,
+  Phone, Mail, MessageSquare, ArrowRight,
+  Settings as SettingsIcon, AlertTriangle, Loader2,
+  MessageCircle, Search, BarChart3, ChevronLeft,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import {
@@ -35,149 +35,128 @@ import {
 import { cn } from "@/lib/utils";
 
 // ─── Storage keys ────────────────────────────────────────────────────
-const STORAGE_POS     = "nf:assistant:pos";
-const STORAGE_TTS     = "nf:assistant:tts";
-const STORAGE_ACTIONS = "nf:assistant:actions";
-const STORAGE_LANG    = "nf:assistant:lang";
+const STORAGE_POS      = "nf:assistant:pos";
+const STORAGE_TTS      = "nf:assistant:tts";
+const STORAGE_LANG     = "nf:assistant:lang";
+const STORAGE_SETTINGS = "nf:assistant:settings:v1";
+const STORAGE_MODE     = "nf:assistant:mode";
 
 // ─── Types ───────────────────────────────────────────────────────────
+type ChatMode = "chat" | "research" | "analyze";
+type AiProvider = "auto" | "openai" | "anthropic" | "gemini" | "perplexity";
+type Tone = "conversational" | "concise" | "coach" | "enthusiastic" | "formal";
+type Focus = "general" | "sales" | "marketing" | "research";
+type Language = "auto" | "en" | "ar";
+type Accent = "default" | "saudi" | "uae" | "egyptian";
+type VoiceName = "layla" | "faisal" | "noor" | "adam" | "sara";
+
+type AssistantAction = {
+  kind: "open" | "start_call" | "draft_email" | "draft_whatsapp" | "switch_mode";
+  label: string;
+  path?: string;
+  payload?: Record<string, unknown>;
+};
+
 type ChatMessage = {
   id: string;
   role: "user" | "ai";
   text: string;
   ts: number;
-  matchedAction?: string;
+  actions?: AssistantAction[];
 };
 
-type ActionContext = {
-  navigate: (path: string) => void;
-  role: ReturnType<typeof getRole>;
-};
-
-type ActionDef = {
-  id: string;
-  label: string;
-  description: string;
-  icon: LucideIcon;
+type AssistantSettings = {
+  agentName: string;
+  provider: AiProvider;
+  tone: Tone;
+  focus: Focus;
+  language: Language;
+  accent: Accent;
+  voice: VoiceName;
   color: string;
-  triggers: RegExp;
-  run: (query: string, ctx: ActionContext) => string;
 };
 
-// ─── Action GPTs (configurable) ──────────────────────────────────────
-const ACTIONS: ActionDef[] = [
-  {
-    id: "find-contact",
-    label: "Find a contact",
-    description: "Searches your CRM for a person or company.",
-    icon: Search,
-    color: "#88B8B0",
-    triggers: /\b(find|search|look ?up|show me)\b.*\b(contact|lead|person|company)\b/i,
-    run: (_q, { navigate }) => {
-      navigate("/contacts");
-      return "Opening Contacts so you can search by name, company, or filter chip.";
-    },
-  },
-  {
-    id: "draft-email",
-    label: "Draft email",
-    description: "Drafts a follow-up email tailored to the recipient.",
-    icon: Mail,
-    color: "#B8A0C8",
-    triggers: /\b(draft|write|compose|send)\b.*\b(email|message|note)\b/i,
-    run: () =>
-      "Drafted a follow-up email based on your last conversation. Review and send it from the Messages page when you're ready.",
-  },
-  {
-    id: "schedule-call",
-    label: "Schedule call",
-    description: "Books a tentative slot on your calendar.",
-    icon: Calendar,
-    color: "#C8A880",
-    triggers: /\b(schedule|book|set up|arrange)\b.*\b(call|meeting|demo|chat)\b/i,
-    run: () =>
-      "I've added a tentative slot to your calendar — you'll see it on your Today's Schedule. Confirm or reschedule from there.",
-  },
-  {
-    id: "pipeline-summary",
-    label: "Pipeline summary",
-    description: "Quick state-of-the-pipeline read for your role.",
-    icon: Target,
-    color: "#90B8B8",
-    triggers: /\b(pipeline|forecast|deals?|revenue|coverage|quota)\b/i,
-    run: (_q, { role }) => {
-      switch (role.key) {
-        case "manager":
-          return "Team forecast is $4.8M — 94% covered. Two reps need coaching, one is crushing it. Five deals are flagged at risk; rescue plans attached.";
-        case "ceo":
-          return "QTD revenue $2.31M, +18% YoY. Pipeline coverage 3.2× against next-quarter target. One strategic deal stalled — Aramco Digital, owner expects your call.";
-        case "marketing":
-          return "Three campaigns live across LinkedIn, X, Email and WhatsApp — combined reach 41.3K in 7 days. 612 MQLs this week, +22% WoW.";
-        case "admin":
-          return "Pipeline data is healthy. 14 duplicate contacts to merge, one automation firing too often. PDPL audit log clean.";
-        default:
-          return "You're at 47% of monthly quota with three high-intent prospects ready today. Combined open pipeline ${role.title}.";
-      }
-    },
-  },
-  {
-    id: "todays-tasks",
-    label: "Today's tasks",
-    description: "What you should focus on right now.",
-    icon: ListTodo,
-    color: "#C0A0B8",
-    triggers: /\b(task|todo|priorit|focus|what should i do|first)\b/i,
-    run: (_q, { navigate }) => {
-      navigate("/home");
-      return "Three urgent tasks today. Top priority: follow up with Sara Al-Mansouri before noon — she's on a fresh funding signal. Check the Tasks tab on Home for the rest.";
-    },
-  },
-  {
-    id: "start-call",
-    label: "Start a call",
-    description: "Opens the dialer.",
-    icon: Phone,
-    color: "#88B8B0",
-    triggers: /\b(start|make|place)\b.*\b(call|dial|ring)\b/i,
-    run: (_q, { navigate }) => {
-      navigate("/calls");
-      return "Opening the call dialer. Your call list is sorted by AI-suggested priority.";
-    },
-  },
-  {
-    id: "at-risk",
-    label: "At-risk deals",
-    description: "Lists deals trending the wrong way.",
-    icon: AlertTriangle,
-    color: "#C0A0B8",
-    triggers: /\b(at risk|risk|stalled|silent|losing|drop)\b/i,
-    run: () =>
-      "Two deals are at risk: Layla Hassan (SMB Starter, $95K) — score dropped from 72 to 65; and Khalid Al-Hamdan (Pilot Expansion, $145K) — silent for 14 days. Want me to draft re-engagement messages?",
-  },
-  {
-    id: "hot-signals",
-    label: "Hot signals",
-    description: "Recent buying signals from your accounts.",
-    icon: Zap,
-    color: "#B8B880",
-    triggers: /\b(signal|news|update|hot|trending|funding|hiring)\b/i,
-    run: () =>
-      "Three signals in the last 24 hours: Gulf Ventures closed $50M Series B, Ahmed Al-Rashidi promoted to CIO, Aramco Digital approved Q2 budget. The first one is highest impact — call Sara within 24 hours.",
-  },
+const DEFAULT_SETTINGS: AssistantSettings = {
+  agentName: "NexFlow AI",
+  provider: "auto",
+  tone: "conversational",
+  focus: "general",
+  language: "auto",
+  accent: "default",
+  voice: "layla",
+  color: "#B8A0C8",
+};
+
+const ACCENT_COLORS = [
+  { name: "Lavender", value: "#B8A0C8" },
+  { name: "Teal",     value: "#88B8B0" },
+  { name: "Sand",     value: "#C8A880" },
+  { name: "Olive",    value: "#B8B880" },
+  { name: "Rose",     value: "#C0A0B8" },
+  { name: "Sky",      value: "#90B8C8" },
 ];
 
-const DEFAULT_ENABLED = ACTIONS.map((a) => a.id);
+// ─── i18n labels ────────────────────────────────────────────────────
+const L = {
+  en: {
+    greetingChat: (name: string, agent: string) =>
+      `Hi ${name} 👋 I'm ${agent}. Ask me anything, or tap the mic to talk.`,
+    settings: "Settings", chat: "Chat", research: "Research", analyze: "Analyze",
+    askAnything: "Ask anything…", listening: "Listening…", transcribing: "Transcribing…",
+    thinking: "Thinking…", ready: "Ready", muteVoice: "Mute voice replies",
+    enableVoice: "Speak replies aloud", micUnsupported: "Mic not supported here",
+    startListening: "Start listening", stopListening: "Stop listening",
+    close: "Close", back: "Back", agentName: "Agent name", aiProvider: "AI provider",
+    tone: "Tone", focus: "Focus", language: "Language", arabicAccent: "Arabic accent",
+    voice: "Voice", accentColor: "Accent colour", auto: "Auto",
+    sender: "Send",
+  },
+  ar: {
+    greetingChat: (name: string, agent: string) =>
+      `مرحباً ${name} 👋 أنا ${agent}. اسألني أي شيء أو اضغط على الميكروفون للتحدث.`,
+    settings: "الإعدادات", chat: "محادثة", research: "بحث", analyze: "تحليل",
+    askAnything: "اسألني أي شيء…", listening: "أستمع إليك…", transcribing: "جارٍ التحويل…",
+    thinking: "جارٍ التفكير…", ready: "جاهز", muteVoice: "كتم الصوت",
+    enableVoice: "تحدّث بالردود", micUnsupported: "الميكروفون غير مدعوم",
+    startListening: "ابدأ الاستماع", stopListening: "أوقف الاستماع",
+    close: "إغلاق", back: "رجوع", agentName: "اسم المساعد", aiProvider: "المزود",
+    tone: "النبرة", focus: "التركيز", language: "اللغة", arabicAccent: "اللهجة العربية",
+    voice: "الصوت", accentColor: "اللون", auto: "تلقائي",
+    sender: "إرسال",
+  },
+};
 
-// ─── Utility helpers ─────────────────────────────────────────────────
-function loadEnabledActions(): Set<string> {
-  if (typeof window === "undefined") return new Set(DEFAULT_ENABLED);
+// ─── Helpers ────────────────────────────────────────────────────────
+function loadSettings(): AssistantSettings {
+  if (typeof window === "undefined") return DEFAULT_SETTINGS;
   try {
-    const raw = window.localStorage.getItem(STORAGE_ACTIONS);
-    if (!raw) return new Set(DEFAULT_ENABLED);
-    const parsed = JSON.parse(raw) as string[];
-    return new Set(parsed.length ? parsed : DEFAULT_ENABLED);
+    const raw = window.localStorage.getItem(STORAGE_SETTINGS);
+    if (!raw) return DEFAULT_SETTINGS;
+    const parsed = JSON.parse(raw) as Partial<AssistantSettings>;
+    // Validate every field against allow-lists so a poisoned localStorage
+    // can't inject CSS / arbitrary strings into our inline styles.
+    const allowedColors = new Set(ACCENT_COLORS.map(c => c.value));
+    const allowedProviders: AiProvider[] = ["auto", "openai", "anthropic", "gemini", "perplexity"];
+    const allowedTones: Tone[] = ["conversational", "concise", "coach", "enthusiastic", "formal"];
+    const allowedFocus: Focus[] = ["general", "sales", "marketing", "research"];
+    const allowedLangs: Language[] = ["auto", "en", "ar"];
+    const allowedAccents: Accent[] = ["default", "saudi", "uae", "egyptian"];
+    const allowedVoices: VoiceName[] = ["layla", "faisal", "noor", "adam", "sara"];
+    const safe: AssistantSettings = {
+      agentName: typeof parsed.agentName === "string" && parsed.agentName.trim()
+        ? parsed.agentName.replace(/[<>]/g, "").slice(0, 40)
+        : DEFAULT_SETTINGS.agentName,
+      provider: allowedProviders.includes(parsed.provider as AiProvider) ? (parsed.provider as AiProvider) : DEFAULT_SETTINGS.provider,
+      tone: allowedTones.includes(parsed.tone as Tone) ? (parsed.tone as Tone) : DEFAULT_SETTINGS.tone,
+      focus: allowedFocus.includes(parsed.focus as Focus) ? (parsed.focus as Focus) : DEFAULT_SETTINGS.focus,
+      language: allowedLangs.includes(parsed.language as Language) ? (parsed.language as Language) : DEFAULT_SETTINGS.language,
+      accent: allowedAccents.includes(parsed.accent as Accent) ? (parsed.accent as Accent) : DEFAULT_SETTINGS.accent,
+      voice: allowedVoices.includes(parsed.voice as VoiceName) ? (parsed.voice as VoiceName) : DEFAULT_SETTINGS.voice,
+      color: typeof parsed.color === "string" && allowedColors.has(parsed.color) ? parsed.color : DEFAULT_SETTINGS.color,
+    };
+    return safe;
   } catch {
-    return new Set(DEFAULT_ENABLED);
+    return DEFAULT_SETTINGS;
   }
 }
 
@@ -188,9 +167,7 @@ function loadPosition(): { x: number; y: number } | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (typeof parsed?.x === "number" && typeof parsed?.y === "number") return parsed;
-  } catch {
-    // ignore
-  }
+  } catch {/* ignore */}
   return null;
 }
 
@@ -204,61 +181,24 @@ function loadLang(): "en" | "ar" {
   return window.localStorage.getItem(STORAGE_LANG) === "ar" ? "ar" : "en";
 }
 
-function generateResponse(
-  query: string,
-  enabled: Set<string>,
-  ctx: ActionContext,
-): { text: string; matchedAction?: string } {
-  const trimmed = query.trim();
-  if (!trimmed) {
-    return { text: "I'm listening — what would you like to do?" };
-  }
-  for (const action of ACTIONS) {
-    if (!enabled.has(action.id)) continue;
-    if (action.triggers.test(trimmed)) {
-      return { text: action.run(trimmed, ctx), matchedAction: action.id };
-    }
-  }
-  // Generic fallback that stays on-brand
-  const role = ctx.role;
-  return {
-    text: `Got it. As your ${role.title.toLowerCase()}, I'd suggest reviewing your top three priorities first — say "what should I do today" and I'll walk you through them, or pick an action below.`,
-  };
+function loadMode(): ChatMode {
+  if (typeof window === "undefined") return "chat";
+  const v = window.localStorage.getItem(STORAGE_MODE);
+  return v === "research" || v === "analyze" ? v : "chat";
 }
 
-/**
- * Call the real AI backend (`/api/ai/assistant`). Falls back to the local
- * pattern-matched response if the network fails so the assistant always
- * answers something instead of going silent.
- */
-async function fetchAiReply(
-  query: string,
-  ctx: ActionContext,
-): Promise<{ text: string; suggestions?: string[] }> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 18_000);
-  try {
-    const r = await fetch("/api/ai/assistant", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        message: query,
-        role: { key: ctx.role.key, name: ctx.role.name, title: ctx.role.title },
-        context: typeof window !== "undefined" ? window.location.pathname : "",
-      }),
-    });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = (await r.json()) as { reply?: string; suggestions?: string[] };
-    if (!data?.reply) throw new Error("empty reply");
-    return { text: data.reply, suggestions: data.suggestions };
-  } finally {
-    clearTimeout(timeout);
+function ttsLangFor(uiLang: "en" | "ar", accent: Accent): string {
+  if (uiLang !== "ar") return "en-US";
+  switch (accent) {
+    case "saudi":    return "ar-SA";
+    case "uae":      return "ar-AE";
+    case "egyptian": return "ar-EG";
+    default:         return "ar-AE";
   }
 }
 
-function greetingFor(role: ReturnType<typeof getRole>): string {
-  return `Hi ${role.name.split(" ")[0]}, I'm your NexFlow assistant. Tap the mic to talk, type a question, or pick an action below.`;
+function voiceGenderFor(v: VoiceName): "female" | "male" {
+  return v === "faisal" || v === "adam" ? "male" : "female";
 }
 
 // ─── Component ───────────────────────────────────────────────────────
@@ -266,7 +206,6 @@ export function AIAssistantBubble() {
   const [signed, setSigned] = useState<boolean>(() => isSignedIn());
   const [role, setRole] = useState(() => getRole());
 
-  // Re-evaluate auth + persona on storage / role-change events
   useEffect(() => {
     const refresh = () => {
       setSigned(isSignedIn());
@@ -284,21 +223,28 @@ export function AIAssistantBubble() {
   return <BubbleInner role={role} key={role.key} />;
 }
 
-// Inner component takes a fixed persona snapshot — keying by role.key resets
-// state cleanly on persona switch (greeting + transcript).
 function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(loadPosition);
-  const [enabled, setEnabled] = useState<Set<string>>(loadEnabledActions);
   const [ttsOn, setTtsOn] = useState<boolean>(loadTTS);
-  // "en" → en-US STT + English TTS voice
-  // "ar" → ar-AE STT + Gulf Arabic TTS voice (Zariyah female / Tarik male)
-  const [sttLang, setSttLang] = useState<"en" | "ar">(loadLang);
+  const [uiLang, setUiLang] = useState<"en" | "ar">(loadLang);
+  const [mode, setMode] = useState<ChatMode>(loadMode);
+  const [settings, setSettings] = useState<AssistantSettings>(loadSettings);
+  const [pending, setPending] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+
+  const t = L[uiLang];
+  const accent = settings.color;
+  const firstName = role.name.split(" ")[0];
+
+  const greetingText = uiLang === "ar"
+    ? L.ar.greetingChat(firstName, settings.agentName)
+    : L.en.greetingChat(firstName, settings.agentName);
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    { id: "g0", role: "ai", text: greetingFor(role), ts: Date.now() },
+    { id: "g0", role: "ai", text: greetingText, ts: Date.now() },
   ]);
   const [input, setInput] = useState("");
 
@@ -306,55 +252,55 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
   const [interim, setInterim] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const recognizerRef = useRef<RecognizerHandle | null>(null);
-  // Holds the latest `submit` so the global `nf:open-assistant` listener can
-  // call it after the panel mounts without re-binding the listener.
   const submitRef = useRef<((text: string) => void) | null>(null);
+  const recorderRef = useRef<{ rec: MediaRecorder; chunks: BlobPart[]; stream: MediaStream } | null>(null);
 
-  // Pre-warm voices list — some browsers populate it lazily after the first call.
+  // Pre-warm voices list
   useEffect(() => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.getVoices();
     }
   }, []);
 
+  // Refresh greeting when settings/lang change but only if no real chat yet
+  useEffect(() => {
+    setMessages(prev => {
+      if (prev.length <= 1 && prev[0]?.id === "g0") {
+        return [{ id: "g0", role: "ai", text: greetingText, ts: Date.now() }];
+      }
+      return prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uiLang, settings.agentName]);
+
   const constraintsRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
 
-  // Auto-scroll chat
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, interim]);
+  }, [messages, interim, pending, transcribing]);
 
   // Persist toggles
   useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_ACTIONS, JSON.stringify([...enabled]));
-    } catch {/* ignore */}
-  }, [enabled]);
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_TTS, ttsOn ? "1" : "0");
-    } catch {/* ignore */}
+    try { window.localStorage.setItem(STORAGE_TTS, ttsOn ? "1" : "0"); } catch {/* ignore */}
   }, [ttsOn]);
-
   useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_LANG, sttLang);
-    } catch {/* ignore */}
-  }, [sttLang]);
+    try { window.localStorage.setItem(STORAGE_LANG, uiLang); } catch {/* ignore */}
+  }, [uiLang]);
+  useEffect(() => {
+    try { window.localStorage.setItem(STORAGE_MODE, mode); } catch {/* ignore */}
+  }, [mode]);
+  useEffect(() => {
+    try { window.localStorage.setItem(STORAGE_SETTINGS, JSON.stringify(settings)); } catch {/* ignore */}
+  }, [settings]);
 
   // Listen for global "open assistant" requests from anywhere in the app
-  // (Command Center "Ask AI" button, Predictive page, etc). All "Ask AI"
-  // entry points dispatch `nf:open-assistant` with optional { detail: { text } }
-  // so the user gets a single unified multi-agent assistant — never a
-  // separate widget.
   useEffect(() => {
     function onOpen(e: Event) {
       setOpen(true);
       const detail = (e as CustomEvent).detail;
       if (detail?.text && typeof detail.text === "string") {
-        // Defer one tick so the panel mounts before we submit the query.
         setTimeout(() => submitRef.current?.(detail.text), 60);
       }
     }
@@ -366,6 +312,10 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
   useEffect(() => () => {
     recognizerRef.current?.stop();
     stopSpeaking();
+    try {
+      recorderRef.current?.rec.stop();
+      recorderRef.current?.stream.getTracks().forEach(t => t.stop());
+    } catch {/* ignore */}
   }, []);
 
   // Default position — bottom-right with a 24px margin
@@ -375,163 +325,252 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
   }, []);
   const startPos = position ?? defaultPos;
 
+  const speakReply = useCallback((text: string) => {
+    if (!ttsOn || !text.trim()) return;
+    speak(text.replace(/\[\d+\]/g, "").slice(0, 600), {
+      lang: ttsLangFor(uiLang, settings.accent),
+      gender: voiceGenderFor(settings.voice),
+    });
+  }, [ttsOn, uiLang, settings.accent, settings.voice]);
+
+  const runAction = useCallback((a: AssistantAction) => {
+    if (a.kind === "switch_mode" && a.payload?.mode) {
+      const m = String(a.payload.mode);
+      if (m === "chat" || m === "research" || m === "analyze") setMode(m);
+      return;
+    }
+    if (a.path) {
+      navigate(a.path);
+      setOpen(false);
+    }
+  }, [navigate]);
+
   const submit = useCallback(
     (textRaw: string) => {
       const text = textRaw.trim();
       if (!text) return;
-      const userMsg: ChatMessage = {
-        id: `u${Date.now()}`,
-        role: "user",
-        text,
-        ts: Date.now(),
-      };
+      const userMsg: ChatMessage = { id: `u${Date.now()}`, role: "user", text, ts: Date.now() };
       setMessages((m) => [...m, userMsg]);
       setInput("");
       setInterim("");
+      setPending(true);
 
-      // Local action triggers (navigation, deep-links) still get to run
-      // first so commands like "open dialer" or "draft email" stay snappy
-      // and never need the network round-trip.
-      const localReply = generateResponse(text, enabled, { navigate, role });
-      const matchedLocal = Boolean(localReply.matchedAction);
-
-      // Insert a "thinking…" placeholder we'll swap in-place once the
-      // real AI response lands. This prevents the chat from looking dead
-      // while the model is generating.
       const placeholderId = `a${Date.now() + 1}`;
-      setMessages((m) => [
-        ...m,
-        {
-          id: placeholderId,
-          role: "ai",
-          text: matchedLocal ? localReply.text : "Thinking…",
-          ts: Date.now() + 1,
-          matchedAction: localReply.matchedAction,
-        },
-      ]);
+      setMessages((m) => [...m, { id: placeholderId, role: "ai", text: t.thinking, ts: Date.now() + 1 }]);
 
-      // Speak the local reply immediately if we matched a deep-link action
-      // — those answers are already final.
-      if (matchedLocal && ttsOn) speak(localReply.text, { lang: sttLang === "ar" ? "ar-AE" : "en-US" });
+      // Build short history for context
+      const history = messages.slice(-6).filter(m => m.id !== "g0").map(m => ({
+        role: m.role === "user" ? "user" as const : "assistant" as const,
+        text: m.text,
+      }));
 
-      // Always call the real model in the background so the assistant
-      // gives a substantive answer even when no local trigger matches.
       void (async () => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30_000);
         try {
-          const ai = await fetchAiReply(text, { navigate, role });
-          // If we already showed a local action reply (snappy navigation
-          // hint), keep it and append the AI's longer answer as a follow-up
-          // message. Otherwise replace the placeholder in place.
-          if (matchedLocal) {
-            const followId = `a${Date.now() + 2}`;
-            setMessages((m) => [
-              ...m,
-              { id: followId, role: "ai", text: ai.text, ts: Date.now() + 2 },
-            ]);
-            if (ttsOn) speak(ai.text, { lang: sttLang === "ar" ? "ar-AE" : "en-US" });
-          } else {
-            setMessages((m) =>
-              m.map((msg) => (msg.id === placeholderId ? { ...msg, text: ai.text } : msg)),
-            );
-            if (ttsOn) speak(ai.text, { lang: sttLang === "ar" ? "ar-AE" : "en-US" });
-          }
-        } catch (err) {
-          // Network / abort fallback — swap the placeholder for the local
-          // best-effort reply so the bubble still feels responsive.
-          if (!matchedLocal) {
-            setMessages((m) =>
-              m.map((msg) =>
-                msg.id === placeholderId
-                  ? { ...msg, text: localReply.text }
-                  : msg,
-              ),
-            );
-            if (ttsOn) speak(localReply.text, { lang: sttLang === "ar" ? "ar-AE" : "en-US" });
-          }
+          const r = await fetch("/api/ai/assistant", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify({
+              message: text,
+              role: { key: role.key, name: role.name, title: role.title },
+              context: typeof window !== "undefined" ? window.location.pathname : "/",
+              mode,
+              tone: settings.tone,
+              focus: settings.focus,
+              language: settings.language,
+              accent: settings.accent,
+              agent_name: settings.agentName,
+              provider: settings.provider,
+              history,
+            }),
+          });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const data = (await r.json()) as { reply?: string; actions?: AssistantAction[] };
+          const reply = (data.reply || "").trim() ||
+            (uiLang === "ar" ? "لم أستطع الرد الآن، حاول مرة أخرى." : "I couldn't reply just now — try again.");
+          setMessages((m) =>
+            m.map((msg) => (msg.id === placeholderId ? { ...msg, text: reply, actions: data.actions } : msg)),
+          );
+          speakReply(reply);
+        } catch {
+          const fallback = uiLang === "ar"
+            ? "حدث خطأ في الاتصال. تأكد من الإنترنت وحاول مرة أخرى."
+            : "Connection error. Check your network and try again.";
+          setMessages((m) => m.map((msg) => (msg.id === placeholderId ? { ...msg, text: fallback } : msg)));
+        } finally {
+          clearTimeout(timeout);
+          setPending(false);
         }
       })();
     },
-    [enabled, navigate, role, sttLang, ttsOn],
+    [messages, mode, role, settings, uiLang, t.thinking, speakReply],
   );
 
-  // Keep the latest submit reachable from outside (window event listener).
-  useEffect(() => {
-    submitRef.current = submit;
-  }, [submit]);
+  useEffect(() => { submitRef.current = submit; }, [submit]);
 
-  // Toggle voice listening
-  const toggleListening = useCallback(() => {
-    if (listening) {
-      recognizerRef.current?.stop();
+  // ─── Whisper fallback recorder (Safari/iPad/Firefox) ────────────────
+  const startMediaRecorder = useCallback(async () => {
+    setVoiceError(null);
+    let stream: MediaStream | null = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Pick a mime the browser supports
+      const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/mpeg"];
+      let mime = "";
+      for (const c of candidates) {
+        if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported?.(c)) { mime = c; break; }
+      }
+      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      const chunks: BlobPart[] = [];
+      // Capture the stream locally so the closure has a non-null reference
+      // even after `stream` is reassigned in retry / error paths.
+      const localStream = stream;
+      rec.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        localStream.getTracks().forEach(t => t.stop());
+        recorderRef.current = null;
+        const blob = new Blob(chunks, { type: mime || "audio/webm" });
+        if (blob.size < 800) {
+          setListening(false);
+          setVoiceError(uiLang === "ar" ? "لم أسمع أي صوت — حاول التحدث بصوت أعلى." : "I didn't hear anything — try speaking a bit louder.");
+          return;
+        }
+        setListening(false);
+        setTranscribing(true);
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          try {
+            const base64 = String(reader.result || "").split(",")[1] || "";
+            const r = await fetch("/api/ai/transcribe", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                audio_base64: base64,
+                mime: blob.type,
+                language: settings.language === "ar" ? "ar" : settings.language === "en" ? "en" : (uiLang === "ar" ? "ar" : "en"),
+              }),
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data?.error || "transcribe_failed");
+            const captured = String(data?.text || "").trim();
+            if (captured) submit(captured);
+            else setVoiceError(uiLang === "ar" ? "لم أتمكن من فهم ما قلت." : "I couldn't make out what you said.");
+          } catch (err: any) {
+            setVoiceError(uiLang === "ar"
+              ? `فشل تحويل الصوت: ${err?.message ?? "خطأ"}`
+              : `Transcription failed: ${err?.message ?? "error"}`);
+          } finally {
+            setTranscribing(false);
+          }
+        };
+        reader.readAsDataURL(blob);
+      };
+      recorderRef.current = { rec, chunks, stream };
+      rec.start();
+      setListening(true);
+    } catch (err: any) {
+      // Release the mic if MediaRecorder construction failed after getUserMedia
+      try { stream?.getTracks().forEach(t => t.stop()); } catch {/* ignore */}
       setListening(false);
-      // Auto-submit whatever was captured
-      const captured = interim.trim();
-      if (captured) submit(captured);
-      return;
+      setVoiceError(
+        err?.name === "NotAllowedError"
+          ? (uiLang === "ar" ? "تم رفض إذن الميكروفون. فعّله من إعدادات المتصفح." : "Microphone permission denied. Allow it in your browser settings.")
+          : (uiLang === "ar" ? "تعذّر فتح الميكروفون." : "Could not access the microphone.")
+      );
     }
-    if (!isSpeechRecognitionSupported()) {
-      setVoiceError("Voice input isn't supported in this browser. Try Chrome or Edge.");
+  }, [uiLang, settings.language, submit]);
+
+  const stopMediaRecorder = useCallback(() => {
+    try { recorderRef.current?.rec.stop(); } catch {/* ignore */}
+  }, []);
+
+  // Toggle voice listening — prefer Web Speech, fall back to MediaRecorder
+  const toggleListening = useCallback(() => {
+    if (transcribing) return;
+    if (listening) {
+      // Stop whichever path is active
+      if (recorderRef.current) {
+        stopMediaRecorder();
+      } else {
+        recognizerRef.current?.stop();
+        const captured = interim.trim();
+        setListening(false);
+        if (captured) submit(captured);
+      }
       return;
     }
     stopSpeaking();
     setVoiceError(null);
-    const rec = createRecognizer({
-      lang: sttLang === "ar" ? "ar-AE" : "en-US",
-      onUpdate: ({ interim: i, final }) => {
-        if (final) {
-          setInterim("");
-          submit(final);
-        } else {
-          setInterim(i);
-        }
-      },
-      onEnd: () => setListening(false),
-      onError: (msg) => {
-        setListening(false);
-        if (msg === "not-allowed" || msg === "service-not-allowed") {
-          setVoiceError("Microphone access blocked. Allow mic permission and try again.");
-        } else if (msg === "no-speech") {
-          setVoiceError("No speech detected — try again and speak a bit louder.");
-        } else if (msg !== "aborted") {
-          setVoiceError(`Voice input failed (${msg}). Try again.`);
-        }
-      },
-    });
-    recognizerRef.current = rec;
-    rec.start();
-    setListening(true);
-  }, [listening, interim, sttLang, submit]);
 
-  // ─── Native pointer-event drag (replaces framer-motion `drag`) ───
-  // Why: framer-motion's drag introduced visible jank on rapid pointer
-  // moves (snap-back animations conflicting with pointer deltas) and
-  // didn't snap to the screen edge after release. We use raw pointer
-  // events with a manual delta + a snap-to-nearest-edge on release. The
-  // bubble is positioned via `transform: translate3d()` for buttery 60fps.
+    const targetLang = uiLang === "ar" ? ttsLangFor("ar", settings.accent) : "en-US";
+
+    // Prefer Web Speech API (Chrome/Edge) — instant interim transcription
+    if (isSpeechRecognitionSupported()) {
+      const rec = createRecognizer({
+        lang: targetLang,
+        onUpdate: ({ interim: i, final }) => {
+          if (final) {
+            setInterim("");
+            submit(final);
+          } else {
+            setInterim(i);
+          }
+        },
+        onEnd: () => { recognizerRef.current = null; setListening(false); },
+        onError: (msg) => {
+          recognizerRef.current = null;
+          setListening(false);
+          if (msg === "not-allowed" || msg === "service-not-allowed") {
+            setVoiceError(uiLang === "ar" ? "تم حظر الميكروفون. فعّله ثم حاول مرة أخرى." : "Microphone blocked — allow it and try again.");
+          } else if (msg === "no-speech") {
+            setVoiceError(uiLang === "ar" ? "لم أسمع أي صوت." : "No speech detected — try again.");
+          } else if (msg !== "aborted") {
+            // Fall back to MediaRecorder on transient error
+            void startMediaRecorder();
+          }
+        },
+      });
+      recognizerRef.current = rec;
+      try {
+        rec.start();
+        setListening(true);
+        return;
+      } catch {
+        // Fall through to MediaRecorder
+      }
+    }
+
+    // Fallback for Safari / iPad / Firefox
+    const hasGUM = typeof navigator !== "undefined"
+      && typeof navigator.mediaDevices === "object"
+      && navigator.mediaDevices !== null
+      && typeof navigator.mediaDevices.getUserMedia === "function";
+    if (typeof MediaRecorder !== "undefined" && hasGUM) {
+      void startMediaRecorder();
+    } else {
+      setVoiceError(uiLang === "ar" ? "الميكروفون غير مدعوم في هذا المتصفح." : "Voice input isn't supported in this browser.");
+    }
+  }, [listening, transcribing, interim, uiLang, settings.accent, submit, startMediaRecorder, stopMediaRecorder]);
+
+  // ─── Drag handlers (unchanged) ───────────────────────────────────
   const dragStateRef = useRef<{
     pointerId: number;
-    startX: number;
-    startY: number;
-    baseX: number;
-    baseY: number;
+    startX: number; startY: number;
+    baseX: number;  baseY: number;
     moved: boolean;
   } | null>(null);
 
   function clamp(x: number, y: number) {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    return {
-      x: Math.max(8, Math.min(w - 64, x)),
-      y: Math.max(8, Math.min(h - 64, y)),
-    };
+    const w = window.innerWidth, h = window.innerHeight;
+    return { x: Math.max(8, Math.min(w - 64, x)), y: Math.max(8, Math.min(h - 64, y)) };
   }
-
   function persistPosition(p: { x: number; y: number }) {
     setPosition(p);
     try { window.localStorage.setItem(STORAGE_POS, JSON.stringify(p)); } catch {/* ignore */}
   }
 
-  // Re-clamp on viewport resize so the bubble can never get stuck off-screen.
   useEffect(() => {
     function onResize() {
       const cur = position ?? defaultPos;
@@ -549,48 +588,32 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
     (e.target as Element).setPointerCapture?.(e.pointerId);
     const base = position ?? defaultPos;
     dragStateRef.current = {
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
-      baseX: base.x,
-      baseY: base.y,
-      moved: false,
+      pointerId: e.pointerId, startX: e.clientX, startY: e.clientY,
+      baseX: base.x, baseY: base.y, moved: false,
     };
     draggingRef.current = false;
   }
-
   function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
     const ds = dragStateRef.current;
     if (!ds || ds.pointerId !== e.pointerId) return;
-    const dx = e.clientX - ds.startX;
-    const dy = e.clientY - ds.startY;
-    if (!ds.moved && Math.abs(dx) + Math.abs(dy) < 6) return; // 6px dead-zone — preserve clicks
+    const dx = e.clientX - ds.startX, dy = e.clientY - ds.startY;
+    if (!ds.moved && Math.abs(dx) + Math.abs(dy) < 6) return;
     ds.moved = true;
     draggingRef.current = true;
-    const next = clamp(ds.baseX + dx, ds.baseY + dy);
-    setPosition(next);
+    setPosition(clamp(ds.baseX + dx, ds.baseY + dy));
   }
-
   function handlePointerUp(e: React.PointerEvent<HTMLDivElement>) {
     const ds = dragStateRef.current;
     if (!ds || ds.pointerId !== e.pointerId) return;
     dragStateRef.current = null;
     (e.target as Element).releasePointerCapture?.(e.pointerId);
-    if (!ds.moved) {
-      // Plain click — clear drag flag so the button onClick fires.
-      draggingRef.current = false;
-      return;
-    }
-    // Snap to nearest horizontal edge with a 16px inset.
+    if (!ds.moved) { draggingRef.current = false; return; }
     const cur = position ?? defaultPos;
     const w = window.innerWidth;
     const snapLeft = cur.x + 28 < w / 2;
-    const snapped = clamp(snapLeft ? 16 : w - 72, cur.y);
-    persistPosition(snapped);
-    // Suppress the synthetic click that follows pointer-up after a drag.
+    persistPosition(clamp(snapLeft ? 16 : w - 72, cur.y));
     setTimeout(() => { draggingRef.current = false; }, 80);
   }
-
   function handlePointerCancel(e: React.PointerEvent<HTMLDivElement>) {
     const ds = dragStateRef.current;
     if (!ds || ds.pointerId !== e.pointerId) return;
@@ -599,27 +622,22 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
     draggingRef.current = false;
   }
 
-  function runAction(action: ActionDef) {
-    submit(action.label);
-  }
-
-  function toggleAction(id: string) {
-    setEnabled((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  // Decide whether the panel opens up-left or up-right based on bubble position
   const panelOnLeft = startPos.x > (typeof window !== "undefined" ? window.innerWidth / 2 : 600);
-
-  const sttSupported = isSpeechRecognitionSupported();
   const ttsSupported = isSpeechSynthesisSupported();
+  const sttSupported = isSpeechRecognitionSupported() ||
+    (typeof MediaRecorder !== "undefined"
+      && typeof navigator !== "undefined"
+      && typeof navigator.mediaDevices === "object"
+      && navigator.mediaDevices !== null
+      && typeof navigator.mediaDevices.getUserMedia === "function");
+
+  const subtitle = listening ? t.listening
+    : transcribing ? t.transcribing
+    : pending ? t.thinking
+    : `${t.ready} · ${role.label}`;
 
   return (
-    <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-40">
+    <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-40" dir={uiLang === "ar" ? "rtl" : "ltr"}>
       <div
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -627,9 +645,7 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
         onPointerCancel={handlePointerCancel}
         className="absolute pointer-events-auto cursor-grab active:cursor-grabbing select-none"
         style={{
-          width: 56,
-          height: 56,
-          touchAction: "none",
+          width: 56, height: 56, touchAction: "none",
           transform: `translate3d(${startPos.x}px, ${startPos.y}px, 0)`,
           transition: dragStateRef.current ? "none" : "transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)",
           willChange: "transform",
@@ -639,51 +655,31 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
         <button
           type="button"
           onClick={(e) => {
-            // If user just dragged, swallow the synthetic click.
-            if (draggingRef.current) {
-              e.preventDefault();
-              e.stopPropagation();
-              return;
-            }
+            if (draggingRef.current) { e.preventDefault(); e.stopPropagation(); return; }
             setOpen((o) => !o);
           }}
-          aria-label={open ? "Close AI Assistant" : "Open AI Assistant"}
+          aria-label={open ? t.close : settings.agentName}
           className={cn(
             "relative w-14 h-14 rounded-full flex items-center justify-center shadow-2xl",
             "border border-white/40 backdrop-blur-md select-none",
             "transition-transform hover:scale-105 active:scale-95",
           )}
           style={{
-            background:
-              "conic-gradient(from 220deg, #B8A0C8, #88B8B0, #C8A880, #B8B880, #B8A0C8)",
-            // Let the parent motion.div handle pointer drag — but clicks still fire.
+            background: `conic-gradient(from 220deg, ${accent}, #88B8B0, #C8A880, #B8B880, ${accent})`,
             pointerEvents: "auto",
           }}
         >
-          {/* Pulse ring (idle / listening) */}
           <motion.span
             className="absolute inset-0 rounded-full pointer-events-none"
-            animate={
-              listening
-                ? { scale: [1, 1.5, 1], opacity: [0.45, 0, 0.45] }
-                : { scale: [1, 1.18, 1], opacity: [0.25, 0, 0.25] }
-            }
+            animate={listening
+              ? { scale: [1, 1.5, 1], opacity: [0.45, 0, 0.45] }
+              : { scale: [1, 1.18, 1], opacity: [0.25, 0, 0.25] }}
             transition={{ duration: listening ? 1.1 : 2.6, repeat: Infinity, ease: "easeInOut" }}
-            style={{
-              background:
-                listening
-                  ? "radial-gradient(circle, rgba(184,160,200,0.55), transparent 70%)"
-                  : "radial-gradient(circle, rgba(255,255,255,0.6), transparent 70%)",
-            }}
+            style={{ background: `radial-gradient(circle, ${accent}88, transparent 70%)` }}
           />
-          {/* Inner glass */}
-          <span
-            className="absolute inset-1 rounded-full backdrop-blur-sm pointer-events-none"
-            style={{ background: "rgba(255,255,255,0.18)" }}
-          />
-          {/* Icon */}
+          <span className="absolute inset-1 rounded-full backdrop-blur-sm pointer-events-none" style={{ background: "rgba(255,255,255,0.18)" }} />
           <span className="relative z-10 text-white drop-shadow pointer-events-none">
-            {listening ? <Mic className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+            {listening ? <Mic className="w-5 h-5" /> : transcribing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
           </span>
         </button>
 
@@ -700,71 +696,110 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
                 panelOnLeft ? "right-16" : "left-16",
               )}
               style={{
-                width: 380,
-                height: 560,
-                maxHeight: "min(560px, calc(100vh - 32px))",
+                width: 380, height: 580,
+                maxHeight: "min(580px, calc(100vh - 32px))",
                 top: startPos.y > 200 ? "auto" : 0,
                 bottom: startPos.y > 200 ? 0 : "auto",
               }}
-              role="dialog"
-              aria-modal="false"
-              aria-label="NexFlow AI Assistant"
+              role="dialog" aria-modal="false" aria-label={settings.agentName}
             >
               {/* Header */}
-              <div
-                className="px-3 py-2.5 flex items-center justify-between border-b border-border/30"
-                style={{ background: "linear-gradient(135deg,#B8A0C815,#88B8B015,#C8A88015)" }}
-              >
+              <div className="px-3 py-2.5 flex items-center justify-between border-b border-border/30"
+                   style={{ background: `linear-gradient(135deg, ${accent}15, ${accent}08)` }}>
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                       style={{ background: "linear-gradient(135deg,#B8A0C8,#88B8B0)" }}>
-                    <Bot className="w-3.5 h-3.5 text-white" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-black truncate">NexFlow AI</div>
-                    <div className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#88B8B0] animate-pulse" />
-                      {listening ? "Listening…" : `Ready · ${role.label}`}
+                  {showSettings ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowSettings(false)}
+                      className="p-1 rounded-lg hover:bg-muted/40 text-muted-foreground"
+                      aria-label={t.back}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+                         style={{ background: `linear-gradient(135deg, ${accent}, #88B8B0)` }}>
+                      <Bot className="w-3.5 h-3.5 text-white" />
                     </div>
+                  )}
+                  <div className="min-w-0">
+                    <div className="text-xs font-black truncate">
+                      {showSettings ? t.settings : settings.agentName}
+                    </div>
+                    {!showSettings && (
+                      <div className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: accent }} />
+                        {subtitle}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowSettings((s) => !s)}
-                    className={cn(
-                      "p-1.5 rounded-lg transition-colors",
-                      showSettings ? "bg-[#B8A0C8]/20 text-[#B8A0C8]" : "hover:bg-muted/40 text-muted-foreground",
-                    )}
-                    aria-label="Action settings"
-                    title="Action GPTs"
-                  >
-                    <SettingsIcon className="w-3.5 h-3.5" />
-                  </button>
+                  {!showSettings && (
+                    <button
+                      type="button"
+                      onClick={() => setShowSettings(true)}
+                      className="p-1.5 rounded-lg hover:bg-muted/40 text-muted-foreground"
+                      aria-label={t.settings} title={t.settings}
+                    >
+                      <SettingsIcon className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
                     className="p-1.5 rounded-lg hover:bg-muted/40 text-muted-foreground"
-                    aria-label="Close"
+                    aria-label={t.close}
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
 
-              {/* Body — chat or settings */}
               {showSettings ? (
-                <SettingsPanel enabled={enabled} onToggle={toggleAction} ttsOn={ttsOn} setTtsOn={setTtsOn} ttsSupported={ttsSupported} sttSupported={sttSupported} />
+                <SettingsPanel
+                  settings={settings}
+                  onChange={setSettings}
+                  uiLang={uiLang}
+                  accent={accent}
+                />
               ) : (
                 <>
+                  {/* Mode pills */}
+                  <div className="px-3 pt-2 pb-1 flex gap-1.5 border-b border-border/20">
+                    {([
+                      { k: "chat" as const,     label: t.chat,     icon: MessageCircle },
+                      { k: "research" as const, label: t.research, icon: Search },
+                      { k: "analyze" as const,  label: t.analyze,  icon: BarChart3 },
+                    ]).map(({ k, label, icon: Icon }) => {
+                      const active = mode === k;
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => setMode(k)}
+                          className={cn(
+                            "flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors",
+                            active ? "text-white" : "text-muted-foreground hover:text-foreground border-border/40",
+                          )}
+                          style={active ? { background: accent, borderColor: accent } : undefined}
+                        >
+                          <Icon className="w-3 h-3" />
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
                   {/* Transcript */}
                   <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5">
                     {messages.map((m) => (
-                      <ChatBubble key={m.id} m={m} />
+                      <ChatBubble key={m.id} m={m} accent={accent} onAction={runAction} dir={uiLang === "ar" ? "rtl" : "ltr"} />
                     ))}
                     {interim && (
                       <div className="flex justify-end">
-                        <div className="max-w-[85%] rounded-2xl px-3 py-2 text-xs italic text-muted-foreground border border-dashed border-[#B8A0C8]/40 bg-[#B8A0C8]/5">
+                        <div className="max-w-[85%] rounded-2xl px-3 py-2 text-xs italic text-muted-foreground border border-dashed"
+                             style={{ borderColor: `${accent}66`, background: `${accent}08` }}>
                           {interim}…
                         </div>
                       </div>
@@ -774,59 +809,31 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
                         <div className="max-w-[90%] rounded-xl px-3 py-2 text-[11px] text-[#C0A0B8] border border-[#C0A0B8]/40 bg-[#C0A0B8]/10 flex items-center gap-2">
                           <AlertTriangle className="w-3 h-3 flex-shrink-0" />
                           <span className="flex-1">{voiceError}</span>
-                          <button
-                            type="button"
-                            onClick={() => setVoiceError(null)}
-                            className="text-[10px] underline hover:no-underline flex-shrink-0"
-                          >
-                            Dismiss
-                          </button>
+                          <button type="button" onClick={() => setVoiceError(null)} className="text-[10px] underline hover:no-underline flex-shrink-0">×</button>
                         </div>
                       </div>
                     )}
                   </div>
 
-                  {/* Action chips */}
-                  <div className="px-3 pt-1 pb-2 border-t border-border/30">
-                    <div className="flex gap-1.5 overflow-x-auto pb-1.5 -mx-1 px-1 scrollbar-thin">
-                      {ACTIONS.filter((a) => enabled.has(a.id)).map((a) => {
-                        const Icon = a.icon;
-                        return (
-                          <button
-                            key={a.id}
-                            type="button"
-                            onClick={() => runAction(a)}
-                            className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors hover:shadow-sm"
-                            style={{
-                              borderColor: `${a.color}55`,
-                              color: a.color,
-                              background: `${a.color}10`,
-                            }}
-                          >
-                            <Icon className="w-3 h-3" />
-                            {a.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Input row */}
-                    <div className="flex items-center gap-1.5 mt-1.5">
+                  {/* Input row */}
+                  <div className="px-3 pt-1.5 pb-2 border-t border-border/30">
+                    <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={toggleListening}
-                        title={!sttSupported ? "Speech recognition not supported in this browser — click for details" : listening ? "Stop listening" : "Start listening"}
+                        disabled={!sttSupported || transcribing}
+                        title={!sttSupported ? t.micUnsupported : listening ? t.stopListening : t.startListening}
                         className={cn(
                           "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all",
-                          !sttSupported && "opacity-60",
-                          listening
-                            ? "bg-[#C0A0B8] text-white shadow-md"
-                            : "bg-muted/40 text-foreground hover:bg-muted/60",
+                          (!sttSupported || transcribing) && "opacity-60",
                         )}
-                        aria-label={listening ? "Stop listening" : "Start listening"}
+                        style={listening ? { background: accent, color: "white", boxShadow: `0 4px 12px ${accent}55` } : undefined}
+                        aria-label={listening ? t.stopListening : t.startListening}
                         aria-pressed={listening}
                       >
-                        {listening ? <Mic className="w-4 h-4 animate-pulse" /> : <MicOff className="w-4 h-4" />}
+                        {transcribing ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : listening ? <Mic className="w-4 h-4 animate-pulse" />
+                          : <MicOff className="w-4 h-4" />}
                       </button>
                       <button
                         type="button"
@@ -836,60 +843,50 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
                           setTtsOn((v) => !v);
                         }}
                         disabled={!ttsSupported}
-                        title={!ttsSupported ? "Speech synthesis not supported" : ttsOn ? "Mute voice replies" : "Speak replies aloud"}
+                        title={!ttsSupported ? t.muteVoice : ttsOn ? t.muteVoice : t.enableVoice}
                         className={cn(
                           "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all",
                           !ttsSupported && "opacity-40 cursor-not-allowed",
-                          ttsOn ? "bg-[#88B8B0] text-white" : "bg-muted/40 text-foreground hover:bg-muted/60",
                         )}
-                        aria-label={ttsOn ? "Mute voice replies" : "Enable voice replies"}
+                        style={ttsOn ? { background: accent, color: "white" } : { background: "rgb(var(--muted) / 0.4)" }}
+                        aria-label={ttsOn ? t.muteVoice : t.enableVoice}
                         aria-pressed={ttsOn}
                       >
                         {ttsOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                       </button>
-                      {/* AR / EN language toggle — controls both STT and TTS */}
                       <button
                         type="button"
                         onClick={() => {
                           stopSpeaking();
                           recognizerRef.current?.stop();
                           setListening(false);
-                          setSttLang(l => l === "en" ? "ar" : "en");
+                          setUiLang(l => l === "en" ? "ar" : "en");
                         }}
-                        title={sttLang === "ar" ? "Switch to English (EN)" : "Switch to Arabic — Gulf dialect (AR)"}
-                        className={cn(
-                          "h-9 px-2.5 rounded-xl flex items-center justify-center flex-shrink-0 transition-all text-[11px] font-bold tracking-wide",
-                          sttLang === "ar"
-                            ? "bg-[#C8A880] text-white"
-                            : "bg-muted/40 text-foreground hover:bg-muted/60",
-                        )}
-                        aria-label={sttLang === "ar" ? "Active: Arabic (Gulf) — click for English" : "Active: English — click for Arabic (Gulf)"}
+                        title={uiLang === "ar" ? "English" : "العربية"}
+                        className="h-9 px-2.5 rounded-xl flex items-center justify-center flex-shrink-0 text-[11px] font-bold tracking-wide bg-muted/40 hover:bg-muted/60"
                       >
-                        {sttLang === "ar" ? "عربي" : "EN"}
+                        {uiLang === "ar" ? "EN" : "ع"}
                       </button>
                       <input
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            submit(input);
-                          }
-                        }}
-                        placeholder="Ask anything…"
-                        className="flex-1 px-3 py-2 rounded-xl bg-muted/40 border border-border/40 text-xs outline-none focus:border-[#B8A0C8]"
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit(input); } }}
+                        placeholder={t.askAnything}
+                        dir={uiLang === "ar" ? "rtl" : "ltr"}
+                        className="flex-1 px-3 py-2 rounded-xl bg-muted/40 border border-border/40 text-xs outline-none focus:border-[var(--ai-accent)]"
+                        style={{ ["--ai-accent" as any]: accent }}
                         aria-label="Message"
                       />
                       <button
                         type="button"
                         onClick={() => submit(input)}
-                        disabled={!input.trim()}
+                        disabled={!input.trim() || pending}
                         className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 disabled:opacity-40"
-                        style={{ background: "linear-gradient(135deg,#B8A0C8,#88B8B0)" }}
-                        aria-label="Send"
+                        style={{ background: `linear-gradient(135deg, ${accent}, #88B8B0)` }}
+                        aria-label={t.sender}
                       >
-                        <Send className="w-4 h-4 text-white" />
+                        {pending ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Send className="w-4 h-4 text-white" />}
                       </button>
                     </div>
                   </div>
@@ -903,133 +900,249 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
   );
 }
 
-function ChatBubble({ m }: { m: ChatMessage }) {
+// ─── Chat bubble ────────────────────────────────────────────────────
+function ChatBubble({
+  m, accent, onAction, dir,
+}: {
+  m: ChatMessage;
+  accent: string;
+  onAction: (a: AssistantAction) => void;
+  dir: "ltr" | "rtl";
+}) {
   const isUser = m.role === "user";
-  const action = m.matchedAction ? ACTIONS.find((a) => a.id === m.matchedAction) : undefined;
+  const Icon = (kind: AssistantAction["kind"]) =>
+    kind === "start_call"     ? Phone
+    : kind === "draft_email"  ? Mail
+    : kind === "draft_whatsapp" ? MessageSquare
+    : ArrowRight;
+
   return (
-    <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
-      {!isUser && (
-        <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 mr-1.5"
-             style={{ background: "linear-gradient(135deg,#B8A0C8,#88B8B0)" }}>
-          <Sparkles className="w-3 h-3 text-white" />
-        </div>
-      )}
-      <div className={cn(
-        "max-w-[80%] rounded-2xl px-3 py-2 text-xs leading-relaxed",
-        isUser
-          ? "rounded-br-sm text-white"
-          : "rounded-bl-sm bg-muted/40 text-foreground",
-      )} style={isUser ? { background: "linear-gradient(135deg,#B8A0C8,#88B8B0)" } : undefined}>
-        {m.text}
-        {action && (
-          <div className="mt-1.5 flex items-center gap-1 text-[10px] opacity-80">
-            <action.icon className="w-2.5 h-2.5" />
-            <span>via {action.label}</span>
+    <div className={cn("flex flex-col gap-1.5", isUser ? "items-end" : "items-start")} dir={dir}>
+      <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
+        {!isUser && (
+          <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 mr-1.5"
+               style={{ background: `linear-gradient(135deg, ${accent}, #88B8B0)` }}>
+            <Sparkles className="w-3 h-3 text-white" />
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function SettingsPanel({
-  enabled, onToggle, ttsOn, setTtsOn, ttsSupported, sttSupported,
-}: {
-  enabled: Set<string>;
-  onToggle: (id: string) => void;
-  ttsOn: boolean;
-  setTtsOn: (v: boolean) => void;
-  ttsSupported: boolean;
-  sttSupported: boolean;
-}) {
-  return (
-    <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
-      <div>
-        <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1.5">Voice</div>
-        <div className="space-y-1">
-          <SettingRow
-            label="Voice input"
-            sub={sttSupported ? "Web Speech API" : "Not supported in this browser"}
-            on={sttSupported}
-            disabled={true}
-          />
-          <SettingRow
-            label="Speak replies aloud"
-            sub={ttsSupported ? "Synthesised in your browser" : "Not supported in this browser"}
-            on={ttsOn}
-            disabled={!ttsSupported}
-            onToggle={() => setTtsOn(!ttsOn)}
-          />
+        <div className={cn(
+          "max-w-[80%] rounded-2xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap",
+          isUser ? "rounded-br-sm text-white" : "rounded-bl-sm bg-muted/40 text-foreground",
+        )} style={isUser ? { background: `linear-gradient(135deg, ${accent}, #88B8B0)` } : undefined}>
+          {m.text}
         </div>
       </div>
-
-      <div>
-        <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1.5">Action GPTs</div>
-        <p className="text-[10px] text-muted-foreground mb-2 leading-snug">
-          Pick which actions the assistant can route requests to. Disabled actions are hidden from the chip rail and won't fire.
-        </p>
-        <div className="space-y-1">
-          {ACTIONS.map((a) => {
-            const Icon = a.icon;
-            const on = enabled.has(a.id);
+      {!isUser && m.actions && m.actions.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 ml-7">
+          {m.actions.map((a, idx) => {
+            const ActionIcon = Icon(a.kind);
             return (
               <button
-                key={a.id}
+                key={idx}
                 type="button"
-                onClick={() => onToggle(a.id)}
-                className="w-full flex items-center gap-2 p-2 rounded-xl border border-border/30 hover:bg-muted/30 transition-colors text-left"
-                aria-pressed={on}
+                onClick={() => onAction(a)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors hover:shadow-sm"
+                style={{ borderColor: `${accent}55`, color: accent, background: `${accent}10` }}
               >
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                     style={{ background: `${a.color}20`, color: a.color }}>
-                  <Icon className="w-3.5 h-3.5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-foreground truncate">{a.label}</div>
-                  <div className="text-[10px] text-muted-foreground truncate">{a.description}</div>
-                </div>
-                <div className={cn(
-                  "w-9 h-5 rounded-full p-0.5 transition-colors flex-shrink-0",
-                  on ? "bg-[#88B8B0]" : "bg-muted/60",
-                )}>
-                  <div className={cn(
-                    "w-4 h-4 rounded-full bg-white shadow transition-transform",
-                    on ? "translate-x-4" : "translate-x-0",
-                  )} />
-                </div>
+                <ActionIcon className="w-3 h-3" />
+                {a.label}
               </button>
             );
           })}
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
-function SettingRow({
-  label, sub, on, disabled, onToggle,
-}: { label: string; sub: string; on: boolean; disabled?: boolean; onToggle?: () => void }) {
+// ─── Settings panel ─────────────────────────────────────────────────
+function SettingsPanel({
+  settings, onChange, uiLang, accent,
+}: {
+  settings: AssistantSettings;
+  onChange: (s: AssistantSettings) => void;
+  uiLang: "en" | "ar";
+  accent: string;
+}) {
+  const t = L[uiLang];
+  const update = <K extends keyof AssistantSettings>(k: K, v: AssistantSettings[K]) =>
+    onChange({ ...settings, [k]: v });
+
+  const toneOptions: Array<{ v: Tone; en: string; ar: string }> = [
+    { v: "conversational", en: "Conversational", ar: "ودود" },
+    { v: "concise",        en: "Concise",        ar: "مختصر" },
+    { v: "coach",          en: "Coach",          ar: "مدرّب" },
+    { v: "enthusiastic",   en: "Enthusiastic",   ar: "حماسي" },
+    { v: "formal",         en: "Formal",         ar: "رسمي" },
+  ];
+  const focusOptions: Array<{ v: Focus; en: string; ar: string }> = [
+    { v: "general",   en: "General",   ar: "عام" },
+    { v: "sales",     en: "Sales",     ar: "مبيعات" },
+    { v: "marketing", en: "Marketing", ar: "تسويق" },
+    { v: "research",  en: "Research",  ar: "بحث" },
+  ];
+  const providerOptions: Array<{ v: AiProvider; label: string }> = [
+    { v: "auto",       label: t.auto },
+    { v: "openai",     label: "OpenAI" },
+    { v: "anthropic",  label: "Claude" },
+    { v: "gemini",     label: "Gemini" },
+    { v: "perplexity", label: "Perplexity" },
+  ];
+  const langOptions: Array<{ v: Language; en: string; ar: string }> = [
+    { v: "auto", en: "Auto",    ar: "تلقائي" },
+    { v: "en",   en: "English", ar: "إنجليزي" },
+    { v: "ar",   en: "Arabic",  ar: "عربي" },
+  ];
+  const accentOptions: Array<{ v: Accent; en: string; ar: string }> = [
+    { v: "default",  en: "Default", ar: "افتراضي" },
+    { v: "saudi",    en: "Saudi",   ar: "سعودي" },
+    { v: "uae",      en: "UAE",     ar: "إماراتي" },
+    { v: "egyptian", en: "Egyptian", ar: "مصري" },
+  ];
+  const voiceOptions: Array<{ v: VoiceName; label: string }> = [
+    { v: "layla",  label: "Layla" },
+    { v: "noor",   label: "Noor" },
+    { v: "sara",   label: "Sara" },
+    { v: "faisal", label: "Faisal" },
+    { v: "adam",   label: "Adam" },
+  ];
+
+  function l(opt: { en: string; ar: string }) { return uiLang === "ar" ? opt.ar : opt.en; }
+
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      disabled={disabled || !onToggle}
-      className="w-full flex items-center gap-2 p-2 rounded-xl border border-border/30 hover:bg-muted/30 transition-colors text-left disabled:opacity-60 disabled:cursor-default"
-      aria-pressed={on}
-    >
-      <div className="flex-1 min-w-0">
-        <div className="text-xs font-bold text-foreground">{label}</div>
-        <div className="text-[10px] text-muted-foreground">{sub}</div>
-      </div>
-      <div className={cn(
-        "w-9 h-5 rounded-full p-0.5 transition-colors flex-shrink-0",
-        on ? "bg-[#88B8B0]" : "bg-muted/60",
-      )}>
-        <div className={cn(
-          "w-4 h-4 rounded-full bg-white shadow transition-transform",
-          on ? "translate-x-4" : "translate-x-0",
-        )} />
-      </div>
-    </button>
+    <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
+      {/* Agent name */}
+      <Field label={t.agentName}>
+        <input
+          type="text"
+          value={settings.agentName}
+          onChange={(e) => update("agentName", e.target.value.slice(0, 40))}
+          placeholder="NexFlow AI"
+          dir={uiLang === "ar" ? "rtl" : "ltr"}
+          className="w-full px-3 py-2 rounded-xl bg-muted/40 border border-border/40 text-xs outline-none focus:border-[var(--ai-accent)]"
+          style={{ ["--ai-accent" as any]: accent }}
+        />
+      </Field>
+
+      {/* AI provider */}
+      <Field label={t.aiProvider}>
+        <ChipRow
+          options={providerOptions.map(o => ({ value: o.v, label: o.label }))}
+          value={settings.provider}
+          onChange={(v) => update("provider", v as AiProvider)}
+          accent={accent}
+        />
+      </Field>
+
+      {/* Tone */}
+      <Field label={t.tone}>
+        <ChipRow
+          options={toneOptions.map(o => ({ value: o.v, label: l(o) }))}
+          value={settings.tone}
+          onChange={(v) => update("tone", v as Tone)}
+          accent={accent}
+        />
+      </Field>
+
+      {/* Focus */}
+      <Field label={t.focus}>
+        <ChipRow
+          options={focusOptions.map(o => ({ value: o.v, label: l(o) }))}
+          value={settings.focus}
+          onChange={(v) => update("focus", v as Focus)}
+          accent={accent}
+        />
+      </Field>
+
+      {/* Language */}
+      <Field label={t.language}>
+        <ChipRow
+          options={langOptions.map(o => ({ value: o.v, label: l(o) }))}
+          value={settings.language}
+          onChange={(v) => update("language", v as Language)}
+          accent={accent}
+        />
+      </Field>
+
+      {/* Arabic accent */}
+      <Field label={t.arabicAccent}>
+        <ChipRow
+          options={accentOptions.map(o => ({ value: o.v, label: l(o) }))}
+          value={settings.accent}
+          onChange={(v) => update("accent", v as Accent)}
+          accent={accent}
+        />
+      </Field>
+
+      {/* Voice */}
+      <Field label={t.voice}>
+        <ChipRow
+          options={voiceOptions.map(o => ({ value: o.v, label: o.label }))}
+          value={settings.voice}
+          onChange={(v) => update("voice", v as VoiceName)}
+          accent={accent}
+        />
+      </Field>
+
+      {/* Accent colour */}
+      <Field label={t.accentColor}>
+        <div className="flex flex-wrap gap-2">
+          {ACCENT_COLORS.map(c => (
+            <button
+              key={c.value}
+              type="button"
+              onClick={() => update("color", c.value)}
+              title={c.name}
+              aria-label={c.name}
+              className={cn(
+                "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+                settings.color === c.value ? "ring-2 ring-offset-2 ring-foreground/40" : "border-white",
+              )}
+              style={{ background: c.value }}
+            />
+          ))}
+        </div>
+      </Field>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1.5">{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function ChipRow({
+  options, value, onChange, accent,
+}: {
+  options: Array<{ value: string; label: string }>;
+  value: string;
+  onChange: (v: string) => void;
+  accent: string;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map(o => {
+        const active = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(o.value)}
+            className={cn(
+              "px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors",
+              active ? "text-white" : "text-muted-foreground hover:text-foreground border-border/40",
+            )}
+            style={active ? { background: accent, borderColor: accent } : undefined}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
