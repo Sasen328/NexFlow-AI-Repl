@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { useLocation } from "wouter";
 import {
-  getRole, isSignedIn,
+  getRole, isSignedIn, signInAs,
 } from "@/lib/marketing-auth";
 import {
   createRecognizer, speak, stopSpeaking,
@@ -207,6 +207,13 @@ export function AIAssistantBubble() {
   const [role, setRole] = useState(() => getRole());
 
   useEffect(() => {
+    // Auto-sign in as Sales if the user arrives without going through the Welcome flow.
+    // This is a demo app — the bubble should always be visible.
+    if (!isSignedIn()) {
+      signInAs("sales");
+      setSigned(true);
+      setRole(getRole());
+    }
     const refresh = () => {
       setSigned(isSignedIn());
       setRole(getRole());
@@ -219,7 +226,6 @@ export function AIAssistantBubble() {
     };
   }, []);
 
-  if (!signed) return null;
   return <BubbleInner role={role} key={role.key} />;
 }
 

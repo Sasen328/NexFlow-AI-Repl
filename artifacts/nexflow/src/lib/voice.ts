@@ -238,8 +238,10 @@ export async function speakViaServer(
     if (e?.name === "AbortError") return;
     opts?.onError?.(e?.message ?? "tts_failed");
     // Last-resort browser fallback so the assistant still feels alive.
-    // Wait for fallback to finish before signalling onEnd to the caller.
-    speak(text, { lang: "en-US", onEnd: () => opts?.onEnd?.() });
+    const isArabicVoice = voice === "layla" || voice === "noor" || voice === "khalid" || voice === "faisal";
+    const fallbackLang = isArabicVoice ? "ar-SA" : "en-US";
+    const fallbackGender: "female" | "male" = (voice === "khalid" || voice === "faisal" || voice === "adam" || voice === "james") ? "male" : "female";
+    speak(text, { lang: fallbackLang, gender: fallbackGender, onEnd: () => opts?.onEnd?.() });
   }
 }
 
