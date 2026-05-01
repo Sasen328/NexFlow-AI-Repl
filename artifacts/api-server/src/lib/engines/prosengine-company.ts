@@ -109,7 +109,7 @@ export async function runCompanyIntel(input: CompanyIntelInput): Promise<{ repor
       user: `From your training knowledge, what do you know about ${ctx}? Cover ownership, leadership, financials, market position. Say "unknown" rather than guess.`,
       maxTokens: 1500,
     }) },
-  ], 50_000);
+  ], 18_000);
 
   const [agentResults, crawlR] = await Promise.all([agents, crawlPromise]);
 
@@ -131,7 +131,7 @@ Known facts: ${input.knownFacts ?? "(none)"}
 Seller context: ${JSON.stringify(input.sellerContext ?? {})}
 
 Multi-source research:
-${bundle.slice(0, 22000)}
+${bundle.slice(0, 12000)}
 
 Return JSON with EXACTLY these top-level keys: profile, financials, ownership, leadership, operations, market, approach, news, intelligence, executiveSummary.
 
@@ -148,8 +148,8 @@ executiveSummary: 2-3 paragraph English summary
 
 Tailor approach.sampleMessage to the seller_context.`,
     fallback: { ...EMPTY_REPORT, profile: { ...EMPTY_REPORT.profile, nameEn: input.companyName, website: websiteUrl, crNumber: input.crNumber ?? null, city: input.city ?? null } },
-    preferredProvider: "anthropic",
-    maxTokens: 5000,
+    preferredProvider: "gemini",
+    maxTokens: 3000,
   });
 
   if (provider !== "fallback") sourcesUsed.push(`synthesis:${provider}`);

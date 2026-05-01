@@ -12,13 +12,14 @@
  * the waterfall keeps moving even when one provider is down.
  */
 
+import { jsonrepair } from "jsonrepair";
 import { aiChat, aiJson, aiGeminiChat, type AiProvider } from "../ai.js";
 import { logger } from "../logger.js";
 
 /** Run N AI calls in parallel; never throws — failures become empty strings. */
 export async function fanOut<T>(
   jobs: Array<{ name: string; run: () => Promise<T> }>,
-  timeoutMs = 45_000,
+  timeoutMs = 18_000,
 ): Promise<Array<{ name: string; ok: boolean; value?: T; error?: string }>> {
   const wrap = jobs.map(({ name, run }) =>
     Promise.race([
@@ -163,8 +164,9 @@ function isGoodData(data: unknown): boolean {
   );
 }
 
+/** Extract the outermost JSON object from a possibly-polluted AI response. */
 function extractJsonBlock(text: string): string {
-  // Try to pull a JSON block out of a free-text Gemini response
+  // Strip markdown fences first
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenced) return fenced[1]!.trim();
   const braceStart = text.indexOf("{");
@@ -173,10 +175,21 @@ function extractJsonBlock(text: string): string {
   return text.trim();
 }
 
+/** Try parsing JSON; if that fails, try extractJsonBlock + jsonrepair; throws only if all fail. */
+function robustParse<T>(raw: string): T {
+  // Attempt 1: standard parse
+  try { return JSON.parse(raw) as T; } catch { /* fall through */ }
+  // Attempt 2: strip prose wrapper, then parse
+  const block = extractJsonBlock(raw);
+  try { return JSON.parse(block) as T; } catch { /* fall through */ }
+  // Attempt 3: jsonrepair handles unescaped quotes, trailing commas, truncated JSON, etc.
+  return JSON.parse(jsonrepair(block)) as T;
+}
+
 /**
  * Strict-JSON synthesis — tries providers in order, returns first usable result.
  *
- * Order: direct Gemini JSON → Claude → GPT-4o-mini → Gemini via OpenRouter.
+ * Order: Gemini JSON-mode (responseMimeType forces valid JSON) → Claude → GPT-4o-mini → OpenRouter auto.
  * Each provider catches its own errors. Final fallback = caller's `opts.fallback`.
  */
 export async function synthesizeJson<T>(opts: {
@@ -186,18 +199,21 @@ export async function synthesizeJson<T>(opts: {
   preferredProvider?: AiProvider;
   maxTokens?: number;
 }): Promise<{ data: T; provider: string }> {
-  const maxTokens = opts.maxTokens ?? 4500;
+  const maxTokens = opts.maxTokens ?? 3000;
 
-  // ── 1. Direct Gemini (most reliable in this environment)
+  // ── 1. Direct Gemini with responseMimeType: "application/json"
+  //    This forces Gemini to return JSON-structured output; robustParse handles
+  //    any residual formatting issues (embedded chars, trailing text, etc.)
   try {
-    const jsonSystem = opts.system + "\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no explanation, no code fences.";
-    const raw = await aiGeminiChat({
-      system: jsonSystem,
-      messages: [{ role: "user", text: opts.user }],
+    const raw = await aiChat({
+      provider: "gemini",
+      system: opts.system,
+      user: opts.user,
+      json: true,
       maxTokens,
     });
     if (raw?.trim()) {
-      const parsed = JSON.parse(extractJsonBlock(raw)) as T;
+      const parsed = robustParse<T>(raw);
       if (isGoodData(parsed)) {
         logger.info({ scope: "engines/ai/synthesizeJson" }, "synthesized via gemini_direct");
         return { data: parsed, provider: "gemini_direct" };

@@ -217,7 +217,7 @@ export async function runPersonIntel(
           }),
       },
     ],
-    55_000,
+    18_000,
   );
 
   // ── Crawl agents (run in parallel with AI fan-out)
@@ -288,7 +288,7 @@ Known facts: ${input.knownFacts ?? "(none provided)"}
 Seller context: ${JSON.stringify(input.sellerContext ?? {})}
 
 Multi-source research bundle:
-${bundle.slice(0, 22000)}
+${bundle.slice(0, 12000)}
 
 Return a JSON object with EXACTLY these top-level keys:
 profile, career, education, company_analysis, wealth_profile, personal_profile, approach_strategy, intelligence_notes.
@@ -313,8 +313,8 @@ Include cultural notes for Saudi/GCC relationship-building if country is KSA or 
         company: input.company ?? "",
       },
     },
-    preferredProvider: "anthropic",
-    maxTokens: 5500,
+    preferredProvider: "gemini",
+    maxTokens: 3000,
   });
 
   if (provider !== "fallback") sourcesUsed.push(`synthesis:${provider}`);

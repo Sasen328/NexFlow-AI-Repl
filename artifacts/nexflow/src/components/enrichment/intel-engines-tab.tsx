@@ -23,6 +23,33 @@ import { apiFetch } from "@/hooks/useApi";
 
 type EngineKind = "masaar" | "person_intel" | "company_intel" | "lead_finder";
 
+/**
+ * Fire-and-poll: POST to /{endpoint}/start → get jobId, then poll
+ * GET /runs/{jobId} every 2 s until status !== "pending".
+ * Resolves with the same shape the /run endpoint would return:
+ *   { id, durationMs, sourcesUsed, report }
+ */
+async function pollEngineJob(endpoint: string, body: Record<string, unknown>): Promise<any> {
+  const { jobId } = await apiFetch(`/engines/${endpoint}/start`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  for (let i = 0; i < 60; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const { row } = await apiFetch(`/engines/runs/${jobId}`);
+    if (row.status === "ok") {
+      return {
+        id: row.id,
+        durationMs: row.duration_ms,
+        sourcesUsed: row.sources_used,
+        report: row.report,
+      };
+    }
+    if (row.status === "error") throw new Error(row.error ?? "Engine run failed");
+  }
+  throw new Error("Timed out waiting for engine result (120s)");
+}
+
 const ENGINE_META: Record<EngineKind, {
   title: string;
   blurb: string;
@@ -189,6 +216,13 @@ function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
 }
 
 function RunButton({ onClick, busy, label = "Run engine" }: { onClick: () => void; busy: boolean; label?: string }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!busy) { setElapsed(0); return; }
+    const t = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [busy]);
+
   return (
     <button
       onClick={onClick}
@@ -196,7 +230,7 @@ function RunButton({ onClick, busy, label = "Run engine" }: { onClick: () => voi
       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-foreground text-background text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
     >
       {busy
-        ? (<><Loader2 className="w-4 h-4 animate-spin" /> Running… (30-90s)</>)
+        ? (<><Loader2 className="w-4 h-4 animate-spin" /> Analysing… {elapsed > 0 ? `${elapsed}s` : ""}</>)
         : (<><Play className="w-4 h-4" /> {label}</>)}
     </button>
   );
@@ -390,21 +424,18 @@ function PersonIntelPanel() {
   async function run() {
     setErr(null); setResult(null); setBusy(true);
     try {
-      const data = await apiFetch("/engines/person-intel/run", {
-        method: "POST",
-        body: JSON.stringify({
-          name: name.trim(),
-          company: company.trim() || undefined,
-          title: title.trim() || undefined,
-          linkedinUrl: linkedinUrl.trim() || undefined,
-          websiteUrl: websiteUrl.trim() || undefined,
-          country: country.trim() || undefined,
-          knownFacts: knownFacts.trim() || undefined,
-          sellerContext: (sellerCompany || sellerProduct) ? {
-            companyName: sellerCompany.trim() || undefined,
-            product: sellerProduct.trim() || undefined,
-          } : undefined,
-        }),
+      const data = await pollEngineJob("person-intel", {
+        name: name.trim(),
+        company: company.trim() || undefined,
+        title: title.trim() || undefined,
+        linkedinUrl: linkedinUrl.trim() || undefined,
+        websiteUrl: websiteUrl.trim() || undefined,
+        country: country.trim() || undefined,
+        knownFacts: knownFacts.trim() || undefined,
+        sellerContext: (sellerCompany || sellerProduct) ? {
+          companyName: sellerCompany.trim() || undefined,
+          product: sellerProduct.trim() || undefined,
+        } : undefined,
       });
       setResult(data);
     } catch (e: any) {
@@ -560,16 +591,13 @@ function CompanyIntelPanel() {
   async function run() {
     setErr(null); setResult(null); setBusy(true);
     try {
-      const data = await apiFetch("/engines/company-intel/run", {
-        method: "POST",
-        body: JSON.stringify({
-          companyName: companyName.trim(),
-          website: website.trim() || undefined,
-          crNumber: crNumber.trim() || undefined,
-          city: city.trim() || undefined,
-          knownFacts: knownFacts.trim() || undefined,
-          sellerContext: sellerProduct ? { product: sellerProduct.trim() } : undefined,
-        }),
+      const data = await pollEngineJob("company-intel", {
+        companyName: companyName.trim(),
+        website: website.trim() || undefined,
+        crNumber: crNumber.trim() || undefined,
+        city: city.trim() || undefined,
+        knownFacts: knownFacts.trim() || undefined,
+        sellerContext: sellerProduct ? { product: sellerProduct.trim() } : undefined,
       });
       setResult(data);
     } catch (e: any) { setErr(e?.message ?? "Run failed"); }
@@ -723,16 +751,13 @@ function LeadFinderPanel() {
   async function run() {
     setErr(null); setResult(null); setBusy(true);
     try {
-      const data = await apiFetch("/engines/lead-finder/run", {
-        method: "POST",
-        body: JSON.stringify({
-          companyName: companyName.trim(),
-          website: website.trim() || undefined,
-          city: city.trim() || undefined,
-          country: country.trim() || undefined,
-          rolesWanted: rolesText.split(",").map((s) => s.trim()).filter(Boolean),
-          count: Number(count) || 10,
-        }),
+      const data = await pollEngineJob("lead-finder", {
+        companyName: companyName.trim(),
+        website: website.trim() || undefined,
+        city: city.trim() || undefined,
+        country: country.trim() || undefined,
+        rolesWanted: rolesText.split(",").map((s) => s.trim()).filter(Boolean),
+        count: Number(count) || 10,
       });
       setResult(data);
     } catch (e: any) { setErr(e?.message ?? "Run failed"); }

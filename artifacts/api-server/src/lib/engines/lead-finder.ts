@@ -132,8 +132,8 @@ export async function findLeadsByCompany(input: LeadFinderInput): Promise<{ repo
         maxTokens: 60,
       });
       const cleaned = geminiDomain?.trim().split(/\s+/)[0]?.toLowerCase()
-        .replace(/^https?:\/\//, "").replace(/\/.*/, "");
-      if (cleaned && cleaned !== "unknown" && /\./.test(cleaned)) {
+        .replace(/^https?:\/\//, "").replace(/\/.*/, "").replace(/\.$/, "");
+      if (cleaned && cleaned !== "unknown" && /\.[a-z]{2,}$/.test(cleaned)) {
         websiteUrl = `https://${cleaned}`;
       }
     } catch {}
@@ -230,7 +230,7 @@ export async function findLeadsByCompany(input: LeadFinderInput): Promise<{ repo
         maxTokens: 2000,
       }),
     },
-  ], 50_000);
+  ], 18_000);
 
   const [agentResults, crawlR] = await Promise.all([agents, crawlPromise]);
 
@@ -278,7 +278,7 @@ Roles wanted: ${wantedRoles}
 Target lead count: ${count}
 
 Multi-source research bundle:
-${bundle.slice(0, 28000)}
+${bundle.slice(0, 14000)}
 
 Discovered emails (attach to matching persons, infer pattern for others): ${crawlR.emails.join(", ") || "(none)"}
 
@@ -321,8 +321,8 @@ Rank leads: decision makers first. Aim for ${count} leads. DO NOT return an empt
     system: synthesisSystem,
     user: synthesisUser,
     fallback,
-    preferredProvider: "anthropic",
-    maxTokens: 6000,
+    preferredProvider: "gemini",
+    maxTokens: 3000,
   });
 
   // If synthesis returned 0 leads but we have a non-empty bundle, retry with
@@ -334,7 +334,7 @@ Rank leads: decision makers first. Aim for ${count} leads. DO NOT return an empt
 Go through EVERY bullet point, paragraph, and line in the research bundle. Find EVERY human name mentioned in the context of ${company}. Extract them all into the leads array.
 
 Research bundle:
-${bundle.slice(0, 20000)}
+${bundle.slice(0, 12000)}
 
 If you cannot find any named people in the bundle above, return leads: []. But read it carefully — names are there.
 
@@ -343,8 +343,8 @@ Return ONLY the JSON object described earlier.`;
       system: synthesisSystem,
       user: retryUser,
       fallback,
-      preferredProvider: "openai",
-      maxTokens: 5000,
+      preferredProvider: "gemini",
+      maxTokens: 2500,
     });
     if ((retry.data.leads ?? []).length > 0) {
       data = retry.data;

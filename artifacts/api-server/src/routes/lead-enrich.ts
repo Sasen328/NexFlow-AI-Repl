@@ -8,14 +8,25 @@ import { randomUUID } from "crypto";
 const router: IRouter = Router();
 
 // POST /api/lead-enrich/quick — minimal data → fully enriched contact draft
-// body: { name?, email?, phone?, company?, linkedin_url?, notes?, save?: boolean }
+// body: { name?, email?, phone?, company?, linkedin_url?, notes?, country?, seniority?, industry?, save?: boolean }
 router.post("/quick", async (req, res) => {
   try {
-    const { name = "", email = "", phone = "", company = "", linkedin_url = "", notes = "", save = false } = req.body ?? {};
+    const {
+      name = "", email = "", phone = "", company = "",
+      linkedin_url = "", notes = "", save = false,
+      country = "", seniority = "", industry = "",
+    } = req.body ?? {};
     const seed = `${name} ${email} ${phone} ${company} ${linkedin_url} ${notes}`.trim();
     if (!seed) return res.status(400).json({ error: "Provide at least one of: name, email, phone, company, linkedin_url" });
 
+    const hints = [
+      country && `Country hint: ${country}`,
+      seniority && `Seniority hint: ${seniority}`,
+      industry && `Industry hint: ${industry}`,
+    ].filter(Boolean).join("\n");
+
     const enriched = await aiJson<any>({
+      provider: "gemini",
       system: `You are a B2B contact enrichment AI. From minimal seed data you produce a complete plausible contact profile for the GCC region. Output strict JSON only. NEVER fabricate emails or phone numbers — only return real values that were provided as input.`,
       user: `Seed data:
 - Name: ${name || "(unknown)"}
@@ -24,8 +35,9 @@ router.post("/quick", async (req, res) => {
 - Company: ${company || "(unknown)"}
 - LinkedIn: ${linkedin_url || "(unknown)"}
 - Notes: ${notes || "(unknown)"}
+${hints ? `\nContext hints (use these to improve accuracy):\n${hints}` : ""}
 
-Produce JSON: {"first_name":"...","last_name":"...","email":"<only if provided>","phone":"<only if provided>","title":"plausible title","linkedin_url":"<only if provided or guess based on name>","company":{"name":"...","industry":"e.g. Banking, Real Estate, FMCG","country":"UAE|KSA|Qatar|etc","size":"1-10|11-50|51-200|201-1000|1000+","website":"<plausible domain>"},"seniority":"junior|mid|senior|c-level","tags":["3-5 tags"],"persona":"e.g. Decision Maker / Champion / Influencer","summary":"2-sentence profile summary","next_actions":[{"action":"call|email|whatsapp|linkedin","reason":"why"}],"lead_score":0-100,"confidence":0-100,"enriched_fields":["which fields you added"]}`,
+Produce JSON: {"first_name":"...","last_name":"...","email":"<only if provided>","phone":"<only if provided>","title":"plausible title","linkedin_url":"<only if provided or guess based on name>","company":{"name":"...","industry":"${industry || "e.g. Banking, Real Estate, FMCG"}","country":"${country || "UAE|KSA|Qatar|etc"}","size":"1-10|11-50|51-200|201-1000|1000+","website":"<plausible domain>"},"seniority":"${seniority ? seniority.toLowerCase() : "junior|mid|senior|c-level"}","tags":["3-5 tags"],"persona":"e.g. Decision Maker / Champion / Influencer","summary":"2-sentence profile summary","next_actions":[{"action":"call|email|whatsapp|linkedin","reason":"why"}],"lead_score":0-100,"confidence":0-100,"enriched_fields":["which fields you added"]}`,
       fallback: {
         first_name: name?.split(" ")[0] ?? "Unknown",
         last_name: name?.split(" ").slice(1).join(" ") ?? "",

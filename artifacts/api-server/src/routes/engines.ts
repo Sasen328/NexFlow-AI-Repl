@@ -172,6 +172,71 @@ function isSafePublicUrl(raw: string | undefined): boolean {
 
 const safeUrl = z.string().url().refine(isSafePublicUrl, { message: "URL must point to a public host" });
 
+/**
+ * Fire-and-poll handler. Inserts a "pending" engine_run, returns { jobId } in
+ * < 100 ms, then runs the engine in the background and updates the row.
+ * The client polls GET /runs/:jobId until status !== "pending".
+ */
+function startHandler<TInput>(opts: {
+  engine: string;
+  schema: z.ZodType<TInput>;
+  titleOf: (input: TInput) => string;
+  exec: (input: TInput) => Promise<{ report: any; sourcesUsed: string[] }>;
+}) {
+  return async (req: Request, res: Response): Promise<void> => {
+    const parsed = opts.schema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+      return;
+    }
+    const input = parsed.data;
+    // Insert pending row immediately so the client can poll
+    const [{ id: jobId }] = await db
+      .insert(engine_runs)
+      .values({
+        engine: opts.engine,
+        title: opts.titleOf(input),
+        input: input as unknown as Record<string, unknown>,
+        report: null,
+        sources_used: [],
+        duration_ms: 0,
+        status: "pending",
+      })
+      .returning({ id: engine_runs.id });
+
+    // Respond immediately
+    res.status(202).json({ jobId });
+
+    // Run engine in background — never awaited by the request
+    const started = Date.now();
+    opts
+      .exec(input)
+      .then(async ({ report, sourcesUsed }) => {
+        await db
+          .update(engine_runs)
+          .set({
+            report,
+            sources_used: sourcesUsed,
+            duration_ms: Date.now() - started,
+            status: "ok",
+            updated_at: new Date(),
+          })
+          .where(eq(engine_runs.id, jobId));
+      })
+      .catch(async (e: any) => {
+        await db
+          .update(engine_runs)
+          .set({
+            duration_ms: Date.now() - started,
+            status: "error",
+            error: e?.message ?? "engine run failed",
+            updated_at: new Date(),
+          })
+          .where(eq(engine_runs.id, jobId));
+      });
+  };
+}
+
 // ─────────────────────── routes ──────────────────────────────
 
 router.post("/masaar/run", masaarRunHandler());
@@ -232,6 +297,75 @@ router.post(
       rolesWanted: z.array(z.string()).optional(),
       count: z.number().int().min(1).max(25).optional(),
     }),
+    titleOf: (i) => `${i.companyName}${i.count ? " · " + i.count + " leads" : ""}`,
+    exec: (i) => findLeadsByCompany(i),
+  }),
+);
+
+// ─── async /start routes (fire-and-poll, avoids 30s proxy timeout) ───
+
+const personIntelSchema = z.object({
+  name: z.string().min(2),
+  company: z.string().optional(),
+  title: z.string().optional(),
+  linkedinUrl: safeUrl.optional(),
+  websiteUrl: safeUrl.optional(),
+  country: z.string().optional(),
+  knownFacts: z.string().optional(),
+  sellerContext: z.object({
+    companyName: z.string().optional(),
+    product: z.string().optional(),
+    objectives: z.array(z.string()).optional(),
+  }).optional(),
+});
+
+const companyIntelSchema = z.object({
+  companyName: z.string().min(2),
+  website: safeUrl.optional(),
+  crNumber: z.string().regex(/^\d{10}$/).optional(),
+  city: z.string().optional(),
+  knownFacts: z.string().optional(),
+  sellerContext: z.object({
+    companyName: z.string().optional(),
+    product: z.string().optional(),
+    objectives: z.array(z.string()).optional(),
+  }).optional(),
+});
+
+const leadFinderSchema = z.object({
+  companyName: z.string().min(2),
+  website: safeUrl.optional(),
+  city: z.string().optional(),
+  country: z.string().optional(),
+  rolesWanted: z.array(z.string()).optional(),
+  count: z.number().int().min(1).max(25).optional(),
+});
+
+router.post(
+  "/person-intel/start",
+  startHandler({
+    engine: "person_intel",
+    schema: personIntelSchema,
+    titleOf: (i) => `${i.name}${i.company ? " · " + i.company : ""}`,
+    exec: (i) => runPersonIntel(i),
+  }),
+);
+
+router.post(
+  "/company-intel/start",
+  startHandler({
+    engine: "company_intel",
+    schema: companyIntelSchema,
+    titleOf: (i) => `${i.companyName}${i.city ? " · " + i.city : ""}`,
+    exec: (i) => runCompanyIntel(i),
+  }),
+);
+
+router.post(
+  "/lead-finder/start",
+  startHandler({
+    engine: "lead_finder",
+    schema: leadFinderSchema,
     titleOf: (i) => `${i.companyName}${i.count ? " · " + i.count + " leads" : ""}`,
     exec: (i) => findLeadsByCompany(i),
   }),
