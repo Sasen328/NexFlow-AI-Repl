@@ -1,0 +1,90 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Mark gradients -->
+    <linearGradient id="mg1" x1="200" y1="0" x2="600" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#B8A0C8"/>
+      <stop offset="35%"  stop-color="#88B8B0"/>
+      <stop offset="70%"  stop-color="#C8A880"/>
+      <stop offset="100%" stop-color="#C0A0B8"/>
+    </linearGradient>
+    <linearGradient id="mg2" x1="200" y1="0" x2="600" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#B8A0C8"/>
+      <stop offset="50%"  stop-color="#88B8B0"/>
+      <stop offset="100%" stop-color="#C8A880"/>
+    </linearGradient>
+    <linearGradient id="mg3" x1="200" y1="20" x2="600" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#C0A0B8"/>
+      <stop offset="50%"  stop-color="#88B8B0"/>
+      <stop offset="100%" stop-color="#C8A880"/>
+    </linearGradient>
+    <linearGradient id="mg4" x1="280" y1="80" x2="520" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#B8A0C8"/>
+      <stop offset="100%" stop-color="#88B8B0"/>
+    </linearGradient>
+    <linearGradient id="mdot" x1="370" y1="200" x2="430" y2="280" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#B8A0C8"/>
+      <stop offset="100%" stop-color="#88B8B0"/>
+    </linearGradient>
+    <!-- Text gradient -->
+    <linearGradient id="tg" x1="460" y1="0" x2="1140" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#B8A0C8"/>
+      <stop offset="40%"  stop-color="#88B8B0"/>
+      <stop offset="80%"  stop-color="#C8A880"/>
+      <stop offset="100%" stop-color="#C0A0B8"/>
+    </linearGradient>
+    <!-- Tagline gradient -->
+    <linearGradient id="tag" x1="480" y1="0" x2="1120" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#88B8B0"/>
+      <stop offset="50%"  stop-color="#C8A880"/>
+      <stop offset="100%" stop-color="#B8A0C8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ── Mark (centered horizontally, top area) ── -->
+  <!-- Mark center: x=800, y=225, half-size ~200 -->
+
+  <!-- Outermost diamond -->
+  <rect x="618" y="28" width="364" height="364" rx="30" ry="30"
+    transform="rotate(45 800 210)"
+    fill="none" stroke="url(#mg1)" stroke-width="9"/>
+
+  <!-- Second diamond -->
+  <rect x="666" y="76" width="268" height="268" rx="22" ry="22"
+    transform="rotate(45 800 210)"
+    fill="none" stroke="url(#mg2)" stroke-width="8"/>
+
+  <!-- Third diamond -->
+  <rect x="714" y="124" width="172" height="172" rx="14" ry="14"
+    transform="rotate(45 800 210)"
+    fill="none" stroke="url(#mg3)" stroke-width="7"/>
+
+  <!-- Inner diamond -->
+  <rect x="752" y="162" width="96" height="96" rx="8" ry="8"
+    transform="rotate(45 800 210)"
+    fill="none" stroke="url(#mg4)" stroke-width="6"/>
+
+  <!-- Center dot -->
+  <circle cx="800" cy="210" r="16" fill="url(#mdot)"/>
+
+  <!-- ── NexFlow wordmark ── -->
+  <text
+    x="800" y="560"
+    font-family="'Arial Black', 'Arial', sans-serif"
+    font-size="210"
+    font-weight="900"
+    text-anchor="middle"
+    fill="url(#tg)"
+    letter-spacing="-4"
+  >NexFlow</text>
+
+  <!-- ── Tagline ── -->
+  <text
+    x="800" y="650"
+    font-family="'Arial', sans-serif"
+    font-size="38"
+    font-weight="600"
+    text-anchor="middle"
+    fill="url(#tag)"
+    letter-spacing="10"
+  >ORCHESTRATING SUPREME MARKET CLARITY</text>
+</svg>
