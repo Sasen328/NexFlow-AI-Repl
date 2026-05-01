@@ -31,6 +31,7 @@ import {
   createRecognizer, speak, stopSpeaking,
   speakViaServer, pickServerVoice,
   isSpeechRecognitionSupported, isSpeechSynthesisSupported,
+  unlockAudio,
   type RecognizerHandle,
 } from "@/lib/voice";
 import { cn } from "@/lib/utils";
@@ -374,6 +375,8 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
     (textRaw: string) => {
       const text = textRaw.trim();
       if (!text) return;
+      // Unlock AudioContext on user gesture so Chrome allows audio playback.
+      unlockAudio();
       const userMsg: ChatMessage = { id: `u${Date.now()}`, role: "user", text, ts: Date.now() };
       setMessages((m) => [...m, userMsg]);
       setInput("");
@@ -693,6 +696,7 @@ function BubbleInner({ role }: { role: ReturnType<typeof getRole> }) {
           type="button"
           onClick={(e) => {
             if (draggingRef.current) { e.preventDefault(); e.stopPropagation(); return; }
+            unlockAudio();
             setOpen((o) => !o);
           }}
           aria-label={open ? t.close : settings.agentName}

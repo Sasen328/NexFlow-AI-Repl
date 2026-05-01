@@ -5,11 +5,13 @@ const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
 const openrouterBaseUrl = process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
 const openrouterApiKey = process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY;
 
-// Direct OpenAI key for endpoints the Replit proxy does not support (e.g. /audio/speech).
+// Direct OpenAI key for TTS fallback (proxy doesn't support audio/speech).
 const directOpenaiKey = process.env.OPENAI_API_KEY;
+// Gemini key — used directly with Google's REST API for TTS (proxy doesn't support audio).
+const geminiApiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
 
 export const aiEnabled = Boolean(openaiBaseUrl && openaiApiKey);
-export const ttsEnabled = Boolean(directOpenaiKey);
+export const ttsEnabled = Boolean(geminiApiKey || directOpenaiKey);
 
 let _openaiClient: OpenAI | null = null;
 let _openrouterClient: OpenAI | null = null;
@@ -25,13 +27,84 @@ export function openai(): OpenAI {
   return _openaiClient;
 }
 
-/** Direct OpenAI client (bypasses the Replit proxy) — required for audio/speech. */
+/** Direct OpenAI client — used as TTS fallback when Gemini TTS fails. */
 function openaiDirect(): OpenAI {
   if (!directOpenaiKey) throw new Error("OPENAI_API_KEY not configured");
   if (!_directClient) {
     _directClient = new OpenAI({ apiKey: directOpenaiKey });
   }
   return _directClient;
+}
+
+/** Build a 44-byte WAV header for 16-bit PCM mono at the given sample rate. */
+function pcmToWav(pcm: Buffer, sampleRate = 24000, channels = 1, bitsPerSample = 16): Buffer {
+  const dataSize = pcm.length;
+  const h = Buffer.alloc(44);
+  h.write("RIFF", 0);
+  h.writeUInt32LE(36 + dataSize, 4);
+  h.write("WAVE", 8);
+  h.write("fmt ", 12);
+  h.writeUInt32LE(16, 16);
+  h.writeUInt16LE(1, 20);
+  h.writeUInt16LE(channels, 22);
+  h.writeUInt32LE(sampleRate, 24);
+  h.writeUInt32LE(sampleRate * channels * (bitsPerSample / 8), 28);
+  h.writeUInt16LE(channels * (bitsPerSample / 8), 32);
+  h.writeUInt16LE(bitsPerSample, 34);
+  h.write("data", 36);
+  h.writeUInt32LE(dataSize, 40);
+  return Buffer.concat([h, pcm]);
+}
+
+/**
+ * Gemini TTS voices — mapped to persona names used by the TTS_VOICES catalog.
+ * Primary voice engine: Google Gemini 2.5 Flash TTS (returns 24kHz mono PCM).
+ * Voices chosen for warmth and Gulf-Arabic naturalness where possible.
+ */
+const GEMINI_VOICE_MAP: Record<string, string> = {
+  shimmer: "Zephyr",
+  nova:    "Leda",
+  onyx:    "Charon",
+  ash:     "Puck",
+  coral:   "Aoede",
+  echo:    "Orus",
+  alloy:   "Kore",
+  fable:   "Fenrir",
+};
+
+/** Call Google Gemini 2.5 Flash TTS and return a WAV buffer. */
+async function geminiSpeak(opts: {
+  text: string;
+  geminiVoice: string;
+  instructions?: string;
+}): Promise<Buffer> {
+  if (!geminiApiKey) throw new Error("Gemini API key not configured");
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${geminiApiKey}`;
+  // Wrap text in a TTS instruction so the model stays in audio-generation mode
+  // even when the input contains mixed Arabic-Latin scripts (e.g. names).
+  const ttsPrompt = `Read aloud the following text exactly as written, do not translate or interpret it:\n${opts.text.slice(0, 4000)}`;
+  const body: any = {
+    contents: [{ parts: [{ text: ttsPrompt }] }],
+    generationConfig: {
+      responseModalities: ["AUDIO"],
+      speechConfig: {
+        voiceConfig: { prebuiltVoiceConfig: { voiceName: opts.geminiVoice } },
+      },
+    },
+  };
+  const r = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json: any = await r.json();
+  if (!r.ok || json.error) {
+    throw new Error(json.error?.message ?? `Gemini TTS HTTP ${r.status}`);
+  }
+  const part = json.candidates?.[0]?.content?.parts?.[0];
+  if (!part?.inlineData?.data) throw new Error("Gemini TTS returned no audio");
+  const pcm = Buffer.from(part.inlineData.data, "base64");
+  return pcmToWav(pcm, 24000, 1, 16);
 }
 
 export function openrouter(): OpenAI {
@@ -84,32 +157,51 @@ export async function aiTranscribe(opts: {
 }
 
 /**
- * High-quality TTS via OpenAI gpt-4o-mini-tts.
- * Voices: alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse.
- * The `instructions` field tunes accent / style (e.g. warm Saudi female).
+ * High-quality TTS — Gemini 2.5 Flash TTS primary, OpenAI gpt-4o-mini-tts fallback.
+ * Returns { buffer, mimeType } so the route can set the correct Content-Type.
+ *
+ * voice: OpenAI voice name (shimmer, nova, onyx, ash, coral…) — auto-mapped to Gemini voice.
+ * instructions: Style/accent hint passed to both engines.
  */
 export async function aiSpeak(opts: {
   text: string;
   voice?: string;
   instructions?: string;
-  format?: "mp3" | "wav" | "opus" | "aac" | "flac";
-}): Promise<Buffer> {
-  if (!ttsEnabled) throw new Error("OPENAI_API_KEY not configured for TTS");
-  const client = openaiDirect();
-  const voice = (opts.voice ?? "shimmer") as any;
-  const format = opts.format ?? "mp3";
+}): Promise<{ buffer: Buffer; mimeType: string }> {
+  if (!ttsEnabled) throw new Error("No TTS API key configured");
+
+  const openaiVoice = opts.voice ?? "shimmer";
+  const geminiVoice = GEMINI_VOICE_MAP[openaiVoice] ?? "Zephyr";
+
+  // 1) Try Gemini TTS (primary)
+  if (geminiApiKey) {
+    try {
+      const buffer = await geminiSpeak({
+        text: opts.text,
+        geminiVoice,
+        instructions: opts.instructions,
+      });
+      return { buffer, mimeType: "audio/wav" };
+    } catch (err: any) {
+      console.error("[ai] gemini TTS failed, falling back to OpenAI:", err?.message ?? err);
+    }
+  }
+
+  // 2) Fall back to OpenAI direct TTS
+  if (!directOpenaiKey) throw new Error("No TTS API key available");
   try {
+    const client = openaiDirect();
     const resp = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
-      voice,
+      voice: openaiVoice as any,
       input: opts.text.slice(0, 4000),
-      response_format: format,
+      response_format: "mp3",
       ...(opts.instructions ? { instructions: opts.instructions } : {}),
     } as any);
     const arrayBuf = await resp.arrayBuffer();
-    return Buffer.from(arrayBuf);
+    return { buffer: Buffer.from(arrayBuf), mimeType: "audio/mpeg" };
   } catch (err: any) {
-    console.error("[ai] speak failed:", err?.message ?? err);
+    console.error("[ai] openai TTS fallback failed:", err?.message ?? err);
     throw new Error(err?.message ?? "tts_failed");
   }
 }
