@@ -6,45 +6,47 @@ import { aiChat, aiJson, aiEnabled, openai } from "../lib/ai.js";
 
 const router: IRouter = Router();
 
-// ── 1.2 / 1.4 — AI image generation for campaigns (DALL-E via proxy) ──────
+const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
+const GEMINI_API_KEY = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+
+// ── 1.2 / 1.4 — AI image generation for campaigns (Gemini 2.5 Flash Image) ─
 router.post("/generate-image", async (req, res) => {
   try {
-    const { prompt = "", style = "modern", size = "1024x1024" } = req.body ?? {};
+    const { prompt = "", style = "modern" } = req.body ?? {};
     if (!prompt.trim()) return res.status(400).json({ error: "prompt required" });
-    if (!aiEnabled) {
-      return res.json({
-        url: null,
-        b64: null,
-        ai_disabled: true,
-        message: "AI integration not configured. Image generation requires OpenAI proxy.",
-      });
+
+    if (!GEMINI_API_KEY) {
+      return res.status(503).json({ error: "Image generation not configured.", ai_disabled: true });
     }
-    const fullPrompt = `${prompt}. Marketing campaign creative, ${style} aesthetic, professional B2B style, vibrant but tasteful, no text overlays unless asked.`;
-    try {
-      const result: any = await (openai() as any).images.generate({
-        model: "gpt-image-1",
-        prompt: fullPrompt,
-        size: size as any,
-        n: 1,
-      });
-      const url = result?.data?.[0]?.url ?? null;
-      const b64 = result?.data?.[0]?.b64_json ?? null;
-      res.json({ url, b64, prompt: fullPrompt, model: "gpt-image-1" });
-    } catch (e1: any) {
-      // Fallback: try dall-e-3
-      try {
-        const result: any = await (openai() as any).images.generate({
-          model: "dall-e-3",
-          prompt: fullPrompt,
-          size: "1024x1024",
-          n: 1,
-        });
-        const url = result?.data?.[0]?.url ?? null;
-        res.json({ url, b64: null, prompt: fullPrompt, model: "dall-e-3" });
-      } catch (e2: any) {
-        res.status(500).json({ error: e2?.message ?? e1?.message ?? "Image gen failed" });
-      }
+
+    const fullPrompt = `Create a marketing campaign hero image: ${prompt}. Style: ${style} aesthetic, professional B2B style, vibrant, high quality, photorealistic or illustration. GCC / Middle East business context where relevant. No text overlays.`;
+
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+    const r = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: fullPrompt }] }],
+        generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+      }),
+    });
+
+    const data: any = await r.json();
+    if (!r.ok) {
+      return res.status(502).json({ error: data?.error?.message ?? `Gemini returned ${r.status}` });
     }
+
+    const parts: any[] = data?.candidates?.[0]?.content?.parts ?? [];
+    const imgPart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith("image/"));
+    if (!imgPart) {
+      return res.status(502).json({ error: "Gemini returned no image. Try a different prompt." });
+    }
+
+    const mime: string = imgPart.inlineData.mimeType;
+    const b64: string = imgPart.inlineData.data;
+    const image_url = `data:${mime};base64,${b64}`;
+
+    res.json({ image_url, url: image_url, model: GEMINI_IMAGE_MODEL, prompt: fullPrompt });
   } catch (err: any) {
     res.status(500).json({ error: err?.message ?? "Failed" });
   }
