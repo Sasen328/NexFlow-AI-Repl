@@ -1,6 +1,6 @@
 import { useContact, useActivities, useCalls, useDeals, useSignals, useContactLists, usePropertyValues, useProperties, useUpsertPropertyValue, useContactOverview } from "@/hooks/useApi";
 import { apiFetch } from "@/hooks/useApi";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   ArrowLeft, Mail, Phone, Linkedin, Globe, MapPin, Building2, Star,
   Brain, Zap, TrendingUp, MessageSquare, Activity, Edit, Send, MoreHorizontal,
@@ -8,7 +8,8 @@ import {
   Briefcase, GraduationCap, Languages, Calendar, Code2, DollarSign,
   Sparkles, ChevronRight, FileText, Database, Bot, ListChecks, Settings2, Check,
   PhoneOutgoing, PhoneIncoming, PhoneMissed, Clock, ChevronDown, ChevronUp,
-  Loader2, StickyNote, TrendingDown, Mic, BookOpen, PenLine, Plus, X
+  Loader2, StickyNote, TrendingDown, Mic, BookOpen, PenLine, Plus, X,
+  MailOpen, MessageCircle, Target, Inbox,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -50,8 +51,8 @@ interface Props {
 export default function ContactProfilePage({ params }: Props) {
   const { id } = params;
   const { data: contact, isLoading } = useContact(id);
-  const { data: activitiesData } = useActivities({ contact_id: id, limit: "8" });
-  const { data: callsData } = useCalls({ contact_id: id, limit: "5" });
+  const { data: activitiesData } = useActivities({ contact_id: id, limit: "30" });
+  const { data: callsData } = useCalls({ contact_id: id, limit: "20" });
   const { data: dealsData } = useDeals({ contact_id: id });
   const { data: signalsData } = useSignals({ contact_id: id, limit: "5" });
 
@@ -60,12 +61,35 @@ export default function ContactProfilePage({ params }: Props) {
   const deals = dealsData?.deals ?? [];
   const signals = signalsData?.signals ?? [];
 
-  // Calls tab removed — call history merged into Engagement. Engagement now
-  // shows calls + meetings + notes + AI analysis in one timeline.
+  const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"overview" | "engagement" | "deals" | "network" | "enrichment">("overview");
   const [showCallModal, setShowCallModal] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+
+  // AI next-action suggestion state
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
+  const [aiSuggLoading, setAiSuggLoading] = useState(false);
+
+  async function loadAiSuggestion() {
+    if (aiSuggestion || aiSuggLoading) return;
+    setAiSuggLoading(true);
+    try {
+      const r: any = await apiFetch(`/ai/suggest-next-action`, {
+        method: "POST",
+        body: JSON.stringify({
+          contact_id: id,
+          contact_name: `${contact?.first_name ?? ""} ${contact?.last_name ?? ""}`.trim(),
+          title: contact?.title,
+          company: contact?.company_name,
+          lead_score: contact?.lead_score,
+          last_activity_count: activities.length + calls.length,
+        }),
+      });
+      setAiSuggestion(r?.suggestion ?? r?.message ?? "No suggestion available.");
+    } catch { setAiSuggestion("Could not load AI suggestion at this time."); }
+    finally { setAiSuggLoading(false); }
+  }
 
   // Inline log form for Engagement tab
   type LogKind = "note" | "meeting" | "call_log";
@@ -74,6 +98,7 @@ export default function ContactProfilePage({ params }: Props) {
   const [logBody, setLogBody] = useState("");
   const [logSaving, setLogSaving] = useState(false);
   const [expandedTranscripts, setExpandedTranscripts] = useState<Set<string>>(new Set());
+  const [expandedCallIntel, setExpandedCallIntel] = useState<Set<string>>(new Set());
 
   async function saveLog(kind: LogKind) {
     if (!logTitle.trim() && !logBody.trim()) return;
@@ -386,53 +411,79 @@ export default function ContactProfilePage({ params }: Props) {
       )}
 
       {tab === "engagement" && (() => {
-        // Unified engagement timeline: calls + meetings + notes + activities,
-        // sorted newest first. AI analysis card sits above. The old separate
-        // "Calls" tab was redundant — every call shows here with summary,
-        // outcome and score, and you can click into the dialer for details.
-        type Item = { id: string; kind: "call" | "meeting" | "note" | "activity"; title: string; body?: string | null; transcript?: string | null; meta?: string; ts: number };
+        // Unified engagement timeline: calls (with conv intel) + meetings + notes +
+        // email opens + whatsapp messages + all activities, sorted newest first.
+        type ItemKind = "call" | "meeting" | "note" | "email_open" | "whatsapp" | "activity";
+        type Item = {
+          id: string; kind: ItemKind; title: string;
+          body?: string | null; transcript?: string | null;
+          callRaw?: any; // full call object for conversation intelligence
+          meta?: string; ts: number;
+        };
         const items: Item[] = [];
+
+        // --- Calls (with full conversation intelligence attached)
         for (const c of (calls as any[])) {
           const ts = c.created_at ? new Date(c.created_at).getTime() : 0;
+          const dur = c.duration_seconds ? ` · ${Math.floor(c.duration_seconds / 60)}m ${c.duration_seconds % 60}s` : "";
           items.push({
             id: `c-${c.id}`,
             kind: "call",
-            title: `${(c.direction ?? "outbound").toString().replace(/^./, (s: string) => s.toUpperCase())} call · ${c.outcome ?? "completed"}${c.duration_sec ? ` · ${Math.round(c.duration_sec / 60)} min` : ""}`,
-            body: c.summary ?? c.transcript_excerpt ?? null,
+            title: `${(c.direction ?? "outbound").replace(/^./, (s: string) => s.toUpperCase())} call · ${c.outcome ?? c.status ?? "completed"}${dur}`,
+            body: c.coaching_notes ?? c.outcome ?? null,
             transcript: c.transcript ?? null,
-            meta: c.score != null ? `Score ${c.score}/100` : undefined,
+            callRaw: c,
+            meta: c.call_score != null ? `Score ${c.call_score}/100` : c.sentiment_score != null ? `Sentiment ${c.sentiment_score > 0 ? "+" : ""}${c.sentiment_score}` : undefined,
             ts,
           });
         }
+
+        // --- Activities: map type to kind
         for (const a of (activities as any[])) {
           const ts = a.created_at ? new Date(a.created_at).getTime() : 0;
           const t = (a.type ?? "").toLowerCase();
-          const kind: Item["kind"] = t.includes("meeting") ? "meeting" : t.includes("note") ? "note" : "activity";
+          let kind: ItemKind = "activity";
+          if (t === "email_open" || t === "email") kind = "email_open";
+          else if (t === "whatsapp") kind = "whatsapp";
+          else if (t.includes("meeting")) kind = "meeting";
+          else if (t.includes("note")) kind = "note";
           items.push({
             id: `a-${a.id}`,
             kind,
-            title: a.title ?? a.subject ?? (kind === "note" ? "Note" : kind === "meeting" ? "Meeting" : "Activity"),
+            title: a.title ?? a.subject ?? (
+              kind === "email_open" ? "Email opened" :
+              kind === "whatsapp" ? "WhatsApp message" :
+              kind === "note" ? "Note" :
+              kind === "meeting" ? "Meeting" : "Activity"
+            ),
             body: a.body ?? a.description ?? null,
             meta: a.status,
             ts,
           });
         }
         items.sort((x, y) => y.ts - x.ts);
+
         const counts = {
-          call: items.filter(i => i.kind === "call").length,
-          meeting: items.filter(i => i.kind === "meeting").length,
-          note: items.filter(i => i.kind === "note").length,
-          activity: items.filter(i => i.kind === "activity").length,
+          call:       items.filter(i => i.kind === "call").length,
+          meeting:    items.filter(i => i.kind === "meeting").length,
+          note:       items.filter(i => i.kind === "note").length,
+          email_open: items.filter(i => i.kind === "email_open").length,
+          whatsapp:   items.filter(i => i.kind === "whatsapp").length,
+          activity:   items.filter(i => i.kind === "activity").length,
         };
-        const STYLE: Record<Item["kind"], { color: string; Icon: typeof Activity; label: string }> = {
-          call:     { color: "#B8A0C8", Icon: Phone,    label: "Call"     },
-          meeting:  { color: "#88B8B0", Icon: Calendar, label: "Meeting"  },
-          note:     { color: "#C8A880", Icon: BookOpen, label: "Note"     },
-          activity: { color: "#9AA0B8", Icon: Activity, label: "Activity" },
+
+        const STYLE: Record<ItemKind, { color: string; Icon: typeof Activity; label: string }> = {
+          call:       { color: "#B8A0C8", Icon: Phone,          label: "Call"         },
+          meeting:    { color: "#88B8B0", Icon: Calendar,       label: "Meeting"      },
+          note:       { color: "#C8A880", Icon: BookOpen,       label: "Note"         },
+          email_open: { color: "#90B8D8", Icon: MailOpen,       label: "Email Opened" },
+          whatsapp:   { color: "#6CB888", Icon: MessageCircle,  label: "WhatsApp"     },
+          activity:   { color: "#9AA0B8", Icon: Activity,       label: "Activity"     },
         };
+
         return (
           <div className="space-y-5">
-            {/* AI analysis summary across all engagement */}
+            {/* ── AI Engagement Header ── */}
             <div className="rounded-2xl p-5 border relative overflow-hidden" style={{ background: "linear-gradient(135deg, #f9f3ff 0%, #f0f9f8 70%, #fffbf0 100%)", borderColor: "rgba(184,160,200,0.3)" }}>
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl nf-chameleon-bg flex items-center justify-center flex-shrink-0 shadow-sm"><Sparkles className="w-5 h-5 text-white" /></div>
@@ -442,13 +493,33 @@ export default function ContactProfilePage({ params }: Props) {
                   <p className="text-xs text-foreground/80 leading-relaxed">
                     {items.length === 0
                       ? "No engagement yet. Start with a call or note to build the timeline."
-                      : `${items.length} touchpoints — ${counts.call} call${counts.call === 1 ? "" : "s"}, ${counts.meeting} meeting${counts.meeting === 1 ? "" : "s"}, ${counts.note} note${counts.note === 1 ? "" : "s"}, ${counts.activity} other. Most recent first.`}
+                      : `${items.length} touchpoints — ${counts.call} calls · ${counts.meeting} meetings · ${counts.note} notes · ${counts.email_open} email opens · ${counts.whatsapp} WhatsApp. Most recent first.`}
                   </p>
                 </div>
               </div>
+              {/* AI next-action suggestion */}
+              <div className="mt-4 pt-4 border-t border-[#B8A0C8]/20">
+                {aiSuggestion ? (
+                  <div className="flex items-start gap-2">
+                    <Target className="w-4 h-4 text-[#B8A0C8] flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-[#B8A0C8] mb-1">AI Suggested Next Action</div>
+                      <p className="text-xs text-foreground/85 leading-relaxed">{aiSuggestion}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={loadAiSuggestion}
+                    disabled={aiSuggLoading}
+                    className="flex items-center gap-2 text-xs font-semibold text-[#B8A0C8] hover:text-[#88B8B0] transition-colors disabled:opacity-60"
+                  >
+                    {aiSuggLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    {aiSuggLoading ? "Generating AI suggestion…" : "Get AI suggested next action"}
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Unified timeline */}
             {/* ── Log action bar ── */}
             <div className="glass-card rounded-2xl p-4 border-l-4" style={{ borderColor: "#B8A0C8" }}>
               <div className="flex items-center gap-2 mb-3">
@@ -470,14 +541,14 @@ export default function ContactProfilePage({ params }: Props) {
                 <div className="mt-3 space-y-2">
                   <input
                     className="w-full text-sm border border-border/40 rounded-lg px-3 py-2 bg-background/70 focus:outline-none focus:ring-2 focus:ring-[#B8A0C8]/30"
-                    placeholder={logOpen === "note" ? "Note title (e.g. Pricing discussed)" : logOpen === "meeting" ? "Meeting title (e.g. Discovery call)" : "Call subject (e.g. Follow-up on proposal)"}
+                    placeholder={logOpen === "note" ? "Note title" : logOpen === "meeting" ? "Meeting title" : "Call subject"}
                     value={logTitle}
                     onChange={e => setLogTitle(e.target.value)}
                   />
                   <textarea
                     rows={3}
                     className="w-full text-sm border border-border/40 rounded-lg px-3 py-2 bg-background/70 focus:outline-none focus:ring-2 focus:ring-[#B8A0C8]/30 resize-none"
-                    placeholder={logOpen === "note" ? "Write your note, call transcript, or observations…" : logOpen === "meeting" ? "Agenda, key points, outcomes, next steps…" : "Paste transcript, call summary, or notes from the call…"}
+                    placeholder={logOpen === "call_log" ? "Paste transcript, call summary, or notes from the call…" : "Details, agenda, outcomes…"}
                     value={logBody}
                     onChange={e => setLogBody(e.target.value)}
                   />
@@ -497,16 +568,18 @@ export default function ContactProfilePage({ params }: Props) {
               )}
             </div>
 
+            {/* ── Engagement Timeline ── */}
             <div className="glass-card rounded-2xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                   <Activity className="w-4 h-4 text-muted-foreground" />
                   Engagement Timeline
                 </h3>
-                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground flex-wrap">
                   <span className="px-2 py-0.5 rounded-full bg-[#B8A0C8]/15 text-[#B8A0C8] font-semibold">{counts.call} calls</span>
                   <span className="px-2 py-0.5 rounded-full bg-[#88B8B0]/15 text-[#88B8B0] font-semibold">{counts.meeting} meetings</span>
-                  <span className="px-2 py-0.5 rounded-full bg-[#C8A880]/15 text-[#C8A880] font-semibold">{counts.note} notes</span>
+                  <span className="px-2 py-0.5 rounded-full bg-[#90B8D8]/15 text-[#90B8D8] font-semibold">{counts.email_open} email opens</span>
+                  <span className="px-2 py-0.5 rounded-full bg-[#6CB888]/15 text-[#6CB888] font-semibold">{counts.whatsapp} WhatsApp</span>
                 </div>
               </div>
               {items.length === 0 ? (
@@ -517,6 +590,8 @@ export default function ContactProfilePage({ params }: Props) {
                   {items.map(it => {
                     const { color, Icon, label } = STYLE[it.kind];
                     const txExpanded = expandedTranscripts.has(it.id);
+                    const intelExpanded = expandedCallIntel.has(it.id);
+                    const callRaw = it.callRaw;
                     return (
                       <div key={it.id} className="flex items-start gap-3 relative">
                         <div className="w-6 h-6 rounded-full bg-background border-2 flex items-center justify-center flex-shrink-0 z-10" style={{ borderColor: color }}>
@@ -530,6 +605,50 @@ export default function ContactProfilePage({ params }: Props) {
                           {it.body && <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{it.body}</p>}
                           {it.meta && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded font-medium mt-1 inline-block bg-muted/50 text-muted-foreground">{it.meta}</span>
+                          )}
+                          {/* ── Conversation Intelligence (calls only) ── */}
+                          {it.kind === "call" && callRaw && (callRaw.ai_insights || callRaw.sentiment_score != null || callRaw.call_score != null) && (
+                            <div className="mt-1.5">
+                              <button
+                                onClick={() => setExpandedCallIntel(s => { const n = new Set(s); intelExpanded ? n.delete(it.id) : n.add(it.id); return n; })}
+                                className="flex items-center gap-1 text-[10px] font-bold text-[#88B8B0] hover:text-[#B8A0C8] transition-colors">
+                                <Brain className="w-2.5 h-2.5" />
+                                {intelExpanded ? "Hide" : "View"} conversation intelligence
+                                <ChevronDown className={cn("w-3 h-3 transition-transform", intelExpanded && "rotate-180")} />
+                              </button>
+                              {intelExpanded && (
+                                <div className="mt-2 p-3 rounded-xl bg-muted/20 border border-border/20 space-y-2">
+                                  {callRaw.sentiment_score != null && (
+                                    <div className="flex items-center gap-2 text-xs">
+                                      <span className="text-muted-foreground w-20 flex-shrink-0">Sentiment</span>
+                                      <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                                        <div className="h-full rounded-full" style={{ width: `${Math.abs(callRaw.sentiment_score) * 10}%`, background: callRaw.sentiment_score >= 0 ? "#88B8B0" : "#C0A0B8" }} />
+                                      </div>
+                                      <span className="font-semibold" style={{ color: callRaw.sentiment_score >= 0 ? "#88B8B0" : "#C0A0B8" }}>
+                                        {callRaw.sentiment_score > 0 ? "+" : ""}{callRaw.sentiment_score}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {callRaw.call_score != null && (
+                                    <div className="flex items-center gap-2 text-xs">
+                                      <span className="text-muted-foreground w-20 flex-shrink-0">Call Score</span>
+                                      <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                                        <div className="h-full rounded-full" style={{ width: `${callRaw.call_score}%`, background: callRaw.call_score >= 80 ? "#88B8B0" : callRaw.call_score >= 60 ? "#B8B880" : "#C0A0B8" }} />
+                                      </div>
+                                      <span className="font-semibold">{callRaw.call_score}/100</span>
+                                    </div>
+                                  )}
+                                  {callRaw.ai_insights?.summary && (
+                                    <p className="text-[10px] text-muted-foreground leading-relaxed border-t border-border/20 pt-2">{callRaw.ai_insights.summary}</p>
+                                  )}
+                                  {callRaw.coaching_notes && (
+                                    <div className="text-[10px] text-[#C8A880] leading-relaxed">
+                                      <span className="font-bold">Coaching: </span>{callRaw.coaching_notes}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           )}
                           {it.transcript && (
                             <div className="mt-1.5">
@@ -596,16 +715,7 @@ export default function ContactProfilePage({ params }: Props) {
               </div>
               <div className="space-y-2.5">
                 {MUTUAL_CONNECTIONS.map((m, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-muted/20 hover:bg-muted/40 transition-colors">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{ background: m.color }}>
-                      {m.initials}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-foreground">{m.name}</div>
-                      <div className="text-[11px] text-muted-foreground">{m.relationship}</div>
-                    </div>
-                    <button className="text-[11px] text-[#88B8B0] font-semibold hover:underline">View</button>
-                  </div>
+                  <NetworkContact key={i} connection={m} />
                 ))}
               </div>
             </div>
@@ -619,6 +729,20 @@ export default function ContactProfilePage({ params }: Props) {
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Ask one of the mutual connections to make a warm intro — typically converts 4× higher than cold outreach.
               </p>
+            </div>
+            <div className="glass-card rounded-2xl p-5">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                <Database className="w-3 h-3 text-[#C8A880]" />
+                Network Intelligence
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+                Enrich any connection to reveal their decision-making power, budget authority, and relationship strength with {contact.first_name ?? "this contact"}.
+              </p>
+              <Link href="/enrichment-engine">
+                <button className="w-full py-2 rounded-xl text-xs font-bold text-white nf-chameleon-bg hover:opacity-90 transition-opacity">
+                  Open Enrichment Engine
+                </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -713,6 +837,61 @@ export default function ContactProfilePage({ params }: Props) {
           onClose={() => setShowCallModal(false)}
           onCallSaved={() => setTab("engagement")}
         />
+      )}
+    </div>
+  );
+}
+
+// ── NetworkContact — connection card with enrich button ─────────────────────
+function NetworkContact({ connection }: { connection: { name: string; initials: string; color: string; relationship: string } }) {
+  const [enriching, setEnriching] = useState(false);
+  const [enriched, setEnriched] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  async function handleEnrich() {
+    setEnriching(true);
+    try {
+      const r: any = await apiFetch("/enrich/person", {
+        method: "POST",
+        body: JSON.stringify({ name: connection.name }),
+      });
+      setResult(r?.data?.summary ?? r?.summary ?? r?.bio ?? "Enrichment complete — no additional data found.");
+      setEnriched(true);
+    } catch {
+      setResult("Could not enrich this contact right now.");
+      setEnriched(true);
+    } finally {
+      setEnriching(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 p-3 rounded-xl bg-muted/20 hover:bg-muted/30 transition-colors">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{ background: connection.color }}>
+          {connection.initials}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-foreground">{connection.name}</div>
+          <div className="text-[11px] text-muted-foreground">{connection.relationship}</div>
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button className="text-[11px] text-[#88B8B0] font-semibold hover:underline">View</button>
+          <button
+            onClick={handleEnrich}
+            disabled={enriching || enriched}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition-all disabled:opacity-60"
+            style={{ borderColor: "#C8A880", color: enriched ? "#88B8B0" : "#C8A880", background: enriched ? "#88B8B010" : "transparent" }}
+          >
+            {enriching ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : enriched ? <Check className="w-2.5 h-2.5" /> : <Database className="w-2.5 h-2.5" />}
+            {enriched ? "Enriched" : "Enrich"}
+          </button>
+        </div>
+      </div>
+      {result && (
+        <div className="text-[10px] text-muted-foreground bg-muted/30 rounded-lg p-2 border border-border/20 leading-relaxed">
+          {result}
+        </div>
       )}
     </div>
   );

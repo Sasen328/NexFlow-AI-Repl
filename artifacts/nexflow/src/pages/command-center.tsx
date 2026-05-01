@@ -14,11 +14,11 @@ import { Link, useLocation } from "wouter";
 import {
   Phone, MessageSquare, Mail, Mic, Sparkles, Bot, Send, Loader2, CheckCircle2,
   Users, TrendingUp, Layers, ChevronRight, CalendarPlus, LayoutGrid, StickyNote,
-  Activity, Search, X, Zap, Target, BarChart3,
+  Activity, Search, X, Zap, Target, BarChart3, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch, useActivities, useContacts } from "@/hooks/useApi";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 
 // ─── Types ──────────────────────────────────────────────────────────────
 type ActionKey = "log-call" | "log-note" | "whatsapp" | "email" | "follow-up" | "voice-call";
@@ -482,6 +482,184 @@ function PushActionModal({ action, contact, title, body, busy, onTitle, onBody, 
   );
 }
 
+// ─── AI Call List tab ───────────────────────────────────────────────────────
+function AiCallListTab({ navigate }: { navigate: (to: string) => void }) {
+  const qc = useQueryClient();
+  const { data: queueData, isLoading, refetch } = useQuery({
+    queryKey: ["power-dialer-queue"],
+    queryFn: () => apiFetch("/power-dialer/queue?limit=30"),
+  });
+  const [pushed, setPushed] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState<string | null>(null);
+  const queue: any[] = (queueData as any)?.queue ?? [];
+
+  async function pushCall(contact: any, mode: "auto" | "ai" | "agent") {
+    const key = `${contact.id}-${mode}`;
+    setBusy(key);
+    try {
+      if (mode === "auto" || mode === "ai") {
+        await apiFetch("/power-dialer/voice-agent-call", {
+          method: "POST",
+          body: JSON.stringify({ contact_id: contact.id }),
+        });
+      } else {
+        await apiFetch("/activities", {
+          method: "POST",
+          body: JSON.stringify({
+            contact_id: contact.id,
+            type: "call",
+            title: `Agent call scheduled for ${contact.first_name} ${contact.last_name}`,
+            status: "pending",
+            metadata: { source: "call_list", mode: "real_agent" },
+          }),
+        });
+      }
+      setPushed(p => ({ ...p, [key]: "✓" }));
+      await qc.invalidateQueries({ queryKey: ["activities"] });
+    } catch {
+      setPushed(p => ({ ...p, [key]: "!" }));
+    } finally {
+      setBusy(null);
+      setTimeout(() => setPushed(p => { const n = { ...p }; delete n[key]; return n; }), 3000);
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="glass-card rounded-2xl h-24 animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="rounded-2xl p-5 border" style={{ background: "linear-gradient(135deg, #f0f9f8 0%, #f9f3ff 100%)", borderColor: "rgba(136,184,176,0.3)" }}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl nf-chameleon-bg flex items-center justify-center flex-shrink-0 shadow-sm">
+              <Bot className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-[#88B8B0] mb-0.5">AI Generated</div>
+              <h3 className="text-base font-black text-foreground">Priority Call List</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {queue.length} contacts ranked by AI priority score (lead score + open deal value − days since last touch).
+                Push to: <strong>Auto-Call</strong> (robocall), <strong>AI Agent</strong> (voice AI), or <strong>Real Agent</strong> (assign to rep).
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground border border-border/40 hover:border-[#88B8B0]/50 transition-colors"
+          >
+            <RefreshCw className="w-3 h-3" /> Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* List */}
+      {queue.length === 0 ? (
+        <div className="glass-card rounded-2xl p-10 text-center">
+          <Phone className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">No contacts with phone numbers yet.</p>
+          <Link href="/contacts">
+            <button className="mt-3 text-xs text-[#88B8B0] font-semibold hover:underline">Add contacts →</button>
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {queue.map((c: any, idx: number) => {
+            const score = Math.round(Number(c.priority_score ?? c.lead_score ?? 0));
+            const scoreColor = score >= 80 ? "#88B8B0" : score >= 50 ? "#C8A880" : "#B8A0C8";
+            const initials = `${c.first_name?.[0] ?? "?"}${c.last_name?.[0] ?? ""}`.toUpperCase();
+            const fullName = `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim();
+            const openValue = Number(c.open_value ?? 0);
+            const callCount = Number(c.call_count ?? 0);
+
+            return (
+              <div key={c.id} className="glass-card rounded-2xl p-4">
+                <div className="flex items-start gap-3">
+                  {/* Rank badge */}
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black text-muted-foreground bg-muted/30 flex-shrink-0">
+                    #{idx + 1}
+                  </div>
+                  {/* Avatar */}
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm flex-shrink-0 shadow-sm"
+                    style={{ background: `linear-gradient(135deg, ${scoreColor}, ${scoreColor}cc)` }}>
+                    {initials}
+                  </div>
+                  {/* Name + meta */}
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/contacts/${c.id}`}>
+                      <button className="text-sm font-bold text-foreground hover:underline text-left">{fullName}</button>
+                    </Link>
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      {c.title ?? "—"}{c.phone ? ` · ${c.phone}` : ""}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {openValue > 0 && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: "#B8B88015", color: "#B8B880" }}>
+                          ${(openValue / 100).toLocaleString()} open
+                        </span>
+                      )}
+                      {callCount > 0 && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-muted/40 text-muted-foreground">
+                          {callCount} call{callCount !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                      {c.status && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted/40 text-muted-foreground capitalize">{c.status}</span>
+                      )}
+                    </div>
+                  </div>
+                  {/* Priority score */}
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-xl font-black" style={{ color: scoreColor }}>{score}</div>
+                    <div className="text-[9px] text-muted-foreground">priority</div>
+                  </div>
+                </div>
+
+                {/* Push buttons */}
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {[
+                    { mode: "auto" as const,  label: "Auto-Call",  color: "#88B8B0", Icon: Phone   },
+                    { mode: "ai"   as const,  label: "AI Agent",   color: "#B8A0C8", Icon: Bot     },
+                    { mode: "agent" as const, label: "Real Agent", color: "#C8A880", Icon: Users   },
+                  ].map(({ mode, label, color, Icon }) => {
+                    const key = `${c.id}-${mode}`;
+                    const isBusy = busy === key;
+                    const done = pushed[key];
+                    return (
+                      <button
+                        key={mode}
+                        onClick={() => pushCall(c, mode)}
+                        disabled={isBusy || !!done}
+                        className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-bold border transition-all disabled:opacity-60"
+                        style={{
+                          borderColor: done ? "#88B8B0" : `${color}55`,
+                          color: done ? "#88B8B0" : color,
+                          background: done ? "#88B8B010" : `${color}08`,
+                        }}
+                      >
+                        {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : done ? <CheckCircle2 className="w-3 h-3" /> : <Icon className="w-3 h-3" />}
+                        {done ? "Pushed!" : label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Stats strip (kept from previous version) ───────────────────────────
 function StatsStrip() {
   const { data: contactsData } = useContacts({ limit: "1" });
@@ -511,7 +689,7 @@ function StatsStrip() {
 }
 
 // ─── Page ───────────────────────────────────────────────────────────────
-type Tab = "scorecards" | "quick";
+type Tab = "scorecards" | "quick" | "call-list";
 
 export default function CommandCenterPage() {
   const [, navigate] = useLocation();
@@ -551,10 +729,11 @@ export default function CommandCenterPage() {
       <StatsStrip />
 
       {/* Sub-tabs */}
-      <div className="flex gap-1 p-1 rounded-xl bg-muted/40 w-fit">
+      <div className="flex gap-1 p-1 rounded-xl bg-muted/40 w-fit flex-wrap">
         {[
           { k: "scorecards" as Tab, label: "Live Scorecards", icon: BarChart3 },
           { k: "quick"      as Tab, label: "Quick Actions",   icon: Search },
+          { k: "call-list"  as Tab, label: "AI Call List",    icon: Bot },
         ].map(t => {
           const Icon = t.icon;
           return (
@@ -571,7 +750,8 @@ export default function CommandCenterPage() {
       </div>
 
       {tab === "scorecards" && <ScorecardsTab navigate={navigate} />}
-      {tab === "quick" && <QuickActionsTab />}
+      {tab === "quick"      && <QuickActionsTab />}
+      {tab === "call-list"  && <AiCallListTab navigate={navigate} />}
 
       {/* Shortcuts */}
       <div className="space-y-3">
