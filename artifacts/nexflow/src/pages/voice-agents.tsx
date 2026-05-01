@@ -2,9 +2,11 @@ import { useState } from "react";
 import {
   Bot, Phone, PhoneCall, Play, Pause, Volume2, Plus,
   Activity, Languages, Brain, ChevronRight, Mic, X, Loader2, Sparkles,
+  PhoneOutgoing, CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAgents, useCreate, useAiDraftAgent, useRunAiAgent } from "@/hooks/useApi";
+import { apiFetch } from "@/hooks/useApi";
 import { speakViaServer, pickServerVoice, stopServerSpeak } from "@/lib/voice";
 
 // Default voices for outbound/inbound calls — Gulf Arabic FEMALE (Layla) is the
@@ -32,6 +34,7 @@ export default function VoiceAgentsPage() {
   const [aiTestText, setAiTestText] = useState<Record<string, string>>({});
   const [showNew, setShowNew] = useState(false);
   const [openAgent, setOpenAgent] = useState<any>(null);
+  const [showTestCall, setShowTestCall] = useState(false);
   const { data, isLoading } = useAgents();
   const agents = data?.agents ?? [];
 
@@ -92,6 +95,11 @@ export default function VoiceAgentsPage() {
             <div className="text-sm font-bold text-[#88B8B0]">{agents.filter((a: any) => a.enabled).length}/{agents.length}</div>
             <div className="text-[10px] text-muted-foreground">enabled</div>
           </div>
+          <button onClick={() => setShowTestCall(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#B8A0C8]/20 text-[#B8A0C8] border border-[#B8A0C8]/30 text-sm font-semibold hover:bg-[#B8A0C8]/30 transition-colors">
+            <PhoneOutgoing className="w-4 h-4" />
+            Test Call Me
+          </button>
           <button onClick={() => setShowNew(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold hover:opacity-90 transition-opacity">
             <Plus className="w-4 h-4" />
             New Agent
@@ -265,6 +273,7 @@ export default function VoiceAgentsPage() {
 
       {showNew && <NewAgentModal onClose={() => setShowNew(false)} />}
       {openAgent && <AgentRunDrawer agent={openAgent} onClose={() => setOpenAgent(null)} />}
+      {showTestCall && <TestCallModal agents={agents} onClose={() => setShowTestCall(false)} />}
     </div>
   );
 }
@@ -387,6 +396,110 @@ function AgentRunDrawer({ agent, onClose }: { agent: any; onClose: () => void })
           <div className="mt-4 p-3 rounded-xl bg-[#88B8B0]/10 border border-[#88B8B0]/20">
             <div className="text-xs font-semibold text-[#88B8B0] mb-1">Output</div>
             <pre className="text-xs text-foreground/90 whitespace-pre-wrap">{output}</pre>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Test Call Modal ─────────────────────────────────────────────────────────
+// Lets the user call themselves to hear/test an AI voice agent live.
+function TestCallModal({ agents, onClose }: { agents: any[]; onClose: () => void }) {
+  const [phone, setPhone] = useState("");
+  const [agentId, setAgentId] = useState(agents[0]?.id ?? "");
+  const [voiceId, setVoiceId] = useState("v1");
+  const [calling, setCalling] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState("");
+
+  const voiceOptions = [
+    { id: "v1", label: "Layla — Gulf Arabic Female (default)" },
+    { id: "v4", label: "Faisal — Gulf Arabic Male" },
+    { id: "v3", label: "Noor — Bilingual AR/EN Female" },
+    { id: "v2", label: "Adam — English Neutral Male" },
+  ];
+
+  async function callMe() {
+    if (!phone.trim()) { setError("Please enter your phone number."); return; }
+    setCalling(true); setError("");
+    try {
+      await apiFetch("/power-dialer/voice-agent-call", {
+        method: "POST",
+        body: JSON.stringify({
+          phone: phone.trim(),
+          agent_id: agentId || undefined,
+          voice_id: voiceId,
+          test_mode: true,
+        }),
+      });
+      setDone(true);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to initiate call. Please try again.");
+    } finally {
+      setCalling(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="glass-card rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
+            <PhoneOutgoing className="w-5 h-5 text-[#B8A0C8]" /> Test Call
+          </h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+        </div>
+
+        {done ? (
+          <div className="text-center py-6 space-y-3">
+            <CheckCircle2 className="w-12 h-12 text-[#88B8B0] mx-auto" />
+            <div className="font-bold text-foreground text-lg">Call initiated!</div>
+            <p className="text-sm text-muted-foreground">Your AI agent is calling <strong>{phone}</strong> right now. Answer to hear the agent live.</p>
+            <button onClick={onClose} className="mt-2 px-6 py-2 rounded-xl nf-chameleon-bg text-white text-sm font-semibold">Done</button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Have an AI agent call your phone number right now so you can hear how it sounds in a live conversation.
+            </p>
+
+            <div>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Your Phone Number</label>
+              <input
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                placeholder="+971 50 123 4567"
+                type="tel"
+                className="w-full px-3 py-2.5 rounded-xl bg-muted/50 border border-border/40 text-sm outline-none focus:border-[#B8A0C8]"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Voice / Persona</label>
+              <select value={voiceId} onChange={e => setVoiceId(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-muted/50 border border-border/40 text-sm outline-none focus:border-[#B8A0C8]">
+                {voiceOptions.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
+              </select>
+            </div>
+
+            {agents.length > 0 && (
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Agent Script (optional)</label>
+                <select value={agentId} onChange={e => setAgentId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-muted/50 border border-border/40 text-sm outline-none focus:border-[#B8A0C8]">
+                  <option value="">Default NexFlow intro</option>
+                  {agents.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </div>
+            )}
+
+            {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
+
+            <button onClick={callMe} disabled={calling}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl nf-chameleon-bg text-white font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-60">
+              {calling ? <><Loader2 className="w-4 h-4 animate-spin" /> Calling…</> : <><PhoneOutgoing className="w-4 h-4" /> Call Me Now</>}
+            </button>
           </div>
         )}
       </div>

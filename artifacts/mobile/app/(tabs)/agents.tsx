@@ -5,11 +5,14 @@
 import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
@@ -21,7 +24,7 @@ import { PersonaSwitcher } from "@/components/PersonaSwitcher";
 import { SubTabs } from "@/components/ui/SubTabs";
 import { AssistantPanel } from "@/components/AssistantBubble";
 import { useColors } from "@/hooks/useColors";
-import { useAgents, type ApiAgent } from "@/lib/api";
+import { useAgents, useVoiceAgentCall, type ApiAgent } from "@/lib/api";
 
 type SubKey = "chat" | "agents";
 
@@ -29,6 +32,7 @@ export default function AgentsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [sub, setSub] = useState<SubKey>("chat");
+  const [showTestCall, setShowTestCall] = useState(false);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
@@ -37,8 +41,27 @@ export default function AgentsScreen() {
           <Text style={[styles.kicker, { color: colors.mutedForeground }]}>AI</Text>
           <Text style={[styles.title, { color: colors.foreground }]}>Assistant</Text>
         </View>
-        <PersonaSwitcher />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Pressable
+            onPress={() => setShowTestCall(true)}
+            style={({ pressed }) => [{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingHorizontal: 12,
+              paddingVertical: 7,
+              borderRadius: 20,
+              backgroundColor: "#3F726B",
+              opacity: pressed ? 0.8 : 1,
+            }]}
+          >
+            <Feather name="phone-call" size={13} color="#fff" />
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>Test Call Me</Text>
+          </Pressable>
+          <PersonaSwitcher />
+        </View>
       </View>
+      <TestCallModal visible={showTestCall} onClose={() => setShowTestCall(false)} />
 
       <SubTabs<SubKey>
         value={sub}
@@ -158,6 +181,140 @@ function Stat({ label, value, colors }: { label: string; value: string; colors: 
       <Text style={{ color: colors.foreground, fontWeight: "800", fontSize: 16 }}>{value}</Text>
       <Text style={{ color: colors.mutedForeground, fontSize: 11, marginTop: 2 }}>{label}</Text>
     </View>
+  );
+}
+
+const VOICES = [
+  { key: "Layla", label: "Layla (Arabic female)" },
+  { key: "Faisal", label: "Faisal (Arabic male)" },
+  { key: "Noor", label: "Noor (Bilingual female)" },
+  { key: "Adam", label: "Adam (English male)" },
+];
+
+function TestCallModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const colors = useColors();
+  const [phone, setPhone] = useState("");
+  const [voice, setVoice] = useState("Layla");
+  const call = useVoiceAgentCall();
+
+  const submit = () => {
+    if (!phone.trim()) {
+      Alert.alert("Phone required", "Enter your phone number to receive the test call.");
+      return;
+    }
+    call.mutate(
+      { phone: phone.trim(), voice, test_mode: true },
+      {
+        onSuccess: () => {
+          Alert.alert("Test call initiated", "You should receive a call shortly.");
+          onClose();
+        },
+        onError: (e: any) => Alert.alert("Failed", e.message ?? "Could not initiate test call."),
+      },
+    );
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "center", padding: 24 }}>
+        <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 24, gap: 14 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Text style={{ color: colors.foreground, fontWeight: "800", fontSize: 17 }}>Test Call Me</Text>
+            <Pressable onPress={onClose}>
+              <Feather name="x" size={20} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+
+          <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>
+            We'll call your number using the selected voice agent so you can hear how it sounds.
+          </Text>
+
+          <View>
+            <Text style={{ color: colors.mutedForeground, fontSize: 11, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.8 }}>
+              Your phone number
+            </Text>
+            <TextInput
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="+966 5X XXX XXXX"
+              placeholderTextColor={colors.mutedForeground}
+              keyboardType="phone-pad"
+              style={{
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 10,
+                padding: 12,
+                color: colors.foreground,
+                backgroundColor: colors.muted,
+                fontSize: 15,
+              }}
+            />
+          </View>
+
+          <View>
+            <Text style={{ color: colors.mutedForeground, fontSize: 11, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.8 }}>
+              Voice
+            </Text>
+            <View style={{ gap: 8 }}>
+              {VOICES.map((v) => (
+                <Pressable
+                  key={v.key}
+                  onPress={() => setVoice(v.key)}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: 10,
+                    borderRadius: 10,
+                    borderWidth: 1.5,
+                    borderColor: voice === v.key ? "#3F726B" : colors.border,
+                    backgroundColor: voice === v.key ? "#3F726B11" : colors.muted,
+                  }}
+                >
+                  <View style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: 8,
+                    borderWidth: 2,
+                    borderColor: voice === v.key ? "#3F726B" : colors.border,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}>
+                    {voice === v.key && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#3F726B" }} />}
+                  </View>
+                  <Text style={{ color: colors.foreground, fontSize: 13 }}>{v.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          <Pressable
+            onPress={submit}
+            disabled={call.isPending}
+            style={({ pressed }) => [{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              paddingVertical: 14,
+              borderRadius: 12,
+              backgroundColor: "#3F726B",
+              opacity: call.isPending || pressed ? 0.7 : 1,
+              marginTop: 4,
+            }]}
+          >
+            {call.isPending ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Feather name="phone-call" size={16} color="#fff" />
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Call me now</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
   );
 }
 

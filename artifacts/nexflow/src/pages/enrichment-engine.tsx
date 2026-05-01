@@ -18,35 +18,25 @@ const LeadEnrichPage = lazy(() => import("./lead-enrich"));
 const BusinessCardsPage = lazy(() => import("./business-cards"));
 
 /**
- * Internal tab order — locked by spec v2 (April 2026):
+ * Internal tab order (spec v3 — May 2026):
  *   1. Prospecting
- *   2. Bulk Enrichment
- *   3. Quick Lead Enrich
- *   4. Companies Card Scanner
- *   5. Buying Signals
- *   6. Save History (was "Search History")
- *
- * NOTE: List Upload + Dedup is intentionally NOT a tab here — it lives
- * as its own Data Hub sub-nav item at /dedup. Don't add it back.
- */
-/**
- * Inner tabs — "bulk" and "quick" were two flavours of the same thing
- * (enrich one lead vs many) and confused users who had to pick between
- * tabs that did the same job. They're now merged into a single "enrich"
- * tab with an internal Single ↔ Bulk mode toggle. The legacy `?tab=bulk`
- * and `?tab=quick` deep links still resolve via the migration in
- * `initialTab` below.
+ *   2. Buying Signals
+ *   3. Enrich  (single lead — lead-enrich.tsx)
+ *   4. Waterfall (Clay-style sources config — sources-tab.tsx)
+ *   5. Bulk Enrichment
+ *   6. Card Scanner
+ *   7. Intel Engines
+ *   8. History
  */
 type Tab =
   | "prospecting"
-  | "enrich"
-  | "cards"
   | "signals"
+  | "enrich"
+  | "waterfall"
+  | "bulk"
+  | "cards"
   | "engines"
-  | "history"
-  | "sources";
-
-type EnrichMode = "single" | "bulk";
+  | "history";
 
 type ProspectMode = "company" | "person";
 
@@ -113,23 +103,16 @@ const SIGNAL_CHOICES = ["None", "Buying intent only", "Hiring + funding", "Full 
 const SURVIVOR_PREF = ["Most recent", "Most engaged (lead score)", "Most complete profile", "Manual pick"];
 
 export default function EnrichmentEnginePage() {
-  // Honour ?tab=history (and similar) so deep links like the legacy
-  // /search-history redirect can land directly on the right tab.
+  // Honour ?tab=… deep links. Legacy "quick" → enrich, "bulk" → bulk, "sources" → waterfall.
   const initialTab: Tab = (() => {
     if (typeof window === "undefined") return "prospecting";
     const t = new URLSearchParams(window.location.search).get("tab");
-    // Legacy tab keys map onto the merged "enrich" tab.
-    if (t === "bulk" || t === "quick") return "enrich";
-    const valid: Tab[] = ["prospecting", "enrich", "cards", "signals", "engines", "history", "sources"];
+    if (t === "quick") return "enrich";
+    if (t === "sources") return "waterfall";
+    const valid: Tab[] = ["prospecting", "signals", "enrich", "waterfall", "bulk", "cards", "engines", "history"];
     return (valid as string[]).includes(t ?? "") ? (t as Tab) : "prospecting";
   })();
-  const initialEnrichMode: EnrichMode = (() => {
-    if (typeof window === "undefined") return "bulk";
-    const t = new URLSearchParams(window.location.search).get("tab");
-    return t === "quick" ? "single" : "bulk";
-  })();
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [enrichMode, setEnrichMode] = useState<EnrichMode>(initialEnrichMode);
   const [prospectSeed, setProspectSeed] = useState<{ mode: ProspectMode; query: string } | null>(null);
   const [, navigate] = useLocation();
 
@@ -165,50 +148,26 @@ export default function EnrichmentEnginePage() {
         </div>
       </div>
 
-      {/* Sub-tabs — Bulk + Quick merged into one "Enrich" tab w/ mode toggle */}
+      {/* Sub-tabs */}
       <div className="border-b border-border flex items-center gap-1 overflow-x-auto" role="tablist">
-        <SubTab active={tab === "prospecting"} onClick={() => setTab("prospecting")} icon={Search}   label="Prospecting" />
-        <SubTab active={tab === "enrich"}      onClick={() => setTab("enrich")}      icon={Sparkles} label="Enrich" />
-        <SubTab active={tab === "cards"}       onClick={() => setTab("cards")}       icon={ScanLine} label="Card Scanner" />
-        <SubTab active={tab === "signals"}     onClick={() => setTab("signals")}     icon={Zap}      label="Buying Signals" />
+        <SubTab active={tab === "prospecting"} onClick={() => setTab("prospecting")} icon={Search}      label="Prospecting" />
+        <SubTab active={tab === "signals"}     onClick={() => setTab("signals")}     icon={Zap}         label="Buying Signals" />
+        <SubTab active={tab === "enrich"}      onClick={() => setTab("enrich")}      icon={Sparkles}    label="Quick Enrich" />
+        <SubTab active={tab === "waterfall"}   onClick={() => setTab("waterfall")}   icon={Database}    label="Waterfall Sources" />
+        <SubTab active={tab === "bulk"}        onClick={() => setTab("bulk")}        icon={Upload}      label="Bulk Enrichment" />
+        <SubTab active={tab === "cards"}       onClick={() => setTab("cards")}       icon={ScanLine}    label="Card Scanner" />
         <SubTab active={tab === "engines"}     onClick={() => setTab("engines")}     icon={BrainCircuit} label="Intel Engines" />
-        <SubTab active={tab === "sources"}     onClick={() => setTab("sources")}     icon={Database} label="Sources" />
-        <SubTab active={tab === "history"}     onClick={() => setTab("history")}     icon={History}  label="History" />
+        <SubTab active={tab === "history"}     onClick={() => setTab("history")}     icon={History}     label="History" />
       </div>
 
       {tab === "prospecting" && <ProspectingTab seed={prospectSeed} onConsumeSeed={() => setProspectSeed(null)} />}
-      {tab === "enrich" && (
-        <div className="space-y-4">
-          <div className="inline-flex p-1 rounded-xl bg-muted/40 border border-border/40">
-            <button
-              type="button"
-              onClick={() => setEnrichMode("single")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                enrichMode === "single" ? "nf-chameleon-bg text-white" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Sparkles className="w-3.5 h-3.5" /> Single lead
-            </button>
-            <button
-              type="button"
-              onClick={() => setEnrichMode("bulk")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                enrichMode === "bulk" ? "nf-chameleon-bg text-white" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Upload className="w-3.5 h-3.5" /> Bulk upload
-            </button>
-          </div>
-          {enrichMode === "single" ? <Lazy><LeadEnrichPage /></Lazy> : <BulkEnrichmentTab />}
-        </div>
-      )}
-      {tab === "cards"       && <Lazy><BusinessCardsPage /></Lazy>}
       {tab === "signals"     && <BuyingSignalsTab />}
+      {tab === "enrich"      && <Lazy><LeadEnrichPage /></Lazy>}
+      {tab === "waterfall"   && <SourcesTab />}
+      {tab === "bulk"        && <BulkEnrichmentTab />}
+      {tab === "cards"       && <Lazy><BusinessCardsPage /></Lazy>}
       {tab === "engines"     && <IntelEnginesTab />}
       {tab === "history"     && <SearchHistoryTab onRerun={rerunFromHistory} />}
-      {tab === "sources"     && <SourcesTab />}
     </div>
   );
 }

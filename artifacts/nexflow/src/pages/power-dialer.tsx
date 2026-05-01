@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "@/hooks/useApi";
-import { Link, useSearch } from "wouter";
+import { apiFetch, useLists } from "@/hooks/useApi";
+import { Link, useSearch, useLocation } from "wouter";
 import { speakViaServer, stopServerSpeak, pickServerVoice } from "@/lib/voice";
 import {
   Phone, PhoneIncoming, PhoneOutgoing, PhoneOff, PhoneMissed, Bot, Sparkles,
   ChevronRight, CheckCircle2, X, Loader2, Zap, Trophy, Clock, TrendingUp,
   MessageSquare, Mic, MicOff, Volume2, AlertCircle, User, Building2,
   Calendar, Mail, Send, FileText, Brain, Target, ArrowRight, Pause, Play,
-  Activity, Lightbulb, Edit3, Wand2, RefreshCw, BellRing
+  Activity, Lightbulb, Edit3, Wand2, RefreshCw, BellRing, List, ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -77,7 +77,11 @@ const PRE_CALL_TIPS_BY_SCORE = (score: number): string[] => {
 export default function PowerDialerPage() {
   const qc = useQueryClient();
   const search = useSearch();
+  const [, navigate] = useLocation();
   const listId = useMemo(() => new URLSearchParams(search).get("list") ?? undefined, [search]);
+  const [showListPicker, setShowListPicker] = useState(false);
+  const { data: listsData } = useLists();
+  const availableLists: any[] = (listsData as any)?.lists ?? [];
   const [mode, setMode] = useState<Mode>("manual");
   const [activeIdx, setActiveIdx] = useState(0);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -386,17 +390,75 @@ export default function PowerDialerPage() {
         </div>
       )}
 
-      {/* List filter banner */}
-      {listId && (
+      {/* List picker / List filter banner */}
+      {listId ? (
         <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900 px-4 py-3 flex items-center gap-3">
-          <Zap className="w-4 h-4 text-emerald-600 shrink-0" />
+          <List className="w-4 h-4 text-emerald-600 shrink-0" />
           <div className="text-sm flex-1">
-            <span className="font-semibold text-emerald-900 dark:text-emerald-200">Dialing from a smart list</span>
-            <span className="text-emerald-700 dark:text-emerald-300"> — queue is filtered to contacts with phone numbers from your selected list.</span>
+            <span className="font-semibold text-emerald-900 dark:text-emerald-200">Dialing from list</span>
+            {availableLists.find((l: any) => l.id === listId) && (
+              <span className="text-emerald-700 dark:text-emerald-300"> · <strong>{availableLists.find((l: any) => l.id === listId)?.name}</strong></span>
+            )}
+            <span className="text-emerald-700 dark:text-emerald-300"> — queue filtered to this list's contacts with phone numbers.</span>
           </div>
+          <button onClick={() => navigate("/power-dialer")} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-300 text-emerald-700 hover:bg-emerald-100 transition">
+            Clear list
+          </button>
           <Link href="/lists" className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition">
-            Back to lists
+            All lists
           </Link>
+        </div>
+      ) : (
+        <div className="rounded-xl bg-muted/40 border border-border/40 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <List className="w-4 h-4 text-muted-foreground shrink-0" />
+            <span className="text-sm text-muted-foreground flex-1">
+              Dialing from <strong>full queue</strong> (all prioritised contacts).
+              {availableLists.length > 0 && " Select a list to narrow the queue."}
+            </span>
+            {availableLists.length > 0 && (
+              <div className="relative">
+                <button onClick={() => setShowListPicker(p => !p)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-border/60 text-foreground hover:bg-muted/60 transition">
+                  <List className="w-3 h-3" /> Load a list <ChevronDown className="w-3 h-3" />
+                </button>
+                {showListPicker && (
+                  <div className="absolute right-0 top-full mt-1 z-30 w-64 rounded-xl border border-border/40 bg-background shadow-xl overflow-hidden">
+                    <div className="p-2 border-b border-border/30">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-1">Select a call list</span>
+                    </div>
+                    <div className="max-h-56 overflow-y-auto">
+                      {availableLists.map((l: any) => (
+                        <button key={l.id} onClick={() => { navigate(`/power-dialer?list=${l.id}`); setShowListPicker(false); }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors">
+                          <div className="w-7 h-7 rounded-lg bg-[#88B8B0]/15 flex items-center justify-center flex-shrink-0">
+                            <List className="w-3.5 h-3.5 text-[#88B8B0]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-foreground truncate">{l.name}</div>
+                            <div className="text-xs text-muted-foreground">{l.member_count ?? 0} contacts</div>
+                          </div>
+                          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                    <div className="p-2 border-t border-border/30">
+                      <Link href="/lists">
+                        <button onClick={() => setShowListPicker(false)} className="w-full text-xs text-[#88B8B0] font-semibold text-center py-1 hover:underline">
+                          Manage lists →
+                        </button>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <Link href="/lists">
+              <button className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border/40 text-muted-foreground hover:bg-muted/60 transition">
+                {availableLists.length === 0 ? "Create a list" : "All lists"}
+              </button>
+            </Link>
+          </div>
         </div>
       )}
 

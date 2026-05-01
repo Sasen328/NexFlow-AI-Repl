@@ -37,7 +37,7 @@ import {
   useSignalsFeed,
 } from "@/lib/api";
 
-type SubKey = "prospect" | "enrich" | "card" | "signals" | "engines" | "sources" | "history";
+type SubKey = "prospect" | "signals" | "enrich" | "waterfall" | "bulk" | "card" | "engines" | "history";
 
 export default function EnrichmentScreen() {
   const colors = useColors();
@@ -59,21 +59,23 @@ export default function EnrichmentScreen() {
         onChange={setSub}
         tabs={[
           { key: "prospect", label: "Prospecting" },
-          { key: "enrich", label: "Enrich" },
+          { key: "signals", label: "Buying Signals" },
+          { key: "enrich", label: "Quick Enrich" },
+          { key: "waterfall", label: "Waterfall Sources" },
+          { key: "bulk", label: "Bulk Enrichment" },
           { key: "card", label: "Card Scanner" },
-          { key: "signals", label: "Signals" },
-          { key: "engines", label: "Engines" },
-          { key: "sources", label: "Sources" },
+          { key: "engines", label: "Intel Engines" },
           { key: "history", label: "History" },
         ]}
       />
 
       {sub === "prospect" && <ProspectingView />}
-      {sub === "enrich" && <EnrichView />}
-      {sub === "card" && <CardScannerView />}
       {sub === "signals" && <SignalsView />}
+      {sub === "enrich" && <QuickEnrichView />}
+      {sub === "waterfall" && <WaterfallView />}
+      {sub === "bulk" && <BulkEnrichView />}
+      {sub === "card" && <CardScannerView />}
       {sub === "engines" && <EnginesView />}
-      {sub === "sources" && <SourcesView />}
       {sub === "history" && <HistoryView />}
     </View>
   );
@@ -168,35 +170,14 @@ function ProspectingView() {
   );
 }
 
-/* ─────────────────────────── Enrich (research + bulk) ─────────────────────────── */
+/* ─────────────────────────── Quick Enrich (single lead research) ─────────────────────────── */
 
-function EnrichView() {
+function QuickEnrichView() {
   const colors = useColors();
   const [company, setCompany] = useState("");
   const [person, setPerson] = useState("");
   const [topic, setTopic] = useState("");
-  const [pasted, setPasted] = useState("");
   const research = useResearchProspect();
-  const run = useRunWaterfall();
-  const lines = pasted.split(/[\r\n,;]+/).map((l) => l.trim()).filter(Boolean);
-  const runBulk = async () => {
-    if (lines.length === 0) {
-      Alert.alert("Add some lines", "Paste names, emails or domains separated by commas or new lines.");
-      return;
-    }
-    let ok = 0;
-    for (const ln of lines.slice(0, 25)) {
-      try {
-        await run.mutateAsync(
-          ln.includes("@") ? { email: ln } : ln.includes(".") ? { domain: ln } : { full_name: ln },
-        );
-        ok += 1;
-      } catch {
-        /* swallow */
-      }
-    }
-    Alert.alert("Bulk done", `Enriched ${ok}/${lines.length}.`);
-  };
 
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
@@ -249,11 +230,43 @@ function EnrichView() {
           </View>
         )}
       </Card>
+    </ScrollView>
+  );
+}
 
-      <Card style={{ marginHorizontal: 16, marginBottom: 16 }}>
+/* ─────────────────────────── Bulk Enrichment (paste list) ─────────────────────────── */
+
+function BulkEnrichView() {
+  const colors = useColors();
+  const [pasted, setPasted] = useState("");
+  const run = useRunWaterfall();
+  const lines = pasted.split(/[\r\n,;]+/).map((l) => l.trim()).filter(Boolean);
+
+  const runBulk = async () => {
+    if (lines.length === 0) {
+      Alert.alert("Add some lines", "Paste names, emails or domains separated by commas or new lines.");
+      return;
+    }
+    let ok = 0;
+    for (const ln of lines.slice(0, 25)) {
+      try {
+        await run.mutateAsync(
+          ln.includes("@") ? { email: ln } : ln.includes(".") ? { domain: ln } : { full_name: ln },
+        );
+        ok += 1;
+      } catch {
+        /* swallow */
+      }
+    }
+    Alert.alert("Bulk done", `Enriched ${ok}/${lines.length}.`);
+  };
+
+  return (
+    <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
+      <Card style={{ margin: 16 }}>
         <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>Bulk paste</Text>
         <Text style={{ color: colors.foreground, fontSize: 12, marginTop: 4 }}>
-          Names, emails or domains — one per line. Each row runs the full waterfall.
+          Names, emails or domains — one per line. Each row runs the full waterfall (max 25).
         </Text>
         <TextInput
           value={pasted}
@@ -272,7 +285,7 @@ function EnrichView() {
         <Pressable
           onPress={runBulk}
           disabled={run.isPending || lines.length === 0}
-          style={[styles.cta, { backgroundColor: colors.foreground, opacity: run.isPending ? 0.6 : 1 }]}
+          style={[styles.cta, { backgroundColor: colors.foreground, opacity: run.isPending || lines.length === 0 ? 0.6 : 1 }]}
         >
           {run.isPending ? (
             <ActivityIndicator color={colors.background} />
@@ -288,9 +301,9 @@ function EnrichView() {
   );
 }
 
-/* ─────────────────────────── Sources (data providers) ─────────────────────────── */
+/* ─────────────────────────── Waterfall Sources (data providers) ─────────────────────────── */
 
-function SourcesView() {
+function WaterfallView() {
   const colors = useColors();
   const { data, isPending } = useEnrichmentSources();
   const sources = (data?.sources ?? []) as any[];
