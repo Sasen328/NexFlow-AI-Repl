@@ -1,9 +1,22 @@
+import type { ComponentType } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Download, Loader2, Repeat, Volume2, VolumeX } from 'lucide-react';
-import VideoTemplate, { SCENE_DURATIONS } from './VideoTemplate';
+import DefaultVideoTemplate, { SCENE_DURATIONS as DEFAULT_SCENE_DURATIONS } from './VideoTemplate';
 import { useSceneControls } from '@/lib/video/useSceneControls';
 import { useAmbientAudio } from '@/lib/video/useAmbientAudio';
 import { useTabRecorder } from '@/lib/video/useTabRecorder';
+
+interface TemplateProps {
+  durations?: Record<string, number>;
+  loop?: boolean;
+  onSceneChange?: (sceneKey: string) => void;
+}
+
+interface VideoWithControlsProps {
+  Template?: ComponentType<TemplateProps>;
+  sceneDurations?: Record<string, number>;
+  audioUrlOverride?: string;
+}
 
 const PROGRESS_TICK_MS = 60;
 
@@ -294,7 +307,10 @@ function SoundToggle({
   );
 }
 
-export default function VideoWithControls() {
+export default function VideoWithControls({
+  Template = DefaultVideoTemplate,
+  sceneDurations = DEFAULT_SCENE_DURATIONS,
+}: VideoWithControlsProps = {}) {
   const isIframed = typeof window !== 'undefined' && window.self !== window.top;
 
   const {
@@ -308,7 +324,7 @@ export default function VideoWithControls() {
     onSceneChange,
     jumpTo,
     toggleLock,
-  } = useSceneControls(SCENE_DURATIONS);
+  } = useSceneControls(sceneDurations);
 
   const {
     enabled: audioEnabled,
@@ -321,8 +337,8 @@ export default function VideoWithControls() {
 
   const recorder = useTabRecorder();
   const totalDurationMs = useMemo(
-    () => Object.values(SCENE_DURATIONS).reduce((a, b) => a + b, 0),
-    [],
+    () => Object.values(sceneDurations).reduce((a, b) => a + b, 0),
+    [sceneDurations],
   );
 
   const handleRecord = useCallback(() => {
@@ -390,11 +406,11 @@ export default function VideoWithControls() {
   const barVisible = !collapsed || hovering || tapPinned;
 
   // Export path: clean video for the recorder, no controls, no audio button
-  if (!isIframed) return <VideoTemplate />;
+  if (!isIframed) return <Template durations={sceneDurations} />;
 
   return (
     <div className="relative w-full h-screen">
-      <VideoTemplate
+      <Template
         key={mountKey}
         durations={durations}
         loop
