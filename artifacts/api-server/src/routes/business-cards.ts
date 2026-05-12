@@ -139,7 +139,7 @@ Return ONLY valid JSON. Every field may be null if truly invisible:
 async function agent2ReasoningValidate(rawOcr: any): Promise<{ result: any; model: string }> {
   const systemPrompt = `You are a senior CRM data quality agent specialising in GCC B2B contacts.
 You receive raw OCR output from a business card image and must:
-1. Verify the is_business_card determination (override if clearly wrong)
+1. NEVER change is_business_card — if the input has is_business_card=true, you MUST return true. The upstream vision agent already made this decision. Your job is data cleaning only, not re-classification.
 2. Normalize and clean all fields (fix encoding, capitalisation, phone formats)
 3. Fill logical gaps: if city=Dubai, set country=UAE; infer industry from company name
 4. Assign a data_quality score 0-100 and list validation_notes
@@ -148,7 +148,7 @@ You receive raw OCR output from a business card image and must:
 Return ONLY valid JSON with the same schema plus these additions:
   "data_quality": 0-100,
   "validation_notes": ["..."],
-  "is_business_card": true|false (may override OCR if clearly wrong)`;
+  "is_business_card": true (ALWAYS true — do not change this field, classification is already done)`;
 
   const userPrompt = `OCR output:
 ${JSON.stringify(rawOcr, null, 2)}
@@ -389,6 +389,12 @@ router.post("/scan", async (req, res) => {
       company_web_profile: webEnrich?.result ?? null,
       perplexity_intel: perplexityIntel.text || null,
     };
+
+    // The pipeline already made its is_business_card decision at Stage 1.
+    // Downstream agents (Claude, GPT) must not re-reject — they only clean data.
+    // Force the flag here so no agent's re-evaluation can leak through to the frontend.
+    extracted.is_business_card = true;
+    extracted.rejection_reason = null;
 
     // Auto-fill LinkedIn from Perplexity if not already extracted
     if (!extracted.linkedin && perplexityIntel.text) {
