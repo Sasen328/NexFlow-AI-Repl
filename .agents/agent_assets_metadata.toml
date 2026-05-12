@@ -221,3 +221,9 @@ id = "tKkx2zOvtb_TLep369nJt"
 uri = "file://docs/logos/NexFlow_Icon_64.png"
 type = "image"
 title = "NexFlow Icon — 64px (web / email use)"
+
+[[outputs]]
+id = "3ITKrFkdjXRZbsYnuvfFk"
+uri = "file://LOCAL_SETUP.md"
+type = "text"
+title = "NexFlow — Local Setup Guide"
