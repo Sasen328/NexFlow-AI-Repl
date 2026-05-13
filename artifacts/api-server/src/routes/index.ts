@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import setupRouter from "./setup.js";
 import contactsRouter from "./contacts";
 import companiesRouter from "./companies";
 import dealsRouter from "./deals";
@@ -92,5 +93,6 @@ router.use("/engine", webEngineRouter);
 router.use("/company-intel", companyIntelRouter);
 router.use("/person-intel", personIntelRouter);
 router.use("/captcha", captchaRouter);
+router.use("/setup", setupRouter);
 
 export default router;

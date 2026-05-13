@@ -1,5 +1,5 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { isSignedIn } from "@/lib/marketing-auth";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -16,6 +16,7 @@ import PricingPage from "@/pages/marketing/Pricing";
 import BrandPage from "@/pages/marketing/Brand";
 import AuthPage from "@/pages/marketing/Auth";
 import { useState } from "react";
+import { WizardProvider } from "@/pages/onboarding/context";
 
 import Briefing from "@/pages/briefing";
 import SectionHubPage from "@/pages/section-hub";
@@ -290,9 +291,44 @@ function ProtectedAppLayout() {
   return <AppLayout />;
 }
 
+// ── Onboarding portal — isolated, no CRM chrome ────────────────────────────
+
+const OnboardingLanding  = lazy(() => import("@/pages/onboarding/Landing"));
+const OnboardingWizard   = lazy(() => import("@/pages/onboarding/SetupWizard"));
+const OnboardingProposal = lazy(() => import("@/pages/onboarding/ProposalView"));
+const OnboardingComplete = lazy(() => import("@/pages/onboarding/SetupComplete"));
+
+function OnboardingShell({ children }: { children: React.ReactNode }) {
+  return (
+    <WizardProvider>
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      }>
+        {children}
+      </Suspense>
+    </WizardProvider>
+  );
+}
+
 function RootRoutes() {
   return (
     <Switch>
+      {/* ── Enterprise Setup Portal (isolated, no auth required) ── */}
+      <Route path="/onboarding">
+        <OnboardingShell><OnboardingLanding /></OnboardingShell>
+      </Route>
+      <Route path="/onboarding/setup">
+        <OnboardingShell><OnboardingWizard /></OnboardingShell>
+      </Route>
+      <Route path="/onboarding/proposal">
+        <OnboardingShell><OnboardingProposal /></OnboardingShell>
+      </Route>
+      <Route path="/onboarding/complete">
+        <OnboardingShell><OnboardingComplete /></OnboardingShell>
+      </Route>
+
       <Route path="/investors" component={InvestorsPage} />
       <Route path="/">           <MarketingRoute><WelcomePage /></MarketingRoute></Route>
       <Route path="/welcome">    <MarketingRoute><WelcomePage /></MarketingRoute></Route>

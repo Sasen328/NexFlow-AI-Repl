@@ -827,3 +827,47 @@ export const lead_list_items = pgTable(
 );
 
 export type LeadListItem = typeof lead_list_items.$inferSelect;
+
+// ── Enterprise Setup Portal ─────────────────────────────────────────────────
+
+export const setup_sessions = pgTable("setup_sessions", {
+  id:         uuid("id").primaryKey(),
+  setup_path: text("setup_path").notNull().default("managed"),
+  status:     text("status").notNull().default("draft"),
+  answers:    jsonb("answers").notNull().default({}),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const setup_proposals = pgTable("setup_proposals", {
+  id:         uuid("id").primaryKey(),
+  session_id: uuid("session_id").notNull().references(() => setup_sessions.id, { onDelete: "cascade" }),
+  version:    integer("version").notNull().default(1),
+  content:    jsonb("content").notNull().default({}),
+  pricing:    jsonb("pricing").notNull().default({}),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  sessionIdx: index("setup_proposals_session_idx").on(t.session_id),
+}));
+
+export const tenant_configs = pgTable("tenant_configs", {
+  id:              uuid("id").primaryKey(),
+  session_id:      uuid("session_id").notNull().references(() => setup_sessions.id),
+  slug:            text("slug").notNull().unique(),
+  company_name:    text("company_name").notNull().default(""),
+  company_name_ar: text("company_name_ar").default(""),
+  setup_path:      text("setup_path").notNull().default("managed"),
+  enabled_modules: jsonb("enabled_modules").notNull().default([]),
+  tab_structure:   jsonb("tab_structure").notNull().default([]),
+  branding:        jsonb("branding").notNull().default({}),
+  pipeline_stages: jsonb("pipeline_stages"),
+  status:          text("status").notNull().default("active"),
+  created_at:      timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  slugIdx:    index("tenant_configs_slug_idx").on(t.slug),
+  sessionIdx: index("tenant_configs_session_idx").on(t.session_id),
+}));
+
+export type SetupSession  = typeof setup_sessions.$inferSelect;
+export type SetupProposal = typeof setup_proposals.$inferSelect;
+export type TenantConfig  = typeof tenant_configs.$inferSelect;
