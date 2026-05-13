@@ -741,6 +741,14 @@ export default function BusinessCardsPage() {
               </div>
             )}
 
+            {/* scan_note banner — shown when AI had to use fallback passes */}
+            {scanState === "complete" && fullExtracted.scan_note && (
+              <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-50/40 dark:bg-amber-950/10 px-3 py-2">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <span className="text-xs text-amber-700 dark:text-amber-300">{fullExtracted.scan_note}</span>
+              </div>
+            )}
+
             {/* Extracted fields */}
             {scanState === "complete" && (
               <div className="space-y-1.5 max-h-[420px] overflow-y-auto pr-1">
@@ -771,9 +779,32 @@ export default function BusinessCardsPage() {
                     </div>
                   );
                 })}
+                {/* Zero-fields fallback: manual entry form instead of dead-end message */}
                 {FIELD_ORDER.filter(k => extracted[k]).length === 0 && (
-                  <div className="py-8 text-center text-sm text-muted-foreground">
-                    AI couldn't detect any fields. Try a clearer image.
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2 rounded-lg border border-[#C8A880]/30 bg-[#C8A880]/5 px-3 py-2.5">
+                      <AlertTriangle className="w-4 h-4 text-[#C8A880] shrink-0 mt-0.5" />
+                      <div>
+                        <div className="text-xs font-bold text-[#C8A880]">AI couldn't read this card automatically</div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">Enter the details below — the AI will still enrich, score, and save the contact.</div>
+                      </div>
+                    </div>
+                    {(["name_en","name_ar","title","company","email","mobile","website"] as const).map((key) => {
+                      const meta = FIELD_META[key];
+                      const Icon = meta?.icon ?? Hash;
+                      return (
+                        <div key={key} className="flex items-center gap-2 px-2 py-1.5 rounded-lg border border-border/30 bg-muted/20">
+                          <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <div className="text-xs font-semibold text-muted-foreground w-28 flex-shrink-0">{meta?.label ?? key}</div>
+                          <input
+                            value={extracted[key] ?? ""}
+                            onChange={(e) => updateField(key, e.target.value)}
+                            placeholder={`Enter ${meta?.label ?? key}…`}
+                            className="flex-1 bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-[#B8A0C8] rounded px-1.5 py-0.5 text-sm font-medium placeholder:text-muted-foreground/40"
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
