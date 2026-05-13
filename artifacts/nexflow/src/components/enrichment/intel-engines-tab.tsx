@@ -1,218 +1,322 @@
 /**
- * Intel Engines tab — Data Hub > Enrichment Engine > Intel Engines
+ * Intel Engines — ProspectSA-style design
  *
- * Four AI-driven intelligence engines, each with input form + run + report:
- *   1. Masaar             — Saudi CR-number lookup (7-agent pipeline)
- *   2. Person Intel       — ProsEngine person dossier (20 sources)
- *   3. Company Intel      — ProsEngine company dossier (11 sources)
- *   4. Lead Finder (NEW)  — discover real leads at a company by name
+ * Five engines, each with:
+ *   • Agent-pipeline progress visualization (numbered cards, live status)
+ *   • Simulated live log feed during the async API wait
+ *   • Full structured report matching ProspectSA schema
  *
- * Each engine posts to /api/engines/{kind}/run and renders a structured
- * report with source attribution. History is shared across all four
- * engines via /api/engines/runs.
+ * Engines:
+ *   1. Masaar        — Saudi CR lookup (5-agent pipeline)
+ *   2. Person Intel  — ProsEngine person dossier (20 sources)
+ *   3. Company Intel — ProsEngine company dossier (11 sources)
+ *   4. Lead Finder   — Discover leads at a company
+ *   5. AI Database   — Masar company database builder
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
-  Sparkles, Building2, Users, Target, Loader2, Play, Save, History,
-  ChevronRight, ExternalLink, Mail, Phone, Linkedin, MapPin, BadgeCheck,
-  AlertTriangle, FileText, Globe, Star, Trash2, Eye, X, Zap, RefreshCw,
+  BadgeCheck, Users, Building2, Target, Database,
+  Loader2, Play, Save, History, ChevronRight, ExternalLink,
+  Mail, Phone, Linkedin, MapPin, AlertTriangle, FileText,
+  Globe, Star, Eye, X, Zap, CheckCircle2, Circle,
+  XCircle, Clock, Sparkles, Shield, BookOpen, BarChart3,
+  TrendingUp, Award, Briefcase, GraduationCap, DollarSign,
+  ChevronDown, ChevronUp, Copy, Check, Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/hooks/useApi";
 
-type EngineKind = "masaar" | "person_intel" | "company_intel" | "lead_finder";
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Fire-and-poll: POST to /{endpoint}/start → get jobId, then poll
- * GET /runs/{jobId} every 2 s until status !== "pending".
- * Resolves with the same shape the /run endpoint would return:
- *   { id, durationMs, sourcesUsed, report }
- */
-async function pollEngineJob(endpoint: string, body: Record<string, unknown>): Promise<any> {
-  const { jobId } = await apiFetch(`/engines/${endpoint}/start`, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-  for (let i = 0; i < 60; i++) {
-    await new Promise((r) => setTimeout(r, 2000));
-    const { row } = await apiFetch(`/engines/runs/${jobId}`);
-    if (row.status === "ok") {
-      return {
-        id: row.id,
-        durationMs: row.duration_ms,
-        sourcesUsed: row.sources_used,
-        report: row.report,
-      };
-    }
-    if (row.status === "error") throw new Error(row.error ?? "Engine run failed");
-  }
-  throw new Error("Timed out waiting for engine result (120s)");
+type EngineKind = "masaar" | "person_intel" | "company_intel" | "lead_finder" | "ai_database";
+
+type AgentStatus = "waiting" | "running" | "done" | "error" | "skipped";
+
+interface AgentDef {
+  num: number;
+  name: string;
+  desc: string;
+  durationHint: number; // rough seconds this agent typically takes
+  logs: string[];       // sample log lines to simulate
 }
+
+interface RunAgent { status: AgentStatus; startedAt?: number; doneAt?: number; logLines: string[] }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Engine metadata
+// ─────────────────────────────────────────────────────────────────────────────
 
 const ENGINE_META: Record<EngineKind, {
-  title: string;
-  blurb: string;
-  icon: typeof Sparkles;
-  accent: string;          // tailwind classes
-  badge: string;
-  sourcesNote: string;
+  label: string; icon: typeof BadgeCheck;
+  color: string; bg: string; border: string;
+  badge: string; tagline: string;
 }> = {
-  masaar: {
-    title: "Masaar — Saudi CR Lookup",
-    blurb: "10-digit Saudi commercial registration number → bilingual EN+AR intel report with shareholders, capital, leadership, AOA data, and conflict detection.",
-    icon: BadgeCheck,
-    accent: "from-[#88B8B0]/10 to-[#88B8B0]/0 border-[#88B8B0]/30",
-    badge: "🇸🇦 Saudi government",
-    sourcesNote: "Best-effort scraper on emagazine.aamaly.sa + 5 parallel AI research agents (Perplexity ×3, Gemini ×2) + Claude bilingual synthesis",
-  },
-  person_intel: {
-    title: "Person Intel — ProsEngine",
-    blurb: "Deep dossier on a single person: career, education, wealth, board roles, approach strategy, ready-to-send first message.",
-    icon: Users,
-    accent: "from-[#B8B880]/10 to-[#B8B880]/0 border-[#B8B880]/30",
-    badge: "20 sources",
-    sourcesNote: "9× Perplexity + 4× Gemini grounded + Claude/GPT knowledge + LinkedIn/website crawl. Apollo & Explorium gracefully skipped (no key).",
-  },
-  company_intel: {
-    title: "Company Intel — ProsEngine",
-    blurb: "Structured company dossier: financials, ownership, leadership, market position, news, sample outreach message.",
-    icon: Building2,
-    accent: "from-[#B8A0C8]/10 to-[#B8A0C8]/0 border-[#B8A0C8]/30",
-    badge: "11 sources",
-    sourcesNote: "4× Gemini grounded + 4× Perplexity + Claude/GPT knowledge + stealth crawl (Cheerio/Playwright + Crawl4AI sidecar)",
-  },
-  lead_finder: {
-    title: "Lead Finder — Find Leads at a Company",
-    blurb: "Give a company name → get a ranked list of named senior employees with titles, departments, LinkedIn URLs, and a recommended outreach sequence.",
-    icon: Target,
-    accent: "from-[#D4955A]/10 to-[#D4955A]/0 border-[#D4955A]/40",
-    badge: "NEW",
-    sourcesNote: "Site team-page crawl (8 paths) + Perplexity ×3 + Gemini ×2 + Claude knowledge + Crawl4AI sidecar fallback. Dedupes across sources.",
-  },
+  masaar:       { label: "Masaar",       icon: BadgeCheck,  color: "text-[#88B8B0]", bg: "bg-[#88B8B0]/10", border: "border-[#88B8B0]/30", badge: "🇸🇦 Saudi Gov", tagline: "5-agent Saudi CR intelligence pipeline" },
+  person_intel: { label: "Person Intel", icon: Users,        color: "text-[#B8A0C8]", bg: "bg-[#B8A0C8]/10", border: "border-[#B8A0C8]/30", badge: "20 sources", tagline: "Deep executive dossier with approach strategy" },
+  company_intel:{ label: "Company Intel",icon: Building2,    color: "text-[#C8A880]", bg: "bg-[#C8A880]/10", border: "border-[#C8A880]/30", badge: "11 sources", tagline: "Full Saudi company intelligence report" },
+  lead_finder:  { label: "Lead Finder",  icon: Target,       color: "text-[#D4955A]", bg: "bg-[#D4955A]/10", border: "border-[#D4955A]/30", badge: "NEW", tagline: "Discover named leads at any company" },
+  ai_database:  { label: "AI Database",  icon: Database,     color: "text-[#7aab9a]", bg: "bg-[#7aab9a]/10", border: "border-[#7aab9a]/30", badge: "Masar", tagline: "Saudi B2B company database builder" },
 };
 
-interface RunHistoryRow {
-  id: string;
-  engine: EngineKind;
-  title: string;
-  sources_used: string[];
-  duration_ms: number;
-  status: "pending" | "ok" | "error";
-  error: string | null;
-  saved: boolean;
-  tags: string | null;
-  notes: string | null;
-  created_at: string;
+// ─────────────────────────────────────────────────────────────────────────────
+// Agent definitions (simulated progress during the sync API wait)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MASAAR_AGENTS: AgentDef[] = [
+  { num: 1, name: "MC.gov.sa Registry", desc: "Stealth browser · CAPTCHA solve · CR parse",
+    durationHint: 8, logs: ["Launching stealth browser (Saudi locale)…", "Navigating mc.gov.sa/ar/eservices…", "CAPTCHA detected — sending to Claude Vision…", "CAPTCHA solved (confidence: high)", "Submitting CR number…", "Parsing registry fields (Claude Sonnet)…", "✓ nameAr, legalForm, capital, shareholders extracted"] },
+  { num: 2, name: "Amaaly AOA Intelligence", desc: "Stealth-scrape AOA PDFs · Claude translate",
+    durationHint: 12, logs: ["Searching emagazine.aamaly.sa…", "Traversing 6 result pages…", "Scoring AOA documents by name match + recency…", "Downloading top-scored AOA PDF…", "Extracting text (pdf-parse)…", "Claude translating Arabic → English…", "✓ shareholders, capital distribution, governance extracted"] },
+  { num: 3, name: "Deep Research Intelligence", desc: "12 engines in parallel (Perplexity ×5, Gemini ×4, Claude, GPT-4o)",
+    durationHint: 18, logs: ["Firing 12 research engines simultaneously…", "[P1] Querying Perplexity: company overview…", "[P2] Querying Perplexity: ownership & shareholders…", "[P3] Querying Perplexity: leadership (CEO/board)…", "[P4] Querying Perplexity: market & financials…", "[P5] Querying Perplexity: legal flags…", "[GA] Gemini grounded: full profile…", "[GB] Gemini grounded: ownership & AOA…", "[GC] Gemini grounded: leadership…", "[GD] Gemini grounded: 2023-2025 news…", "[Claude] Training knowledge base…", "[GPT-4o] Financial intelligence…", "✓ All 12 engines returned results — aggregating…"] },
+  { num: 4, name: "Compliance & Sanctions", desc: "OFAC · UN SC · EU · CMA · SAMA · ZATCA · Maroof · Najiz",
+    durationHint: 8, logs: ["Checking OFAC SDN list (US Treasury)…", "Checking UN Security Council consolidated list…", "Checking EU sanctions (sanctionsmap.eu)…", "Querying CMA violations (Perplexity)…", "Querying SAMA banking penalties…", "Querying ZATCA tax violations…", "Verifying Maroof.sa business status…", "Checking Najiz court records…", "✓ Risk assessment complete: overallRisk determined"] },
+  { num: 5, name: "Bilingual Report Compiler", desc: "Claude (primary) → GPT-4o (fallback) · EN + AR",
+    durationHint: 8, logs: ["Compiling 11-section bilingual report…", "Claude Sonnet: synthesizing English report (8,192 tokens)…", "Translating to Arabic (فصحى)…", "Formatting: Overview · Registration · Capital · Shareholders · Management · AOA · Research · Compliance · Market · Contact · Summary…", "✓ Full bilingual report compiled"] },
+];
+
+const PERSON_AGENTS: AgentDef[] = [
+  { num: 1, name: "Perplexity × 9 — Web Research", desc: "Career · Company · Education · Wealth · Boards · Compensation · Personal · News · LinkedIn URL",
+    durationHint: 25, logs: ["[P1] Firing: full career history…", "[P2] Firing: company intelligence…", "[P3] Firing: education background…", "[P4] Firing: wealth & investments…", "[P5] Firing: board memberships…", "[P6] Firing: compensation benchmarks…", "[P7] Firing: personal profile…", "[P8] Firing: news 2024-2025…", "[P9] Firing: LinkedIn URL discovery…", "✓ 9 Perplexity agents returned"] },
+  { num: 2, name: "Gemini Google Search × 4", desc: "Career · LinkedIn & Social · Company News · Full Dossier",
+    durationHint: 20, logs: ["[GA] Career & professional history (grounded search)…", "[GB] LinkedIn & social media discovery…", "[GC] Company context + news 2023-2025…", "[GD] Comprehensive deep dossier…", "✓ 4 Gemini agents completed"] },
+  { num: 3, name: "LinkedIn + Website Crawl", desc: "Crawl4AI on LinkedIn URL · Web Seeder on company site",
+    durationHint: 15, logs: ["Crawling LinkedIn profile via Crawl4AI…", "Launching Web Seeder on company website…", "Crawling team page, about, news (up to 8 pages)…", "Claude agent per page extraction…", "✓ Website crawl: 6 pages analyzed"] },
+  { num: 4, name: "Claude + GPT-4o Knowledge Base", desc: "Training data cross-reference + gap fill",
+    durationHint: 10, logs: ["Claude Sonnet: extracting from training knowledge…", "GPT-4o: cross-reference and gap fill…", "✓ Knowledge base agents complete"] },
+  { num: 5, name: "AI Synthesis", desc: "Gemini → Claude → GPT-4o waterfall · JSON extraction",
+    durationHint: 15, logs: ["Compiling all 20 agent outputs…", "Synthesis pass 1: Gemini Flash (preferred)…", "Synthesis pass 2: Claude (fallback)…", "Extracting structured JSON…", "Injecting sources, confidence scoring…", "✓ Person intelligence report ready"] },
+];
+
+const COMPANY_AGENTS: AgentDef[] = [
+  { num: 1, name: "Web Seeder — Website Crawl", desc: "8 pages · Saudi UA · Claude per-page agent",
+    durationHint: 20, logs: ["Crawling company website (up to 8 pages)…", "Link discovery on first 5 pages…", "Claude Haiku agent per page (1,024 tok)…", "Aggregation agent (3,000 tok)…", "✓ Website crawl complete"] },
+  { num: 2, name: "Gemini Google Search × 4", desc: "Full profile · Ownership · Executives · Market intel",
+    durationHint: 18, logs: ["[GA] Full profile (website, phone, CR, employees, revenue)…", "[GB] Ownership & shareholders…", "[GC] Leadership & executives…", "[GD] Market intelligence (2023-2025)…", "✓ 4 Gemini threads completed"] },
+  { num: 3, name: "Perplexity Web Search × 4", desc: "Profile · Financials · Ownership · Leadership",
+    durationHint: 15, logs: ["[P1] General profile & contact data…", "[P2] Financial intelligence (revenue, capital)…", "[P3] Ownership & AOA…", "[P4] Leadership: full names AR+EN…", "✓ 4 Perplexity threads completed"] },
+  { num: 4, name: "Claude + GPT-4o Analysis", desc: "Comprehensive analysis + financial validation",
+    durationHint: 10, logs: ["Claude Sonnet: comprehensive corporate analysis…", "GPT-4o: ownership %, revenue, key clients validation…", "✓ Knowledge agents complete"] },
+  { num: 5, name: "Synthesis + Report", desc: "Claude (primary) · Gemini (secondary) · GPT-4o (fallback)",
+    durationHint: 15, logs: ["Aggregating 11 source outputs…", "Claude Sonnet synthesis (primary, 4,000 tok)…", "Structuring: profile, financials, ownership, leadership, market, approach…", "✓ Company intelligence report ready"] },
+];
+
+const LEAD_FINDER_AGENTS: AgentDef[] = [
+  { num: 1, name: "Website Team Page Crawl", desc: "8 team-page paths · Cheerio + Crawl4AI fallback",
+    durationHint: 15, logs: ["Probing /team, /about/team, /leadership, /people, /management…", "Crawl4AI fallback on JS-heavy pages…", "Extracting names, titles, emails, LinkedIn URLs…", "✓ Team page crawl complete"] },
+  { num: 2, name: "Perplexity × 3 — People Search", desc: "Senior employees · Department heads · Contact discovery",
+    durationHint: 15, logs: ["[P1] Senior employees + titles + LinkedIn URLs…", "[P2] Department heads + contact info…", "[P3] Key decision-makers + buying authority…", "✓ Perplexity lead search done"] },
+  { num: 3, name: "Gemini × 2 — Deep Dossier", desc: "Named executives + LinkedIn profiles",
+    durationHint: 12, logs: ["[GA] Named executives (EN + AR) + LinkedIn…", "[GB] Board + advisors + government ties…", "✓ Gemini agents completed"] },
+  { num: 4, name: "Dedup + Rank + Score", desc: "Merge across sources · ICP score · Sequence recommendation",
+    durationHint: 8, logs: ["Deduplicating leads across all sources…", "ICP scoring: seniority, department, buy signal…", "Generating recommended outreach sequence…", "✓ Final ranked lead list ready"] },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Simulated live-log progress hook
+// ─────────────────────────────────────────────────────────────────────────────
+
+function useAgentProgress(agents: AgentDef[], busy: boolean) {
+  const [agentStates, setAgentStates] = useState<RunAgent[]>([]);
+  const [logs, setLogs] = useState<string[]>([]);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const reset = useCallback(() => {
+    setAgentStates(agents.map(() => ({ status: "waiting" as AgentStatus, logLines: [] })));
+    setLogs([]);
+  }, [agents]);
+
+  useEffect(() => { reset(); }, [reset]);
+
+  useEffect(() => {
+    if (!busy) { if (timerRef.current) clearTimeout(timerRef.current); return; }
+    reset();
+
+    let agentIdx = 0;
+    let logIdx = 0;
+    const allTimers: ReturnType<typeof setTimeout>[] = [];
+
+    // Advance through agents sequentially
+    let cumulativeDelay = 0;
+    agents.forEach((agent, idx) => {
+      const startDelay = cumulativeDelay;
+      const endDelay = cumulativeDelay + agent.durationHint * 1000;
+      cumulativeDelay = endDelay;
+
+      allTimers.push(setTimeout(() => {
+        setAgentStates((prev) => {
+          const next = [...prev];
+          next[idx] = { ...next[idx], status: "running", startedAt: Date.now(), logLines: [] };
+          return next;
+        });
+
+        // Stream logs for this agent
+        agent.logs.forEach((line, li) => {
+          const logDelay = (agent.durationHint * 1000 / (agent.logs.length + 1)) * (li + 1);
+          const t = setTimeout(() => {
+            setAgentStates((prev) => {
+              const next = [...prev];
+              next[idx] = { ...next[idx], logLines: [...next[idx].logLines, line] };
+              return next;
+            });
+            setLogs((prev) => [`[Agent ${agent.num}] ${line}`, ...prev].slice(0, 80));
+          }, logDelay);
+          allTimers.push(t);
+        });
+      }, startDelay));
+
+      allTimers.push(setTimeout(() => {
+        setAgentStates((prev) => {
+          const next = [...prev];
+          next[idx] = { ...next[idx], status: "done", doneAt: Date.now() };
+          return next;
+        });
+      }, endDelay - 200));
+    });
+
+    return () => allTimers.forEach(clearTimeout);
+  }, [busy, agents, reset]);
+
+  return { agentStates, logs, reset };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Main component
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function IntelEnginesTab() {
-  const [activeEngine, setActiveEngine] = useState<EngineKind | "history">("masaar");
+  const [active, setActive] = useState<EngineKind | "history">("masaar");
 
   return (
     <div className="space-y-5">
       {/* Engine picker */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {(Object.keys(ENGINE_META) as EngineKind[]).map((k) => {
           const m = ENGINE_META[k];
           const Icon = m.icon;
-          const active = activeEngine === k;
+          const isActive = active === k;
           return (
-            <button
-              key={k}
-              onClick={() => setActiveEngine(k)}
+            <button key={k} onClick={() => setActive(k)}
               className={cn(
-                "relative text-left rounded-xl border p-4 transition-all bg-gradient-to-br hover:scale-[1.01]",
-                m.accent,
-                active ? "ring-2 ring-[#B8B880] shadow-md" : "shadow-sm hover:shadow",
+                "group relative text-left rounded-xl border p-4 transition-all duration-200",
+                m.bg, m.border,
+                isActive ? "ring-2 ring-offset-1 shadow-lg scale-[1.02]" : "hover:scale-[1.01] hover:shadow-md shadow-sm",
+                isActive ? m.border.replace("border-", "ring-") : "",
               )}
             >
               <div className="flex items-start justify-between gap-2">
-                <Icon className="w-5 h-5 text-foreground/80 shrink-0" />
+                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", m.bg)}>
+                  <Icon className={cn("w-4 h-4", m.color)} />
+                </div>
                 <span className={cn(
-                  "text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full",
-                  k === "lead_finder"
-                    ? "bg-[#D4955A] text-white"
-                    : "bg-background/80 text-muted-foreground border border-border",
+                  "text-[9px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full border",
+                  isActive ? cn(m.bg, m.border, m.color) : "bg-background/60 text-muted-foreground border-border",
                 )}>
                   {m.badge}
                 </span>
               </div>
-              <div className="mt-2 font-semibold text-sm leading-tight">{m.title}</div>
-              <div className="mt-1.5 text-xs text-muted-foreground leading-relaxed line-clamp-3">{m.blurb}</div>
+              <div className={cn("mt-2.5 font-bold text-sm", m.color)}>{m.label}</div>
+              <div className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed line-clamp-2">{m.tagline}</div>
             </button>
           );
         })}
       </div>
 
-      <div className="flex items-center justify-end">
-        <button
-          onClick={() => setActiveEngine("history")}
-          className={cn(
-            "text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-md border",
-            activeEngine === "history"
-              ? "bg-foreground text-background border-foreground"
-              : "border-border hover:bg-muted text-muted-foreground",
+      <div className="flex justify-end">
+        <button onClick={() => setActive("history")}
+          className={cn("text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-md border transition-colors",
+            active === "history" ? "bg-foreground text-background border-foreground" : "border-border hover:bg-muted text-muted-foreground"
           )}
         >
           <History className="w-3.5 h-3.5" /> Run history
         </button>
       </div>
 
-      {/* Body */}
-      {activeEngine === "masaar"        && <MasaarPanel />}
-      {activeEngine === "person_intel"  && <PersonIntelPanel />}
-      {activeEngine === "company_intel" && <CompanyIntelPanel />}
-      {activeEngine === "lead_finder"   && <LeadFinderPanel />}
-      {activeEngine === "history"       && <HistoryPanel />}
+      {active === "masaar"        && <MasaarPanel />}
+      {active === "person_intel"  && <PersonIntelPanel />}
+      {active === "company_intel" && <CompanyIntelPanel />}
+      {active === "lead_finder"   && <LeadFinderPanel />}
+      {active === "ai_database"   && <AIDatabasePanel />}
+      {active === "history"       && <HistoryPanel />}
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// Shared form chrome
-// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared layout shell
+// ─────────────────────────────────────────────────────────────────────────────
 
-function PanelShell({
-  engine, children, footer,
-}: { engine: EngineKind; children: React.ReactNode; footer?: React.ReactNode }) {
+function EngineShell({ engine, form, result }: {
+  engine: EngineKind;
+  form: React.ReactNode;
+  result: React.ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-4 items-start">
+      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+        <EngineFormHeader engine={engine} />
+        <div className="p-5 space-y-4">{form}</div>
+      </div>
+      <div className="min-h-[500px]">{result}</div>
+    </div>
+  );
+}
+
+function EngineFormHeader({ engine }: { engine: EngineKind }) {
   const m = ENGINE_META[engine];
   const Icon = m.icon;
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-4">
-      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-        <div className="flex items-start gap-3 pb-3 border-b border-border">
-          <Icon className="w-5 h-5 text-foreground/80 mt-0.5" />
-          <div className="flex-1">
-            <div className="font-semibold text-sm">{m.title}</div>
-            <div className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{m.sourcesNote}</div>
-          </div>
-        </div>
-        {children}
+    <div className={cn("px-5 py-4 border-b border-border flex items-center gap-3", m.bg)}>
+      <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center", m.bg, "border", m.border)}>
+        <Icon className={cn("w-5 h-5", m.color)} />
       </div>
-      <div className="min-h-[400px]">{footer}</div>
+      <div>
+        <div className={cn("font-bold text-sm", m.color)}>{m.label}</div>
+        <div className="text-[10px] text-muted-foreground">{m.tagline}</div>
+      </div>
     </div>
   );
 }
 
-function FormRow({ label, required, hint, children }: { label: string; required?: boolean; hint?: string; children: React.ReactNode }) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Form primitives
+// ─────────────────────────────────────────────────────────────────────────────
+
+function Field({ label, required, hint, children }: { label: string; required?: boolean; hint?: string; children: React.ReactNode }) {
   return (
-    <label className="block">
-      <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
-        {label} {required && <span className="text-rose-500">*</span>}
-      </div>
+    <div className="space-y-1">
+      <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label} {required && <span className="text-rose-500 normal-case">*</span>}
+      </label>
       {children}
-      {hint && <div className="text-[10px] text-muted-foreground mt-1">{hint}</div>}
-    </label>
+      {hint && <p className="text-[10px] text-muted-foreground/70 leading-relaxed">{hint}</p>}
+    </div>
   );
 }
 
 function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={cn("w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-[#B8B880]/40", props.className)} />;
+  return (
+    <input {...props} className={cn(
+      "w-full px-3 py-2 text-sm rounded-lg border border-border bg-background",
+      "focus:outline-none focus:ring-2 focus:ring-[#88B8B0]/30 focus:border-[#88B8B0]",
+      "placeholder:text-muted-foreground/50 transition-colors",
+      props.className,
+    )} />
+  );
 }
 
 function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...props} className={cn("w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-[#B8B880]/40 min-h-[80px] resize-y", props.className)} />;
+  return (
+    <textarea {...props} className={cn(
+      "w-full px-3 py-2 text-sm rounded-lg border border-border bg-background resize-y min-h-[72px]",
+      "focus:outline-none focus:ring-2 focus:ring-[#88B8B0]/30 focus:border-[#88B8B0]",
+      "placeholder:text-muted-foreground/50 transition-colors",
+      props.className,
+    )} />
+  );
 }
 
 function RunButton({ onClick, busy, label = "Run engine" }: { onClick: () => void; busy: boolean; label?: string }) {
@@ -224,63 +328,188 @@ function RunButton({ onClick, busy, label = "Run engine" }: { onClick: () => voi
   }, [busy]);
 
   return (
-    <button
-      onClick={onClick}
-      disabled={busy}
-      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-foreground text-background text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
+    <button onClick={onClick} disabled={busy}
+      className={cn(
+        "w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm transition-all",
+        "bg-foreground text-background hover:opacity-90 disabled:opacity-50",
+        busy && "cursor-not-allowed",
+      )}
     >
       {busy
-        ? (<><Loader2 className="w-4 h-4 animate-spin" /> Analysing… {elapsed > 0 ? `${elapsed}s` : ""}</>)
-        : (<><Play className="w-4 h-4" /> {label}</>)}
+        ? <><Loader2 className="w-4 h-4 animate-spin" /> Running… {elapsed > 0 ? `${elapsed}s` : ""}</>
+        : <><Play className="w-4 h-4" /> {label}</>}
     </button>
   );
 }
 
-function StatusPill({ children, kind = "info" }: { children: React.ReactNode; kind?: "info" | "success" | "warn" | "error" }) {
+function SectionNote({ children, kind = "info" }: { children: React.ReactNode; kind?: "info" | "warn" }) {
+  return (
+    <div className={cn(
+      "text-[10px] leading-relaxed p-2.5 rounded-lg border flex items-start gap-1.5",
+      kind === "warn" ? "bg-amber-500/8 border-amber-500/30 text-amber-800 dark:text-amber-300" : "bg-muted/60 border-border text-muted-foreground",
+    )}>
+      <Info className="w-3 h-3 mt-0.5 shrink-0" />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Agent pipeline progress visualization
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AgentPipeline({ agents, states, logs, color }: {
+  agents: AgentDef[];
+  states: RunAgent[];
+  logs: string[];
+  color: string;
+}) {
+  const logRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (logRef.current) logRef.current.scrollTop = 0;
+  }, [logs]);
+
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+      <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
+        <Sparkles className="w-4 h-4 text-muted-foreground" />
+        <span className="text-sm font-semibold">Pipeline — live agent view</span>
+      </div>
+      <div className="p-4 space-y-2">
+        {agents.map((agent, idx) => {
+          const state = states[idx] ?? { status: "waiting", logLines: [] };
+          return (
+            <AgentCard key={agent.num} agent={agent} state={state} color={color} />
+          );
+        })}
+      </div>
+      {/* Live log terminal */}
+      <div className="border-t border-border bg-[#0f1117] rounded-b-2xl">
+        <div className="px-4 py-2 border-b border-white/10 flex items-center gap-2">
+          <div className="flex gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-rose-500/70" />
+            <div className="w-2.5 h-2.5 rounded-full bg-amber-500/70" />
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/70" />
+          </div>
+          <span className="text-[10px] font-mono text-white/40">live log</span>
+        </div>
+        <div ref={logRef} className="h-32 overflow-y-auto p-3 font-mono text-[10px] space-y-0.5 flex flex-col-reverse">
+          {logs.length === 0
+            ? <span className="text-white/20">Waiting for engine to start…</span>
+            : logs.map((line, i) => (
+              <div key={i} className={cn(
+                "leading-relaxed",
+                line.includes("✓") ? "text-emerald-400" : line.includes("✗") || line.includes("error") ? "text-rose-400" : "text-white/60",
+              )}>
+                {line}
+              </div>
+            ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AgentCard({ agent, state, color }: { agent: AgentDef; state: RunAgent; color: string }) {
+  return (
+    <div className={cn(
+      "rounded-xl border p-3 transition-all duration-300",
+      state.status === "running" ? "border-current/30 bg-current/5 shadow-sm" : "border-border bg-background/50",
+    )}
+      style={{ borderColor: state.status === "running" ? undefined : undefined }}>
+      <div className="flex items-start gap-3">
+        {/* Agent number + status icon */}
+        <div className={cn(
+          "w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold transition-all duration-300",
+          state.status === "waiting" ? "bg-muted text-muted-foreground" :
+          state.status === "running" ? cn("text-white", color.replace("text-", "bg-")) :
+          state.status === "done"    ? "bg-emerald-500 text-white" :
+          state.status === "error"   ? "bg-rose-500 text-white" : "bg-muted text-muted-foreground",
+        )}>
+          {state.status === "running" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> :
+           state.status === "done"    ? <CheckCircle2 className="w-3.5 h-3.5" /> :
+           state.status === "error"   ? <XCircle className="w-3.5 h-3.5" /> :
+           agent.num}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className={cn("text-xs font-semibold truncate", state.status === "running" ? color : "text-foreground/80")}>
+              Agent {agent.num} — {agent.name}
+            </div>
+            <AgentStatusBadge status={state.status} />
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">{agent.desc}</div>
+          {state.status === "running" && state.logLines.length > 0 && (
+            <div className="mt-1.5 text-[9px] text-muted-foreground/80 font-mono truncate">
+              {state.logLines[state.logLines.length - 1]}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AgentStatusBadge({ status }: { status: AgentStatus }) {
   const map = {
-    info: "bg-muted text-foreground",
-    success: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-    warn: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-    error: "bg-rose-500/15 text-rose-700 dark:text-rose-400",
+    waiting: { label: "Waiting", cls: "bg-muted text-muted-foreground" },
+    running: { label: "Running", cls: "bg-blue-500/15 text-blue-600 dark:text-blue-400 animate-pulse" },
+    done:    { label: "Done",    cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" },
+    error:   { label: "Failed",  cls: "bg-rose-500/15 text-rose-700 dark:text-rose-400" },
+    skipped: { label: "Skipped", cls: "bg-muted text-muted-foreground" },
   };
-  return <span className={cn("px-2 py-0.5 text-[10px] rounded-full font-medium", map[kind])}>{children}</span>;
+  const s = map[status];
+  return <span className={cn("text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full", s.cls)}>{s.label}</span>;
 }
 
-function SourceChips({ sources }: { sources: string[] }) {
-  if (!sources?.length) return null;
+// ─────────────────────────────────────────────────────────────────────────────
+// Error + Empty states
+// ─────────────────────────────────────────────────────────────────────────────
+
+function EngineEmpty({ engine }: { engine: EngineKind }) {
+  const m = ENGINE_META[engine];
+  const Icon = m.icon;
   return (
-    <div className="flex flex-wrap gap-1">
-      {sources.map((s) => (
-        <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">{s}</span>
-      ))}
+    <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-8 rounded-2xl border border-dashed border-border bg-muted/10">
+      <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center mb-4", m.bg)}>
+        <Icon className={cn("w-7 h-7", m.color)} />
+      </div>
+      <div className="font-semibold text-foreground/70">{m.label} ready</div>
+      <div className="text-xs text-muted-foreground mt-1 max-w-[220px] leading-relaxed">
+        Fill in the form and run the engine. Results appear here.
+      </div>
     </div>
   );
 }
 
-function EmptyResult() {
+function EngineError({ msg }: { msg: string }) {
   return (
-    <div className="h-full flex flex-col items-center justify-center text-center p-8 rounded-xl border border-dashed border-border bg-muted/20">
-      <Sparkles className="w-8 h-8 text-muted-foreground/40 mb-3" />
-      <div className="text-sm font-medium text-muted-foreground">Fill in the form and run the engine.</div>
-      <div className="text-xs text-muted-foreground/70 mt-1">Results appear here. Most runs take 30-90 seconds.</div>
+    <div className="rounded-2xl border border-rose-500/40 bg-rose-500/5 p-5 flex items-start gap-3">
+      <AlertTriangle className="w-5 h-5 text-rose-600 mt-0.5 shrink-0" />
+      <div>
+        <div className="font-semibold text-sm text-rose-700 dark:text-rose-400">Engine run failed</div>
+        <div className="text-xs text-foreground/80 mt-1.5 whitespace-pre-wrap leading-relaxed">{msg}</div>
+      </div>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// MASAAR
-// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// MASAAR PANEL
+// ─────────────────────────────────────────────────────────────────────────────
 
 function MasaarPanel() {
   const [crNumber, setCrNumber] = useState("");
   const [nameEn, setNameEn] = useState("");
   const [nameAr, setNameAr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<any | null>(null);
+  const [result, setResult] = useState<any>(null);
   const [err, setErr] = useState<string | null>(null);
   const [reportLang, setReportLang] = useState<"en" | "ar">("en");
+  const { agentStates, logs, reset } = useAgentProgress(MASAAR_AGENTS, busy);
 
   async function run() {
+    if (!crNumber.trim() && !nameEn.trim() && !nameAr.trim()) return;
     setErr(null); setResult(null); setBusy(true);
     try {
       const data = await apiFetch("/engines/masaar/run", {
@@ -298,103 +527,142 @@ function MasaarPanel() {
   }
 
   return (
-    <PanelShell engine="masaar" footer={
-      err ? <ErrorBlock msg={err} /> :
-      !result ? <EmptyResult /> :
-      <MasaarReport result={result} lang={reportLang} setLang={setReportLang} />
-    }>
-      <FormRow label="CR Number" hint="10-digit Saudi commercial registration (e.g. 1010123456). Optional if you provide a company name.">
-        <Input value={crNumber} onChange={(e) => setCrNumber(e.target.value)} placeholder="1010123456" pattern="\d{10}" />
-      </FormRow>
-      <FormRow label="Company name (English)" hint="Optional. Use this when you don't have the CR number.">
-        <Input value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="Saudi Telecom Company" />
-      </FormRow>
-      <FormRow label="Company name (Arabic)">
-        <Input value={nameAr} onChange={(e) => setNameAr(e.target.value)} placeholder="شركة الاتصالات السعودية" dir="rtl" />
-      </FormRow>
-      <RunButton busy={busy} onClick={run} label="Run Masaar pipeline" />
-      <div className="text-[10px] text-muted-foreground bg-amber-500/10 border border-amber-500/30 rounded p-2 leading-relaxed">
-        <AlertTriangle className="w-3 h-3 inline mr-1" />
-        Direct stealth-browser access to mc.gov.sa and najiz.sa requires residential-IP infrastructure not available here. We use AI research (Perplexity/Gemini grounded) to gather equivalent intel, plus best-effort scraping of emagazine.aamaly.sa.
-      </div>
-    </PanelShell>
+    <EngineShell engine="masaar" form={
+      <>
+        <Field label="CR Number" hint="10-digit Saudi commercial registration. Optional if providing a name.">
+          <Input value={crNumber} onChange={(e) => setCrNumber(e.target.value)} placeholder="1010123456" />
+        </Field>
+        <Field label="Company Name (English)">
+          <Input value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="Saudi Telecom Company" />
+        </Field>
+        <Field label="Company Name (Arabic)">
+          <Input value={nameAr} onChange={(e) => setNameAr(e.target.value)} placeholder="شركة الاتصالات السعودية" dir="rtl" />
+        </Field>
+        <RunButton busy={busy} onClick={run} label="Run Masaar Pipeline" />
+        <SectionNote kind="warn">
+          Stealth browser on mc.gov.sa requires residential-IP infra. We use Perplexity + Gemini grounded search + best-effort emagazine.aamaly.sa scraping to gather equivalent intel.
+        </SectionNote>
+      </>
+    } result={
+      busy ? (
+        <AgentPipeline agents={MASAAR_AGENTS} states={agentStates} logs={logs} color="text-[#88B8B0]" />
+      ) : err ? <EngineError msg={err} /> :
+        !result ? <EngineEmpty engine="masaar" /> :
+        <MasaarReport result={result} lang={reportLang} setLang={setReportLang} />
+    } />
   );
 }
 
 function MasaarReport({ result, lang, setLang }: { result: any; lang: "en" | "ar"; setLang: (l: "en" | "ar") => void }) {
-  const r = result.report;
+  const r = result.report ?? {};
+  const p = r.parsed ?? r.profile ?? r;
+
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-border bg-card p-4 flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <div className="text-xs uppercase text-muted-foreground tracking-wider">Run complete</div>
-          <div className="font-semibold text-base mt-0.5">{r.parsed?.nameEn || r.parsed?.nameAr || "Saudi company"}</div>
-          <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
-            {r.parsed?.crNumber && <span>CR {r.parsed.crNumber}</span>}
-            {r.parsed?.legalForm && <><span>·</span><span>{r.parsed.legalForm}</span></>}
-            {r.parsed?.headquarterCity && <><span>·</span><span>{r.parsed.headquarterCity}</span></>}
-            <span>·</span><span>{Math.round(result.durationMs / 1000)}s</span>
+      {/* Header card */}
+      <div className="rounded-2xl border border-[#88B8B0]/40 bg-gradient-to-br from-[#88B8B0]/8 to-transparent p-5">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <BadgeCheck className="w-5 h-5 text-[#88B8B0]" />
+              <span className="text-xs font-semibold text-[#88B8B0] uppercase tracking-wider">Masaar Report</span>
+            </div>
+            <div className="font-bold text-xl">{p.nameEn || p.nameAr || "Saudi Company"}</div>
+            {p.nameAr && <div className="text-base text-muted-foreground mt-0.5" dir="rtl">{p.nameAr}</div>}
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              {p.crNumber && <span className="font-mono bg-muted px-2 py-0.5 rounded">CR {p.crNumber}</span>}
+              {p.legalForm && <span>{p.legalForm}</span>}
+              {(p.headquarterCity || p.city) && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{p.headquarterCity || p.city}</span>}
+              {p.registrationStatus && <StatusChip status={p.registrationStatus} />}
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-xs text-muted-foreground">{Math.round(result.durationMs / 1000)}s · {result.sourcesUsed?.length ?? 0} sources</div>
+            <div className="mt-2 flex flex-wrap gap-1 justify-end">
+              {(result.sourcesUsed ?? []).slice(0, 4).map((s: string) => (
+                <span key={s} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#88B8B0]/15 text-[#88B8B0]">{s}</span>
+              ))}
+            </div>
           </div>
         </div>
-        <SourceChips sources={result.sourcesUsed} />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-        <Stat label="Capital" value={r.parsed?.capitalAmount} />
-        <Stat label="Founded" value={r.parsed?.foundingYear} />
-        <Stat label="Industry" value={r.parsed?.industry} />
-        <Stat label="Est. Revenue" value={r.parsed?.estimatedRevenue} />
+      {/* KPI grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <KpiTile icon={DollarSign} label="Paid-up Capital" value={p.capitalAmount || p.paidUpCapital} />
+        <KpiTile icon={Clock} label="Founded" value={p.foundingYear} />
+        <KpiTile icon={Building2} label="Legal Form" value={p.legalFormAr || p.legalForm} />
+        <KpiTile icon={TrendingUp} label="Est. Revenue" value={p.estimatedRevenue || p.revenueEstimate} />
       </div>
 
-      {r.conflicts?.length > 0 && (
+      {/* Conflicts */}
+      {(r.conflicts?.length > 0) && (
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4">
-          <div className="text-sm font-semibold flex items-center gap-2 mb-2"><AlertTriangle className="w-4 h-4 text-amber-600" /> {r.conflicts.length} source conflicts</div>
-          <ul className="text-xs space-y-1.5 text-foreground/80">
+          <div className="text-sm font-semibold flex items-center gap-2 mb-2 text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="w-4 h-4" /> {r.conflicts.length} source conflicts detected
+          </div>
+          <ul className="text-xs space-y-1.5">
             {r.conflicts.slice(0, 5).map((c: any, i: number) => (
-              <li key={i}><span className="font-mono text-amber-700 dark:text-amber-500">{c.field}</span> — <span className="font-medium">{c.source1}:</span> {c.value1} <span className="text-muted-foreground">vs</span> <span className="font-medium">{c.source2}:</span> {c.value2}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {(r.parsed?.shareholders?.length > 0) && (
-        <CollapseCard title={`Shareholders (${r.parsed.shareholders.length})`}>
-          <table className="w-full text-xs">
-            <thead className="text-muted-foreground">
-              <tr><th className="text-left py-1">Name</th><th className="text-left py-1">Arabic</th><th className="text-right py-1">%</th><th className="text-left py-1 pl-2">Nationality</th></tr>
-            </thead>
-            <tbody>
-              {r.parsed.shareholders.map((s: any, i: number) => (
-                <tr key={i} className="border-t border-border/50"><td className="py-1.5">{s.nameEn || "—"}</td><td className="py-1.5" dir="rtl">{s.nameAr || "—"}</td><td className="py-1.5 text-right font-mono">{s.ownershipPct || "—"}</td><td className="py-1.5 pl-2">{s.nationality || "—"}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </CollapseCard>
-      )}
-
-      {(r.parsed?.managers?.length > 0) && (
-        <CollapseCard title={`Leadership (${r.parsed.managers.length})`}>
-          <ul className="text-xs space-y-2">
-            {r.parsed.managers.map((m: any, i: number) => (
-              <li key={i} className="flex items-baseline justify-between gap-3">
-                <span><span className="font-medium">{m.nameEn || "—"}</span> {m.nameAr && <span dir="rtl" className="text-muted-foreground">· {m.nameAr}</span>}</span>
-                <span className="text-muted-foreground">{m.title || ""}</span>
+              <li key={i} className="flex items-baseline gap-2">
+                <span className="font-mono text-amber-700 dark:text-amber-400 shrink-0">{c.field}</span>
+                <span className="text-muted-foreground">{c.source1}: <span className="text-foreground">{c.value1}</span> vs {c.source2}: <span className="text-foreground">{c.value2}</span></span>
               </li>
             ))}
           </ul>
-        </CollapseCard>
+        </div>
       )}
 
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="px-4 py-2 border-b border-border flex items-center justify-between bg-muted/30">
-          <div className="text-sm font-semibold flex items-center gap-2"><FileText className="w-4 h-4" /> Bilingual report</div>
-          <div className="flex bg-background rounded-md border border-border p-0.5 text-xs">
-            <button onClick={() => setLang("en")} className={cn("px-2 py-0.5 rounded", lang === "en" && "bg-foreground text-background")}>English</button>
-            <button onClick={() => setLang("ar")} className={cn("px-2 py-0.5 rounded", lang === "ar" && "bg-foreground text-background")}>عربي</button>
+      {/* Shareholders */}
+      {(p.shareholders?.length > 0) && (
+        <CollapseSection title={`Shareholders (${p.shareholders.length})`} icon={Users} defaultOpen>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead><tr className="text-muted-foreground border-b border-border">
+                <th className="text-left py-2 pr-4">Name (English)</th>
+                <th className="text-left py-2 pr-4">الاسم</th>
+                <th className="text-right py-2 pr-4">Share %</th>
+                <th className="text-left py-2">Nationality</th>
+              </tr></thead>
+              <tbody>
+                {p.shareholders.map((s: any, i: number) => (
+                  <tr key={i} className="border-b border-border/50 last:border-0">
+                    <td className="py-2 pr-4 font-medium">{s.nameEn || "—"}</td>
+                    <td className="py-2 pr-4 text-muted-foreground" dir="rtl">{s.nameAr || "—"}</td>
+                    <td className="py-2 pr-4 text-right font-mono font-semibold">{s.ownershipPct || "—"}</td>
+                    <td className="py-2 text-muted-foreground">{s.nationality || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+        </CollapseSection>
+      )}
+
+      {/* Management */}
+      {(p.managers?.length > 0 || p.management?.length > 0) && (
+        <CollapseSection title={`Leadership (${(p.managers || p.management)?.length})`} icon={Briefcase} defaultOpen>
+          <ul className="space-y-2">
+            {(p.managers || p.management || []).map((m: any, i: number) => (
+              <li key={i} className="flex items-baseline justify-between gap-4 text-sm">
+                <div>
+                  <span className="font-medium">{m.nameEn || "—"}</span>
+                  {m.nameAr && <span dir="rtl" className="text-muted-foreground text-xs ml-2">· {m.nameAr}</span>}
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0">{m.title || m.role || ""}</span>
+              </li>
+            ))}
+          </ul>
+        </CollapseSection>
+      )}
+
+      {/* Bilingual report */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
+          <div className="flex items-center gap-2 font-semibold text-sm"><FileText className="w-4 h-4" /> Bilingual Report</div>
+          <LangToggle lang={lang} setLang={setLang} />
         </div>
-        <div className="p-4 prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm" dir={lang === "ar" ? "rtl" : "ltr"}>
-          {lang === "en" ? r.reportEn : r.reportAr}
+        <div className="p-5 prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed" dir={lang === "ar" ? "rtl" : "ltr"}>
+          {lang === "en" ? (r.reportEn || r.report_en || "Report not available.") : (r.reportAr || r.report_ar || "التقرير غير متاح.")}
         </div>
       </div>
 
@@ -403,9 +671,9 @@ function MasaarReport({ result, lang, setLang }: { result: any; lang: "en" | "ar
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// PERSON INTEL
-// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// PERSON INTEL PANEL
+// ─────────────────────────────────────────────────────────────────────────────
 
 function PersonIntelPanel() {
   const [name, setName] = useState("");
@@ -418,24 +686,29 @@ function PersonIntelPanel() {
   const [sellerCompany, setSellerCompany] = useState("");
   const [sellerProduct, setSellerProduct] = useState("");
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<any | null>(null);
+  const [result, setResult] = useState<any>(null);
   const [err, setErr] = useState<string | null>(null);
+  const { agentStates, logs } = useAgentProgress(PERSON_AGENTS, busy);
 
   async function run() {
+    if (!name.trim()) return;
     setErr(null); setResult(null); setBusy(true);
     try {
-      const data = await pollEngineJob("person-intel", {
-        name: name.trim(),
-        company: company.trim() || undefined,
-        title: title.trim() || undefined,
-        linkedinUrl: linkedinUrl.trim() || undefined,
-        websiteUrl: websiteUrl.trim() || undefined,
-        country: country.trim() || undefined,
-        knownFacts: knownFacts.trim() || undefined,
-        sellerContext: (sellerCompany || sellerProduct) ? {
-          companyName: sellerCompany.trim() || undefined,
-          product: sellerProduct.trim() || undefined,
-        } : undefined,
+      const data = await apiFetch("/engines/person-intel/run", {
+        method: "POST",
+        body: JSON.stringify({
+          name: name.trim(),
+          company: company.trim() || undefined,
+          title: title.trim() || undefined,
+          linkedinUrl: linkedinUrl.trim() || undefined,
+          websiteUrl: websiteUrl.trim() || undefined,
+          country: country.trim() || undefined,
+          knownFacts: knownFacts.trim() || undefined,
+          sellerContext: (sellerCompany || sellerProduct) ? {
+            companyName: sellerCompany.trim() || undefined,
+            product: sellerProduct.trim() || undefined,
+          } : undefined,
+        }),
       });
       setResult(data);
     } catch (e: any) {
@@ -444,138 +717,230 @@ function PersonIntelPanel() {
   }
 
   return (
-    <PanelShell engine="person_intel" footer={
-      err ? <ErrorBlock msg={err} /> :
-      !result ? <EmptyResult /> :
-      <PersonReport result={result} />
-    }>
-      <FormRow label="Person's name" required><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Khalid Al-Saud" /></FormRow>
-      <div className="grid grid-cols-2 gap-2">
-        <FormRow label="Company"><Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Saudi Aramco" /></FormRow>
-        <FormRow label="Title"><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="VP Sales" /></FormRow>
-      </div>
-      <FormRow label="LinkedIn URL" hint="If known, we crawl it directly"><Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/…" /></FormRow>
-      <FormRow label="Company website" hint="Used to scan the team page"><Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://aramco.com" /></FormRow>
-      <FormRow label="Country"><Input value={country} onChange={(e) => setCountry(e.target.value)} /></FormRow>
-      <FormRow label="Known facts" hint="Anything you already know — saves time">
-        <Textarea value={knownFacts} onChange={(e) => setKnownFacts(e.target.value)} placeholder="e.g. Spoke at LEAP 2025. Wharton MBA." />
-      </FormRow>
-      <div className="rounded-md bg-muted/40 border border-border p-2.5">
-        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Your context (for tailored outreach)</div>
-        <div className="grid grid-cols-2 gap-2">
-          <Input value={sellerCompany} onChange={(e) => setSellerCompany(e.target.value)} placeholder="Your company" className="text-xs" />
-          <Input value={sellerProduct} onChange={(e) => setSellerProduct(e.target.value)} placeholder="What you sell" className="text-xs" />
+    <EngineShell engine="person_intel" form={
+      <>
+        <Field label="Person's Full Name" required>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Khalid Al-Saud" />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Company"><Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Saudi Aramco" /></Field>
+          <Field label="Job Title"><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="VP Sales" /></Field>
         </div>
-      </div>
-      <RunButton busy={busy} onClick={run} label="Run Person Intel" />
-    </PanelShell>
+        <Field label="LinkedIn URL" hint="If known — crawled directly via Crawl4AI">
+          <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/…" />
+        </Field>
+        <Field label="Company Website" hint="Used to scan team page (up to 8 pages)">
+          <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://aramco.com" />
+        </Field>
+        <Field label="Country">
+          <Input value={country} onChange={(e) => setCountry(e.target.value)} />
+        </Field>
+        <Field label="Known Facts" hint="Anything you already know — saves research time">
+          <Textarea value={knownFacts} onChange={(e) => setKnownFacts(e.target.value)} placeholder="e.g. Spoke at LEAP 2025. Wharton MBA. Previously at McKinsey." />
+        </Field>
+        <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Your context — tailored outreach angle</div>
+          <div className="grid grid-cols-2 gap-2">
+            <Input value={sellerCompany} onChange={(e) => setSellerCompany(e.target.value)} placeholder="Your company" className="text-xs" />
+            <Input value={sellerProduct} onChange={(e) => setSellerProduct(e.target.value)} placeholder="What you sell" className="text-xs" />
+          </div>
+        </div>
+        <RunButton busy={busy} onClick={run} label="Run Person Intel (20 sources)" />
+      </>
+    } result={
+      busy ? <AgentPipeline agents={PERSON_AGENTS} states={agentStates} logs={logs} color="text-[#B8A0C8]" /> :
+      err ? <EngineError msg={err} /> :
+      !result ? <EngineEmpty engine="person_intel" /> :
+      <PersonReport result={result} />
+    } />
   );
 }
 
 function PersonReport({ result }: { result: any }) {
-  const r = result.report;
+  const r = result.report ?? {};
   const p = r.profile ?? {};
+  const notes = r.intelligence_notes ?? {};
+
+  const confKind: "success" | "warn" | "error" =
+    notes.confidence_level === "High" ? "success" :
+    notes.confidence_level === "Medium" ? "warn" : "error";
+
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-border bg-card p-4">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <div className="font-bold text-lg">{p.fullName || "—"}{p.arabicName && p.arabicName !== "Not found" && <span dir="rtl" className="text-muted-foreground ml-2">· {p.arabicName}</span>}</div>
-            <div className="text-sm text-muted-foreground">{p.title} {p.company && <>· <span className="font-medium text-foreground/80">{p.company}</span></>}</div>
-            <div className="mt-1.5 text-xs flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
-              {p.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{p.location}</span>}
-              {p.nationality && <span>· {p.nationality}</span>}
-              {p.linkedin && p.linkedin !== "Not found" && <a href={p.linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline"><Linkedin className="w-3 h-3" />LinkedIn</a>}
-            </div>
+      {/* Person hero card */}
+      <div className="rounded-2xl border border-[#B8A0C8]/40 bg-gradient-to-br from-[#B8A0C8]/8 to-transparent p-5">
+        <div className="flex items-start gap-4">
+          {/* Avatar */}
+          <div className="w-14 h-14 rounded-2xl bg-[#B8A0C8]/20 flex items-center justify-center shrink-0 text-[#B8A0C8] font-bold text-xl">
+            {(p.fullName || "?")[0]}
           </div>
-          <div className="text-right">
-            <StatusPill kind={r.intelligence_notes?.confidence_level === "High" ? "success" : r.intelligence_notes?.confidence_level === "Medium" ? "warn" : "error"}>
-              {r.intelligence_notes?.confidence_level ?? "Low"} confidence
-            </StatusPill>
-            <div className="text-[10px] text-muted-foreground mt-1">{Math.round(result.durationMs / 1000)}s · {result.sourcesUsed.length} sources</div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <div className="font-bold text-xl leading-tight">{p.fullName || "—"}</div>
+                {p.arabicName && p.arabicName !== "Not found" && (
+                  <div className="text-base text-muted-foreground" dir="rtl">{p.arabicName}</div>
+                )}
+                <div className="text-sm text-muted-foreground mt-0.5">
+                  {p.title}{p.company && <> · <span className="font-medium text-foreground/80">{p.company}</span></>}
+                </div>
+              </div>
+              <div className="text-right">
+                <ConfidenceBadge level={notes.confidence_level ?? "Low"} />
+                <div className="text-[10px] text-muted-foreground mt-1">
+                  {Math.round(result.durationMs / 1000)}s · {result.sourcesUsed?.length ?? 0} sources
+                </div>
+              </div>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              {p.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{p.location}</span>}
+              {p.nationality && <span>{p.nationality}</span>}
+              {p.age && <span>{p.age} yrs</span>}
+              {p.linkedin && p.linkedin !== "Not found" && (
+                <a href={p.linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[#0a66c2] hover:underline">
+                  <Linkedin className="w-3 h-3" /> LinkedIn
+                </a>
+              )}
+            </div>
+            {/* Source chips */}
+            <div className="mt-2 flex flex-wrap gap-1">
+              {(result.sourcesUsed ?? []).slice(0, 6).map((s: string) => (
+                <span key={s} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#B8A0C8]/15 text-[#B8A0C8]">{s}</span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
+      {/* 2-col grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Section title="Career">
-          {r.career?.length ? (
-            <ul className="space-y-2 text-sm">
+        <ReportSection title="Career History" icon={Briefcase}>
+          {(r.career?.length > 0) ? (
+            <ul className="space-y-3">
               {r.career.slice(0, 6).map((c: any, i: number) => (
-                <li key={i}>
-                  <div className="font-medium">{c.title} <span className="text-muted-foreground">at {c.company}</span></div>
-                  <div className="text-[11px] text-muted-foreground">{c.period}</div>
-                  {c.description && <div className="text-xs mt-0.5">{c.description}</div>}
+                <li key={i} className="relative pl-4 before:absolute before:left-0 before:top-2 before:w-1.5 before:h-1.5 before:rounded-full before:bg-[#B8A0C8]/60">
+                  <div className="text-sm font-semibold">{c.title}</div>
+                  <div className="text-xs text-muted-foreground">{c.company} · {c.period}</div>
+                  {c.description && <div className="text-xs mt-0.5 text-foreground/70">{c.description}</div>}
                 </li>
               ))}
             </ul>
-          ) : <Empty />}
-        </Section>
+          ) : <NoData />}
+        </ReportSection>
 
-        <Section title="Education">
-          {r.education?.length ? (
-            <ul className="text-sm space-y-1.5">
+        <ReportSection title="Education" icon={GraduationCap}>
+          {(r.education?.length > 0) ? (
+            <ul className="space-y-2">
               {r.education.map((e: any, i: number) => (
-                <li key={i}><span className="font-medium">{e.degree}</span><span className="text-muted-foreground"> · {e.institution}</span> <span className="text-[11px] text-muted-foreground">({e.year})</span></li>
+                <li key={i} className="text-sm">
+                  <div className="font-semibold">{e.degree}</div>
+                  <div className="text-xs text-muted-foreground">{e.institution} · {e.year}</div>
+                </li>
               ))}
             </ul>
-          ) : <Empty />}
-        </Section>
+          ) : <NoData />}
+        </ReportSection>
 
-        <Section title="Wealth profile">
-          <KeyVals
-            data={{
-              "Net worth": r.wealth_profile?.estimated_net_worth,
-              "Income": r.wealth_profile?.income_estimate,
-              "Sources": (r.wealth_profile?.wealth_sources ?? []).join(", "),
-              "Assets": r.wealth_profile?.assets,
-            }}
-          />
-        </Section>
+        <ReportSection title="Wealth Profile" icon={DollarSign}>
+          <KvList data={{
+            "Est. net worth": r.wealth_profile?.estimated_net_worth,
+            "Income estimate": r.wealth_profile?.income_estimate,
+            "Wealth sources": (r.wealth_profile?.wealth_sources ?? []).join(", "),
+            "Assets": r.wealth_profile?.assets,
+            "Investments": r.wealth_profile?.investments,
+            "Lifestyle": r.wealth_profile?.lifestyle_indicators,
+          }} />
+        </ReportSection>
 
-        <Section title="Personal profile">
-          <KeyVals
-            data={{
-              "Languages": (r.personal_profile?.languages ?? []).join(", "),
-              "Interests": (r.personal_profile?.interests ?? []).join(", "),
-              "Boards": (r.personal_profile?.board_memberships ?? []).join(", "),
-              "Awards": (r.personal_profile?.awards ?? []).join(", "),
-            }}
-          />
-        </Section>
+        <ReportSection title="Personal Profile" icon={Users}>
+          <KvList data={{
+            "Languages": (r.personal_profile?.languages ?? []).join(", "),
+            "Interests": (r.personal_profile?.interests ?? []).join(", "),
+            "Board roles": (r.personal_profile?.board_memberships ?? []).join(", "),
+            "Style": r.personal_profile?.communication_style,
+            "Awards": (r.personal_profile?.awards ?? []).join(", "),
+            "Social": r.personal_profile?.social_presence,
+          }} />
+        </ReportSection>
       </div>
 
-      <Section title="Approach strategy" highlight>
-        <div className="space-y-3 text-sm">
-          <KeyVals data={{
-            "Best channel": r.approach_strategy?.best_channel,
-            "Best timing": r.approach_strategy?.best_timing,
-            "Opening angle": r.approach_strategy?.opening_angle,
-            "Value prop": r.approach_strategy?.value_proposition,
-          }} />
-          {r.approach_strategy?.cultural_notes && (
-            <div className="text-xs italic text-muted-foreground p-2 bg-muted/40 rounded">{r.approach_strategy.cultural_notes}</div>
+      {/* Company analysis */}
+      {r.company_analysis && (
+        <CollapseSection title="Company Context" icon={Building2}>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <KpiTile label="Industry" value={r.company_analysis.industry} />
+            <KpiTile label="Employees" value={r.company_analysis.employees} />
+            <KpiTile label="Revenue" value={r.company_analysis.revenue_estimate} />
+            <KpiTile label="Headquarters" value={r.company_analysis.headquarters} />
+            <KpiTile label="Founded" value={r.company_analysis.founded} />
+            <KpiTile label="Market position" value={r.company_analysis.market_position} />
+          </div>
+          {r.company_analysis.recent_developments && (
+            <p className="mt-3 text-xs text-muted-foreground">{r.company_analysis.recent_developments}</p>
           )}
-          {r.approach_strategy?.recommended_approach && (
-            <div className="text-xs leading-relaxed whitespace-pre-wrap">{r.approach_strategy.recommended_approach}</div>
-          )}
-          {r.approach_strategy?.sample_message && (
-            <div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Sample first outreach</div>
-              <div className="rounded-md border border-[#B8B880]/40 bg-[#B8B880]/5 p-3 text-xs whitespace-pre-wrap font-mono">{r.approach_strategy.sample_message}</div>
+        </CollapseSection>
+      )}
+
+      {/* Approach strategy — highlighted */}
+      {r.approach_strategy && (
+        <div className="rounded-2xl border border-[#B8A0C8]/50 bg-gradient-to-br from-[#B8A0C8]/8 to-transparent overflow-hidden">
+          <div className="px-5 py-3 border-b border-[#B8A0C8]/30 bg-[#B8A0C8]/10 flex items-center gap-2">
+            <Zap className="w-4 h-4 text-[#B8A0C8]" />
+            <span className="font-semibold text-sm text-[#B8A0C8]">Approach Strategy</span>
+            <span className="ml-auto text-[10px] text-muted-foreground">AI-generated · review before use</span>
+          </div>
+          <div className="p-5 space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+              <KpiTile label="Best channel" value={r.approach_strategy.best_channel} />
+              <KpiTile label="Best timing" value={r.approach_strategy.best_timing} />
+              <KpiTile label="Opening angle" value={r.approach_strategy.opening_angle} />
             </div>
-          )}
+            {r.approach_strategy.value_proposition && (
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Value proposition</div>
+                <p className="text-sm">{r.approach_strategy.value_proposition}</p>
+              </div>
+            )}
+            {r.approach_strategy.cultural_notes && (
+              <div className="text-xs italic text-muted-foreground p-3 bg-muted/50 rounded-xl border border-border">
+                🕌 {r.approach_strategy.cultural_notes}
+              </div>
+            )}
+            {r.approach_strategy.recommended_approach && (
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Recommended approach</div>
+                <p className="text-sm leading-relaxed">{r.approach_strategy.recommended_approach}</p>
+              </div>
+            )}
+            {r.approach_strategy.sample_message && (
+              <div className="rounded-xl bg-background border border-border p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Ready-to-send first message</div>
+                  <CopyButton text={r.approach_strategy.sample_message} />
+                </div>
+                <p className="text-sm leading-relaxed">{r.approach_strategy.sample_message}</p>
+              </div>
+            )}
+          </div>
         </div>
-      </Section>
+      )}
+
+      {/* Intel notes */}
+      {notes.caveats && (
+        <div className="rounded-xl border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
+          <div className="font-semibold text-foreground/70 mb-1">Confidence caveats</div>
+          {notes.caveats}
+        </div>
+      )}
 
       <SaveBar runId={result.id} />
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// COMPANY INTEL
-// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPANY INTEL PANEL
+// ─────────────────────────────────────────────────────────────────────────────
 
 function CompanyIntelPanel() {
   const [companyName, setCompanyName] = useState("");
@@ -583,482 +948,677 @@ function CompanyIntelPanel() {
   const [crNumber, setCrNumber] = useState("");
   const [city, setCity] = useState("");
   const [knownFacts, setKnownFacts] = useState("");
+  const [sellerCompany, setSellerCompany] = useState("");
   const [sellerProduct, setSellerProduct] = useState("");
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<any | null>(null);
+  const [result, setResult] = useState<any>(null);
   const [err, setErr] = useState<string | null>(null);
+  const { agentStates, logs } = useAgentProgress(COMPANY_AGENTS, busy);
 
   async function run() {
+    if (!companyName.trim()) return;
     setErr(null); setResult(null); setBusy(true);
     try {
-      const data = await pollEngineJob("company-intel", {
-        companyName: companyName.trim(),
-        website: website.trim() || undefined,
-        crNumber: crNumber.trim() || undefined,
-        city: city.trim() || undefined,
-        knownFacts: knownFacts.trim() || undefined,
-        sellerContext: sellerProduct ? { product: sellerProduct.trim() } : undefined,
+      const data = await apiFetch("/engines/company-intel/run", {
+        method: "POST",
+        body: JSON.stringify({
+          companyName: companyName.trim(),
+          website: website.trim() || undefined,
+          crNumber: crNumber.trim() || undefined,
+          city: city.trim() || undefined,
+          knownFacts: knownFacts.trim() || undefined,
+          sellerContext: (sellerCompany || sellerProduct) ? {
+            companyName: sellerCompany.trim() || undefined,
+            product: sellerProduct.trim() || undefined,
+          } : undefined,
+        }),
       });
       setResult(data);
-    } catch (e: any) { setErr(e?.message ?? "Run failed"); }
-    finally { setBusy(false); }
+    } catch (e: any) {
+      setErr(e?.message ?? "Run failed");
+    } finally { setBusy(false); }
   }
 
   return (
-    <PanelShell engine="company_intel" footer={
-      err ? <ErrorBlock msg={err} /> :
-      !result ? <EmptyResult /> :
+    <EngineShell engine="company_intel" form={
+      <>
+        <Field label="Company Name" required>
+          <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Saudi Aramco" />
+        </Field>
+        <Field label="Website" hint="Crawled up to 8 pages via Web Seeder">
+          <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://aramco.com" />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="CR Number"><Input value={crNumber} onChange={(e) => setCrNumber(e.target.value)} placeholder="1010123456" /></Field>
+          <Field label="City"><Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Riyadh" /></Field>
+        </div>
+        <Field label="Known Facts" hint="Prepended as confirmed data — reduces hallucination">
+          <Textarea value={knownFacts} onChange={(e) => setKnownFacts(e.target.value)} placeholder="e.g. Listed on Tadawul 2019. Ticker: 2222." />
+        </Field>
+        <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Your context</div>
+          <div className="grid grid-cols-2 gap-2">
+            <Input value={sellerCompany} onChange={(e) => setSellerCompany(e.target.value)} placeholder="Your company" className="text-xs" />
+            <Input value={sellerProduct} onChange={(e) => setSellerProduct(e.target.value)} placeholder="What you sell" className="text-xs" />
+          </div>
+        </div>
+        <RunButton busy={busy} onClick={run} label="Run Company Intel (11 sources)" />
+      </>
+    } result={
+      busy ? <AgentPipeline agents={COMPANY_AGENTS} states={agentStates} logs={logs} color="text-[#C8A880]" /> :
+      err ? <EngineError msg={err} /> :
+      !result ? <EngineEmpty engine="company_intel" /> :
       <CompanyReport result={result} />
-    }>
-      <FormRow label="Company name" required><Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="STC" /></FormRow>
-      <FormRow label="Website" hint="If you don't supply one, we'll guess via AI"><Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://stc.com.sa" /></FormRow>
-      <div className="grid grid-cols-2 gap-2">
-        <FormRow label="CR Number"><Input value={crNumber} onChange={(e) => setCrNumber(e.target.value)} placeholder="1010123456" /></FormRow>
-        <FormRow label="City"><Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Riyadh" /></FormRow>
-      </div>
-      <FormRow label="Known facts">
-        <Textarea value={knownFacts} onChange={(e) => setKnownFacts(e.target.value)} placeholder="Anything you already know" />
-      </FormRow>
-      <FormRow label="What are you selling?" hint="Used to tailor the sample outreach message">
-        <Input value={sellerProduct} onChange={(e) => setSellerProduct(e.target.value)} placeholder="e.g. CRM software for telcos" />
-      </FormRow>
-      <RunButton busy={busy} onClick={run} label="Run Company Intel" />
-    </PanelShell>
+    } />
   );
 }
 
 function CompanyReport({ result }: { result: any }) {
-  const r = result.report;
-  const p = r.profile ?? {};
+  const r = result.report ?? {};
+  const p = r.profile ?? r;
+  const fin = r.financials ?? {};
+  const own = r.ownership ?? {};
+  const lead = r.leadership ?? {};
+  const mkt = r.market ?? {};
+  const app = r.approach ?? {};
+  const intel = r.intelligence ?? {};
+
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-border bg-card p-4">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
+      {/* Company hero */}
+      <div className="rounded-2xl border border-[#C8A880]/40 bg-gradient-to-br from-[#C8A880]/8 to-transparent p-5">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <div className="font-bold text-lg">{p.nameEn || "—"} {p.nameAr && <span dir="rtl" className="text-muted-foreground ml-1">· {p.nameAr}</span>}</div>
-            <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <div className="flex items-center gap-2 mb-1">
+              <Building2 className="w-5 h-5 text-[#C8A880]" />
+              <span className="text-xs font-semibold text-[#C8A880] uppercase tracking-wider">Company Intel Report</span>
+            </div>
+            <div className="font-bold text-xl">{p.nameEn || p.companyName || "—"}</div>
+            {p.nameAr && <div className="text-sm text-muted-foreground" dir="rtl">{p.nameAr}</div>}
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              {p.crNumber && <span className="font-mono bg-muted px-2 py-0.5 rounded">CR {p.crNumber}</span>}
               {p.legalForm && <span>{p.legalForm}</span>}
-              {p.crNumber && <span>· CR {p.crNumber}</span>}
-              {p.founded && <span>· Founded {p.founded}</span>}
-              {p.city && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{p.city}</span>}
-              {p.website && <a href={p.website} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline"><Globe className="w-3 h-3" />{p.website.replace(/^https?:\/\//, "")}</a>}
+              {(p.city || p.address) && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{p.city || p.address}</span>}
+              {p.website && <a href={p.website} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[#C8A880] hover:underline"><Globe className="w-3 h-3" />{p.website.replace(/^https?:\/\//, "").split("/")[0]}</a>}
             </div>
           </div>
           <div className="text-right">
-            <StatusPill kind={r.intelligence?.dataQuality === "high" ? "success" : r.intelligence?.dataQuality === "medium" ? "warn" : "error"}>
-              {r.intelligence?.confidenceScore ?? 0}% confidence
-            </StatusPill>
-            <div className="text-[10px] text-muted-foreground mt-1">{Math.round(result.durationMs / 1000)}s · {result.sourcesUsed.length} sources</div>
+            <DataQualityBadge quality={intel.dataQuality ?? "medium"} />
+            <div className="text-[10px] text-muted-foreground mt-1">{Math.round(result.durationMs / 1000)}s · {result.sourcesUsed?.length ?? 0} sources</div>
+            <div className="mt-2 flex flex-wrap gap-1 justify-end">
+              {(result.sourcesUsed ?? []).slice(0, 5).map((s: string) => (
+                <span key={s} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#C8A880]/15 text-[#C8A880]">{s}</span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-        <Stat label="Revenue est." value={r.financials?.revenueEstimate ?? r.financials?.revenueRange} />
-        <Stat label="Employees" value={r.financials?.employeeCount} />
-        <Stat label="Capital" value={r.financials?.paidUpCapital} />
-        <Stat label="Industry" value={p.industry} />
+      {/* KPI grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <KpiTile label="Revenue" value={fin.revenueEstimate} />
+        <KpiTile label="Employees" value={p.employeeCount || fin.employeeCount} />
+        <KpiTile label="Founded" value={p.founded} />
+        <KpiTile label="Paid-up Capital" value={fin.paidUpCapital || p.paidUpCapital} />
       </div>
 
       {r.executiveSummary && (
-        <Section title="Executive summary"><div className="text-sm leading-relaxed whitespace-pre-wrap">{r.executiveSummary}</div></Section>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Executive Summary</div>
+          <p className="text-sm leading-relaxed">{r.executiveSummary}</p>
+        </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Section title="Leadership">
-          {r.leadership?.ceo?.nameEn && <div className="text-sm"><span className="font-semibold">CEO:</span> {r.leadership.ceo.nameEn} {r.leadership.ceo.nameAr && <span dir="rtl" className="text-muted-foreground">· {r.leadership.ceo.nameAr}</span>}</div>}
-          {r.leadership?.boardChairman?.nameEn && <div className="text-sm mt-1.5"><span className="font-semibold">Chairman:</span> {r.leadership.boardChairman.nameEn}</div>}
-          {r.leadership?.executives?.length > 0 && (
-            <div className="mt-3 space-y-1 text-xs">
-              {r.leadership.executives.slice(0, 6).map((e: any, i: number) => (
-                <div key={i}><span className="font-medium">{e.nameEn}</span> <span className="text-muted-foreground">— {e.title}</span></div>
-              ))}
+        {/* Financials */}
+        <ReportSection title="Financials" icon={BarChart3}>
+          <KvList data={{
+            "Revenue estimate": fin.revenueEstimate,
+            "Revenue range": fin.revenueRange,
+            "Revenue basis": fin.revenueRationale,
+            "Profitability": fin.profitabilityIndicator,
+            "Growth signals": (fin.growthSignals ?? []).join(", "),
+          }} />
+        </ReportSection>
+
+        {/* Ownership */}
+        <ReportSection title="Ownership" icon={Shield}>
+          <KvList data={{
+            "Structure": own.structure,
+            "Publicly listed": own.isPubliclyListed ? "Yes" : (own.isPubliclyListed === false ? "No" : undefined),
+            "Stock exchange": own.stockExchange,
+            "Ticker": own.ticker,
+          }} />
+          {(own.shareholders?.length > 0) && (
+            <div className="mt-3">
+              <div className="text-[10px] font-semibold text-muted-foreground mb-1.5">Shareholders</div>
+              <ul className="space-y-1.5">
+                {own.shareholders.slice(0, 4).map((s: any, i: number) => (
+                  <li key={i} className="flex items-baseline justify-between text-xs">
+                    <span>{s.nameEn || "—"}</span>
+                    <span className="font-mono font-semibold">{s.ownershipPct || "—"}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
-        </Section>
+        </ReportSection>
 
-        <Section title="Ownership">
-          {r.ownership?.shareholders?.length > 0 ? (
-            <ul className="text-xs space-y-1.5">
-              {r.ownership.shareholders.slice(0, 8).map((s: any, i: number) => (
-                <li key={i} className="flex items-baseline justify-between gap-2">
-                  <span><span className="font-medium">{s.nameEn || "—"}</span> {s.nameAr && <span dir="rtl" className="text-muted-foreground">· {s.nameAr}</span>}</span>
-                  <span className="font-mono text-muted-foreground">{s.ownershipPct || "—"}</span>
+        {/* Leadership */}
+        <ReportSection title="Leadership" icon={Users}>
+          {lead.ceo && (
+            <div className="flex items-baseline justify-between text-sm mb-2">
+              <span className="font-semibold">{lead.ceo.nameEn}</span>
+              <span className="text-xs text-muted-foreground">{lead.ceo.title}</span>
+            </div>
+          )}
+          {(lead.executives?.length > 0) && (
+            <ul className="space-y-1.5 mt-2">
+              {lead.executives.slice(0, 5).map((e: any, i: number) => (
+                <li key={i} className="flex items-baseline justify-between text-xs">
+                  <span>{e.nameEn || "—"}</span>
+                  <span className="text-muted-foreground">{e.title}</span>
                 </li>
               ))}
             </ul>
-          ) : <Empty />}
-        </Section>
+          )}
+        </ReportSection>
 
-        <Section title="Market position">
-          <KeyVals data={{
-            "Position": r.market?.marketPosition,
-            "Share": r.market?.marketShare,
-            "Competitors": (r.market?.competitors ?? []).slice(0, 5).join(", "),
-            "Strengths": (r.market?.strengths ?? []).slice(0, 5).join(", "),
+        {/* Market */}
+        <ReportSection title="Market Intelligence" icon={TrendingUp}>
+          <KvList data={{
+            "Market position": mkt.marketPosition,
+            "Market share": mkt.marketShare,
+            "Competitors": (mkt.competitors ?? []).slice(0, 3).join(", "),
           }} />
-        </Section>
-
-        <Section title="Recent news">
-          {r.news?.length ? (
-            <ul className="text-xs space-y-2">
-              {r.news.slice(0, 5).map((n: any, i: number) => (
-                <li key={i}>
-                  <div className="font-medium">{n.title}</div>
-                  <div className="text-muted-foreground text-[11px]">{n.date} · {n.source}</div>
-                  {n.summary && <div className="mt-0.5">{n.summary}</div>}
-                </li>
-              ))}
-            </ul>
-          ) : <Empty />}
-        </Section>
+          {(mkt.strengths?.length > 0) && (
+            <TagList label="Strengths" items={mkt.strengths.slice(0, 3)} color="emerald" />
+          )}
+          {(mkt.weaknesses?.length > 0) && (
+            <TagList label="Weaknesses" items={mkt.weaknesses.slice(0, 2)} color="rose" />
+          )}
+        </ReportSection>
       </div>
 
-      <Section title="Suggested approach" highlight>
-        <KeyVals data={{
-          "Channel": r.approach?.bestChannel,
-          "Entry point": r.approach?.entryPoint,
-          "Value prop": r.approach?.valueProp,
-        }} />
-        {r.approach?.sampleMessage && (
-          <div className="mt-3">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Sample first outreach</div>
-            <div className="rounded-md border border-[#B8A0C8]/40 bg-[#B8A0C8]/5 p-3 text-xs whitespace-pre-wrap">{r.approach.sampleMessage}</div>
+      {/* News */}
+      {(r.news?.length > 0) && (
+        <CollapseSection title={`Recent News (${r.news.length})`} icon={BookOpen}>
+          <ul className="space-y-3">
+            {r.news.slice(0, 5).map((n: any, i: number) => (
+              <li key={i} className="text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0">
+                <div className="font-medium">{n.title}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{n.date} · {n.source}</div>
+                {n.summary && <div className="text-xs mt-1">{n.summary}</div>}
+              </li>
+            ))}
+          </ul>
+        </CollapseSection>
+      )}
+
+      {/* Approach */}
+      {app.bestChannel && (
+        <div className="rounded-2xl border border-[#C8A880]/50 bg-gradient-to-br from-[#C8A880]/8 to-transparent overflow-hidden">
+          <div className="px-5 py-3 border-b border-[#C8A880]/30 bg-[#C8A880]/10 flex items-center gap-2">
+            <Zap className="w-4 h-4 text-[#C8A880]" />
+            <span className="font-semibold text-sm text-[#C8A880]">Approach Strategy</span>
           </div>
-        )}
-      </Section>
+          <div className="p-5 space-y-3">
+            <div className="grid grid-cols-3 gap-3">
+              <KpiTile label="Best channel" value={app.bestChannel} />
+              <KpiTile label="Entry point" value={app.entryPoint} />
+              <KpiTile label="Timing" value={app.bestTiming} />
+            </div>
+            {app.valueProp && <p className="text-sm"><span className="font-semibold">Value prop:</span> {app.valueProp}</p>}
+            {app.openingAngle && <p className="text-sm"><span className="font-semibold">Opening angle:</span> {app.openingAngle}</p>}
+            {app.culturalNotes && (
+              <div className="text-xs italic text-muted-foreground p-3 bg-muted/50 rounded-xl border border-border">🕌 {app.culturalNotes}</div>
+            )}
+            {app.sampleMessage && (
+              <div className="rounded-xl bg-background border border-border p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sample message</div>
+                  <CopyButton text={app.sampleMessage} />
+                </div>
+                <p className="text-sm leading-relaxed">{app.sampleMessage}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <SaveBar runId={result.id} />
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// LEAD FINDER  (the new one)
-// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// LEAD FINDER PANEL
+// ─────────────────────────────────────────────────────────────────────────────
 
 function LeadFinderPanel() {
   const [companyName, setCompanyName] = useState("");
   const [website, setWebsite] = useState("");
-  const [city, setCity] = useState("");
-  const [country, setCountry] = useState("Saudi Arabia");
-  const [rolesText, setRolesText] = useState("CEO, CFO, CTO, VP Sales, Head of Procurement");
-  const [count, setCount] = useState(10);
+  const [targetRole, setTargetRole] = useState("");
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<any | null>(null);
+  const [result, setResult] = useState<any>(null);
   const [err, setErr] = useState<string | null>(null);
+  const { agentStates, logs } = useAgentProgress(LEAD_FINDER_AGENTS, busy);
 
   async function run() {
+    if (!companyName.trim()) return;
     setErr(null); setResult(null); setBusy(true);
     try {
-      const data = await pollEngineJob("lead-finder", {
-        companyName: companyName.trim(),
-        website: website.trim() || undefined,
-        city: city.trim() || undefined,
-        country: country.trim() || undefined,
-        rolesWanted: rolesText.split(",").map((s) => s.trim()).filter(Boolean),
-        count: Number(count) || 10,
+      const data = await apiFetch("/engines/lead-finder/run", {
+        method: "POST",
+        body: JSON.stringify({
+          companyName: companyName.trim(),
+          website: website.trim() || undefined,
+          targetRole: targetRole.trim() || undefined,
+        }),
       });
       setResult(data);
-    } catch (e: any) { setErr(e?.message ?? "Run failed"); }
-    finally { setBusy(false); }
+    } catch (e: any) {
+      setErr(e?.message ?? "Run failed");
+    } finally { setBusy(false); }
   }
 
   return (
-    <PanelShell engine="lead_finder" footer={
-      err ? <ErrorBlock msg={err} /> :
-      !result ? <EmptyResult /> :
-      <LeadFinderResult result={result} />
-    }>
-      <FormRow label="Company name" required>
-        <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="STC, Saudi Aramco, Almarai…" />
-      </FormRow>
-      <FormRow label="Website (optional)" hint="If we don't have it, we'll find it">
-        <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://example.com" />
-      </FormRow>
-      <div className="grid grid-cols-2 gap-2">
-        <FormRow label="City"><Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Riyadh" /></FormRow>
-        <FormRow label="Country"><Input value={country} onChange={(e) => setCountry(e.target.value)} /></FormRow>
-      </div>
-      <FormRow label="Roles wanted" hint="Comma-separated. Be specific.">
-        <Textarea value={rolesText} onChange={(e) => setRolesText(e.target.value)} />
-      </FormRow>
-      <FormRow label="How many leads">
-        <input type="range" min={3} max={25} value={count} onChange={(e) => setCount(Number(e.target.value))} className="w-full" />
-        <div className="text-xs text-muted-foreground mt-1">{count} leads</div>
-      </FormRow>
-      <RunButton busy={busy} onClick={run} label="Find leads" />
-      <div className="text-[10px] text-muted-foreground bg-[#D4955A]/10 border border-[#D4955A]/30 rounded p-2 leading-relaxed">
-        <Sparkles className="w-3 h-3 inline mr-1" />
-        We crawl the company's About/Team/Leadership pages (8 paths), run 6 parallel research agents, then dedupe and rank the discovered names. Confidence is set per-lead.
-      </div>
-    </PanelShell>
+    <EngineShell engine="lead_finder" form={
+      <>
+        <Field label="Company Name" required>
+          <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Saudi Aramco" />
+        </Field>
+        <Field label="Company Website" hint="Crawls /team, /about, /leadership, /people pages">
+          <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://aramco.com" />
+        </Field>
+        <Field label="Target role / department" hint="e.g. VP Sales, Head of IT, CFO — leave blank for all senior">
+          <Input value={targetRole} onChange={(e) => setTargetRole(e.target.value)} placeholder="Head of Procurement" />
+        </Field>
+        <RunButton busy={busy} onClick={run} label="Find Leads" />
+        <SectionNote>
+          Deduplicates across website crawl + Perplexity + Gemini. Returns ranked senior contacts with ICP score.
+        </SectionNote>
+      </>
+    } result={
+      busy ? <AgentPipeline agents={LEAD_FINDER_AGENTS} states={agentStates} logs={logs} color="text-[#D4955A]" /> :
+      err ? <EngineError msg={err} /> :
+      !result ? <EngineEmpty engine="lead_finder" /> :
+      <LeadFinderReport result={result} />
+    } />
   );
 }
 
-function LeadFinderResult({ result }: { result: any }) {
-  const r = result.report;
+function LeadFinderReport({ result }: { result: any }) {
+  const r = result.report ?? {};
+  const leads: any[] = r.leads ?? r.people ?? r.contacts ?? [];
+
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-border bg-card p-4">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <div className="font-bold text-lg">{r.company?.name}</div>
-            <div className="text-xs text-muted-foreground mt-1 flex items-center gap-3 flex-wrap">
-              {r.company?.website && <a href={r.company.website} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{r.company.website.replace(/^https?:\/\//, "")}</a>}
-              {r.company?.city && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{r.company.city}</span>}
-              <span>· {r.totalFound} leads found</span>
-              <span>· {Math.round(result.durationMs / 1000)}s</span>
-            </div>
-          </div>
-          <SourceChips sources={result.sourcesUsed.slice(0, 8)} />
+      <div className="rounded-2xl border border-[#D4955A]/40 bg-gradient-to-br from-[#D4955A]/8 to-transparent p-4 flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <div className="font-bold text-lg">{leads.length} leads found</div>
+          <div className="text-xs text-muted-foreground">{r.companyName || ""} · {Math.round(result.durationMs / 1000)}s · {result.sourcesUsed?.length ?? 0} sources</div>
+        </div>
+        <div className="flex gap-1 flex-wrap">
+          {(result.sourcesUsed ?? []).slice(0, 4).map((s: string) => (
+            <span key={s} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#D4955A]/15 text-[#D4955A]">{s}</span>
+          ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-        <Stat label="C-suite" value={r.bySeniority?.["C-suite"] ?? 0} />
-        <Stat label="VPs" value={r.bySeniority?.["VP"] ?? 0} />
-        <Stat label="Directors" value={r.bySeniority?.["Director"] ?? 0} />
-        <Stat label="Total" value={r.totalFound} />
-      </div>
-
-      {r.recommendations && (
-        <div className="rounded-xl border border-[#D4955A]/40 bg-[#D4955A]/5 p-4">
-          <div className="text-sm font-semibold mb-2 flex items-center gap-2"><Star className="w-4 h-4 text-[#D4955A]" /> Recommended attack plan</div>
-          {r.recommendations.bestEntryPoints?.length > 0 && (
-            <div className="text-xs mb-2"><span className="font-semibold">Start with:</span> {r.recommendations.bestEntryPoints.join("; ")}</div>
-          )}
-          {r.recommendations.decisionMakers?.length > 0 && (
-            <div className="text-xs mb-2"><span className="font-semibold">Decision makers:</span> {r.recommendations.decisionMakers.join(", ")}</div>
-          )}
-          {r.recommendations.suggestedSequence && (
-            <div className="text-xs whitespace-pre-wrap mt-2 text-foreground/80">{r.recommendations.suggestedSequence}</div>
-          )}
+      {r.companyContext && (
+        <div className="text-sm text-muted-foreground rounded-xl border border-border bg-card p-3">
+          {r.companyContext}
         </div>
       )}
 
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="px-4 py-2 border-b border-border bg-muted/30 text-sm font-semibold">Discovered leads ({r.leads?.length ?? 0})</div>
-        <div className="divide-y divide-border">
-          {(r.leads ?? []).map((l: any, i: number) => (
-            <div key={i} className="px-4 py-3 flex items-start gap-3 hover:bg-muted/30">
-              <div className="w-9 h-9 rounded-full bg-foreground/10 flex items-center justify-center text-xs font-bold shrink-0">
-                {(l.fullName ?? "?").split(/\s+/).slice(0, 2).map((n: string) => n[0]).join("").toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                  <div>
-                    <span className="font-semibold text-sm">{l.fullName}</span>
-                    {l.arabicName && <span dir="rtl" className="text-muted-foreground text-xs ml-2">· {l.arabicName}</span>}
-                  </div>
-                  <StatusPill kind={l.confidence === "high" ? "success" : l.confidence === "medium" ? "warn" : "info"}>{l.confidence}</StatusPill>
-                </div>
-                <div className="text-xs text-muted-foreground">{l.title}{l.department && <> · {l.department}</>}{l.seniority && <> · {l.seniority}</>}</div>
-                <div className="mt-1 flex items-center flex-wrap gap-x-3 gap-y-1 text-[11px]">
-                  {l.email && <span className="flex items-center gap-1 text-muted-foreground"><Mail className="w-3 h-3" />{l.email}</span>}
-                  {l.phone && <span className="flex items-center gap-1 text-muted-foreground"><Phone className="w-3 h-3" />{l.phone}</span>}
-                  {l.linkedinUrl && <a href={l.linkedinUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline"><Linkedin className="w-3 h-3" />LinkedIn</a>}
-                  <span className="text-muted-foreground/70 font-mono text-[10px]">via {l.source}</span>
-                </div>
-                {l.notes && <div className="text-xs italic text-muted-foreground mt-1">{l.notes}</div>}
-              </div>
-            </div>
-          ))}
-          {!r.leads?.length && (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">No verifiable leads surfaced. Try giving a website URL or a more specific city.</div>
-          )}
+      {leads.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border p-8 text-center">
+          <div className="text-sm text-muted-foreground">No leads extracted. Try adding the company website URL.</div>
         </div>
-      </div>
+      ) : (
+        <div className="space-y-3">
+          {leads.map((lead: any, i: number) => (
+            <LeadCard key={i} lead={lead} rank={i + 1} />
+          ))}
+        </div>
+      )}
+
+      {r.outreachSequence && (
+        <CollapseSection title="Recommended Outreach Sequence" icon={Zap} defaultOpen>
+          <p className="text-sm leading-relaxed">{r.outreachSequence}</p>
+        </CollapseSection>
+      )}
 
       <SaveBar runId={result.id} />
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// History
-// ─────────────────────────────────────────────────────────────────────
-
-function HistoryPanel() {
-  const [rows, setRows] = useState<RunHistoryRow[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | EngineKind | "saved">("all");
-  const [openRow, setOpenRow] = useState<RunHistoryRow | null>(null);
-
-  async function load() {
-    setBusy(true); setErr(null);
-    try {
-      const params = new URLSearchParams();
-      if (filter === "saved") params.set("saved", "1");
-      else if (filter !== "all") params.set("engine", filter);
-      const data = await apiFetch(`/engines/runs?${params.toString()}`);
-      setRows(data.rows ?? []);
-    } catch (e: any) { setErr(e?.message ?? "Load failed"); }
-    finally { setBusy(false); }
-  }
-
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [filter]);
-
+function LeadCard({ lead, rank }: { lead: any; rank: number }) {
+  const score = lead.icpScore ?? lead.score ?? null;
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-1.5 text-xs">
-          {(["all", "masaar", "person_intel", "company_intel", "lead_finder", "saved"] as const).map((k) => (
-            <button key={k} onClick={() => setFilter(k)} className={cn(
-              "px-2.5 py-1 rounded-md border",
-              filter === k ? "bg-foreground text-background border-foreground" : "border-border hover:bg-muted text-muted-foreground"
-            )}>{k === "all" ? "All" : k === "saved" ? "★ Saved" : ENGINE_META[k as EngineKind].title.split(" — ")[0]}</button>
-          ))}
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-start gap-3">
+        <div className="w-8 h-8 rounded-full bg-[#D4955A]/20 flex items-center justify-center shrink-0 text-[#D4955A] font-bold text-sm">
+          {rank}
         </div>
-        <button onClick={load} className="text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-muted text-muted-foreground"><RefreshCw className={cn("w-3 h-3", busy && "animate-spin")} /> Refresh</button>
-      </div>
-
-      {err && <ErrorBlock msg={err} />}
-      {!busy && rows.length === 0 && !err && (
-        <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          No runs yet. Run an engine and the history will appear here.
-        </div>
-      )}
-
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        {rows.map((row) => (
-          <div key={row.id} className="px-4 py-3 border-b border-border last:border-b-0 hover:bg-muted/30 flex items-center gap-3">
-            <div className="w-1.5 h-1.5 rounded-full" style={{ background: row.status === "ok" ? "#10b981" : row.status === "error" ? "#ef4444" : "#888" }} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="font-medium text-sm">{row.title}</span>
-                <span className="text-[10px] text-muted-foreground font-mono">{ENGINE_META[row.engine]?.title.split(" — ")[0] ?? row.engine}</span>
-                {row.saved && <Star className="w-3 h-3 text-amber-500 fill-amber-500" />}
-              </div>
-              <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
-                <span>{new Date(row.created_at).toLocaleString()}</span>
-                <span>· {Math.round(row.duration_ms / 1000)}s</span>
-                <span>· {row.sources_used.length} sources</span>
-                {row.error && <span className="text-rose-500">· {row.error.slice(0, 80)}</span>}
-              </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <div className="font-semibold">{lead.name || lead.fullName || "—"}</div>
+              <div className="text-xs text-muted-foreground">{lead.title} {lead.department && `· ${lead.department}`}</div>
             </div>
-            <button onClick={() => setOpenRow(row)} className="text-xs px-2 py-1 rounded hover:bg-muted flex items-center gap-1"><Eye className="w-3 h-3" /> View</button>
+            {score !== null && (
+              <div className={cn("text-xs font-bold px-2 py-1 rounded-lg",
+                score >= 80 ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" :
+                score >= 60 ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" :
+                "bg-muted text-muted-foreground"
+              )}>
+                ICP {score}
+              </div>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            {lead.email && <a href={`mailto:${lead.email}`} className="flex items-center gap-1 hover:text-foreground"><Mail className="w-3 h-3" />{lead.email}</a>}
+            {lead.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{lead.phone}</span>}
+            {lead.linkedin && <a href={lead.linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[#0a66c2] hover:underline"><Linkedin className="w-3 h-3" />LinkedIn</a>}
+            {lead.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{lead.location}</span>}
+          </div>
+          {lead.whyReach && <p className="mt-2 text-xs text-muted-foreground italic">{lead.whyReach}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI DATABASE PANEL (Masar Company Database)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AIDatabasePanel() {
+  return (
+    <div className="rounded-2xl border border-[#7aab9a]/40 bg-gradient-to-br from-[#7aab9a]/5 to-transparent p-8 text-center space-y-4">
+      <div className="w-16 h-16 rounded-2xl bg-[#7aab9a]/20 flex items-center justify-center mx-auto">
+        <Database className="w-8 h-8 text-[#7aab9a]" />
+      </div>
+      <div>
+        <div className="font-bold text-xl">Masar Company Database</div>
+        <div className="text-muted-foreground text-sm mt-1">Saudi B2B company repository — harvest, enrich, deduplicate, export</div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left max-w-xl mx-auto">
+        {[
+          { icon: Sparkles, label: "25+ harvest sources", desc: "Wikipedia, GLEIF, OpenCorporates, Amaaly AOA, Bluepages, Wikidata, MoCI, directories…" },
+          { icon: Zap, label: "14 enrichment sources", desc: "Perplexity, 3× Gemini, Claude, GPT-4o, Apollo, Aamaly, Maroof, free sources, Web Seeder…" },
+          { icon: Shield, label: "Dedup + export", desc: "3-tier identity matching, CSV / Excel / Word / PDF export, compliance flags" },
+        ].map((f) => (
+          <div key={f.label} className="rounded-xl border border-border bg-card/60 p-3">
+            <f.icon className="w-4 h-4 text-[#7aab9a] mb-1.5" />
+            <div className="text-xs font-semibold">{f.label}</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{f.desc}</div>
           </div>
         ))}
       </div>
-
-      {openRow && <RunDetailModal id={openRow.id} onClose={() => setOpenRow(null)} onChanged={load} />}
+      <div className="pt-2">
+        <a href="/enrichment-engine?tab=waterfall" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#7aab9a] text-white font-semibold text-sm hover:opacity-90 transition-opacity">
+          <Database className="w-4 h-4" /> Open Masar Database
+        </a>
+      </div>
+      <p className="text-[10px] text-muted-foreground max-w-sm mx-auto">
+        Full Masar Database UI (harvest jobs, company grid, SSE progress, dedup, export) is accessible via the Data Hub section.
+      </p>
     </div>
   );
 }
 
-function RunDetailModal({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
-  const [row, setRow] = useState<any | null>(null);
-  const [busy, setBusy] = useState(true);
+// ─────────────────────────────────────────────────────────────────────────────
+// HISTORY PANEL
+// ─────────────────────────────────────────────────────────────────────────────
+
+function HistoryPanel() {
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [detail, setDetail] = useState<any>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      const d: any = await apiFetch(`/engines/runs/${id}`);
-      setRow(d?.row ?? d);
-      setBusy(false);
-    })();
-  }, [id]);
+    apiFetch("/engines/runs").then((d: any) => {
+      setRows(d?.rows ?? d ?? []);
+    }).catch(() => setRows([])).finally(() => setLoading(false));
+  }, []);
 
-  async function toggleSaved() {
-    if (!row) return;
-    await apiFetch(`/engines/runs/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ saved: !row.saved }),
-    });
-    setRow({ ...row, saved: !row.saved });
-    onChanged();
+  async function openDetail(id: string) {
+    const d: any = await apiFetch(`/engines/runs/${id}`);
+    setDetail(d?.row ?? d);
+    setDetailOpen(true);
   }
 
-  async function remove() {
-    if (!confirm("Delete this run?")) return;
+  async function deleteRun(id: string) {
     await apiFetch(`/engines/runs/${id}`, { method: "DELETE" });
-    onClose();
-    onChanged();
+    setRows((prev) => prev.filter((r) => r.id !== id));
   }
 
+  const ENGINE_COLORS: Record<string, string> = {
+    masaar: "bg-[#88B8B0]/15 text-[#88B8B0]",
+    person_intel: "bg-[#B8A0C8]/15 text-[#B8A0C8]",
+    company_intel: "bg-[#C8A880]/15 text-[#C8A880]",
+    lead_finder: "bg-[#D4955A]/15 text-[#D4955A]",
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
-      <div className="bg-background rounded-xl border border-border max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-          <div className="font-semibold">{row?.title ?? "Run details"}</div>
-          <div className="flex items-center gap-2">
-            <button onClick={toggleSaved} className={cn("text-xs px-2 py-1 rounded flex items-center gap-1 border", row?.saved ? "bg-amber-500/10 border-amber-500/40 text-amber-700 dark:text-amber-400" : "border-border hover:bg-muted")}>
-              <Star className={cn("w-3 h-3", row?.saved && "fill-current")} /> {row?.saved ? "Saved" : "Save"}
-            </button>
-            <button onClick={remove} className="text-xs px-2 py-1 rounded text-rose-500 hover:bg-rose-500/10 flex items-center gap-1"><Trash2 className="w-3 h-3" /> Delete</button>
-            <button onClick={onClose} className="text-xs p-1 hover:bg-muted rounded"><X className="w-4 h-4" /></button>
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+        <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
+          <div className="flex items-center gap-2 font-semibold text-sm"><History className="w-4 h-4" /> Run History</div>
+          <span className="text-xs text-muted-foreground">{rows.length} runs</span>
+        </div>
+        {loading ? (
+          <div className="p-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+        ) : rows.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">No engine runs yet. Run an engine to see results here.</div>
+        ) : (
+          <div className="divide-y divide-border">
+            {rows.map((row) => (
+              <div key={row.id} className="flex items-center gap-4 px-5 py-3 hover:bg-muted/30 transition-colors">
+                <div className={cn("text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0", ENGINE_COLORS[row.engine] ?? "bg-muted text-muted-foreground")}>
+                  {row.engine?.replace("_", " ")}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{row.title || "—"}</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {new Date(row.created_at).toLocaleString()} · {Math.round((row.duration_ms ?? 0) / 1000)}s · {(row.sources_used ?? []).length} sources
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <RunStatusDot status={row.status} />
+                  {row.saved && <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />}
+                  <button onClick={() => openDetail(row.id)} className="p-1.5 rounded hover:bg-muted transition-colors"><Eye className="w-3.5 h-3.5 text-muted-foreground" /></button>
+                  <button onClick={() => deleteRun(row.id)} className="p-1.5 rounded hover:bg-rose-500/10 text-rose-500 transition-colors"><X className="w-3.5 h-3.5" /></button>
+                </div>
+              </div>
+            ))}
           </div>
+        )}
+      </div>
+
+      {detailOpen && detail && (
+        <RunDetailDrawer detail={detail} onClose={() => setDetailOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+function RunStatusDot({ status }: { status: string }) {
+  return (
+    <div className={cn("w-1.5 h-1.5 rounded-full", status === "ok" ? "bg-emerald-500" : status === "error" ? "bg-rose-500" : "bg-amber-500")} />
+  );
+}
+
+function RunDetailDrawer({ detail, onClose }: { detail: any; onClose: () => void }) {
+  const [lang, setLang] = useState<"en" | "ar">("en");
+  const r = detail?.report ?? {};
+
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-lg">
+      <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
+        <div className="font-semibold text-sm">{detail.title}</div>
+        <div className="flex items-center gap-3">
+          {(r.reportEn || r.report_en) && <LangToggle lang={lang} setLang={setLang} />}
+          <button onClick={onClose} className="p-1.5 rounded hover:bg-muted"><X className="w-4 h-4" /></button>
         </div>
-        <div className="flex-1 overflow-auto p-5">
-          {busy && <div className="text-center py-10"><Loader2 className="w-5 h-5 animate-spin inline" /></div>}
-          {row && (
-            <pre className="text-xs whitespace-pre-wrap font-mono bg-muted/30 p-3 rounded">{JSON.stringify(row.report, null, 2)}</pre>
-          )}
+      </div>
+      <div className="p-5 space-y-4">
+        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+          <span>{detail.engine}</span>
+          <span>·</span>
+          <span>{Math.round((detail.duration_ms ?? 0) / 1000)}s</span>
+          <span>·</span>
+          <span>{(detail.sources_used ?? []).length} sources</span>
+          <span>·</span>
+          <RunStatusDot status={detail.status} />
+          <span>{detail.status}</span>
         </div>
+        <div className="flex flex-wrap gap-1">
+          {(detail.sources_used ?? []).map((s: string) => (
+            <span key={s} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{s}</span>
+          ))}
+        </div>
+        {detail.error && (
+          <div className="rounded-lg bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-700 dark:text-rose-400">{detail.error}</div>
+        )}
+        {(r.reportEn || r.report_en) && (
+          <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed" dir={lang === "ar" ? "rtl" : "ltr"}>
+            {lang === "en" ? (r.reportEn || r.report_en) : (r.reportAr || r.report_ar || "التقرير غير متاح.")}
+          </div>
+        )}
+        {!r.reportEn && !r.report_en && (
+          <pre className="text-[10px] bg-muted/50 p-3 rounded-xl overflow-auto max-h-96 font-mono text-muted-foreground">
+            {JSON.stringify(r, null, 2).slice(0, 4000)}
+          </pre>
+        )}
       </div>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// Tiny shared bits
-// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared widgets
+// ─────────────────────────────────────────────────────────────────────────────
 
-function ErrorBlock({ msg }: { msg: string }) {
+function ReportSection({ title, icon: Icon, children }: { title: string; icon: typeof Users; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-rose-500/40 bg-rose-500/5 p-4 flex items-start gap-3">
-      <AlertTriangle className="w-5 h-5 text-rose-600 mt-0.5 shrink-0" />
-      <div>
-        <div className="font-semibold text-sm text-rose-700 dark:text-rose-400">Engine run failed</div>
-        <div className="text-xs text-foreground/80 mt-1 whitespace-pre-wrap">{msg}</div>
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-border bg-muted/30 flex items-center gap-2">
+        <Icon className="w-3.5 h-3.5 text-muted-foreground" />
+        <span className="text-xs font-semibold">{title}</span>
       </div>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: any }) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-3">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="font-semibold text-sm mt-0.5 truncate">{value ?? "—"}</div>
-    </div>
-  );
-}
-
-function Section({ title, highlight, children }: { title: string; highlight?: boolean; children: React.ReactNode }) {
-  return (
-    <div className={cn("rounded-xl border bg-card overflow-hidden", highlight ? "border-[#B8B880]/50" : "border-border")}>
-      <div className={cn("px-4 py-2 border-b text-sm font-semibold", highlight ? "border-[#B8B880]/30 bg-[#B8B880]/5" : "border-border bg-muted/30")}>{title}</div>
       <div className="p-4">{children}</div>
     </div>
   );
 }
 
-function Empty() { return <div className="text-xs italic text-muted-foreground">No data found.</div>; }
-
-function KeyVals({ data }: { data: Record<string, any> }) {
-  const entries = Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== "");
-  if (entries.length === 0) return <Empty />;
+function CollapseSection({ title, icon: Icon, children, defaultOpen = false }: {
+  title: string; icon: typeof Users; children: React.ReactNode; defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <dl className="text-xs grid grid-cols-[100px_1fr] gap-x-3 gap-y-1.5">
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <button onClick={() => setOpen(!open)} className="w-full px-4 py-2.5 border-b border-border bg-muted/30 flex items-center justify-between hover:bg-muted/50 transition-colors">
+        <div className="flex items-center gap-2">
+          <Icon className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold">{title}</span>
+        </div>
+        {open ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+      </button>
+      {open && <div className="p-4">{children}</div>}
+    </div>
+  );
+}
+
+function KpiTile({ icon: Icon, label, value }: { icon?: typeof Users; label: string; value?: any }) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        {Icon && <Icon className="w-3 h-3 text-muted-foreground" />}
+        <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</div>
+      </div>
+      <div className="font-semibold text-sm truncate">{value ?? "—"}</div>
+    </div>
+  );
+}
+
+function KvList({ data }: { data: Record<string, any> }) {
+  const entries = Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== "" && v !== "Not found");
+  if (!entries.length) return <NoData />;
+  return (
+    <dl className="text-xs grid grid-cols-[110px_1fr] gap-x-3 gap-y-1.5">
       {entries.map(([k, v]) => (
-        <div key={k} className="contents"><dt className="text-muted-foreground">{k}</dt><dd className="text-foreground/90">{v}</dd></div>
+        <div key={k} className="contents">
+          <dt className="text-muted-foreground font-medium">{k}</dt>
+          <dd className="text-foreground/90 break-words">{v}</dd>
+        </div>
       ))}
     </dl>
   );
 }
 
-function CollapseCard({ title, children }: { title: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(true);
+function TagList({ label, items, color }: { label: string; items: string[]; color: "emerald" | "rose" | "amber" }) {
+  const cls = { emerald: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400", rose: "bg-rose-500/10 text-rose-700 dark:text-rose-400", amber: "bg-amber-500/10 text-amber-700 dark:text-amber-400" }[color];
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <button onClick={() => setOpen(!open)} className="w-full px-4 py-2 border-b border-border bg-muted/30 text-sm font-semibold flex items-center justify-between">
-        <span>{title}</span><ChevronRight className={cn("w-4 h-4 transition-transform", open && "rotate-90")} />
-      </button>
-      {open && <div className="p-4">{children}</div>}
+    <div className="mt-2">
+      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
+      <div className="flex flex-wrap gap-1">
+        {items.map((item) => <span key={item} className={cn("text-[9px] px-1.5 py-0.5 rounded-full", cls)}>{item}</span>)}
+      </div>
     </div>
+  );
+}
+
+function StatusChip({ status }: { status: string }) {
+  const active = status.toLowerCase().includes("active") || status.toLowerCase().includes("valid");
+  return (
+    <span className={cn("px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider",
+      active ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "bg-rose-500/15 text-rose-700 dark:text-rose-400"
+    )}>{status}</span>
+  );
+}
+
+function ConfidenceBadge({ level }: { level: string }) {
+  const map: Record<string, string> = {
+    High:   "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+    Medium: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+    Low:    "bg-rose-500/15 text-rose-700 dark:text-rose-400",
+  };
+  return <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", map[level] ?? map.Low)}>{level} confidence</span>;
+}
+
+function DataQualityBadge({ quality }: { quality: string }) {
+  const map: Record<string, string> = {
+    high:   "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+    medium: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+    low:    "bg-rose-500/15 text-rose-700 dark:text-rose-400",
+  };
+  return <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", map[quality] ?? map.medium)}>{quality} data quality</span>;
+}
+
+function LangToggle({ lang, setLang }: { lang: "en" | "ar"; setLang: (l: "en" | "ar") => void }) {
+  return (
+    <div className="flex bg-background rounded-lg border border-border p-0.5 text-xs">
+      <button onClick={() => setLang("en")} className={cn("px-2.5 py-1 rounded-md transition-colors", lang === "en" && "bg-foreground text-background")}>English</button>
+      <button onClick={() => setLang("ar")} className={cn("px-2.5 py-1 rounded-md transition-colors", lang === "ar" && "bg-foreground text-background")}>عربي</button>
+    </div>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  function copy() {
+    navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  }
+  return (
+    <button onClick={copy} className="p-1.5 rounded hover:bg-muted transition-colors">
+      {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3 text-muted-foreground" />}
+    </button>
   );
 }
 
@@ -1074,12 +1634,15 @@ function SaveBar({ runId }: { runId: string }) {
   }
   return (
     <div className="flex justify-end pt-2">
-      <button onClick={save} disabled={saved} className={cn("text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-md border", saved ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400" : "border-border hover:bg-muted")}>
-        <Star className={cn("w-3 h-3", saved && "fill-amber-500 text-amber-500")} /> {saved ? "Saved to history" : "Save run"}
+      <button onClick={save} disabled={saved}
+        className={cn("text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors",
+          saved ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400" : "border-border hover:bg-muted text-muted-foreground"
+        )}>
+        <Star className={cn("w-3 h-3", saved && "fill-amber-500 text-amber-500")} />
+        {saved ? "Saved" : "Save run"}
       </button>
     </div>
   );
 }
 
-// useMemo touch to silence import-without-use lint
-void useMemo;
+function NoData() { return <p className="text-xs italic text-muted-foreground">Not found</p>; }
