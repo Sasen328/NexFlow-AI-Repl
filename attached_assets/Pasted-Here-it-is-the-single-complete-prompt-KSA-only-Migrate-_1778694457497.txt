@@ -1,0 +1,237 @@
+Here it is — the single complete prompt, KSA-only:
+
+Migrate these uploaded source files into NexFlow (Next.js 15, Hono, PostgreSQL, Drizzle ORM) 
+under src/lib/enrichment/.
+
+FILE PLACEMENT:
+engines/  → masar-harvester.ts, masaar-engine.ts, enrichment-engine.ts, web-seeder.ts
+scrapers/ → stealth-browser.ts, crawl4ai-engine.ts, crawler.ts, scraper.ts, 
+            browser-helper.ts, bluepages-scraper.ts, mooresrowland-scraper.ts
+ai/       → gemini-search.ts, anthropic-service.ts, perplexity-service.ts, 
+            perplexity-enrichment.ts
+utils/    → openai.ts, blocklist.ts, free-sources.ts
+routes/   → company-intel.ts (upgraded), person-intel.ts (upgraded)
+
+DO NOT rewrite any logic. Only change two things:
+1. Fix import paths to match the new folder structure above
+2. Wrap Express Router handlers in Hono (c.req.json / c.json only)
+
+REPLACE INTEL ROUTES — Replace company-intel.ts and person-intel.ts with the 
+upgraded versions already uploaded. Do not touch masar-harvester.ts or 
+enrichment-engine.ts.
+
+REMOVE completely: all Apollo and Explorium imports and calls (no API keys).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATABASE SCHEMA (Drizzle ORM) — src/lib/enrichment/db/schema.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Create these tables:
+
+masarCompaniesTable — nameEn, nameAr, crNumber (unique index), legalForm, legalFormAr, 
+  city, cityAr, region, paidUpCapital, authorizedCapital, foundingDate, foundingYear, 
+  registrationDate, expiryDate, authorizedSignatory, registrationStatus, mainActivity, 
+  mainActivityAr, capitalDistribution, profitDistributionRules, source, sourceUrl, 
+  enrichmentStatus (default "pending"), website, phone, email, employeeCount, 
+  revenueEstimate, revenueRationale, shareholders jsonb, boardOfDirectors jsonb, 
+  management jsonb, newsHeadlines jsonb, enrichmentData jsonb, analysisEn, analysisAr, 
+  analysisData jsonb, enrichedAt, createdAt, updatedAt
+
+masarHarvestJobsTable — jobId unique, keyword, sector, sources jsonb, status, 
+  companiesFound, companiesEnriched, createdAt, completedAt
+
+companyIntelResearchTable — companyName, website, crNumber, city, report jsonb, 
+  tags, notes, sellerContext jsonb, intelligenceGoals jsonb, knownFacts, createdAt
+
+prosengineResearchTable — personName, companyName, role, websiteUrl, linkedinUrl, 
+  report jsonb, tags, notes, sellerContext jsonb, intelligenceGoals jsonb, createdAt
+
+deletedCompaniesTable — nameEn, nameAr, crNumber, website, module, deletedAt
+
+masarCustomSourcesTable — name, url, createdAt
+
+leadListsTable — name, description, createdAt
+leadListItemsTable — listId (fk), companyName, personName, data jsonb, createdAt
+
+Run: npx drizzle-kit generate && npx drizzle-kit migrate
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXPAND WATERFALL SOURCES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+In enrichment-engine.ts, expand the existing source waterfall by adding these new 
+sources in priority order. Every source: fires only if its API key/env var exists, 
+fills only empty fields, logs source name + fields filled + time taken, uses 
+Promise.allSettled() — one failing source never blocks the rest. Scope is KSA only.
+
+Priority 5   — Perplexity AI Search (no key via OpenRouter — finds official domain 
+               from Arabic or fuzzy company name)
+Priority 10  — Public Web Scraper (Cheerio + stealth browser — About, Contact, 
+               Careers pages)
+Priority 12  — Gemini Flash Extractor (HTML → structured fields, handles Arabic pages)
+Priority 15  — Crawl4AI (disabled by default, enable via ENABLE_CRAWL4AI=true)
+Priority 18  — GLEIF (no key — LEI, legal name, status for large Saudi corps)
+Priority 20  — Hunter.io (HUNTER_API_KEY — email finder + verifier)
+Priority 22  — MAGNiTT (MAGNITT_API_KEY — Saudi startup funding rounds, investors)
+Priority 23  — Dhow (DHOW_API_KEY — Saudi B2B contacts, Arabic names)
+Priority 24  — Wathiq (WATHIQ_APP_ID — KSA Ministry of Commerce CR lookup, 
+               ownership, ISIC activity, city/region — CAPTCHA via stealth browser)
+Priority 25  — Apollo.io (APOLLO_API_KEY — person + company match, email, phone)
+Priority 26  — Tadawul (no key — Saudi Exchange disclosures, ISIN, sector, revenue 
+               for listed companies only)
+Priority 27  — Decypha (DECYPHA_API_KEY — Saudi listed company financials, board, 
+               ownership, analyst reports)
+Priority 28  — OpenCorporates (no key — CR number, jurisdiction, founded year)
+Priority 29  — Argaam (ARGAAM_API_KEY — Saudi Tadawul filings + Arabic financial 
+               news, board changes, dividends)
+Priority 30  — Lusha (LUSHA_API_KEY — direct-dial mobile + work email)
+Priority 31  — Wamda (WAMDA_API_KEY — Saudi startup ecosystem, founder profiles)
+Priority 32  — Wikidata (no key — founded year, headcount, HQ, Arabic labels)
+Priority 34  — Clearbit Logo CDN (no key — company logo by domain)
+Priority 36  — GitHub Org (no key — hiring signals, tech stack for Saudi tech firms)
+Priority 38  — Wappalyzer (no key — tech stack fingerprint, detects Mada/STC Pay)
+Priority 40  — Crunchbase (CRUNCHBASE_USER_KEY — funding, firmographics)
+Priority 45  — RocketReach (ROCKETREACH_API_KEY — LinkedIn-derived contacts)
+Priority 48  — FullContact (FULLCONTACT_API_KEY — phone → person resolution)
+Priority 50  — People Data Labs (PDL_API_KEY — 3B-record contact graph)
+Priority 52  — D&B Direct+ (DNB_API_KEY — corporate hierarchies, Saudi subsidiaries)
+Priority 55  — Breeze Intelligence (BREEZE_API_KEY — HubSpot enrichment)
+Priority 57  — Bombora (BOMBORA_API_KEY — buying intent signals)
+Priority 60  — Email Permutator (no key — fallback email guess, marked unverified)
+Priority 65  — Clay (CLAY_API_KEY — 75-provider fallback waterfall)
+Priority 70+ — SaaS stubs, registered and disabled by default, activate via env var:
+               ZoomInfo (ZOOMINFO_API_KEY), Cognism (COGNISM_API_KEY), 
+               Proxycurl (PROXYCURL_API_KEY), Seamless.AI (SEAMLESS_API_KEY), 
+               Kaspr (KASPR_API_KEY), SignalHire (SIGNALHIRE_API_KEY), 
+               Lead411 (LEAD411_API_KEY), Prospeo (PROSPEO_API_KEY), 
+               Swordfish (SWORDFISH_API_KEY), SalesIntel (SALESINTEL_API_KEY), 
+               Datanyze (DATANYZE_API_KEY)
+Last         — Claude Composer (AI synthesis pass — polishes description, news 
+               signal, hiring signal)
+
+Add DeepSeek to the AI synthesis chain at priority 1 before Gemini → Claude → GPT-4o:
+  DEEPSEEK_API_KEY → api.deepseek.com (OpenAI-compatible, $0.014/1M tokens)
+  If DEEPSEEK_API_KEY not set, skip silently and fall through to Gemini.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXPAND SCRAPING & CRAWLING ENGINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Native Data Extraction — add these scrapers in src/lib/enrichment/scrapers/:
+
+wathiq-scraper.ts — POST to wathiq.business.sa with CR number, extract ownership, 
+  legal status, ISIC activity, city/region. CAPTCHA-protected — must route through 
+  stealth-browser.ts (same Claude Vision pattern used for mc.gov.sa in masaar-engine)
+
+argaam-scraper.ts — axios + cheerio on argaam.com, search by Saudi company name, 
+  extract financial results, board changes, dividends, Arabic news headlines
+
+etimad-scraper.ts — axios on etimad.sa, extract published government contracts and 
+  tender awards by company name (buying signal — active government contracts = 
+  spending now)
+
+moci-scraper.ts — axios on mci.gov.sa, extract daily new company registration feed 
+  (buying signal — newly registered Saudi companies are actively purchasing)
+
+modon-scraper.ts — axios + cheerio on modon.gov.sa, extract tenant company lists 
+  across 35+ Saudi industrial cities with basic contact info
+
+Embedded Crawling Layer — extend existing scrapers:
+
+bluepages-scraper.ts — paginate ALL results via /companies/getAll/paginate, extract 
+  ISIC codes, CR numbers, contact data. Currently limited — remove the cap.
+
+aamaly-scraper.ts — extend page traversal from 6 to 10 pages, add recency scoring 
+  to prioritize AOA documents newer than 2023.
+
+Hiring signals — add to crawler.ts: crawl Bayt.com, GulfTalent, Naukrigulf by 
+  Saudi company name → extract open positions count, departments hiring, office 
+  locations. Store as hiring_signals[] on the company record.
+
+Stealth Agent Browser — apply across ALL enrichment tools:
+
+The existing stealth-browser.ts (anti-fingerprint JS, Bézier mouse paths, Gaussian 
+typing delays, Claude Vision CAPTCHA auto-solve) must be used as the default browser 
+for ALL scraping that requires JavaScript rendering — not just the Masaar pipeline.
+
+Route ALL of these through stealth-browser.ts (not plain axios):
+  Wathiq, Aamaly, Etimad, MoCI, MODON, mc.gov.sa, Bluepages (JS-heavy pages only)
+
+Apply these Saudi fingerprint headers to every stealth browser session:
+  Accept-Language: ar-SA,ar;q=0.9,en;q=0.5
+  Timezone: Asia/Riyadh
+  User-Agent: Windows Chrome 121 Saudi locale
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HONO API ROUTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Mount all routes under /api/enrichment/ via a single Hono app exported as 
+GET/POST/DELETE handlers from src/app/api/enrichment/[...route]/route.ts
+
+/api/enrichment/web-seeder/run             POST
+/api/enrichment/masar/harvest              POST
+/api/enrichment/masar/stream/:jobId        GET (SSE, heartbeat every 15s)
+/api/enrichment/masar/companies            GET (paginated, KSA filters)
+/api/enrichment/masar/companies/:id        GET / DELETE
+/api/enrichment/masar/companies/:id/re-enrich      POST
+/api/enrichment/masar/companies/:id/pipeline-enrich POST
+/api/enrichment/masar/enrich-all           POST
+/api/enrichment/masar/deduplicate          POST
+/api/enrichment/masar/export               GET (?format=csv|excel|word|pdf|pptx)
+/api/enrichment/masar/stats                GET
+/api/enrichment/masar/jobs                 GET
+/api/enrichment/masar/custom-sources       GET / POST / DELETE
+/api/enrichment/masar/analyze-source       POST
+/api/enrichment/masaar/start               POST
+/api/enrichment/masaar/stream/:jobId       GET (SSE)
+/api/enrichment/masaar/captcha             POST
+/api/enrichment/company-intel/profile      POST
+/api/enrichment/company-intel/save         POST
+/api/enrichment/company-intel/saved        GET / DELETE
+/api/enrichment/person-intel/profile       POST
+/api/enrichment/person-intel/save          POST
+/api/enrichment/person-intel/saved         GET / DELETE
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ENVIRONMENT VARIABLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Required:
+ANTHROPIC_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY, DATABASE_URL
+
+Optional (graceful skip if missing):
+PERPLEXITY_API_KEY, DEEPSEEK_API_KEY, HUNTER_API_KEY, MAGNITT_API_KEY,
+DHOW_API_KEY, WATHIQ_APP_ID, APOLLO_API_KEY, DECYPHA_API_KEY, ARGAAM_API_KEY,
+LUSHA_API_KEY, WAMDA_API_KEY, CRUNCHBASE_USER_KEY, ROCKETREACH_API_KEY,
+FULLCONTACT_API_KEY, PDL_API_KEY, DNB_API_KEY, BREEZE_API_KEY, BOMBORA_API_KEY,
+CLAY_API_KEY, ZOOMINFO_API_KEY, COGNISM_API_KEY, PROXYCURL_API_KEY,
+SEAMLESS_API_KEY, KASPR_API_KEY, SIGNALHIRE_API_KEY, LEAD411_API_KEY,
+PROSPEO_API_KEY, SWORDFISH_API_KEY, SALESINTEL_API_KEY, DATANYZE_API_KEY,
+DISABLE_PERPLEXITY, ENABLE_CRAWL4AI
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INSTALL & SETUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+npm install axios cheerio @anthropic-ai/sdk @google/genai openai playwright \
+  pdf-parse turndown drizzle-orm @neondatabase/serverless \
+  docx exceljs pptxgenjs
+
+npx playwright install chromium
+npx drizzle-kit generate && npx drizzle-kit migrate
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Copy all source files verbatim — only change import paths and Express→Hono wrapper
+2. Scope is KSA only — remove any GCC multi-country logic, UAE/Qatar/Kuwait registries
+3. Filter Anthropic API responses by block.type === "text" before accessing .text
+4. All parallel sources use Promise.allSettled() — never sequential awaits
+5. runWebSeeder() is a shared library — never duplicate its crawling logic
+6. SSE streams emit ": heartbeat\n\n" every 15 seconds
+7. Re-fetch DB row before writing in all background tasks
+8. Every new scraper routes through stealth-browser.ts for JS-heavy sites
+9. Every source logs: source name, fields filled, time taken
+10. npx playwright install chromium must run before server start
