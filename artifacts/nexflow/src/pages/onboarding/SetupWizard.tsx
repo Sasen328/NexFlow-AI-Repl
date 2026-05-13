@@ -25,7 +25,7 @@ const STEP_LABELS = [
 function StepFallback() {
   return (
     <div className="flex items-center justify-center h-64">
-      <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+      <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "#B8A0C8", borderTopColor: "transparent" }} />
     </div>
   );
 }
@@ -35,10 +35,11 @@ export default function SetupWizard() {
 
   if (!sessionId) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(135deg, #0d0b1a 0%, #140d2e 40%, #0a1628 100%)" }}>
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-white/50 text-sm">Loading your workspace session…</p>
+          <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-4"
+            style={{ borderColor: "#B8A0C8", borderTopColor: "transparent" }} />
+          <p className="text-muted-foreground text-sm">Loading your workspace session…</p>
         </div>
       </div>
     );
@@ -52,22 +53,28 @@ export default function SetupWizard() {
     return true;
   })();
 
-  const progressPct = ((step - 1) / (totalSteps - 1)) * 100;
+  const progressPct = (step / totalSteps) * 100;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-violet-50/20 to-white">
-      <div className="border-b border-slate-200/60 bg-white/90 backdrop-blur-sm px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Subtle mesh background */}
+      <div className="nf-mesh-node n1" style={{ opacity: 0.2 }} />
+      <div className="nf-mesh-node n3" style={{ opacity: 0.15 }} />
+
+      {/* Header */}
+      <div className="relative z-10 border-b border-border/60 bg-card/90 backdrop-blur-sm px-6 py-4 flex items-center justify-between sticky top-0 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-600 to-violet-800 flex items-center justify-center shadow-md shadow-violet-200">
-            <img src={logo} alt="NexFlow" className="h-5 w-5 object-contain" />
+          <div className="h-8 w-8 rounded-lg nf-chameleon-bg flex items-center justify-center shadow-md">
+            <img src={logo} alt="NexFlow" className="h-5 w-5 object-contain brightness-0 invert" />
           </div>
           <div>
-            <span className="font-bold text-slate-900 text-sm">NexFlow Setup</span>
-            <p className="text-xs text-slate-400">{STEP_LABELS[step - 1]}</p>
+            <span className="font-bold text-foreground text-sm">NexFlow Setup</span>
+            <p className="text-xs text-muted-foreground">{STEP_LABELS[step - 1]}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Desktop step dots */}
           <div className="hidden sm:flex flex-col items-end gap-1">
             <div className="flex items-center gap-1.5">
               {Array.from({ length: totalSteps }, (_, i) => (
@@ -75,44 +82,50 @@ export default function SetupWizard() {
                   key={i}
                   className={[
                     "h-1.5 rounded-full transition-all duration-500",
-                    i < step ? "bg-violet-600 w-8" : "bg-slate-200 w-5",
+                    i < step ? "w-8" : "bg-border w-5",
                   ].join(" ")}
+                  style={i < step ? { background: "#B8A0C8" } : undefined}
                 />
               ))}
             </div>
-            <span className="text-xs text-slate-400">Step {step} of {totalSteps}</span>
+            <span className="text-xs text-muted-foreground">Step {step} of {totalSteps}</span>
           </div>
+
+          {/* Mobile circle progress */}
           <div className="sm:hidden">
             <div className="relative h-8 w-8">
               <svg className="w-8 h-8 -rotate-90" viewBox="0 0 32 32">
-                <circle cx="16" cy="16" r="13" fill="none" stroke="#e2e8f0" strokeWidth="3" />
+                <circle cx="16" cy="16" r="13" fill="none" stroke="var(--border)" strokeWidth="3" />
                 <circle
-                  cx="16" cy="16" r="13" fill="none" stroke="#7C3AED" strokeWidth="3"
+                  cx="16" cy="16" r="13" fill="none" stroke="#B8A0C8" strokeWidth="3"
                   strokeDasharray={`${2 * Math.PI * 13}`}
                   strokeDashoffset={`${2 * Math.PI * 13 * (1 - progressPct / 100)}`}
                   strokeLinecap="round"
                   className="transition-all duration-500"
                 />
               </svg>
-              <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-violet-700">{step}/{totalSteps}</span>
+              <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold" style={{ color: "#B8A0C8" }}>{step}/{totalSteps}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8 flex gap-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 py-8 flex gap-8">
+        {/* Left sidebar — step progress */}
         <aside className="hidden lg:block w-52 flex-shrink-0">
           <div className="sticky top-24">
             <StepProgress />
           </div>
         </aside>
 
+        {/* Main content */}
         <main className="flex-1 min-w-0">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="h-1 bg-slate-100">
+          <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+            {/* Progress bar */}
+            <div className="h-1 bg-muted">
               <div
-                className="h-1 rounded-full transition-all duration-700"
-                style={{ width: `${(step / totalSteps) * 100}%`, background: "linear-gradient(90deg, #7C3AED, #0D9488)" }}
+                className="h-1 rounded-full transition-all duration-700 nf-chameleon-bg"
+                style={{ width: `${progressPct}%` }}
               />
             </div>
 
@@ -122,16 +135,17 @@ export default function SetupWizard() {
               </Suspense>
 
               {error && (
-                <div className="mt-6 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 flex items-center gap-2">
-                  <span className="w-4 h-4 text-red-500 flex-shrink-0">⚠</span>
+                <div className="mt-6 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 text-sm text-destructive flex items-center gap-2">
+                  <span className="flex-shrink-0">⚠</span>
                   {error}
                 </div>
               )}
 
-              <div className="flex items-center justify-between mt-10 pt-6 border-t border-slate-100">
+              {/* Navigation */}
+              <div className="flex items-center justify-between mt-10 pt-6 border-t border-border">
                 <button
                   onClick={goBack}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:border-violet-300 hover:text-violet-700 hover:bg-violet-50 transition-all"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:border-[#B8A0C8]/50 hover:text-[#B8A0C8] transition-all"
                 >
                   ← Back
                 </button>
@@ -142,10 +156,9 @@ export default function SetupWizard() {
                   className={[
                     "flex items-center gap-2 px-7 py-2.5 rounded-xl text-sm font-bold transition-all duration-200",
                     canProceed && !saving
-                      ? "text-white shadow-lg shadow-violet-200 hover:shadow-violet-300 hover:-translate-y-0.5"
-                      : "bg-slate-200 text-slate-400 cursor-not-allowed",
+                      ? "nf-chameleon-bg text-white shadow-lg hover:-translate-y-0.5"
+                      : "bg-muted text-muted-foreground cursor-not-allowed",
                   ].join(" ")}
-                  style={canProceed && !saving ? { background: "linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)" } : undefined}
                 >
                   {saving ? (
                     <>
@@ -163,6 +176,7 @@ export default function SetupWizard() {
           </div>
         </main>
 
+        {/* Right sidebar — live pricing */}
         <aside className="hidden xl:block w-64 flex-shrink-0">
           <LivePricing />
         </aside>

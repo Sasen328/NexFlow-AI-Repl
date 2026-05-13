@@ -6,11 +6,11 @@ function SeatsSlider({ label, sub, value, onChange, color }: {
   label: string; sub: string; value: number; onChange: (n: number) => void; color: string;
 }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+    <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
       <div className="flex justify-between items-start mb-3">
         <div>
-          <p className="text-sm font-semibold text-slate-800">{label}</p>
-          <p className="text-xs text-slate-500 mt-0.5">{sub}</p>
+          <p className="text-sm font-semibold text-foreground">{label}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
         </div>
         <div className="min-w-[44px] text-center px-3 py-1 rounded-lg text-sm font-bold border" style={{ color, borderColor: color + "40", backgroundColor: color + "10" }}>
           {value}
@@ -22,14 +22,14 @@ function SeatsSlider({ label, sub, value, onChange, color }: {
         className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
         style={{ accentColor: color }}
       />
-      <div className="flex justify-between text-xs text-slate-300 mt-1.5">
+      <div className="flex justify-between text-xs text-muted-foreground/40 mt-1.5">
         <span>0</span><span>50</span><span>100</span><span>150</span><span>200</span>
       </div>
     </div>
   );
 }
 
-const ROLE_COLORS = ["#7C3AED", "#0D9488", "#D97706", "#6366f1"];
+const ROLE_COLORS = ["#B8A0C8", "#88B8B0", "#C8A880", "#C0A0B8"];
 
 export default function Step2Team() {
   const { answers, updateAnswers } = useWizard();
@@ -38,17 +38,18 @@ export default function Step2Team() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Your Team</h2>
-        <p className="text-slate-500 mt-1">Tell us about the people who'll use NexFlow. This sets your seat count and pricing.</p>
+        <h2 className="text-2xl font-bold text-foreground">Your Team</h2>
+        <p className="text-muted-foreground mt-1">Tell us about the people who'll use NexFlow. This sets your seat count and pricing.</p>
       </div>
 
       <div>
         <div className="flex items-center justify-between mb-4">
-          <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-            <Users className="w-4 h-4 text-slate-400" />
+          <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Users className="w-4 h-4 text-muted-foreground" />
             Team headcount by role
           </label>
-          <span className="text-xs font-bold text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-3 py-1">
+          <span className="text-xs font-bold rounded-full px-3 py-1 border"
+            style={{ color: "#B8A0C8", background: "rgba(184,160,200,0.1)", borderColor: "rgba(184,160,200,0.3)" }}>
             {totalSeats} total seats
           </span>
         </div>
@@ -61,18 +62,16 @@ export default function Step2Team() {
       </div>
 
       <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Current CRM / tool</label>
+        <label className="block text-sm font-semibold text-foreground mb-1.5">Current CRM / tool</label>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {CRM_OPTIONS.map(({ value, label }) => (
             <button
               key={value}
               onClick={() => updateAnswers({ currentCrm: value })}
-              className={[
-                "px-3 py-2.5 rounded-xl border text-sm font-medium text-left transition-all",
-                answers.currentCrm === value
-                  ? "border-violet-500 bg-violet-50 text-violet-700"
-                  : "border-slate-200 text-slate-600 hover:border-violet-300 bg-white",
-              ].join(" ")}
+              className="px-3 py-2.5 rounded-xl border text-sm font-medium text-left transition-all bg-card"
+              style={answers.currentCrm === value
+                ? { borderColor: "#B8A0C8", color: "#B8A0C8", background: "rgba(184,160,200,0.08)" }
+                : undefined}
             >
               {label}
             </button>
@@ -82,7 +81,7 @@ export default function Step2Team() {
 
       {answers.currentCrm !== "none" && (
         <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-2">Migrate your existing data into NexFlow?</label>
+          <label className="block text-sm font-semibold text-foreground mb-2">Migrate your existing data into NexFlow?</label>
           <div className="flex gap-3">
             {[
               { v: true,  label: "Yes — migrate my data",  desc: "Contacts, deals, activities, notes" },
@@ -91,15 +90,13 @@ export default function Step2Team() {
               <button
                 key={String(v)}
                 onClick={() => updateAnswers({ migrationNeeded: v })}
-                className={[
-                  "flex-1 text-left px-4 py-3 rounded-xl border-2 transition-all",
-                  answers.migrationNeeded === v
-                    ? "border-violet-500 bg-violet-50"
-                    : "border-slate-200 bg-white hover:border-violet-300",
-                ].join(" ")}
+                className="flex-1 text-left px-4 py-3 rounded-xl border-2 transition-all bg-card"
+                style={answers.migrationNeeded === v
+                  ? { borderColor: "#B8A0C8", background: "rgba(184,160,200,0.06)" }
+                  : undefined}
               >
-                <p className="text-sm font-semibold text-slate-800">{label}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
+                <p className="text-sm font-semibold text-foreground">{label}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
               </button>
             ))}
           </div>

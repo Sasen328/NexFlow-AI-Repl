@@ -1,0 +1,373 @@
+NexFlow Enterprise Setup Architecture
+Phase 0 — License Activation
+Tenant provisioning — unique workspace slug, data residency region (KSA / UAE / Kuwait), subdomain
+License tier binding — seats count, enabled modules (Enrichment, Power Dialer, AI Agents, Marketing, etc.)
+Admin owner account — first user, receives credentials, sets recovery email
+Phase 1 — Company Identity
+Company name (Arabic + English), logo, HQ city/country
+Commercial Registration (CR) number — pre-fills MoCI/ZATCA integrations
+Industry classification, fiscal year start, default currency (SAR, AED, KWD...)
+Language preference — Arabic-first, English-first, or bilingual UI
+Phase 2 — Team & Access Structure
+Org chart — departments (Sales, Marketing, Operations, Support)
+Role hierarchy — CEO → Head of Sales → Regional Manager → Sales Rep → SDR
+Territory mapping — KSA (Central/Eastern/Western), UAE, Kuwait, Qatar, Bahrain
+Seat assignment — invite users by email, role, territory
+Permission matrix — who sees what (contacts, deals, reports, enrichment budgets)
+SSO / Identity — Azure AD, Google Workspace, Okta (SAML/OIDC) for enterprise IT
+Phase 3 — CRM Configuration
+Pipeline stages — custom stages per sales process (Prospect → Qualified → Proposal → Negotiation → Won/Lost)
+ICP definition — industries, company sizes, geographies, buying signals that score a lead high
+Custom fields — add fields to Contact, Company, Deal records (e.g., "IBAN", "Government Entity", "Sponsorship Tier")
+Lead scoring weights — which signals matter most (website visit = 5pts, demo request = 40pts, etc.)
+Deal value tiers — SMB / Mid-Market / Enterprise thresholds
+Forecasting periods — monthly, quarterly, by fiscal year
+Phase 4 — Communication Channels
+WhatsApp Business API — connect approved number, load message templates (Arabic + English), set opt-in flow
+Email — SMTP/Resend sender domain verification, email signature templates
+Power Dialer — VoIP provider connection (Twilio, Vonage), caller ID numbers per territory, call recording consent notice (PDPL-compliant)
+SMS — Sender ID registration (required in KSA/UAE for branded SMS)
+Phase 5 — Data Import & Migration
+Contact & company list upload — CSV/Excel with field mapping wizard
+Deduplication rules — match on email, phone, CR number, LinkedIn URL
+Historical activities — calls, emails, deals import from previous CRM (Salesforce, HubSpot, Zoho)
+Lead assignment rules — round-robin, by territory, by industry vertical
+Phase 6 — AI & Enrichment Configuration
+Enrichment budget — API call limits per month, per user
+Signal packs — which GCC sources to enable (MoCI, Etimad, Argaam, LinkedIn, Modon)
+AI language model priority — Arabic-first responses vs English-first
+Cultural Intelligence profile — GCC tone settings, prayer time awareness, Ramadan mode
+Voice agent persona — name, language, speaking style, escalation threshold
+Coaching thresholds — when to trigger live coaching alerts in Power Dialer
+Phase 7 — Integrations
+ERP / Finance — SAP, Oracle, Microsoft Dynamics, QuickBooks (sync deal → invoice)
+Marketing platforms — HubSpot, Mailchimp, Meta Ads, Google Ads
+Government databases — MoCI, ZATCA e-invoicing, Etimad procurement
+Calendar — Google Calendar, Outlook (sync meetings → activities)
+Zapier / Make — for anything non-native
+Phase 8 — Compliance & Security
+PDPL settings (Saudi Personal Data Protection Law) — data retention periods, right-to-delete workflow, consent capture
+Call recording — on/off per user, auto-disclosure message, storage duration
+Audit trail — who changed what and when
+Data classification — which fields are PII, which are restricted to managers only
+IP allowlist — restrict login to company VPN/office IPs
+Phase 9 — Dashboards & Goals
+Default KPI set — pre-configure the tiles that matter for the role (Sales: pipeline value, call volume, conversion; Marketing: MQL, CPL, ROI)
+Team targets — quarterly deal targets per rep/territory
+Custom reports — save company-specific report templates
+Phase 10 — Go-Live
+Pilot group rollout — 5-10 power users first, gather feedback
+Admin training session — recorded walkthrough of admin panel
+End-user onboarding — persona-based in-app guides
+Full company rollout — all seats activated
+Hypercare period — 30-day support SLA with dedicated setup manager
+Delivery Model
+Who does it	What they handle
+NexFlow team	Phase 0, Phase 8, Phase 10, complex integrations (ERP, SSO, PDPL)
+CRM Developer / Partner	Phase 3 (custom fields, pipeline), Phase 5 (data migration), Phase 9 (custom reports)
+Customer's IT team	Phase 2 (SSO, IP allowlist), Phase 4 (email domain, VoIP numbers)
+Customer's admin user	Phase 1, Phase 6 (AI/enrichment preferences), Phase 7 (lighter integrations)
+Would you like me to build this as an in-app Setup Wizard inside NexFlow? It would guide the admin through each phase step-by-step after first login — with progress tracking, skippable sections, and a completion checklist — so both your team and CRM developer partners have a structured, consistent onboarding process every time.
+
+This is a great strategic conversation — let me give you the full expanded architecture with everything you flagged corrected, plus additional phases I'd recommend before anything gets built.
+
+Phase 3 — CRM Configuration (Expanded)
+3A — Sales & Deal Funnel Architecture
+Lead Stage Design
+Each company maps their own lead lifecycle from first touch to qualified opportunity. Stages have names, definitions, and entry/exit rules agreed upfront — not assumed:
+
+Stage Glossary — every stage gets a formal definition: what it means in this company's language, what evidence is required to be in it, and who owns it
+Example: "SAL (Sales Accepted Lead)" — defined as: a lead that a sales rep has reviewed, confirmed fits ICP, and has committed to work within 48h. Not just "the SDR passed it over"
+Stage entry criteria — required fields that must be filled before a contact can move into a stage (e.g., you cannot move to Proposal without a company size and budget range filled)
+Stage exit criteria — what disqualifies a lead / forces a stage change
+Stuck lead rules — if a lead sits in a stage beyond X days with no activity, what happens (alert, reassign, auto-disqualify)
+Transition Mapping & Automated Workflows
+Each stage transition is a trigger point. At setup, the company maps:
+
+Transition	Automated Action
+Lead → Contacted	Create "Follow-up in 48h" task, log first contact activity
+Contacted → Qualified	Trigger enrichment pull, notify manager, assign to senior rep
+Qualified → Proposal	Generate CPQ quote draft, create deal record, start 14-day SLA clock
+Proposal → Negotiation	Notify finance, enable discount approval workflow
+Negotiation → Won	Trigger onboarding sequence, create invoice draft in ERP, send internal Slack alert
+Any Stage → Lost	Mandatory lost reason selection, trigger re-engagement sequence in 90 days
+Any Stage → Disqualified	Archive lead, log reason, notify SDR manager
+Parallel Deal Pipeline
+Some companies have a separate sales pipeline (pre-revenue) and a deal pipeline (commercial stage). Both are configured independently with their own stages, owners, and weighted probability percentages per stage.
+
+3B — Properties & Custom Objects
+Standard Field Customization
+Every default field can be:
+
+Renamed to match the company's internal vocabulary ("Company" → "Account", "Contact" → "Stakeholder")
+Set as required or optional per user role
+Made read-only for certain roles
+Given a default value, dropdown options, or validation rule (e.g., phone must be E.164 format for Saudi numbers)
+Custom Field Types Available
+
+Text, Number, Currency, Date/DateTime, Dropdown (single/multi), Checkbox, URL, File attachment, Calculated (formula-based), Lookup (reference another record), Rich text
+Custom Object Creation
+Beyond Contacts, Companies, and Deals — companies often need additional objects:
+
+Projects — for companies that sell implementation/services
+Assets — equipment or subscriptions a client owns
+Subsidiaries — tracking parent/child company relationships
+Government Tenders — specific to GCC public sector sales
+Partners/Resellers — channel sales tracking
+Each custom object gets its own fields, pipeline, and linked records.
+
+Field Dependency Rules
+
+"If Industry = Government, show field: Tender Reference Number"
+"If Deal Value > 500k SAR, require Approver Name"
+"If Lost Reason = Price, show field: Competitor Name"
+Record Validation Rules
+Written by the CRM developer at setup — business logic that prevents bad data:
+
+A deal cannot be marked Won without a PO number
+A contact cannot be created without at least one of: email, phone, or LinkedIn URL
+Company CR number must be exactly 10 digits if country = Saudi Arabia
+Duplicate Detection Rules
+
+Exact match on email
+Fuzzy match on company name + country
+Phone number normalization before matching (strip spaces, country codes)
+What to do on duplicate detected: block, warn, or merge suggestion
+3C — Scoring & Prioritization Setup
+Lead Scoring Model — points matrix defined per company: industry match, company size, job title, intent signals, engagement score, enrichment completeness
+Account Scoring — separate from lead scoring; scores the company/account based on fit + engagement across all contacts
+Health Score thresholds — Green / Amber / Red defined per score range, drives rep attention alerts
+ICP Tiers — Tier 1 (ideal), Tier 2 (acceptable), Tier 3 (low priority) — each with different SLA and routing rules
+3D — Notification & Alert Rules
+Who gets notified when a deal changes stage
+Who gets alerted when a lead goes cold (no activity in X days)
+Who approves discounts above a threshold
+Escalation chains — if no response in 24h, alert manager; 48h, alert head of sales
+WhatsApp vs Email vs in-app per notification type and urgency level
+Phase 5 — Data Migration (Full Protocol)
+This is the most risk-sensitive phase. Data loss here is permanent. The process is:
+
+Step 1 — Audit & Inventory
+Before touching anything:
+
+Export a full data audit from the source CRM: total records per object type, date ranges, field population rates, custom objects, attachments, email threads
+Identify what is active (needs migrating), historical (archive only), and dead (can be dropped)
+Flag records with incomplete data that will fail validation in NexFlow
+Step 2 — Field Mapping Document
+A shared spreadsheet signed off by the client before any migration runs:
+
+Source System	Source Field	NexFlow Object	NexFlow Field	Transform Rule
+Salesforce	Account.Name	Company	company_name	Direct copy
+Salesforce	Account.BillingCountry	Company	company_country	Normalize to ISO code
+HubSpot	contact.hs_lead_status	Contact	lead_stage	Map: "New" → "Prospect", "Open" → "Contacted"
+Zoho	Deal.Stage	Deal	deal_stage	Map to NexFlow stage names
+HubSpot	contact.phone	Contact	phone	Normalize E.164
+Every field that doesn't have a mapping gets a decision: migrate as note, create custom field, or drop.
+
+Step 3 — Data Cleansing (Pre-Migration)
+Done in the source system or in a staging spreadsheet:
+
+Standardize country names, phone formats, date formats
+Remove obvious duplicates
+Fill mandatory fields where possible
+Flag records that will require manual review post-migration
+Step 4 — Staging Migration (Test Run)
+Migrate to a NexFlow sandbox tenant first — never direct to production
+Run validation checks: record count matches, relationship integrity (deals linked to correct contacts), no orphaned records
+Random sample review: 50 records manually checked by client against source
+Performance check: search, filter, and report on migrated data
+Step 5 — Delta Tracking
+During the staging period, the source CRM is still live. Track:
+
+New records created after the staging snapshot
+Records modified after staging snapshot
+These form the "delta" that gets applied in the final cutover
+Step 6 — Cutover Window
+Agreed date/time — ideally a Thursday evening for GCC (low-activity Friday ahead)
+Source CRM set to read-only (no new data entry)
+Delta records migrated
+Validation re-run on full dataset
+Client sign-off on record counts
+Step 7 — Post-Migration Reconciliation
+72-hour hypercare: source CRM remains accessible but not actively used
+Any missing records reported by users are investigated and migrated manually
+Audit log kept of all manual interventions
+Source CRM archived (not deleted) for 90 days as safety net
+What gets migrated (full scope):
+Data Type	Migration Complexity
+Contacts + Companies	Low
+Deals + Pipeline stages	Medium (stage remapping)
+Activities (calls, emails, meetings)	Medium
+Notes & comments	Low
+Email threads	High (attachments, threading)
+Documents & attachments	High (storage, link integrity)
+Custom objects	High (requires pre-build in NexFlow)
+Sequences / cadences	Medium (rebuild in NexFlow format)
+Reports & dashboards	Rebuild — not directly migratable
+User permissions	Remap — not directly migratable
+Phase 7 — Integrations (Updated)
+Removed: HubSpot (it's a competitor)
+Added: Company Website Tracking
+
+Website Lead Tracking
+Tracking pixel — one JS snippet installed on the client's website; tracks page views, session duration, UTM parameters, referral sources per identified contact
+Form capture — web forms on the client's site (contact us, demo request, pricing inquiry) submit directly to NexFlow as new leads, pre-tagged with the page they came from
+Session identity resolution — when a known contact (previously emailed) visits the website, their visit is logged against their NexFlow record automatically
+Intent signals — pricing page visits, product page repeat visits, case study downloads → scores the lead higher and triggers a rep alert
+UTM attribution — first-touch and last-touch attribution tracked per lead (which campaign, ad set, or keyword created and converted the lead)
+Anonymous visitor enrichment — IP-to-company resolution for anonymous visitors (shows "a company from Riyadh in the Oil & Gas sector visited your pricing page 3x this week")
+What You Correctly Flagged That I'm Now Adding
+Feature Subscription & Module Licensing
+Not every company needs everything. The license structure should be:
+
+Core CRM (always included)
+
+Contacts, Companies, Deals, Activities, Basic Pipeline, Standard Reports
+Add-on Modules (per seat or flat per tenant)
+
+Power Dialer — per seat (only for reps who make calls)
+AI Enrichment Engine — credit-based (buy a bundle, spend as needed)
+Marketing Suite — Campaign Builder, Web Forms, Campaign Performance
+AI Voice Agents — per agent deployed, per minute consumed
+Conversation Intelligence — call transcription + scoring
+Advanced Forecasting & RevOps
+Partner/Channel Portal
+Enrichment Credits
+
+Bought in bundles (1,000 / 5,000 / 25,000 credits)
+Each enrichment action costs a defined number of credits (quick enrich = 1 credit, full ProsEngine person report = 15 credits, company intel = 10 credits)
+Unused credits roll over, with expiry cap at 12 months
+Usage dashboard shows burn rate and projected exhaustion date
+Backend API & Integration Management (Client-Transparent)
+You're right — no client should be managing API keys. The model is:
+
+All third-party APIs (Perplexity, Gemini, Claude, OpenRouter, MoCI, LinkedIn, Twilio, etc.) are NexFlow's infrastructure cost, absorbed into the subscription and credit pricing
+Client sees a clean Integration Marketplace in their admin panel — one toggle per integration, no API key entry
+Budget-based configuration — client sets a monthly enrichment spend cap; NexFlow routes calls through the most cost-efficient AI provider to stay within it
+For government sources (MoCI, Etimad, ZATCA) — NexFlow handles the API agreements and compliance; client just enables the toggle
+For client-specific integrations (their ERP, their custom database) — NexFlow provides a secure webhook/API bridge that their IT team connects to; credentials stored server-side, never exposed in the frontend
+Additional Phases I'd Now Recommend
+Phase 11 — RevOps & Commission Setup
+Define commission structures per role (% of deal value, milestone-based, team vs individual)
+Quota periods and rollover rules
+Attainment leaderboard configuration
+Split deal commission rules (when two reps collaborate on a deal)
+Draw against commission settings
+Phase 12 — CPQ & Contract Templates
+Pricing tables (products/services with base prices per region/currency)
+Discount approval tiers (rep can discount up to 5%, manager up to 15%, VP up to 25%)
+Quote templates (Arabic + English variants, company-branded PDF)
+Contract e-signature setup (DocuSign, Adobe Sign, or NexFlow-native)
+Renewal reminder automation (90/60/30 days before contract end)
+Phase 13 — Knowledge Base & AI Training
+Upload sales scripts, objection handling guides, product FAQs
+Define AI voice agent authority limits (what can it offer without escalation)
+Configure AI coaching sensitivity (how aggressive the live coaching suggestions are)
+Load competitor battle cards for AI reference during calls
+Arabic language tuning — formal (فصحى) vs Gulf dialect preference
+Phase 14 — Sandbox & Testing Environment
+Mirror of production with anonymized data
+Used by CRM developers to test automation rules, field changes, and integrations before pushing to live
+Separate from production, with a one-way sync option (prod → sandbox for refresh)
+Phase 15 — Ongoing Governance Setup
+Change management process — who can create new fields, pipelines, or automations; who approves changes
+Data stewardship — assigned person responsible for data quality per department
+Quarterly audit schedule — review unused fields, stale automations, scoring drift
+License review cadence — annual seat and module review as company grows
+Suggested Setup Delivery Timeline
+Week	Phase
+Week 1	Phase 0 (tenant), Phase 1 (company identity), Phase 2 (team structure)
+Week 2	Phase 3A–3D (full CRM config), Phase 12 (CPQ basics)
+Week 3	Phase 5 (data migration — audit + staging)
+Week 4	Phase 5 (cutover), Phase 4 (communications)
+Week 5	Phase 6 (AI/enrichment), Phase 7 (integrations + website tracking)
+Week 6	Phase 8 (compliance), Phase 9 (dashboards + goals), Phase 13 (knowledge base)
+Week 7	Phase 14 (sandbox testing), Phase 10 pilot group
+Week 8	Phase 10 full rollout + Phase 15 governance handover
+
+
+The Vision: Two Interconnected Systems
+System 1 — Automation Watchdog (Second Layer)
+Think of it as a heartbeat monitor sitting beside every automation rule. The standard automation engine fires when a trigger happens. The watchdog's job is completely different — it watches for triggers that should have fired but didn't.
+
+How it works conceptually:
+
+Every automation rule has a hidden contract:
+
+"If condition X becomes true, action Y must fire within Z minutes."
+
+The watchdog holds that contract. It runs a sweep every few minutes across all open leads and checks: "Is this record sitting in a state where an automation was supposed to fire, but hasn't?"
+
+When it finds a lag, it doesn't just retry — it escalates intelligently:
+
+Attempt 1 (at lag threshold) → Silent retry, log it
+Attempt 2 (double lag) → Retry + flag in automation health panel
+Attempt 3 (triple lag) → Force-execute + notify the admin + freeze the rule for review
+
+The admin sees a live Automation Health dashboard — each rule shown as a card with a status light, last-fired timestamp, queue depth, and lag history. Red means the watchdog intervened. They can drill into any intervention, see exactly what was stuck and why, approve the forced action or roll it back.
+
+This makes NexFlow the first CRM where automation failure is visible and self-correcting, not a silent data hole that only gets discovered weeks later.
+
+System 2 — Setup Intelligence Engine (Questionnaire → Proposal → Launch)
+The goal: a company rep goes through a single guided session, and by the end they have a signed proposal and their CRM setup has already begun — with the minimum possible human effort on both sides.
+
+The experience in three acts:
+
+Act 1 — The Discovery Session (10–15 minutes max)
+
+The rep opens a link. There is no blank form. Instead it's a conversational step-by-step interface — more like a smart wizard than a form.
+
+Every question is either:
+
+A single dropdown or multi-select (no typing)
+A slider (team size, monthly volume, budget range)
+A card-pick (choose which challenges apply to you — visual cards with icons)
+An AI-assisted field where they type one word and AI completes a full description they can approve or edit in one click
+Questions flow like a conversation. Answering one automatically pre-fills or skips others. Industry = "Government" → automatically enables Etimad and MoCI, disables MarTech modules, adds PDPL compliance block. Company size < 20 seats → Power Dialer and AI Agents get lighter recommendations with a note about future upgrade path.
+
+Behind the scenes: every answer is instantly writing a configuration object. By the time they finish the questionnaire, the NexFlow setup is already 60% pre-configured.
+
+Act 2 — The Live Proposal (Generated in real-time)
+
+As the rep answers, a panel on the right side of the screen updates live. They see:
+
+Module cards lighting up as relevant — each with a one-line description of what it does for them specifically (not generic copy — AI rewrites it for their industry and use case)
+A running cost estimate — total monthly, cost per seat, credit bundle recommendation based on their stated enrichment volume
+An ROI signal — "Based on your stated lead volume and sales team size, similar companies using NexFlow reduced their lead-to-qualified time by 40%" — pulled from benchmark data
+A timeline estimate — "Your setup will take approximately 6 weeks based on migration from HubSpot + 45-seat deployment"
+When they reach the end, one button: Generate Proposal
+
+The AI assembles a branded PDF in 10 seconds — their company logo on the cover, a tailored module list, pricing breakdown, setup timeline, and a signature block. Nothing generic. Every line refers to their company, their industry, their stated goals.
+
+Act 3 — Approval → Auto-Launch
+
+They sign electronically (or approve with a code if simpler). The moment approval is confirmed:
+
+Their tenant is provisioned automatically
+The configuration object built during the questionnaire is applied — pipelines, stage names, role structure, ICP definition, modules enabled
+A setup checklist appears in the admin panel, pre-populated with their answers already filled in wherever possible
+The CRM developer or NexFlow team receives a structured brief (not a call — a brief) with everything they need to handle the manual phases (data migration, SSO, custom fields review)
+The company admin receives their credentials with a "your workspace is ready" message
+The first time they log in, they see a Setup Progress bar at the top — phases completed automatically are already green. Only the phases that genuinely need human action (upload your logo, invite your team, upload your contacts list) are shown as next steps.
+
+What This Changes
+Right now most CRM onboarding looks like:
+
+Discovery call → manually written proposal → email chain to approve → someone builds the config from scratch → data migration project → training sessions → go-live 6 months later
+
+With this system it looks like:
+
+15-minute session → AI proposal auto-approved → tenant live same day → CRM developer handles migration with a pre-written brief → go-live in 4 weeks
+
+The rep never sees an API key. Never fills in a technical form. Never waits for someone to "write up a proposal." The AI does the translation between business answers and technical configuration.
+
+What I'd Build
+Three connected pieces:
+
+Setup Intelligence Engine — the questionnaire + live pricing + proposal generator + auto-provisioning (lives at a dedicated URL, accessible before the client has a login)
+
+Automation Watchdog — background service in the API server + an Automation Health panel in the NexFlow admin section
+
+Setup Progress Dashboard — the in-app view that shows every setup phase, what's auto-done, what needs human action, and the handoff brief for the CRM developer
+
+

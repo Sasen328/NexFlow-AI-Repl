@@ -56,22 +56,23 @@ export default function Step3Features() {
                   onClick={() => toggle(mod.id)}
                   disabled={mod.required}
                   className={[
-                    "relative text-left p-4 rounded-2xl border-2 transition-all duration-200 focus:outline-none group overflow-hidden",
-                    selected && mod.required  ? "border-violet-200 bg-violet-50/60 cursor-default" : "",
-                    selected && !mod.required ? "border-violet-500 bg-white shadow-lg shadow-violet-100 hover:shadow-violet-200" : "",
-                    !selected                 ? "border-slate-200 bg-white hover:border-violet-300 hover:shadow-md hover:shadow-violet-50" : "",
+                    "relative text-left p-4 rounded-2xl border-2 transition-all duration-200 focus:outline-none group overflow-hidden bg-card",
+                    selected && mod.required  ? "cursor-default" : "",
+                    !selected                 ? "border-border hover:shadow-md" : "",
                   ].join(" ")}
+                  style={selected ? { borderColor: "#B8A0C8", boxShadow: "0 4px 16px rgba(184,160,200,0.2)" } : undefined}
                 >
                   {selected && !mod.required && (
-                    <div className="absolute inset-0 pointer-events-none opacity-5" style={{ background: "linear-gradient(135deg, #7C3AED, #0D9488)" }} />
+                    <div className="absolute inset-0 pointer-events-none" style={{ background: "rgba(184,160,200,0.04)" }} />
                   )}
 
                   {mod.required ? (
-                    <span className="absolute top-3 right-3 text-[10px] font-bold text-violet-600 bg-violet-100 rounded-full px-2 py-0.5 tracking-wide">
+                    <span className="absolute top-3 right-3 text-[10px] font-bold rounded-full px-2 py-0.5 tracking-wide"
+                      style={{ color: "#B8A0C8", background: "rgba(184,160,200,0.15)" }}>
                       INCLUDED
                     </span>
                   ) : selected ? (
-                    <span className="absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, #7C3AED, #5B21B6)" }}>
+                    <span className="absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center nf-chameleon-bg">
                       <Check className="w-3 h-3 text-white" strokeWidth={3} />
                     </span>
                   ) : null}
@@ -89,10 +90,12 @@ export default function Step3Features() {
                   <h3 className="font-bold text-slate-900 text-sm mb-1 pr-8">{mod.name}</h3>
                   <p className="text-xs text-slate-500 leading-relaxed mb-3">{mod.desc}</p>
 
-                  <span className={[
-                    "inline-block text-xs font-semibold px-2.5 py-1 rounded-lg",
-                    selected ? "text-violet-700 bg-violet-100" : "text-slate-500 bg-slate-100",
-                  ].join(" ")}>
+                  <span
+                    className="inline-block text-xs font-semibold px-2.5 py-1 rounded-lg"
+                    style={selected
+                      ? { color: "#B8A0C8", background: "rgba(184,160,200,0.12)" }
+                      : { color: "var(--muted-foreground)", background: "var(--muted)" }}
+                  >
                     {mod.price}
                   </span>
                 </button>
@@ -102,8 +105,9 @@ export default function Step3Features() {
         </div>
       ))}
 
-      <div className="flex items-start gap-3 bg-gradient-to-r from-violet-50 to-teal-50 border border-violet-200 rounded-xl p-4">
-        <Sparkles className="w-4 h-4 text-violet-500 flex-shrink-0 mt-0.5" />
+      <div className="flex items-start gap-3 rounded-xl p-4 border"
+        style={{ background: "rgba(184,160,200,0.06)", borderColor: "rgba(184,160,200,0.25)" }}>
+        <Sparkles className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#B8A0C8" }} />
         <p className="text-sm text-slate-700">
           <strong className="text-slate-900">Not sure what to pick?</strong> Our AI will recommend the ideal module stack based on your industry, team size, and lead volume once you complete the wizard.
         </p>

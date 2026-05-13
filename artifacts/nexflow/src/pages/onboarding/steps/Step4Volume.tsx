@@ -19,19 +19,17 @@ function OptionGrid<T extends string | number>({
 }) {
   return (
     <div>
-      <label className="block text-sm font-semibold text-slate-700 mb-1">{label}</label>
-      {hint && <p className="text-xs text-slate-400 mb-3">{hint}</p>}
+      <label className="block text-sm font-semibold text-foreground mb-1">{label}</label>
+      {hint && <p className="text-xs text-muted-foreground mb-3">{hint}</p>}
       <div className="flex flex-wrap gap-2">
         {options.map(({ value: v, label: l }) => (
           <button
             key={String(v)}
             onClick={() => onChange(v)}
-            className={[
-              "px-4 py-2 rounded-xl border text-sm font-medium transition-all",
-              value === v
-                ? "border-violet-500 bg-violet-50 text-violet-700"
-                : "border-slate-200 bg-white text-slate-600 hover:border-violet-300",
-            ].join(" ")}
+            className="px-4 py-2 rounded-xl border text-sm font-medium transition-all bg-card"
+            style={value === v
+              ? { borderColor: "#B8A0C8", color: "#B8A0C8", background: "rgba(184,160,200,0.08)" }
+              : undefined}
           >
             {l}
           </button>
@@ -48,8 +46,8 @@ export default function Step4Volume() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Volume & Budget</h2>
-        <p className="text-slate-500 mt-1">Help us understand your scale so we can right-size your plan.</p>
+        <h2 className="text-2xl font-bold text-foreground">Volume & Budget</h2>
+        <p className="text-muted-foreground mt-1">Help us understand your scale so we can right-size your plan.</p>
       </div>
 
       <OptionGrid
@@ -61,8 +59,8 @@ export default function Step4Volume() {
 
       {enrichmentEnabled && (
         <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">Enrichment credit bundle</label>
-          <p className="text-xs text-slate-400 mb-3">1 credit = 1 enrichment signal (email, phone, company data, etc.)</p>
+          <label className="block text-sm font-semibold text-foreground mb-1">Enrichment credit bundle</label>
+          <p className="text-xs text-muted-foreground mb-3">1 credit = 1 enrichment signal (email, phone, company data, etc.)</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {CREDIT_BUNDLES.map(({ value, label, price, note, tag }) => {
               const selected = answers.enrichmentCreditsMonthly === value;
@@ -70,10 +68,10 @@ export default function Step4Volume() {
                 <button
                   key={value}
                   onClick={() => updateAnswers({ enrichmentCreditsMonthly: value })}
-                  className={[
-                    "relative text-left px-4 py-4 rounded-xl border-2 transition-all",
-                    selected ? "border-violet-500 bg-violet-50 shadow-md shadow-violet-100" : "border-slate-200 bg-white hover:border-violet-300",
-                  ].join(" ")}
+                  className="relative text-left px-4 py-4 rounded-xl border-2 transition-all bg-card"
+                  style={selected
+                    ? { borderColor: "#B8A0C8", background: "rgba(184,160,200,0.06)", boxShadow: "0 4px 12px rgba(184,160,200,0.15)" }
+                    : undefined}
                 >
                   {tag && (
                     <span className="absolute top-3 right-3 text-[10px] font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">
@@ -81,11 +79,11 @@ export default function Step4Volume() {
                     </span>
                   )}
                   <div className="flex items-center gap-1.5 mb-1">
-                    <Zap className={`w-3.5 h-3.5 ${selected ? "text-violet-500" : "text-slate-300"}`} />
-                    <p className="text-sm font-bold text-slate-900">{label}</p>
+                    <Zap className="w-3.5 h-3.5" style={{ color: selected ? "#B8A0C8" : "var(--muted-foreground)" }} />
+                    <p className="text-sm font-bold text-foreground">{label}</p>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5 mb-2">{note}</p>
-                  <p className={`text-xs font-bold ${selected ? "text-violet-700" : "text-slate-500"}`}>{price}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 mb-2">{note}</p>
+                  <p className="text-xs font-bold" style={{ color: selected ? "#B8A0C8" : "var(--muted-foreground)" }}>{price}</p>
                 </button>
               );
             })}
