@@ -189,7 +189,7 @@ function robustParse<T>(raw: string): T {
 /**
  * Strict-JSON synthesis — tries providers in order, returns first usable result.
  *
- * Order: Gemini JSON-mode (responseMimeType forces valid JSON) → Claude → GPT-4o-mini → OpenRouter auto.
+ * Order: DeepSeek (if key set) → Gemini JSON-mode → Claude → GPT-4o-mini → OpenRouter auto.
  * Each provider catches its own errors. Final fallback = caller's `opts.fallback`.
  */
 export async function synthesizeJson<T>(opts: {
@@ -200,6 +200,41 @@ export async function synthesizeJson<T>(opts: {
   maxTokens?: number;
 }): Promise<{ data: T; provider: string }> {
   const maxTokens = opts.maxTokens ?? 3000;
+
+  // ── 0. DeepSeek (deepseek-chat via direct API — fast & cheap JSON synthesis)
+  const deepseekKey = process.env.DEEPSEEK_API_KEY;
+  if (deepseekKey) {
+    try {
+      const resp = await fetch("https://api.deepseek.com/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${deepseekKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "deepseek-chat",
+          messages: [
+            { role: "system", content: opts.system },
+            { role: "user", content: opts.user },
+          ],
+          max_tokens: maxTokens,
+          temperature: 0.1,
+          response_format: { type: "json_object" },
+        }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (resp.ok) {
+        const d = await resp.json() as { choices?: Array<{ message?: { content?: string } }> };
+        const raw = d.choices?.[0]?.message?.content;
+        if (raw?.trim()) {
+          const parsed = robustParse<T>(raw);
+          if (isGoodData(parsed)) {
+            logger.info({ scope: "engines/ai/synthesizeJson" }, "synthesized via deepseek");
+            return { data: parsed, provider: "deepseek" };
+          }
+        }
+      }
+    } catch (e) {
+      logger.warn({ err: e, scope: "engines/ai/synthesizeJson/deepseek" }, "deepseek JSON failed");
+    }
+  }
 
   // ── 1. Direct Gemini with responseMimeType: "application/json"
   //    This forces Gemini to return JSON-structured output; robustParse handles
