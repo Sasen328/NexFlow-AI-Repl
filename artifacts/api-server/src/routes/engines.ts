@@ -49,6 +49,35 @@ async function persistRun(opts: {
   return row.id;
 }
 
+function isTransientError(e: any): boolean {
+  const msg: string = (e?.message ?? "").toLowerCase();
+  const status: number = e?.status ?? e?.statusCode ?? 0;
+  return status === 502 || status === 503 || status === 429
+    || msg.includes("502") || msg.includes("503") || msg.includes("rate limit")
+    || msg.includes("overloaded") || msg.includes("econnreset") || msg.includes("etimedout");
+}
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxAttempts = 2,
+  delayMs = 4000,
+): Promise<T> {
+  let lastErr: any;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (e: any) {
+      lastErr = e;
+      if (attempt < maxAttempts - 1 && isTransientError(e)) {
+        await new Promise((r) => setTimeout(r, delayMs * (attempt + 1)));
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastErr;
+}
+
 function runHandler<TInput>(opts: {
   engine: string;
   schema: z.ZodType<TInput>;
@@ -63,7 +92,7 @@ function runHandler<TInput>(opts: {
     }
     const started = Date.now();
     try {
-      const { report, sourcesUsed } = await opts.exec(parsed.data);
+      const { report, sourcesUsed } = await withRetry(() => opts.exec(parsed.data));
       const durationMs = Date.now() - started;
       const id = await persistRun({
         engine: opts.engine,
@@ -78,6 +107,10 @@ function runHandler<TInput>(opts: {
     } catch (e: any) {
       const durationMs = Date.now() - started;
       req.log?.error({ err: e, engine: opts.engine }, "engine run failed");
+      const isTransient = isTransientError(e);
+      const userMsg = isTransient
+        ? "The AI provider returned a temporary error (502/503). Please try again in a few seconds."
+        : (e?.message ?? "engine run failed");
       const id = await persistRun({
         engine: opts.engine,
         title: opts.titleOf(parsed.data),
@@ -88,7 +121,7 @@ function runHandler<TInput>(opts: {
         status: "error",
         error: e?.message ?? String(e),
       }).catch(() => "");
-      res.status(500).json({ id, error: e?.message ?? "engine run failed" });
+      res.status(500).json({ id, error: userMsg, retryable: isTransient });
     }
   };
 }
