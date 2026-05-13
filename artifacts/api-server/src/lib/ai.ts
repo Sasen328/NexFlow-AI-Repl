@@ -209,15 +209,30 @@ export function openrouter(): OpenAI {
   return _openrouterClient;
 }
 
-export type AiProvider = "openai" | "anthropic" | "gemini" | "perplexity" | "openrouter" | "auto";
+export type AiProvider =
+  | "openai"
+  | "anthropic"
+  | "gemini"
+  | "perplexity"
+  | "openrouter"
+  | "deepseek"
+  | "kimi"
+  | "auto";
 
 const providerModelMap: Record<AiProvider, string> = {
-  openai: "openai/gpt-4o-mini",
-  anthropic: "anthropic/claude-sonnet-4.6",
-  gemini: "google/gemini-2.5-flash",
+  openai:     "openai/gpt-4o-mini",
+  anthropic:  "anthropic/claude-sonnet-4.6",
+  gemini:     "google/gemini-2.5-flash",
   perplexity: "perplexity/sonar",
   openrouter: "openrouter/auto",
-  auto: "openrouter/auto",
+  // DeepSeek-V3 via OpenRouter free tier — cheapest synthesis option.
+  // $0.014/1M tokens via API; free within OpenRouter daily limits.
+  // Open-weight MIT license; also self-hostable via Ollama.
+  deepseek:   "deepseek/deepseek-chat-v3-0324:free",
+  // Kimi K2 via OpenRouter — long-context research agent (128k window).
+  // Best for deep autonomous research and agentic enrichment tasks.
+  kimi:       "moonshotai/kimi-k2",
+  auto:       "openrouter/auto",
 };
 
 /** Transcribe an audio buffer with OpenAI Whisper via the integration. */
