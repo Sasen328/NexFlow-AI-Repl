@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NexFlow — Comprehensive Product & Technical Document</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --em:#10b981;--eml:#d1fae5;--emm:#6ee7b7;
+  --bl:#3b82f6;--bll:#dbeafe;
+  --ro:#f43f5e;--rol:#ffe4e6;
+  --am:#f59e0b;--aml:#fef3c7;
+  --pu:#8b5cf6;--pul:#ede9fe;
+  --g50:#f9fafb;--g100:#f3f4f6;--g200:#e5e7eb;--g300:#d1d5db;
+  --g400:#9ca3af;--g500:#6b7280;--g600:#4b5563;--g700:#374151;
+  --g800:#1f2937;--g900:#111827;
+  --sw:240px;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;font-size:14px;line-height:1.6;color:var(--g800);background:#fff}
+
+/* TOP BAR */
+.topbar{position:sticky;top:0;z-index:100;background:#fff;border-bottom:1px solid var(--g200);padding:10px 24px;display:flex;align-items:center;justify-content:space-between}
+.tl{display:flex;align-items:center;gap:10px}
+.diamond{width:24px;height:24px;background:var(--em);transform:rotate(45deg);border-radius:4px;flex-shrink:0}
+.t-title{font-weight:900;font-size:16px;letter-spacing:-.02em;color:var(--g900)}
+.t-sub{font-size:12px;color:var(--g400);margin-left:4px}
+.badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:999px}
+.bg{background:var(--eml);color:#065f46}
+.bb{background:var(--bll);color:#1e40af}
+.br{background:var(--rol);color:#9f1239}
+.ba{background:var(--aml);color:#92400e}
+.bp{background:var(--pul);color:#4c1d95}
+.bk{background:var(--g100);color:var(--g600)}
+.pdf-btn{display:flex;align-items:center;gap:6px;background:var(--em);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:background .15s}
+.pdf-btn:hover{background:#059669}
+
+/* LAYOUT */
+.wrap{display:flex;max-width:1200px;margin:0 auto}
+.sb{width:var(--sw);flex-shrink:0;position:sticky;top:45px;height:calc(100vh - 45px);overflow-y:auto;padding:20px 8px 32px 16px;border-right:1px solid var(--g100)}
+.sb nav{display:flex;flex-direction:column;gap:1px}
+.ni{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;text-decoration:none;font-size:12px;color:var(--g500);transition:all .12s}
+.ni:hover{background:var(--g50);color:var(--g800)}
+.ni.on{background:#ecfdf5;color:#065f46;font-weight:600}
+.nn{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--g300);width:20px;flex-shrink:0}
+.sb-head{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--g400);padding:10px 8px 4px;margin-top:6px}
+
+main{flex:1;min-width:0;padding:36px 44px 80px;max-width:880px}
+section{margin-bottom:64px}
+
+/* SECTION HEADERS */
+.ey{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--g400);margin-bottom:4px}
+.st{font-size:26px;font-weight:900;letter-spacing:-.02em;color:var(--g900);line-height:1.1}
+.ss{margin-top:5px;font-size:15px;color:var(--g500);font-weight:300}
+hr.sd{margin:14px 0 24px;border:none;border-top:1px solid var(--g200)}
+
+/* CARDS */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+.card{background:var(--g50);border-radius:10px;padding:16px}
+.ct{font-weight:700;font-size:13px;color:var(--g900);margin-bottom:5px}
+.cb{font-size:12px;color:var(--g600);line-height:1.55}
+.cl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--g400);margin-bottom:3px}
+.sv{font-size:28px;font-weight:900;letter-spacing:-.03em;color:var(--g900);line-height:1}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+thead tr{background:var(--g900);color:#fff}
+thead th{padding:9px 11px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;text-align:left}
+thead th:not(:first-child){text-align:center}
+thead th:first-child{border-radius:8px 0 0 0}thead th:last-child{border-radius:0 8px 0 0}
+tbody tr{border-top:1px solid var(--g100)}
+tbody tr:nth-child(odd){background:var(--g50)}
+tbody td{padding:8px 11px;font-size:12px;color:var(--g600);text-align:center}
+tbody td:first-child{text-align:left;font-weight:500;color:var(--g800)}
+.nfc{color:var(--em)!important;font-weight:700!important}
+
+/* BARS */
+.br-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.br-lbl{width:110px;font-size:12px;color:var(--g600);text-align:right;flex-shrink:0}
+.br-trk{flex:1;height:12px;background:var(--g100);border-radius:999px;overflow:hidden}
+.br-fil{height:100%;border-radius:999px}
+.br-pct{width:32px;font-size:12px;font-weight:700;color:var(--g700);text-align:right;flex-shrink:0}
+
+/* SCREEN MOCK */
+.mock{border-radius:10px;border:1px solid var(--g200);overflow:hidden;margin:14px 0 18px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.mc{background:var(--g800);padding:7px 12px;display:flex;align-items:center;gap:6px}
+.dot{width:9px;height:9px;border-radius:50%}
+.mc .url{margin-left:8px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--g400)}
+.mb{background:var(--g50);padding:14px}
+
+/* CODE */
+pre{background:var(--g900);color:#86efac;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.65;border-radius:9px;padding:14px 16px;overflow-x:auto;margin:8px 0}
+code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--g100);padding:1px 4px;border-radius:3px;color:var(--g700)}
+pre code{background:none;padding:0;color:inherit}
+
+/* TIMELINE */
+.tl{position:relative;padding-left:26px}
+.tl::before{content:'';position:absolute;left:7px;top:6px;bottom:6px;width:2px;background:var(--g200)}
+.tli{position:relative;margin-bottom:12px}
+.tld{position:absolute;left:-23px;top:5px;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;font-size:5px;font-weight:900;color:#fff}
+.tlb{background:var(--g50);border-radius:9px;padding:10px 12px}
+.tlh{display:flex;align-items:center;gap:7px;margin-bottom:3px;flex-wrap:wrap}
+.tlt-{font-size:11px;font-weight:700;color:var(--g400);font-family:'JetBrains Mono',monospace}
+.tlt{font-size:13px;font-weight:700;color:var(--g900)}
+.tld2{font-size:12px;color:var(--g600);line-height:1.5}
+.tlm{display:inline-block;margin-top:5px;font-size:11px;font-weight:600;color:var(--em);background:var(--eml);border-radius:20px;padding:2px 9px}
+
+/* STEP */
+.sf{display:flex;flex-direction:column;gap:7px}
+.sr{display:flex;align-items:center;gap:8px}
+.sd2{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;flex-shrink:0}
+.sb2{flex:1;background:var(--g50);border-radius:7px;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sl{font-size:12px;font-weight:700;color:var(--g700)}
+.sdt{font-size:11px;color:var(--g500);text-align:right}
+
+/* FEATURE LIST */
+.fc{border-radius:10px;border:1px solid var(--g200);overflow:hidden}
+.fch{color:#fff;padding:9px 12px;font-weight:700;font-size:13px}
+.fci{padding:7px 12px;font-size:12px;color:var(--g700);border-top:1px solid var(--g100);display:flex;align-items:center;gap:7px}
+.fci::before{content:'✓';color:var(--em);font-weight:700;flex-shrink:0;font-size:11px}
+
+/* ALERT */
+.al{border-radius:9px;padding:12px 14px;font-size:12px;line-height:1.55}
+.alg{background:var(--eml);color:#065f46;border:1px solid var(--emm)}
+.alb{background:var(--bll);color:#1e40af;border:1px solid #bfdbfe}
+.ala{background:var(--aml);color:#92400e;border:1px solid #fcd34d}
+.alr{background:var(--rol);color:#9f1239;border:1px solid #fecdd3}
+
+/* PERSONA */
+.pa{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#fff;flex-shrink:0}
+
+/* TOC */
+.toc-g{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:16px}
+.toc-a{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:1px solid var(--g200);text-decoration:none;font-size:12px;font-weight:500;color:var(--g700);transition:all .12s}
+.toc-a:hover{border-color:var(--em);background:#f0fdf4;color:#065f46}
+.toc-n{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--g400)}
+.toc-arrow{margin-left:auto;color:var(--g300)}
+
+/* OFFICE CARD */
+.oc{background:var(--g50);border-radius:9px;padding:12px}
+.ocy{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--g400);font-weight:600;margin-bottom:2px}
+.ocn{font-size:13px;font-weight:700;color:var(--g900)}
+.ocv{font-size:18px;font-weight:900;color:var(--g900);letter-spacing:-.02em}
+.ocbar{margin-top:5px;height:5px;background:var(--g200);border-radius:999px;overflow:hidden}
+.ocf{height:100%;border-radius:999px}
+
+/* CHIP */
+.chip{display:inline-flex;align-items:center;gap:4px;background:var(--g100);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;color:var(--g700);margin:2px}
+.chip.em{background:var(--eml);color:#065f46}
+.chip.bl{background:var(--bll);color:#1e40af}
+.chip.pu{background:var(--pul);color:#4c1d95}
+.chip.am{background:var(--aml);color:#92400e}
+.chip.ro{background:var(--rol);color:#9f1239}
+
+/* PRINT */
+@media print{
+  .topbar,.sb,.pdf-btn{display:none!important}
+  main{padding:20px;max-width:none}
+  .wrap{display:block}
+  section{margin-bottom:32px;page-break-inside:avoid}
+  .pb{page-break-before:always}
+  .g2,.g3,.g4{gap:6px}
+  pre{white-space:pre-wrap;word-break:break-all}
+  a{color:inherit;text-decoration:none}
+}
+@media(max-width:900px){
+  .sb{display:none}
+  main{padding:20px 16px 60px}
+  .g2,.g3,.g4{grid-template-columns:1fr}
+  .toc-g{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tl">
+    <div class="diamond"></div>
+    <span class="t-title">NexFlow</span>
+    <span class="t-sub">Comprehensive Product &amp; Technical Document</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span class="badge bg">v2.0 · May 2026</span>
+    <button class="pdf-btn" onclick="window.print()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Download as PDF
+    </button>
+  </div>
+</div>
+
+<div class="wrap">
+<aside class="sb">
+  <nav>
+    <div class="sb-head">Overview</div>
+    <a class="ni on" href="#s00"><span class="nn">00</span>Index</a>
+    <a class="ni" href="#s01"><span class="nn">01</span>Company &amp; Mission</a>
+    <div class="sb-head">Technical</div>
+    <a class="ni" href="#s02"><span class="nn">02</span>Frontend Stack</a>
+    <a class="ni" href="#s03"><span class="nn">03</span>Backend Stack</a>
+    <a class="ni" href="#s04"><span class="nn">04</span>AI Stack</a>
+    <a class="ni" href="#s05"><span class="nn">05</span>Components</a>
+    <a class="ni" href="#s06"><span class="nn">06</span>API Docs</a>
+    <a class="ni" href="#s07"><span class="nn">07</span>Deployment</a>
+    <a class="ni" href="#s08"><span class="nn">08</span>Local Dev Setup</a>
+    <div class="sb-head">Product</div>
+    <a class="ni" href="#s09"><span class="nn">09</span>Role Journeys</a>
+    <a class="ni" href="#s10"><span class="nn">10</span>Competitive</a>
+    <a class="ni" href="#s11"><span class="nn">11</span>Expansion Plan</a>
+    <div class="sb-head">Business</div>
+    <a class="ni" href="#s12"><span class="nn">12</span>Feasibility</a>
+    <a class="ni" href="#s13"><span class="nn">13</span>Financial Projections</a>
+  </nav>
+</aside>
+
+<main>
+
+<!-- 00 INDEX -->
+<section id="s00">
+  <div class="ey">00</div>
+  <h1 class="st">NexFlow — Comprehensive Product &amp; Technical Document</h1>
+  <p class="ss">Universal AI-native B2B CRM for GCC markets · Tech stack · Architecture · Deployment · Financials · Expansion</p>
+  <hr class="sd"/>
+  <div class="g3" style="margin-bottom:16px">
+    <div class="card"><div class="cl">Document type</div><div style="font-size:13px;font-weight:600">Comprehensive Product &amp; Technical Reference</div></div>
+    <div class="card"><div class="cl">Sections</div><div style="font-size:13px;font-weight:600">14 sections · Tech, Product, Business</div></div>
+    <div class="card"><div class="cl">Version</div><div style="font-size:13px;font-weight:600">v2.0 · May 2026 · Confidential</div></div>
+  </div>
+  <div class="toc-g">
+    <a class="toc-a" href="#s01"><span class="toc-n">01</span>Company &amp; Mission<span class="toc-arrow">→</span></a>
+    <a class="toc-a" href="#s02"><span class="toc-n">02</span>Frontend Stack<span class="toc-arrow">→</span></a>
+    <a class="toc-a" href="#s03"><span class="toc-n">03</span>Backend Stack<span class="toc-arrow">→</span></a>
+    <a class="toc-a" href="#s04"><span class="toc-n">04</span>AI Stack<span class="toc-arrow">→</span></a>
+    <a class="toc-a" href="#s05"><span class="toc-n">05</span>Components<span class="toc-arrow">→</span></a>
+    <a class="toc-a" href="#s06"><span class="toc-n">06</span>API Docs<span class="toc-arrow">→</span></a>
+    <a class="toc-a" href="#s07"><span class="toc-n">07</span>Deployment<span class="toc-arrow">→</span></a>
+    <a class="toc-a" href="#s08"><span class="toc-n">08</span>Local Dev Setup<span class="toc-arrow">→</span></a>
+    <a class="toc-a" href="#s09"><span class="toc-n">09</span>Role Journeys<span class="toc-arrow">→</span></a>
+    <a class="toc-a" href="#s10"><span class="toc-n">10</span>Competitive<span class="toc-arrow">→</span></a>
+    <a class="toc-a" href="#s11"><span class="toc-n">11</span>Expansion Plan<span class="toc-arrow">→</span></a>
+    <a class="toc-a" href="#s12"><span class="toc-n">12</span>Feasibility<span class="toc-arrow">→</span></a>
+    <a class="toc-a" href="#s13"><span class="toc-n">13</span>Financial Projections<span class="toc-arrow">→</span></a>
+  </div>
+</section>
+
+<!-- 01 COMPANY -->
+<section id="s01" class="pb">
+  <div class="ey">01</div>
+  <h2 class="st">Company &amp; Mission</h2>
+  <p class="ss">Who we are, what we built, and why it matters in the GCC</p>
+  <hr class="sd"/>
+  <p style="color:var(--g700);line-height:1.75;margin-bottom:14px">NexFlow is an AI-native B2B CRM built from the ground up for GCC markets. While global CRMs translate their interfaces, NexFlow is Arabic at the schema level — Gulf naming conventions, Hijri calendar, Saudi IBAN, Iqama numbers, and the GCC business rhythm are first-class citizens of the data model, not cosmetic layers added after the fact.</p>
+  <p style="color:var(--g700);line-height:1.75;margin-bottom:20px">The platform ships three fully integrated engines under one plan: a complete CRM, a call center with 6 Khaleeji AI voice agents, and a GCC-first enrichment suite. No competitor ships all three natively for the Arabic-speaking enterprise market.</p>
+  <div class="g2">
+    <div class="card"><div class="ct">Mission</div><div class="cb">Make GCC sales teams as productive as the world's best — without asking them to use tools that were built for someone else.</div></div>
+    <div class="card"><div class="ct">Market mandate</div><div class="cb">Every feature ships Arabic-first, GCC-aware, and AI-native. Intelligence is baked into every record, call, and campaign — not bolted on as an add-on or charged separately.</div></div>
+    <div class="card"><div class="ct">Headquarters</div><div class="cb">Riyadh, Saudi Arabia. Regulated under Saudi MISA, data residency within the Kingdom. Expanding to UAE, Qatar, Kuwait, Bahrain, and Oman in Year 2.</div></div>
+    <div class="card"><div class="ct">The three engines</div><div class="cb">CRM (pipeline, deals, contacts, forecasting) + Call Center (Power Dialer, AI voice, post-call automation) + Enrichment (Saudi CR, 16-agent intel, buying signals). One schema, one bill.</div></div>
+  </div>
+</section>
+
+<!-- 02 FRONTEND -->
+<section id="s02" class="pb">
+  <div class="ey">02</div>
+  <h2 class="st">Frontend Stack</h2>
+  <p class="ss">React · Vite · TypeScript · Tailwind CSS · shadcn/ui · Framer Motion</p>
+  <hr class="sd"/>
+  <div class="g2" style="margin-bottom:16px">
+    <div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="ct">Core framework</div>
+        <div style="display:flex;flex-wrap:wrap;margin-top:6px">
+          <span class="chip bl">React 18</span><span class="chip bl">TypeScript 5.x</span><span class="chip bl">Vite 5</span>
+          <span class="chip bl">ES2022 target</span><span class="chip bl">Strict mode</span>
+        </div>
+        <div class="cb" style="margin-top:8px">React 18 with concurrent features. TypeScript in strict mode throughout. Vite for instant HMR dev experience and optimised production builds via Rollup.</div>
+      </div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="ct">Routing</div>
+        <div style="display:flex;flex-wrap:wrap;margin-top:6px"><span class="chip em">Wouter 3</span></div>
+        <div class="cb" style="margin-top:8px">Lightweight React router (1.5 kB). Hash-free history routing. Route guards implemented in <code>ProtectedAppLayout</code>. Public routes: <code>/</code>, <code>/welcome</code>, <code>/about</code>, <code>/pricing</code>, <code>/signin</code>, <code>/signup</code>, <code>/investors</code>.</div>
+      </div>
+      <div class="card">
+        <div class="ct">State &amp; data fetching</div>
+        <div style="display:flex;flex-wrap:wrap;margin-top:6px"><span class="chip pu">TanStack Query v5</span><span class="chip pu">React Context</span></div>
+        <div class="cb" style="margin-top:8px">TanStack Query for all server state. Smart invalidation on mutations. Local UI state via <code>useState</code> / <code>useReducer</code>. Global AI assistant state via React Context. Generated React Query hooks from OpenAPI spec via Orval.</div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="ct">Styling system</div>
+        <div style="display:flex;flex-wrap:wrap;margin-top:6px"><span class="chip am">Tailwind CSS 3</span><span class="chip am">shadcn/ui</span><span class="chip am">CSS Variables</span><span class="chip am">RTL support</span></div>
+        <div class="cb" style="margin-top:8px">Tailwind utility-first CSS with a custom design system (emerald + slate palette). shadcn/ui for all base components (Button, Dialog, Sheet, Tabs, etc.). CSS variables for theming. <code>dir="rtl"</code> compatible throughout for Arabic content.</div>
+      </div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="ct">Animation &amp; interaction</div>
+        <div style="display:flex;flex-wrap:wrap;margin-top:6px"><span class="chip ro">Framer Motion 11</span></div>
+        <div class="cb" style="margin-top:8px">Framer Motion for page transitions, modal entrances, AI assistant bubble drag (raw pointer events with snap-to-edge), and micro-interactions. Custom dead-zone logic (6 px) with <code>setPointerCapture</code> for reliable dragging.</div>
+      </div>
+      <div class="card">
+        <div class="ct">Charts &amp; data display</div>
+        <div style="display:flex;flex-wrap:wrap;margin-top:6px"><span class="chip em">Recharts 2</span><span class="chip em">TanStack Table v8</span></div>
+        <div class="cb" style="margin-top:8px">Recharts for all data visualisations (bar, line, area, radial). TanStack Table for sortable, filterable data grids (contacts, companies, activities). PapaParse for CSV import/export in the enrichment module.</div>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="ct">Key configuration files</div>
+    <pre><code>artifacts/nexflow/
+├── vite.config.ts          # Vite + React plugin, path aliases (@/ → src/), PORT env
+├── tailwind.config.ts      # Custom colour palette, dark mode class, content paths
+├── tsconfig.json           # noEmit, strict, paths, composite:false (leaf package)
+├── src/
+│   ├── main.tsx            # React root, QueryClient, Router wrapper
+│   ├── App.tsx             # All routes (public + protected), lazy imports
+│   ├── index.css           # Tailwind directives, CSS variables, glass-panel utilities
+│   ├── lib/
+│   │   ├── sections.ts     # 6-tab IA definition (Home/Leads/Calls/DataHub/Marketing/Insights)
+│   │   ├── api.ts          # apiFetch() — fetch wrapper, BASE_URL prefix, JSON parse
+│   │   └── marketing-auth.ts  # 5 demo personas, signInAs(), isSignedIn()
+│   ├── components/
+│   │   ├── layout/         # TopBar, SectionSidebar, SectionTabStrip, NexFlowLogo
+│   │   ├── marketing/      # MarketingTopBar, MarketingLayout
+│   │   └── ui/             # shadcn/ui components (button, dialog, sheet, tabs…)
+│   └── pages/              # One file per route (~80 pages)</code></pre>
+  </div>
+  <div class="g3">
+    <div class="card"><div class="ct">Icons</div><div class="cb">Lucide React — tree-shaken SVG icon library. ~150 icons used across the app. Zero runtime overhead.</div></div>
+    <div class="card"><div class="ct">Date/Time</div><div class="cb">date-fns for formatting. Hijri calendar conversion for GCC cultural features. Timezone-aware (AST +3 default).</div></div>
+    <div class="card"><div class="ct">Forms</div><div class="cb">React Hook Form + Zod resolvers for all data-entry forms. Server-side Zod schemas reused on the frontend via the generated <code>@workspace/api-spec</code> types.</div></div>
+  </div>
+</section>
+
+<!-- 03 BACKEND -->
+<section id="s03" class="pb">
+  <div class="ey">03</div>
+  <h2 class="st">Backend Stack</h2>
+  <p class="ss">Node.js · Express · TypeScript · Drizzle ORM · PostgreSQL · Zod</p>
+  <hr class="sd"/>
+  <div class="g2" style="margin-bottom:14px">
+    <div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="ct">Runtime &amp; framework</div>
+        <div style="display:flex;flex-wrap:wrap;margin-top:6px"><span class="chip bl">Node.js 20 LTS</span><span class="chip bl">Express 4</span><span class="chip bl">TypeScript 5</span></div>
+        <div class="cb" style="margin-top:8px">Express with strict TypeScript. Modular router pattern — one file per domain (<code>contacts.ts</code>, <code>deals.ts</code>, <code>engines.ts</code>, etc.). Pino logger injected as <code>req.log</code> — never <code>console.log</code> in server code.</div>
+      </div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="ct">Database ORM</div>
+        <div style="display:flex;flex-wrap:wrap;margin-top:6px"><span class="chip em">Drizzle ORM</span><span class="chip em">PostgreSQL 14+</span></div>
+        <div class="cb" style="margin-top:8px">Drizzle ORM with code-first schema in <code>lib/db/src/schema.ts</code>. Type-safe queries, auto-generated migrations. <code>drizzle-kit push</code> for schema sync. Connection pool via <code>pg</code> client. <code>DATABASE_URL</code> environment variable.</div>
+      </div>
+      <div class="card">
+        <div class="ct">Validation</div>
+        <div style="display:flex;flex-wrap:wrap;margin-top:6px"><span class="chip pu">Zod</span><span class="chip pu">OpenAPI schemas</span></div>
+        <div class="cb" style="margin-top:8px">Zod schemas as single source of truth for all request/response shapes. Schemas defined in <code>lib/api-spec/openapi.yaml</code>, then code-generated via Orval into React Query hooks and TypeScript types.</div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="ct">Auth &amp; sessions</div>
+        <div style="display:flex;flex-wrap:wrap;margin-top:6px"><span class="chip am">express-session</span><span class="chip am">SESSION_SECRET env</span></div>
+        <div class="cb" style="margin-top:8px">Server-side session cookies with <code>SESSION_SECRET</code>. Demo personas bypass password: <code>nf_role</code> cookie + <code>nf:signedIn</code> flag. Production path: full credential auth against <code>users</code> DB table. Investor portal gated by <code>INVESTOR_PASSCODE</code> env var.</div>
+      </div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="ct">Email</div>
+        <div style="display:flex;flex-wrap:wrap;margin-top:6px"><span class="chip ro">Resend SDK</span></div>
+        <div class="cb" style="margin-top:8px">Resend for transactional email. Used for post-call summaries, lead alerts, campaign notifications. <code>RESEND_API_KEY</code> env var. Falls back gracefully (logs intent, no crash) when key is absent.</div>
+      </div>
+      <div class="card">
+        <div class="ct">Monorepo structure</div>
+        <div style="display:flex;flex-wrap:wrap;margin-top:6px"><span class="chip bl">pnpm workspaces</span><span class="chip bl">@workspace/db</span><span class="chip bl">@workspace/api-spec</span></div>
+        <div class="cb" style="margin-top:8px">pnpm workspace monorepo. Shared <code>@workspace/db</code> (Drizzle schema + client) and <code>@workspace/api-spec</code> (OpenAPI → generated hooks). Leaf packages: <code>@workspace/api-server</code>, <code>@workspace/nexflow</code>, <code>@workspace/mobile</code>.</div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">Database schema — key tables</div>
+    <pre><code>lib/db/src/schema.ts
+
+contacts         id, firstName, lastName, email, phone, company, title,
+                 leadScore, icp, stage, assignedTo, lastContactedAt, createdAt
+companies        id, name, industry, country, crNumber (Saudi CR), employees,
+                 fundingStage, annualRevenue, createdAt
+deals            id, title, value, currency, stage, contactId, companyId,
+                 ownerId, expectedCloseDate, probability, createdAt
+activities       id, type (call/email/whatsapp/meeting/note), contactId,
+                 companyId, dealId, userId, notes, outcome, duration, createdAt
+calls            id, contactId, userId, duration, transcript, score,
+                 recordingUrl, redactedAt, outcome, createdAt
+engine_runs      id, kind (masaar/person-intel/company-intel/lead-finder),
+                 input, report (JSONB), durationMs, sourcesUsed, createdAt
+campaigns        id, name, goal, status, channels (array), audienceSize,
+                 scheduledAt, publishedAt, metrics (JSONB), createdAt
+sequences        id, name, steps (JSONB), enrolledCount, activeCount, createdAt
+users            id, email, passwordHash, role, firstName, lastName, createdAt
+sessions         sid, sess (JSONB), expire</code></pre>
+  </div>
+</section>
+
+<!-- 04 AI STACK -->
+<section id="s04" class="pb">
+  <div class="ey">04</div>
+  <h2 class="st">AI Stack</h2>
+  <p class="ss">OpenAI · Anthropic · Perplexity · Gemini · 16-agent parallel pipelines</p>
+  <hr class="sd"/>
+  <div class="g2" style="margin-bottom:14px">
+    <div class="card">
+      <div class="ct">Language models used</div>
+      <table style="margin-top:8px">
+        <thead><tr><th>Model</th><th>Provider</th><th>Primary use</th></tr></thead>
+        <tbody>
+          <tr><td>GPT-4o</td><td>OpenAI</td><td>Synthesis, forecasting, coaching</td></tr>
+          <tr><td>GPT-4o-mini</td><td>OpenAI</td><td>Fast classification, fallback pass</td></tr>
+          <tr><td>Claude 3.5 Sonnet</td><td>Anthropic</td><td>Long-form analysis, validation</td></tr>
+          <tr><td>Gemini 1.5 Pro</td><td>Google</td><td>Vision OCR, synthesis primary</td></tr>
+          <tr><td>Gemini 1.5 Flash</td><td>Google</td><td>Speed-critical parallel agents</td></tr>
+          <tr><td>Perplexity Sonar</td><td>Perplexity</td><td>Live web search, GCC news</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="ct">Person Intelligence — 16-agent fanOut</div>
+        <div class="cb" style="margin-top:6px">16 parallel agents: Perplexity ×9 (web + news + LinkedIn), Gemini ×5 (profile + company research), Claude ×1 (long-form synthesis), GPT-4o-mini ×1 (classification). All fire simultaneously via <code>fanOut()</code> with 55-second per-agent timeout. Results merged via <code>synthesizeJson</code> waterfall: Gemini direct → Claude → GPT-4o → fallback. Total time: 76–90 seconds.</div>
+      </div>
+      <div class="card">
+        <div class="ct">Business Card Scanner — 5-agent pipeline</div>
+        <div class="cb" style="margin-top:6px"><strong>Agent 1:</strong> Gemini Vision OCR (accepts dark/colored GCC luxury cards). <strong>Agent 2:</strong> Claude validation + data normalisation. <strong>Agent 3:</strong> Perplexity live web search for company + person. <strong>Agent 4:</strong> BS4/Cheerio website scraper. <strong>Agent 5:</strong> GPT-4o-mini ICP scoring. Total: ~30 seconds.</div>
+      </div>
+    </div>
+  </div>
+  <div class="g3" style="margin-bottom:14px">
+    <div class="card">
+      <div class="ct">AI Voice Agents — 6 personas</div>
+      <div class="cb" style="margin-top:6px">
+        <strong>Layla</strong> — Khaleeji F · warm, consultative<br/>
+        <strong>Faisal</strong> — KSA M · formal, direct<br/>
+        <strong>Noor</strong> — Bilingual AR/EN · versatile<br/>
+        <strong>Reem</strong> — Levantine dialect · relationship-focused<br/>
+        <strong>Omar</strong> — Egyptian dialect · energetic<br/>
+        <strong>Adam</strong> — English · international accounts
+      </div>
+    </div>
+    <div class="card">
+      <div class="ct">AI fallback strategy</div>
+      <div class="cb" style="margin-top:6px">Every AI endpoint extracts JSON via <code>reply.match(/\{[\s\S]*\}/)</code>. On parse failure or missing API key → falls back to curated sample data. This means 100% of the UI is demoable without any AI credentials configured. No silent failures — either real AI or explicit sample data.</div>
+    </div>
+    <div class="card">
+      <div class="ct">Synthesis waterfall</div>
+      <div class="cb" style="margin-top:6px">All multi-agent results run through <code>synthesizeJson()</code>: tries Gemini direct-parse first (fastest), then feeds raw bundle to Claude for structured extraction, then GPT-4o, then regex fallback. Ensures parseable output even when individual agents return unstructured prose.</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">AI API routes (all under <code>/api/</code>)</div>
+    <pre><code>POST /marketing/assistant-chat        # Marketing AI (key messages, channel copy, analysis)
+POST /marketing/generate-image        # Campaign visual generation (DALL-E / Gemini)
+POST /power-dialer/voice-agent-call   # Launch autonomous AI voice call
+POST /engines/masaar/run              # Saudi CR lookup (~10 s)
+POST /engines/person-intel/run        # 16-agent person research (76-90 s)
+POST /engines/company-intel/run       # Company deep research (~45 s)
+POST /engines/lead-finder/run         # Lead discovery (~30 s)
+POST /business-cards/scan             # 5-agent card pipeline (~30 s)
+GET  /engines/runs                    # History of all engine runs
+GET  /engines/runs/:id                # Single run detail { row: {...} }
+PATCH /engines/runs/:id               # Save / tag / annotate run</code></pre>
+  </div>
+</section>
+
+<!-- 05 COMPONENTS -->
+<section id="s05" class="pb">
+  <div class="ey">05</div>
+  <h2 class="st">Component Architecture</h2>
+  <p class="ss">~80 pages · 40+ shared components · strict single-responsibility</p>
+  <hr class="sd"/>
+  <div class="g2" style="margin-bottom:14px">
+    <div class="fc">
+      <div class="fch" style="background:var(--g800)">Layout Components</div>
+      <div class="fci"><code>TopBar</code> — avatar/persona switcher, notifications, AI bubble trigger</div>
+      <div class="fci"><code>SectionSidebar</code> — 6-tab nav with section items, collapsible</div>
+      <div class="fci"><code>SectionTabStrip</code> — per-section sub-tabs; suppresses Dashboard tab for certain sections</div>
+      <div class="fci"><code>ProtectedAppLayout</code> — auth gate, wraps all app routes</div>
+      <div class="fci"><code>NexFlowLogo</code> — SVG diamond mark, responsive sizes</div>
+      <div class="fci"><code>MarketingLayout</code> — public page wrapper with MarketingTopBar</div>
+    </div>
+    <div class="fc">
+      <div class="fch" style="background:var(--bl)">Marketing Pages (public)</div>
+      <div class="fci"><code>WelcomePage</code> — hero, feature grid, personas, pricing CTA</div>
+      <div class="fci"><code>AboutPage</code> — company story, team, values</div>
+      <div class="fci"><code>PricingPage</code> — 3-tier pricing, feature matrix</div>
+      <div class="fci"><code>BrandPage</code> — logo variants, palette, typography</div>
+      <div class="fci"><code>InvestorsPage</code> — passcode-gated deck + data room</div>
+      <div class="fci"><code>Auth.tsx</code> — sign-in + sign-up + 5 persona pills</div>
+    </div>
+    <div class="fc" style="margin-top:10px">
+      <div class="fch" style="background:var(--em)">CRM Pages</div>
+      <div class="fci"><code>BriefingPage</code> — Daily Brief + Command Center (Home)</div>
+      <div class="fci"><code>LeadsPipelinePage</code> — pre-SAL funnel + AI gap analysis</div>
+      <div class="fci"><code>DealsPage</code> — kanban with AI stage analysis header</div>
+      <div class="fci"><code>ContactsPage</code> — searchable grid + AI enrichment trigger</div>
+      <div class="fci"><code>CompaniesPage</code> — companies + account hub tabs</div>
+      <div class="fci"><code>ForecastingPage</code> — waterfall + per-rep AI rationale</div>
+    </div>
+    <div class="fc" style="margin-top:10px">
+      <div class="fch" style="background:var(--ro)">Call Center Pages</div>
+      <div class="fci"><code>PowerDialerPage</code> — 3 modes, live transcript, LiveCoachPanel</div>
+      <div class="fci"><code>LiveCoachPanel</code> — objection detection + real-time suggestions</div>
+      <div class="fci"><code>PostCallAutomation</code> — approval queue, cadence rules, inboxes</div>
+      <div class="fci"><code>CallsPage</code> — scoring view + conversation intelligence</div>
+      <div class="fci"><code>ContactCenterSetup</code> — voice library, AI agent toggles, guardrails</div>
+      <div class="fci"><code>CallDashboardPage</code> — KPIs, volume, quality scores</div>
+    </div>
+    <div class="fc" style="margin-top:10px">
+      <div class="fch" style="background:var(--pu)">Enrichment Pages</div>
+      <div class="fci"><code>EnrichmentEnginePage</code> — 7-tab consolidated engine</div>
+      <div class="fci"><code>ProspectingTab</code> — company/person search + signal picker</div>
+      <div class="fci"><code>BuyingSignalsTab</code> — channel mapping (8 GCC sources)</div>
+      <div class="fci"><code>ListUploadTab</code> — phase machine: upload→dedup→questionnaire</div>
+      <div class="fci"><code>BusinessCardsTab</code> — 5-agent card scanner UI</div>
+      <div class="fci"><code>SearchHistoryTab</code> — filterable run history, re-run, delete</div>
+    </div>
+    <div class="fc" style="margin-top:10px">
+      <div class="fch" style="background:var(--am)">Marketing Pages</div>
+      <div class="fci"><code>MarketingDashboardPage</code> — KPIs + 3-up AI analysis + hot leads</div>
+      <div class="fci"><code>CampaignBuilderPage</code> — Sales Funnel / AI Builder / Manual / Publishing</div>
+      <div class="fci"><code>CampaignPerformancePage</code> — per-campaign KPIs, ROI, AI suggestions</div>
+      <div class="fci"><code>WebFormsPage</code> — AI form creator + predictive analysis</div>
+      <div class="fci"><code>SequencesAudiencesPage</code> — sequences + templates + audiences</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">Key shared components</div>
+    <pre><code>src/components/
+├── AIAssistantBubble.tsx   # Draggable AI bubble (pointer events, snap-to-edge, persisted pos)
+├── VoiceCallModal.tsx      # Real-time voice call overlay with transcript stream
+├── layout/
+│   ├── TopBar.tsx          # Sticky top bar — persona avatar + switcher dropdown
+│   ├── SectionSidebar.tsx  # Left nav — 6 top-level sections + sub-items
+│   └── SectionTabStrip.tsx # Horizontal sub-tabs per section
+├── marketing/
+│   ├── MarketingTopBar.tsx # Public site header
+│   └── MarketingLayout.tsx # Public site wrapper
+└── ui/                     # shadcn/ui: button, card, dialog, drawer, dropdown-menu,
+                            # input, label, select, sheet, tabs, tooltip, badge,
+                            # calendar, pagination, navigation-menu, progress, slider…</code></pre>
+  </div>
+</section>
+
+<!-- 06 API DOCS -->
+<section id="s06" class="pb">
+  <div class="ey">06</div>
+  <h2 class="st">API Documentation</h2>
+  <p class="ss">REST · Express · base path <code>/api</code> · session auth · JSON throughout</p>
+  <hr class="sd"/>
+  <div class="al alb" style="margin-bottom:14px"><strong>Base URL:</strong> All routes are prefixed with <code>/api</code>. In development: <code>http://localhost:8080/api/...</code>. In production (Replit deployment): <code>https://your-domain.replit.app/api/...</code>. The shared reverse proxy routes <code>/api/*</code> to the api-server artifact automatically.</div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="ct">CRM endpoints</div>
+    <pre><code># Contacts
+GET    /api/contacts                  # List all (filter: ?search=, ?stage=, ?icp=)
+POST   /api/contacts                  # Create (requires firstName + lastName, else 400)
+GET    /api/contacts/:id              # Single contact + enrichment data
+PUT    /api/contacts/:id              # Update contact fields
+DELETE /api/contacts/:id              # Soft-delete
+
+# Activities (feed per contact)
+GET    /api/activities                # List (filter: ?contact_id=, ?type=, ?limit=)
+POST   /api/activities                # Log call note / email / meeting / WhatsApp
+
+# Deals
+GET    /api/deals                     # All deals (filter: ?stage=, ?owner=)
+POST   /api/deals                     # Create deal
+PUT    /api/deals/:id                 # Move stage, update probability / value
+DELETE /api/deals/:id
+
+# Companies
+GET    /api/companies                 # List with employee count, funding, deals count
+POST   /api/companies
+PUT    /api/companies/:id
+
+# Pipeline
+GET    /api/pipeline                  # Pre-SAL lead counts by stage
+POST   /api/pipeline/move             # Move lead between stages
+
+# Forecasting
+GET    /api/forecast                  # Per-rep waterfall + AI rationale</code></pre>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="ct">Call Center endpoints</div>
+    <pre><code>GET    /api/calls                      # Call log (filter: ?contact_id=, ?outcome=)
+POST   /api/calls                      # Log new call (duration, transcript, outcome)
+GET    /api/calls/:id                  # Single call + transcript + AI score
+POST   /api/calls/:id/redact           # Trigger PDPL redaction (Iqama / IBAN / CC)
+
+POST   /api/power-dialer/voice-agent-call   # Launch AI autonomous call
+POST   /api/power-dialer/log-outcome        # Log voicemail / no-answer / connected
+POST   /api/power-dialer/post-call-action   # Push note + task + reminder + WA draft
+
+GET    /api/post-call/queue            # Approval queue (AI-drafted WA/email cards)
+POST   /api/post-call/approve/:id      # Approve and send
+POST   /api/post-call/reject/:id       # Reject with reason
+
+GET    /api/scripts                    # Knowledge base items
+POST   /api/scripts
+GET    /api/call-analytics             # Aggregated KPIs: volume, AHT, quality score</code></pre>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="ct">Marketing endpoints</div>
+    <pre><code>POST   /api/marketing/assistant-chat         # AI copy / analysis / key messages
+POST   /api/marketing/generate-image         # Campaign visual (DALL-E / Gemini)
+POST   /api/marketing/publish/:campaignId    # Publish to channels (demo: synthetic results)
+
+GET    /api/campaigns                         # All campaigns with metrics
+POST   /api/campaigns                         # Create campaign
+PUT    /api/campaigns/:id                     # Update / save draft
+GET    /api/campaigns/:id/performance         # Per-channel KPIs, ROI, hot leads
+
+GET    /api/sequences                         # Email/WA sequences
+POST   /api/sequences
+GET    /api/audiences                         # Audience segments
+POST   /api/audiences
+
+GET    /api/web-forms                         # Form definitions
+POST   /api/web-forms
+GET    /api/web-forms/:id/submissions         # Form submissions</code></pre>
+  </div>
+  <div class="card">
+    <div class="ct">Enrichment + misc endpoints</div>
+    <pre><code>POST   /api/business-cards/scan              # 5-agent card pipeline (multipart/form-data)
+GET    /api/signals                           # Buying signal feed (GCC sources)
+POST   /api/enrich/lead                       # Quick single-lead enrichment
+POST   /api/enrich/bulk                       # Bulk upload enrichment queue
+
+GET    /api/engines/runs                      # All intelligence engine runs
+GET    /api/engines/runs/:id                  # Single run { row: { id, report, … } }
+PATCH  /api/engines/runs/:id                  # Save / tag / notes
+POST   /api/engines/masaar/run               # Saudi CR lookup
+POST   /api/engines/person-intel/run         # 16-agent person intel
+POST   /api/engines/company-intel/run        # Company deep intel
+POST   /api/engines/lead-finder/run          # Lead discovery
+
+GET    /api/healthz                           # Health check { status: "ok" }
+POST   /api/auth/signin                       # Credential auth (+ demo persona shortcuts)
+POST   /api/auth/signout
+GET    /api/me                                # Current user / persona</code></pre>
+  </div>
+</section>
+
+<!-- 07 DEPLOYMENT -->
+<section id="s07" class="pb">
+  <div class="ey">07</div>
+  <h2 class="st">Deployment</h2>
+  <p class="ss">Replit Deployments · static CDN · managed PostgreSQL · custom domains · TLS</p>
+  <hr class="sd"/>
+  <div class="g2" style="margin-bottom:14px">
+    <div class="card">
+      <div class="ct">Infrastructure — Replit Deployments</div>
+      <div class="cb" style="margin-top:6px;line-height:1.75">
+        <strong>Platform:</strong> Replit Deployments (auto-scaling, managed infra)<br/>
+        <strong>Static artifacts:</strong> <code>nexflow</code>, <code>company-profile-deck</code>, <code>investor-deck</code>, <code>marketing-demo-video</code> — built to static HTML/JS/CSS, served via Replit CDN<br/>
+        <strong>Dynamic artifact:</strong> <code>api-server</code> — Node.js process, always-on container<br/>
+        <strong>Database:</strong> Replit-managed PostgreSQL, auto-provisioned, <code>DATABASE_URL</code> injected at runtime<br/>
+        <strong>Mobile:</strong> Expo managed build → App Store + Google Play (separate submission)
+      </div>
+    </div>
+    <div class="card">
+      <div class="ct">Build process</div>
+      <pre style="font-size:10px"><code># Static web artifacts (Vite build)
+pnpm --filter @workspace/nexflow run build
+# Outputs: artifacts/nexflow/dist/
+# Served: / (root path)
+
+# API server
+pnpm --filter @workspace/api-server run build
+# TypeScript → dist/, then Node.js starts
+
+# Slides
+pnpm --filter @workspace/company-profile-deck run build
+pnpm --filter @workspace/investor-deck run build
+
+# Shared libs (must build first)
+pnpm --filter @workspace/db run build
+pnpm --filter @workspace/api-spec run codegen</code></pre>
+    </div>
+  </div>
+  <div class="g3" style="margin-bottom:14px">
+    <div class="card">
+      <div class="ct">Routing architecture</div>
+      <div class="cb" style="margin-top:6px">Replit reverse proxy routes by path prefix. Each artifact declares its <code>paths</code> in <code>.replit-artifact/artifact.toml</code>. Routes are matched most-specific-first. No port collisions: each artifact reads <code>PORT</code> env var assigned at boot time.</div>
+    </div>
+    <div class="card">
+      <div class="ct">Environment secrets</div>
+      <div class="cb" style="margin-top:6px">All secrets stored in Replit Secrets Manager (never in code). Required: <code>DATABASE_URL</code>, <code>SESSION_SECRET</code>. Optional AI: <code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>, <code>PERPLEXITY_API_KEY</code>, <code>GEMINI_API_KEY</code>. Optional: <code>RESEND_API_KEY</code>, <code>INVESTOR_PASSCODE</code>.</div>
+    </div>
+    <div class="card">
+      <div class="ct">Domain + TLS</div>
+      <div class="cb" style="margin-top:6px">Default domain: <code>nexflow.replit.app</code> (auto-provisioned HTTPS via Let's Encrypt). Custom domain: add A/CNAME records pointing to Replit, configure in deployment settings. mTLS proxy protects the preview iframe in development.</div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="ct">artifact.toml — API server example</div>
+    <pre><code>[artifact]
+id = "api-server"
+kind = "api"
+title = "API Server"
+
+[[services]]
+name = "API Server"
+localPort = 8080          # Read from $PORT at runtime
+paths = ["/api"]          # All /api/* routes served by this container
+
+[services.build]
+command = "pnpm --filter @workspace/api-server run build"
+
+[services.run]
+command = "pnpm --filter @workspace/api-server run serve"</code></pre>
+  </div>
+  <div class="card">
+    <div class="ct">Production checklist</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;font-size:12px">
+      <div style="display:flex;gap:6px"><span style="color:var(--em);font-weight:700">✓</span><span>SESSION_SECRET set to random 64-char string</span></div>
+      <div style="display:flex;gap:6px"><span style="color:var(--em);font-weight:700">✓</span><span>DATABASE_URL points to production PostgreSQL</span></div>
+      <div style="display:flex;gap:6px"><span style="color:var(--em);font-weight:700">✓</span><span>pnpm --filter @workspace/db run push (schema applied)</span></div>
+      <div style="display:flex;gap:6px"><span style="color:var(--em);font-weight:700">✓</span><span>NODE_ENV=production (disables dev logs/cache bypass)</span></div>
+      <div style="display:flex;gap:6px"><span style="color:var(--em);font-weight:700">✓</span><span>INVESTOR_PASSCODE set (if investor portal needed)</span></div>
+      <div style="display:flex;gap:6px"><span style="color:var(--em);font-weight:700">✓</span><span>Custom domain configured + SSL certificate active</span></div>
+      <div style="display:flex;gap:6px"><span style="color:var(--em);font-weight:700">✓</span><span>RESEND_API_KEY set (for email notifications)</span></div>
+      <div style="display:flex;gap:6px"><span style="color:var(--em);font-weight:700">✓</span><span>AI API keys set (or confirm sample-data fallback OK)</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 08 LOCAL DEV -->
+<section id="s08" class="pb">
+  <div class="ey">08</div>
+  <h2 class="st">Local Development Setup</h2>
+  <p class="ss">Full stack running on your machine in under 10 minutes</p>
+  <hr class="sd"/>
+  <div class="card" style="margin-bottom:14px">
+    <div class="ct">System requirements</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;font-size:12px">
+      <div style="display:flex;gap:8px"><code>Node.js 20+</code><span style="color:var(--g600)">nodejs.org/en/download</span></div>
+      <div style="display:flex;gap:8px"><code>pnpm 10+</code><span style="color:var(--g600)">npm install -g pnpm@latest</span></div>
+      <div style="display:flex;gap:8px"><code>PostgreSQL 14+</code><span style="color:var(--g600)">postgresql.org/download</span></div>
+      <div style="display:flex;gap:8px"><code>Git</code><span style="color:var(--g600)">git-scm.com</span></div>
+      <div style="display:flex;gap:8px"><code>Expo Go</code><span style="color:var(--g600)">App Store / Google Play (mobile only)</span></div>
+      <div style="display:flex;gap:8px"><code>VS Code</code><span style="color:var(--g600)">+ ESLint, Prettier, TypeScript extensions</span></div>
+    </div>
+  </div>
+  <div style="margin-bottom:14px"><strong>Step 1 — Clone and install</strong><pre><code>git clone https://github.com/your-org/nexflow.git
+cd nexflow
+pnpm install          # installs all workspace packages</code></pre></div>
+  <div style="margin-bottom:14px"><strong>Step 2 — Create PostgreSQL database</strong><pre><code>psql -U postgres
+CREATE DATABASE nexflow_dev;
+\q</code></pre></div>
+  <div style="margin-bottom:14px"><strong>Step 3 — Environment variables</strong>
+    <p style="font-size:12px;color:var(--g500);margin:5px 0">Create <code>artifacts/api-server/.env</code>:</p>
+    <pre><code># Required
+PORT=8080
+DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/nexflow_dev
+SESSION_SECRET=any-long-random-string-at-least-32-chars
+
+# AI features — all optional (UI works with sample data without these)
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+PERPLEXITY_API_KEY=pplx-...
+GEMINI_API_KEY=AIza...
+
+# Optional services
+RESEND_API_KEY=re_...         # For email notifications
+INVESTOR_PASSCODE=demo1234    # Gates the /investors page</code></pre>
+    <div class="al alg" style="margin-top:8px;font-size:12px">No AI keys required — all AI features fall back to realistic sample data. The full CRM is demoable immediately without any third-party accounts.</div>
+  </div>
+  <div style="margin-bottom:14px"><strong>Step 4 — Push database schema</strong><pre><code>pnpm --filter @workspace/db run push
+# Applies all Drizzle schema definitions to the database</code></pre></div>
+  <div style="margin-bottom:14px"><strong>Step 5 — Start services (4 terminal tabs)</strong>
+    <pre><code># Tab 1 — API Server (start this first; wait for "listening on port 8080")
+PORT=8080 DATABASE_URL=postgresql://postgres:pw@localhost:5432/nexflow_dev \
+  SESSION_SECRET=any-secret pnpm --filter @workspace/api-server run dev
+
+# Tab 2 — Web CRM app → open http://localhost:5173
+PORT=5173 pnpm --filter @workspace/nexflow run dev
+
+# Tab 3 — Mobile app (optional)
+EXPO_PUBLIC_DOMAIN=YOUR_LAN_IP:8080 pnpm --filter @workspace/mobile run dev
+# Then open Expo Go on your phone and scan the QR code
+
+# Tab 4 — Slides (optional)
+PORT=5175 pnpm --filter @workspace/company-profile-deck run dev</code></pre>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="ct">Demo sign-in — 5 instant personas (click on sign-in page)</div>
+    <div class="g2" style="margin-top:8px">
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px"><code style="background:var(--eml);color:#065f46">sales</code><div><strong>Khalid Al-Otaibi</strong> — Senior Sales Executive</div></div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px"><code style="background:var(--bll);color:#1e40af">manager</code><div><strong>Layla Al-Sabah</strong> — Head of Sales, Gulf Region</div></div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px"><code style="background:var(--pul);color:#4c1d95">ceo</code><div><strong>Faisal Al-Harbi</strong> — CEO</div></div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px"><code style="background:var(--aml);color:#92400e">admin</code><div><strong>Sara Al-Mansouri</strong> — CRM Operations Lead</div></div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px"><code style="background:var(--rol);color:#9f1239">marketing</code><div><strong>Reem Al-Qahtani</strong> — Head of Marketing</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">Common troubleshooting</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+      <div><code style="color:var(--ro)">EADDRINUSE</code><span style="font-size:12px;color:var(--g600);margin-left:8px">Change the PORT value or kill the process on that port.</span></div>
+      <div><code style="color:var(--ro)">Cannot find module '@workspace/db'</code><span style="font-size:12px;color:var(--g600);margin-left:8px">Run <code>pnpm install</code> then <code>pnpm --filter @workspace/db run push</code>.</span></div>
+      <div><code style="color:var(--ro)">Blank web app / API 404</code><span style="font-size:12px;color:var(--g600);margin-left:8px">API server must start before the web app. Check Tab 1 logs for errors.</span></div>
+      <div><code style="color:var(--ro)">Mobile can't reach API</code><span style="font-size:12px;color:var(--g600);margin-left:8px">Set <code>EXPO_PUBLIC_DOMAIN</code> to your LAN IP (e.g. 192.168.1.5:8080), not localhost.</span></div>
+      <div><code style="color:var(--ro)">TypeScript errors in editor</code><span style="font-size:12px;color:var(--g600);margin-left:8px">Run <code>pnpm run typecheck</code> from root — trust CLI over editor/LSP when they disagree.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 09 ROLE JOURNEYS -->
+<section id="s09" class="pb">
+  <div class="ey">09</div>
+  <h2 class="st">Role Journeys</h2>
+  <p class="ss">A full working day in NexFlow for each of the 5 personas</p>
+  <hr class="sd"/>
+
+  <!-- Khalid -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+    <div class="pa" style="background:var(--bl)">K</div>
+    <div><div style="font-size:15px;font-weight:700">Khalid Al-Otaibi — Senior Sales Executive</div><div style="font-size:12px;color:var(--g500)">KSA mid-market · 12-deal pipeline · quota SAR 1.2M/quarter</div></div>
+  </div>
+  <div class="tl" style="margin-bottom:32px">
+    <div class="tli"><div class="tld" style="background:var(--bl)">▸</div><div class="tlb"><div class="tlh"><span class="tlt-">7:30</span><span class="tlt">AI Daily Brief on phone</span><span class="badge bg" style="font-size:9px">Auto</span></div><div class="tld2">3 hot leads flagged overnight. AI voice agent Layla qualified 4 prospects while Khalid slept. Khalid/Aramco renewal is URGENT — proposal expires Friday, win-rate dropped 18 pts. Command Center pre-loads his first 5 calls.</div><div class="tlm">4 leads qualified while sleeping</div></div></div>
+    <div class="tli"><div class="tld" style="background:var(--em)">▸</div><div class="tlb"><div class="tlh"><span class="tlt-">9:00</span><span class="tlt">Power Dialer — pre-call brief for Khalid Al-Rashid, Aramco</span></div><div class="tld2">Score 82 · Buying-Now intent. Last 4 call summaries, full stakeholder map, 3 pain signals detected, proposal status, open items all on one screen. Zero prep minutes spent by Khalid.</div><div class="tlm">0 prep minutes — everything auto-loaded</div></div></div>
+    <div class="tli"><div class="tld" style="background:var(--am)">▸</div><div class="tlb"><div class="tlh"><span class="tlt-">9:08</span><span class="tlt">LiveCoachPanel fires mid-call</span><span class="badge bg" style="font-size:9px">Real-time</span></div><div class="tld2">"Budget objection detected." Suggested Arabic response appears on screen in under 2 seconds. Competitor mention (Salesforce) triggers a counter-argument card. Khalid stays focused on the conversation — NexFlow handles the coaching.</div><div class="tlm">Objection detected in &lt;2 seconds</div></div></div>
+    <div class="tli"><div class="tld" style="background:var(--em)">▸</div><div class="tlb"><div class="tlh"><span class="tlt-">9:22</span><span class="tlt">1-click post-call panel</span><span class="badge bg" style="font-size:9px">Auto</span></div><div class="tld2">Call note logged + follow-up task created + 3-day reminder set + Arabic WhatsApp draft sent to Khalid Al-Rashid — all in one tap. Rep immediately advances to next call in queue.</div><div class="tlm">7 actions in 1 click</div></div></div>
+    <div class="tli"><div class="tld" style="background:var(--pu)">▸</div><div class="tlb"><div class="tlh"><span class="tlt-">11:30</span><span class="tlt">Business card scanner at GITEX booth</span></div><div class="tld2">Photos a business card → 5-agent AI pipeline: Gemini Vision OCR → Claude validation → Perplexity live search → company website scraper → GPT-4o-mini ICP score. Fully enriched, CR-verified, ICP-scored lead lands in CRM in 30 seconds.</div><div class="tlm">Photo → enriched CRM record in 30 s</div></div></div>
+    <div class="tli"><div class="tld" style="background:var(--ro)">▸</div><div class="tlb"><div class="tlh"><span class="tlt-">14:00</span><span class="tlt">Forgotten lead resurfaces automatically</span></div><div class="tld2">Ma'aden Metals — 94 days silent. NexFlow detects a Wamda signal: just raised SAR 75M Series B. AI adds contact to Power Dialer queue with a briefing note. Khalid calls within 5 minutes of the signal firing.</div><div class="tlm">Signal → action in &lt;5 minutes</div></div></div>
+    <div class="tli"><div class="tld" style="background:var(--em)">▸</div><div class="tlb"><div class="tlh"><span class="tlt-">16:30</span><span class="tlt">SAR-priced quote → Tap payment → deal closes</span></div><div class="tld2">Quote generated in NexFlow with SAR pricing, Tap payment link embedded. Customer pays online. Deal auto-closes in pipeline. Total time from quote to close: 22 minutes. No follow-up call needed.</div><div class="tlm">Deal closed in 22 minutes</div></div></div>
+  </div>
+
+  <!-- Layla -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+    <div class="pa" style="background:var(--em)">L</div>
+    <div><div style="font-size:15px;font-weight:700">Layla Al-Sabah — Head of Sales, Gulf Region</div><div style="font-size:12px;color:var(--g500)">Manages 8 reps across Riyadh &amp; Eastern Province · Team quota SAR 9.6M/Q</div></div>
+  </div>
+  <div class="g2" style="margin-bottom:32px">
+    <div class="card">
+      <div class="ct" style="margin-bottom:10px">Team quota attainment — this week</div>
+      <div class="br-row"><span class="br-lbl">Khalid A.</span><div class="br-trk"><div class="br-fil" style="width:94%;background:var(--em)"></div></div><span class="br-pct">94%</span></div>
+      <div class="br-row"><span class="br-lbl">Tariq M.</span><div class="br-trk"><div class="br-fil" style="width:83%;background:var(--em)"></div></div><span class="br-pct">83%</span></div>
+      <div class="br-row"><span class="br-lbl">Reem H.</span><div class="br-trk"><div class="br-fil" style="width:71%;background:var(--am)"></div></div><span class="br-pct">71%</span></div>
+      <div class="br-row"><span class="br-lbl">Faisal A.</span><div class="br-trk"><div class="br-fil" style="width:58%;background:var(--am)"></div></div><span class="br-pct">58%</span></div>
+      <div class="br-row"><span class="br-lbl">Lina K.</span><div class="br-trk"><div class="br-fil" style="width:34%;background:var(--ro)"></div></div><span class="br-pct">34%</span></div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="ct" style="margin-bottom:8px">AI coaching signals — auto-generated</div>
+        <div style="font-size:12px;line-height:1.9">
+          <div style="color:var(--ro)"><strong>Lina K.</strong> — Pricing pushback rising · joint call recommended this week</div>
+          <div style="color:var(--am)"><strong>Faisal A.</strong> — Discovery talk-time below 32% · share 3 call replays</div>
+          <div style="color:var(--am)"><strong>Reem H.</strong> — 3 deals stalled 14d+ · suggest unblock conversation</div>
+          <div style="color:var(--em)"><strong>Khalid A.</strong> — High win-rate, low volume · consider lifting quota 15%</div>
+        </div>
+      </div>
+      <div class="g3">
+        <div class="card" style="text-align:center"><div class="cl">At-risk</div><div class="sv" style="font-size:20px;color:var(--ro)">7</div><div style="font-size:11px;color:var(--ro)">SAR 4.2M</div></div>
+        <div class="card" style="text-align:center"><div class="cl">Deal cycle</div><div class="sv" style="font-size:20px">38d</div><div style="font-size:11px;color:var(--em)">−4d vs Q2</div></div>
+        <div class="card" style="text-align:center"><div class="cl">Coverage</div><div class="sv" style="font-size:20px">3.1×</div><div style="font-size:11px;color:var(--am)">Healthy</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CEO -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+    <div class="pa" style="background:var(--pu)">F</div>
+    <div><div style="font-size:15px;font-weight:700">Faisal Al-Harbi — CEO</div><div style="font-size:12px;color:var(--g500)">6-office GCC operation · SAR 129M ARR target · Thursday board prep</div></div>
+  </div>
+  <div style="margin-bottom:32px">
+    <div style="font-size:12px;font-weight:700;color:var(--g600);margin-bottom:10px">GCC Situation Room — Q3 Live</div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="oc"><div class="ocy">KSA</div><div class="ocn">Riyadh</div><div class="ocv">SAR 52M</div><div class="ocbar"><div class="ocf" style="width:88%;background:var(--am)"></div></div><div style="font-size:11px;color:var(--am);margin-top:3px;font-weight:600">+8% QoQ · 2 deals at risk</div></div>
+      <div class="oc"><div class="ocy">UAE</div><div class="ocn">Dubai</div><div class="ocv">SAR 38M</div><div class="ocbar"><div class="ocf" style="width:95%;background:var(--em)"></div></div><div style="font-size:11px;color:var(--em);margin-top:3px;font-weight:600">+14% QoQ · exceeding</div></div>
+      <div class="oc"><div class="ocy">Qatar</div><div class="ocn">Doha</div><div class="ocv">SAR 14M</div><div class="ocbar"><div class="ocf" style="width:72%;background:var(--am)"></div></div><div style="font-size:11px;color:var(--am);margin-top:3px;font-weight:600">On track · Q4 upside potential</div></div>
+      <div class="oc"><div class="ocy">Kuwait</div><div class="ocn">Kuwait City</div><div class="ocv">SAR 11M</div><div class="ocbar"><div class="ocf" style="width:58%;background:var(--ro)"></div></div><div style="font-size:11px;color:var(--ro);margin-top:3px;font-weight:600">3 quota gaps · ALERT</div></div>
+      <div class="oc"><div class="ocy">Bahrain</div><div class="ocn">Manama</div><div class="ocv">SAR 6M</div><div class="ocbar"><div class="ocf" style="width:68%;background:var(--am)"></div></div><div style="font-size:11px;color:var(--am);margin-top:3px;font-weight:600">New office · tracking</div></div>
+      <div class="oc"><div class="ocy">Oman</div><div class="ocn">Muscat</div><div class="ocv">SAR 8M</div><div class="ocbar"><div class="ocf" style="width:100%;background:var(--em)"></div></div><div style="font-size:11px;color:var(--em);margin-top:3px;font-weight:600">+22% QoQ · best performer</div></div>
+    </div>
+    <div class="al alr">AI Signal: Kuwait City — 3 quota gaps, 2 enterprise deals at risk (SAR 6.4M). Riyadh forecast confidence dropped 8pts — 4 deals pushed to Q4. Recommend board review before Thursday.</div>
+  </div>
+
+  <!-- Sara -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+    <div class="pa" style="background:var(--am)">S</div>
+    <div><div style="font-size:15px;font-weight:700">Sara Al-Mansouri — CRM Operations Lead</div><div style="font-size:12px;color:var(--g500)">Data quality · ICP rules · user provisioning · integrations</div></div>
+  </div>
+  <div class="g2" style="margin-bottom:32px">
+    <div class="card">
+      <div class="ct">Daily operations</div>
+      <div class="tl" style="margin-top:10px">
+        <div class="tli"><div class="tld" style="background:var(--am)">▸</div><div class="tlb"><div class="tlh"><span class="tlt-">8:00</span><span class="tlt">Data health check</span></div><div class="tld2">Reviews deduplication queue (14 flagged overnight). Approves merge for 11 records, keeps 3 separate with notes.</div></div></div>
+        <div class="tli"><div class="tld" style="background:var(--am)">▸</div><div class="tlb"><div class="tlh"><span class="tlt-">9:30</span><span class="tlt">ICP rules update</span></div><div class="tld2">Updates ICP rules engine: adds "Series B+ funded" as a soft signal for Financial Services vertical. Republishes scoring; 847 contacts rescored in 4 minutes.</div></div></div>
+        <div class="tli"><div class="tld" style="background:var(--am)">▸</div><div class="tlb"><div class="tlh"><span class="tlt-">11:00</span><span class="tlt">New rep provisioning</span></div><div class="tld2">Onboards 2 new Eastern Province reps. Assigns territories, quotas, playbooks. Sets up AI voice agent (Faisal persona) for both. Done in 8 minutes.</div></div></div>
+        <div class="tli"><div class="tld" style="background:var(--am)">▸</div><div class="tlb"><div class="tlh"><span class="tlt-">14:00</span><span class="tlt">PDPL compliance audit</span></div><div class="tld2">Reviews call redaction logs — confirms 100% of Iqama numbers and Saudi IBANs auto-redacted from last 30 days of transcripts. Exports compliance report.</div><div class="tlm">0 unredacted PII in 30 days</div></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="ct">CRM health metrics</div>
+        <div class="g2" style="margin-top:8px">
+          <div class="card" style="text-align:center;padding:10px"><div class="cl">Data completeness</div><div class="sv" style="font-size:18px;color:var(--em)">94%</div></div>
+          <div class="card" style="text-align:center;padding:10px"><div class="cl">Duplicate rate</div><div class="sv" style="font-size:18px;color:var(--em)">1.2%</div></div>
+          <div class="card" style="text-align:center;padding:10px"><div class="cl">ICP coverage</div><div class="sv" style="font-size:18px">87%</div></div>
+          <div class="card" style="text-align:center;padding:10px"><div class="cl">Contacts enriched</div><div class="sv" style="font-size:18px;color:var(--em)">3,841</div></div>
+        </div>
+      </div>
+      <div class="al alg" style="font-size:12px">Sara can re-run enrichment on any segment, trigger deduplication, manage the buying signal channel list, and export PDPL compliance reports — all without engineering support.</div>
+    </div>
+  </div>
+
+  <!-- Reem -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+    <div class="pa" style="background:var(--ro)">R</div>
+    <div><div style="font-size:15px;font-weight:700">Reem Al-Qahtani — Head of Marketing</div><div style="font-size:12px;color:var(--g500)">AI Campaign Builder · Cultural Intelligence · 7-channel publishing</div></div>
+  </div>
+  <div class="g2" style="margin-bottom:8px">
+    <div class="card">
+      <div class="ct" style="margin-bottom:10px">AI Campaign Builder — 4 minutes end to end</div>
+      <div class="sf">
+        <div class="sr"><div class="sd2" style="background:var(--bl)">01</div><div class="sb2"><span class="sl">Goal</span><span class="sdt">Activate Vision 2030 SMBs · KSA + UAE</span></div></div>
+        <div class="sr"><div class="sd2" style="background:var(--pu)">02</div><div class="sb2"><span class="sl">Audience</span><span class="sdt">2,418 contacts from live CRM</span></div></div>
+        <div class="sr"><div class="sd2" style="background:var(--am)">03</div><div class="sb2"><span class="sl">Cultural Intel ON</span><span class="sdt">Khaleeji · Arabic-first · Sun–Wed 9–11 AM</span></div></div>
+        <div class="sr"><div class="sd2" style="background:var(--ro)">04</div><div class="sb2"><span class="sl">AI generates 7 channels</span><span class="sdt">LinkedIn · X · IG · FB · WhatsApp · Email · SMS</span></div></div>
+        <div class="sr"><div class="sd2" style="background:var(--em)">05</div><div class="sb2"><span class="sl">Review + edit</span><span class="sdt">WhatsApp ✓ · Email tweaked · LinkedIn ✓</span></div></div>
+        <div class="sr"><div class="sd2" style="background:var(--bl)">06</div><div class="sb2"><span class="sl">Publish + track</span><span class="sdt">Scheduled Sun 9AM · attribution wired to pipeline</span></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="card" style="text-align:center;padding:10px"><div class="cl">MQLs</div><div class="sv" style="font-size:18px;color:var(--em)">2,418</div><div style="font-size:11px;color:var(--em)">+18% MoM</div></div>
+        <div class="card" style="text-align:center;padding:10px"><div class="cl">Pipeline gen.</div><div class="sv" style="font-size:14px">SAR 9.4M</div><div style="font-size:11px;color:var(--bl)">62% attr.</div></div>
+        <div class="card" style="text-align:center;padding:10px"><div class="cl">CAC payback</div><div class="sv" style="font-size:18px">7.2mo</div><div style="font-size:11px;color:var(--g500)">On target</div></div>
+      </div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="ct" style="margin-bottom:8px">Campaign attribution</div>
+        <div class="br-row"><span class="br-lbl" style="font-size:11px">Vision 2030 SMB</span><div class="br-trk"><div class="br-fil" style="width:78%;background:var(--em)"></div></div><span class="br-pct">78%</span></div>
+        <div class="br-row"><span class="br-lbl" style="font-size:11px">Mid-market WB</span><div class="br-trk"><div class="br-fil" style="width:61%;background:var(--bl)"></div></div><span class="br-pct">61%</span></div>
+        <div class="br-row"><span class="br-lbl" style="font-size:11px">Ent. nurture</span><div class="br-trk"><div class="br-fil" style="width:47%;background:var(--pu)"></div></div><span class="br-pct">47%</span></div>
+      </div>
+      <div class="al ala" style="font-size:11px"><strong>Cultural alert:</strong> Eid Al-Adha in 18 days. Pre-Eid GOLD window opens Tuesday. Launch pre-Eid campaign now.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 COMPETITIVE -->
+<section id="s10" class="pb">
+  <div class="ey">10</div>
+  <h2 class="st">Competitive Analysis</h2>
+  <p class="ss">12 capabilities that only NexFlow ships natively for the GCC</p>
+  <hr class="sd"/>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th style="min-width:190px">Capability</th><th style="color:var(--emm)">NexFlow</th><th>Salesforce</th><th>HubSpot</th><th>Zoho</th><th>Pipedrive</th></tr></thead>
+      <tbody>
+        <tr><td>Arabic AI Voice Agents (autonomous)</td><td class="nfc">6 dialects · included</td><td>English only · $2/conv add-on</td><td>No</td><td>No</td><td>No</td></tr>
+        <tr><td>Post-call Arabic WhatsApp auto-draft</td><td class="nfc">Native · every plan</td><td>No</td><td>No</td><td>No</td><td>No</td></tr>
+        <tr><td>Saudi Commercial Registry lookup</td><td class="nfc">Real-time · built-in</td><td>No</td><td>No</td><td>No</td><td>No</td></tr>
+        <tr><td>GCC buying signals (Wamda/MoCI/Argaam)</td><td class="nfc">8 sources · native</td><td>No</td><td>No</td><td>No</td><td>No</td></tr>
+        <tr><td>16-agent deep person intel (90 sec)</td><td class="nfc">Ships today</td><td>No</td><td>No</td><td>No</td><td>No</td></tr>
+        <tr><td>GCC cultural calendar + AI advisor</td><td class="nfc">Per-country · built-in</td><td>No</td><td>No</td><td>No</td><td>No</td></tr>
+        <tr><td>WhatsApp native inbox + bilingual AI bot</td><td class="nfc">Native</td><td>3rd party</td><td>3rd party</td><td>3rd party</td><td>No</td></tr>
+        <tr><td>Business card → enriched lead (5-agent)</td><td class="nfc">30 sec · built-in</td><td>No</td><td>No</td><td>OCR only</td><td>No</td></tr>
+        <tr><td>CRM + Calls + Enrichment on one schema</td><td class="nfc">One plan</td><td>3 products · 3 bills</td><td>3 tiers + add-ons</td><td>50+ apps</td><td>CRM only</td></tr>
+        <tr><td>GCC payment rails (Tap / Mada / HyperPay)</td><td class="nfc">Native</td><td>Stripe only</td><td>Stripe only</td><td>Stripe only</td><td>No</td></tr>
+        <tr><td>KSA PDPL call redaction (Iqama / Saudi IBAN)</td><td class="nfc">Built-in · auto</td><td>No</td><td>No</td><td>No</td><td>No</td></tr>
+        <tr><td>Live call coaching (objection detection)</td><td class="nfc">LiveCoachPanel · included</td><td>Gong add-on (~$1,200/yr)</td><td>No</td><td>No</td><td>No</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="al alg" style="margin-top:12px"><strong>Pricing comparison (fully-loaded annual cost, 10 seats):</strong> NexFlow Growth SAR 349/seat/mo = SAR 41,880/yr · Salesforce Sales Cloud + Einstein + Agentforce = $96,000+/yr · HubSpot Sales Hub Enterprise + Call Center add-ons = $73,000+/yr · Zoho CRM Plus = $28,800/yr (but 50+ apps, no Arabic AI, no Saudi CR).</div>
+</section>
+
+<!-- 11 EXPANSION -->
+<section id="s11" class="pb">
+  <div class="ey">11</div>
+  <h2 class="st">GCC Expansion Plan</h2>
+  <p class="ss">Saudi Arabia launch → full GCC → Levant + North Africa</p>
+  <hr class="sd"/>
+  <div class="g3" style="margin-bottom:16px">
+    <div style="border-radius:10px;border:2px solid var(--bll);padding:16px">
+      <div class="badge bb" style="margin-bottom:10px">Year 1 — 2025–26</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:var(--g900)">Saudi Arabia — Market Entry</div>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--g700)">
+        <li style="display:flex;gap:6px"><span style="color:var(--bl)">→</span>Riyadh + Eastern Province launch</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--bl)">→</span>Core CRM + Power Dialer + 6 Arabic voices</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--bl)">→</span>Saudi CR (Masaar) + 16-agent Person Intel</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--bl)">→</span>Post-call WhatsApp + Cultural Calendar</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--bl)">→</span>KSA PDPL compliance certification</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--bl)">→</span>MISA licensing for SaaS operations</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--bl)">→</span>Target: 50 customers · SAR 3.6M ARR</li>
+      </ul>
+    </div>
+    <div style="border-radius:10px;border:2px solid var(--eml);padding:16px">
+      <div class="badge bg" style="margin-bottom:10px">Year 2 — 2026–27</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:var(--g900)">UAE · Qatar · Kuwait</div>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--g700)">
+        <li style="display:flex;gap:6px"><span style="color:var(--em)">→</span>Dubai + Abu Dhabi office (UAE HQ)</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--em)">→</span>Doha + Kuwait City market entry</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--em)">→</span>AED / QAR / KWD pricing + payment rails</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--em)">→</span>UAE Federal Data Law compliance</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--em)">→</span>Qatar PDPPL compliance</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--em)">→</span>iOS + Android app (Expo build)</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--em)">→</span>WhatsApp Business API direct partnership</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--em)">→</span>Target: 200 customers · SAR 14.4M ARR</li>
+      </ul>
+    </div>
+    <div style="border-radius:10px;border:2px solid var(--pul);padding:16px">
+      <div class="badge bp" style="margin-bottom:10px">Year 3 — 2027–28</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:var(--g900)">Bahrain · Oman · Levant</div>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--g700)">
+        <li style="display:flex;gap:6px"><span style="color:var(--pu)">→</span>Manama + Muscat offices</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--pu)">→</span>Jordan + Egypt exploration (Levantine/Egyptian dialect agents)</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--pu)">→</span>GCC Marketplace (SI partner network)</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--pu)">→</span>Autonomous deal negotiation agents</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--pu)">→</span>GCC payments infra (direct Mada/Tap licences)</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--pu)">→</span>Arabic LLM fine-tuning (proprietary sales corpus)</li>
+        <li style="display:flex;gap:6px"><span style="color:var(--pu)">→</span>Target: 1,200 customers · SAR 86M ARR</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct" style="margin-bottom:10px">Country-by-country requirements</div>
+    <table>
+      <thead><tr><th>Country</th><th>Dialect</th><th>Data law</th><th>Payment rail</th><th>Key regulator</th></tr></thead>
+      <tbody>
+        <tr><td>Saudi Arabia 🇸🇦</td><td>Khaleeji (formal KSA)</td><td>PDPL + NCA</td><td>Mada · Tap · HyperPay</td><td>CITC / SAMA</td></tr>
+        <tr><td>UAE 🇦🇪</td><td>Khaleeji (Gulf)</td><td>Federal Data Law (PDPL-UAE)</td><td>Network International · Tabby</td><td>TDRA / CBUAE</td></tr>
+        <tr><td>Qatar 🇶🇦</td><td>Khaleeji</td><td>PDPPL</td><td>QNB · Tap Qatar</td><td>NPC / QCB</td></tr>
+        <tr><td>Kuwait 🇰🇼</td><td>Kuwaiti</td><td>Data Protection Law</td><td>KNET · MyFatoorah</td><td>CSB / CBK</td></tr>
+        <tr><td>Bahrain 🇧🇭</td><td>Bahraini</td><td>PDPL Bahrain</td><td>BenefitPay · Benefit</td><td>iGA / CBB</td></tr>
+        <tr><td>Oman 🇴🇲</td><td>Omani</td><td>DP Law Royal Decree</td><td>Thawani · Omantel Pay</td><td>TRA / CBO</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 12 FEASIBILITY -->
+<section id="s12" class="pb">
+  <div class="ey">12</div>
+  <h2 class="st">Feasibility Analysis</h2>
+  <p class="ss">Technical · Market · Operational · Risk assessment</p>
+  <hr class="sd"/>
+  <div class="g2" style="margin-bottom:16px">
+    <div>
+      <div class="card" style="margin-bottom:10px;border-left:3px solid var(--em)">
+        <div class="ct">Technical feasibility — HIGH ✓</div>
+        <div class="cb" style="margin-top:6px;line-height:1.75">
+          <strong>AI infrastructure:</strong> Arabic LLMs (GPT-4o, Gemini, Claude) reached production quality for Khaleeji dialect in 2024. Voice synthesis for Gulf Arabic is now deployable at enterprise scale — this capability did not exist reliably 18 months ago.<br/><br/>
+          <strong>Platform stack:</strong> React + Node.js + PostgreSQL is battle-tested. Drizzle ORM + pnpm monorepo provides clean multi-artifact architecture. TypeScript throughout ensures type safety as the codebase scales.<br/><br/>
+          <strong>Multi-agent pipelines:</strong> 16-agent fanOut is already running in production in 76–90 seconds. Perplexity's real-time search provides live GCC data that no static database can match.<br/><br/>
+          <strong>Proven risk mitigation:</strong> Every AI endpoint has a sample-data fallback — the platform never crashes on AI provider outages.
+        </div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--bl)">
+        <div class="ct">Market feasibility — HIGH ✓</div>
+        <div class="cb" style="margin-top:6px;line-height:1.75">
+          <strong>Timing:</strong> Vision 2030 is creating 1,000+ new B2B companies per year in KSA alone. These companies are digitally native, mobile-first, and Arabic-speaking — they will not adopt tools built for English-speaking Western markets.<br/><br/>
+          <strong>Competition gap:</strong> Zero global CRMs offer Arabic AI voice calling in any GCC dialect. Zero offer Saudi CR lookup. Zero offer post-call Arabic WhatsApp automation. NexFlow owns this white space today.<br/><br/>
+          <strong>Existing pain:</strong> GCC sales teams currently use Salesforce (English-only, $800+/seat/yr) or Zoho (50 disconnected apps, no Arabic AI). Both require a system integrator. NexFlow deploys in hours.
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:10px;border-left:3px solid var(--pu)">
+        <div class="ct">Operational feasibility — MEDIUM-HIGH ✓</div>
+        <div class="cb" style="margin-top:6px;line-height:1.75">
+          <strong>Team requirements (Year 1):</strong> 2 senior engineers (fullstack + AI), 1 product manager, 2 enterprise sales, 1 customer success, 1 compliance/legal (PDPL specialist). Total headcount: 7–10.<br/><br/>
+          <strong>Go-to-market:</strong> Direct sales to C-suite (CEO/VP Sales) at KSA mid-market companies (50–500 employees). Target verticals: real estate, professional services, logistics, fintech, healthcare. GITEX and LEAP conferences for lead generation.<br/><br/>
+          <strong>Customer acquisition:</strong> 30-day free trial, demo-first motion (5 instant personas, no setup required). Target demo-to-trial conversion: 40%. Trial-to-paid: 25%. Average ACV: SAR 72K (Growth plan, 12 seats).
+        </div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--ro)">
+        <div class="ct">Risk analysis</div>
+        <div class="cb" style="margin-top:6px;line-height:1.75">
+          <strong>Risk 1 — AI provider dependency:</strong> Mitigated by multi-provider architecture (OpenAI + Anthropic + Gemini + Perplexity) and sample-data fallbacks. No single provider outage can take down the platform.<br/><br/>
+          <strong>Risk 2 — PDPL regulatory change:</strong> Mitigated by building compliance in from day one (call redaction, in-Kingdom data residency). Engaged a Saudi PDPL specialist firm.<br/><br/>
+          <strong>Risk 3 — Enterprise sales cycle:</strong> Mitigated by instant demo (no IT involvement required) and 30-day free trial. First 10 customers expected via founder-led sales.<br/><br/>
+          <strong>Risk 4 — Competing with Salesforce price:</strong> Mitigated by 5× lower price AND 12 capabilities Salesforce cannot match in GCC without add-ons.
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="background:var(--g900);color:#fff;border-radius:12px;padding:20px">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;opacity:.5;margin-bottom:12px">Feasibility summary scorecard</div>
+    <div class="g4">
+      <div style="text-align:center"><div style="font-size:24px;font-weight:900;color:var(--emm)">9/10</div><div style="font-size:11px;opacity:.7;margin-top:3px">Technical readiness</div></div>
+      <div style="text-align:center"><div style="font-size:24px;font-weight:900;color:var(--emm)">8/10</div><div style="font-size:11px;opacity:.7;margin-top:3px">Market timing</div></div>
+      <div style="text-align:center"><div style="font-size:24px;font-weight:900;color:var(--emm)">7/10</div><div style="font-size:11px;opacity:.7;margin-top:3px">Operational readiness</div></div>
+      <div style="text-align:center"><div style="font-size:24px;font-weight:900;color:var(--emm)">8/10</div><div style="font-size:11px;opacity:.7;margin-top:3px">Risk mitigation</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 13 FINANCIALS -->
+<section id="s13" class="pb">
+  <div class="ey">13</div>
+  <h2 class="st">Financial Projections</h2>
+  <p class="ss">3-year ARR model · unit economics · revenue breakdown · investor metrics</p>
+  <hr class="sd"/>
+
+  <div class="g3" style="margin-bottom:16px">
+    <div style="background:var(--g900);color:#fff;border-radius:12px;padding:18px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;opacity:.5;margin-bottom:6px">Year 1 · FY 2025–26</div>
+      <div style="font-size:32px;font-weight:900;line-height:1;color:var(--emm)">SAR 3.6M</div>
+      <div style="font-size:12px;opacity:.7;margin-top:4px">ARR at year-end</div>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:4px;font-size:11px;opacity:.8">
+        <div>50 customers</div>
+        <div>Avg ACV: SAR 72K (12 seats · Growth)</div>
+        <div>Churn target: &lt;5%</div>
+        <div>NRR target: 108%</div>
+      </div>
+    </div>
+    <div style="background:var(--bl);color:#fff;border-radius:12px;padding:18px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;opacity:.7;margin-bottom:6px">Year 2 · FY 2026–27</div>
+      <div style="font-size:32px;font-weight:900;line-height:1">SAR 14.4M</div>
+      <div style="font-size:12px;opacity:.8;margin-top:4px">ARR at year-end</div>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:4px;font-size:11px;opacity:.85">
+        <div>200 customers · 3 new markets</div>
+        <div>Avg ACV: SAR 72K</div>
+        <div>Churn target: &lt;8%</div>
+        <div>NRR target: 115%</div>
+      </div>
+    </div>
+    <div style="background:var(--em);color:#fff;border-radius:12px;padding:18px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;opacity:.8;margin-bottom:6px">Year 3 · FY 2027–28</div>
+      <div style="font-size:32px;font-weight:900;line-height:1">SAR 86M</div>
+      <div style="font-size:12px;opacity:.85;margin-top:4px">ARR at year-end</div>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:4px;font-size:11px;opacity:.9">
+        <div>1,200 customers · full GCC</div>
+        <div>Avg ACV: SAR 72K</div>
+        <div>Churn target: &lt;6%</div>
+        <div>NRR target: 120%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="g2" style="margin-bottom:16px">
+    <div class="card">
+      <div class="ct" style="margin-bottom:12px">ARR progression (SAR M)</div>
+      <div class="br-row"><span class="br-lbl">Q1 Y1</span><div class="br-trk"><div class="br-fil" style="width:4%;background:var(--em)"></div></div><span class="br-pct" style="font-size:11px">0.4M</span></div>
+      <div class="br-row"><span class="br-lbl">Q2 Y1</span><div class="br-trk"><div class="br-fil" style="width:9%;background:var(--em)"></div></div><span class="br-pct" style="font-size:11px">0.9M</span></div>
+      <div class="br-row"><span class="br-lbl">Q3 Y1</span><div class="br-trk"><div class="br-fil" style="width:18%;background:var(--em)"></div></div><span class="br-pct" style="font-size:11px">1.8M</span></div>
+      <div class="br-row"><span class="br-lbl">EOY1</span><div class="br-trk"><div class="br-fil" style="width:36%;background:var(--em)"></div></div><span class="br-pct" style="font-size:11px">3.6M</span></div>
+      <div class="br-row"><span class="br-lbl">EOY2</span><div class="br-trk"><div class="br-fil" style="width:58%;background:var(--bl)"></div></div><span class="br-pct" style="font-size:11px">14.4M</span></div>
+      <div class="br-row"><span class="br-lbl">EOY3</span><div class="br-trk"><div class="br-fil" style="width:100%;background:var(--pu)"></div></div><span class="br-pct" style="font-size:11px">86M</span></div>
+    </div>
+    <div class="card">
+      <div class="ct" style="margin-bottom:12px">Unit economics</div>
+      <table>
+        <thead><tr><th>Metric</th><th>Y1</th><th>Y2</th><th>Y3</th></tr></thead>
+        <tbody>
+          <tr><td>Avg ACV</td><td>SAR 72K</td><td>SAR 72K</td><td>SAR 72K</td></tr>
+          <tr><td>CAC (blended)</td><td>SAR 28K</td><td>SAR 22K</td><td>SAR 16K</td></tr>
+          <tr><td>CAC payback</td><td>4.7 mo</td><td>3.7 mo</td><td>2.7 mo</td></tr>
+          <tr><td>Gross margin</td><td>72%</td><td>76%</td><td>80%</td></tr>
+          <tr><td>LTV (3yr)</td><td>SAR 196K</td><td>SAR 204K</td><td>SAR 212K</td></tr>
+          <tr><td>LTV:CAC</td><td>7.0×</td><td>9.3×</td><td>13.3×</td></tr>
+          <tr><td>NRR</td><td>108%</td><td>115%</td><td>120%</td></tr>
+          <tr><td>Monthly churn</td><td>0.4%</td><td>0.65%</td><td>0.5%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="g2" style="margin-bottom:16px">
+    <div class="card">
+      <div class="ct" style="margin-bottom:12px">Revenue breakdown — Year 3</div>
+      <div class="br-row"><span class="br-lbl" style="font-size:11px">Saudi Arabia</span><div class="br-trk"><div class="br-fil" style="width:55%;background:var(--em)"></div></div><span class="br-pct" style="font-size:11px">55%</span></div>
+      <div class="br-row"><span class="br-lbl" style="font-size:11px">UAE</span><div class="br-trk"><div class="br-fil" style="width:25%;background:var(--bl)"></div></div><span class="br-pct" style="font-size:11px">25%</span></div>
+      <div class="br-row"><span class="br-lbl" style="font-size:11px">Qatar</span><div class="br-trk"><div class="br-fil" style="width:10%;background:var(--pu)"></div></div><span class="br-pct" style="font-size:11px">10%</span></div>
+      <div class="br-row"><span class="br-lbl" style="font-size:11px">Kuwait + Bah. + Om.</span><div class="br-trk"><div class="br-fil" style="width:10%;background:var(--am)"></div></div><span class="br-pct" style="font-size:11px">10%</span></div>
+      <div style="margin-top:12px">
+        <div class="br-row"><span class="br-lbl" style="font-size:11px">Starter plan</span><div class="br-trk"><div class="br-fil" style="width:20%;background:var(--g300)"></div></div><span class="br-pct" style="font-size:11px">20%</span></div>
+        <div class="br-row"><span class="br-lbl" style="font-size:11px">Growth plan</span><div class="br-trk"><div class="br-fil" style="width:55%;background:var(--em)"></div></div><span class="br-pct" style="font-size:11px">55%</span></div>
+        <div class="br-row"><span class="br-lbl" style="font-size:11px">Enterprise</span><div class="br-trk"><div class="br-fil" style="width:25%;background:var(--pu)"></div></div><span class="br-pct" style="font-size:11px">25%</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ct" style="margin-bottom:12px">Funding &amp; use of funds (Seed round: SAR 8M)</div>
+      <div class="br-row"><span class="br-lbl" style="font-size:11px">Engineering</span><div class="br-trk"><div class="br-fil" style="width:40%;background:var(--bl)"></div></div><span class="br-pct" style="font-size:11px">40%</span></div>
+      <div class="br-row"><span class="br-lbl" style="font-size:11px">Sales &amp; GTM</span><div class="br-trk"><div class="br-fil" style="width:30%;background:var(--em)"></div></div><span class="br-pct" style="font-size:11px">30%</span></div>
+      <div class="br-row"><span class="br-lbl" style="font-size:11px">AI compute</span><div class="br-trk"><div class="br-fil" style="width:15%;background:var(--pu)"></div></div><span class="br-pct" style="font-size:11px">15%</span></div>
+      <div class="br-row"><span class="br-lbl" style="font-size:11px">Compliance + legal</span><div class="br-trk"><div class="br-fil" style="width:10%;background:var(--am)"></div></div><span class="br-pct" style="font-size:11px">10%</span></div>
+      <div class="br-row"><span class="br-lbl" style="font-size:11px">Ops + G&amp;A</span><div class="br-trk"><div class="br-fil" style="width:5%;background:var(--g300)"></div></div><span class="br-pct" style="font-size:11px">5%</span></div>
+      <div class="al alg" style="margin-top:10px;font-size:11px">Seed round target: SAR 8M. 18-month runway at current burn. Series A trigger: SAR 10M ARR (~Q3 Year 2). Series A target: SAR 30M for full GCC expansion + AI R&amp;D.</div>
+    </div>
+  </div>
+
+  <div class="g4">
+    <div style="background:var(--g900);color:#fff;border-radius:10px;padding:14px;text-align:center"><div class="cl" style="opacity:.5">TAM (GCC CRM)</div><div style="font-size:20px;font-weight:900;color:var(--emm)">$2.4B</div><div style="font-size:10px;opacity:.6;margin-top:2px">2027 SAM</div></div>
+    <div style="background:var(--g900);color:#fff;border-radius:10px;padding:14px;text-align:center"><div class="cl" style="opacity:.5">Y3 market share</div><div style="font-size:20px;font-weight:900;color:var(--emm)">2%</div><div style="font-size:10px;opacity:.6;margin-top:2px">Conservative SOM</div></div>
+    <div style="background:var(--g900);color:#fff;border-radius:10px;padding:14px;text-align:center"><div class="cl" style="opacity:.5">Payback period</div><div style="font-size:20px;font-weight:900;color:var(--emm)">&lt;5 mo</div><div style="font-size:10px;opacity:.6;margin-top:2px">Y3 blended</div></div>
+    <div style="background:var(--g900);color:#fff;border-radius:10px;padding:14px;text-align:center"><div class="cl" style="opacity:.5">LTV:CAC (Y3)</div><div style="font-size:20px;font-weight:900;color:var(--emm)">13.3×</div><div style="font-size:10px;opacity:.6;margin-top:2px">Best-in-class SaaS</div></div>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="border-top:1px solid var(--g200);padding-top:28px;margin-top:48px;text-align:center;color:var(--g400)">
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px">
+      <div class="diamond" style="width:18px;height:18px"></div>
+      <span style="font-size:14px;font-weight:900;color:var(--g800)">NexFlow</span>
+    </div>
+    <div style="font-size:12px">Universal AI-native B2B CRM for GCC markets</div>
+    <div style="font-size:11px;margin-top:3px">Comprehensive Product &amp; Technical Document · v2.0 · May 2026 · Confidential</div>
+    <div style="font-size:11px;margin-top:3px">14 sections · Tech Stack · Components · API Docs · Deployment · Role Journeys · Expansion · Feasibility · Financials</div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+const items=document.querySelectorAll('.ni');
+const secs=document.querySelectorAll('section[id]');
+const io=new IntersectionObserver(e=>{
+  e.forEach(x=>{
+    if(x.isIntersecting){
+      items.forEach(a=>a.classList.remove('on'));
+      const t=document.querySelector(`.ni[href="#${x.target.id}"]`);
+      if(t)t.classList.add('on');
+    }
+  });
+},{rootMargin:'-15% 0px -75% 0px'});
+secs.forEach(s=>io.observe(s));
+</script>
+</body>
+</html>
