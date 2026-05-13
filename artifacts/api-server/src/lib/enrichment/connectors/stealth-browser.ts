@@ -5,17 +5,17 @@
  *   • Anti-fingerprinting (navigator.webdriver, plugins, canvas noise, WebGL)
  *   • Human behaviour (Bézier mouse paths, gaussian typing delays, scroll chunks)
  *   • Session persistence (saves/restores cookies + localStorage per domain)
- *   • CAPTCHA auto-solving via Claude Vision API (lazy — only loads SDK when called)
+ *   • CAPTCHA auto-solving via Claude Vision API (primary, fully automatic)
+ *   • Human CAPTCHA fallback — pushes screenshot to the app so the user can
+ *     type the code; the browser fills it in and continues automatically.
  *   • Saudi Arabia locale (ar-SA, Asia/Riyadh timezone)
- *
- * NOTE: CAPTCHA solving requires @anthropic-ai/sdk at runtime.
- * Install it in the api-server if you need CAPTCHA support:
- *   pnpm --filter @workspace/api-server add @anthropic-ai/sdk
  */
 
+import Anthropic from "@anthropic-ai/sdk";
 import { chromium, type Browser, type Page, type BrowserContext } from "playwright";
 import * as fs from "fs";
 import * as path from "path";
+import { captchaQueue } from "../../captcha-queue.js";
 
 // ══════════════════════════════════════════════════════════════════
 // 1. STEALTH JS — injected into every page before scripts run
@@ -175,38 +175,26 @@ export async function solveCaptchaWithVision(
   screenshotB64: string,
   hint = "Saudi government portal",
 ): Promise<CaptchaSolveResult> {
-  // Lazy-load Anthropic SDK — avoids hard dependency at module load time
-  let AnthropicClass: new (opts: { apiKey: string }) => {
-    messages: {
-      create(opts: Record<string, unknown>): Promise<{
-        content: Array<{ type: string; text?: string }>;
-      }>;
-    };
-  };
-  try {
-    const mod = await import("@anthropic-ai/sdk" as string);
-    AnthropicClass = mod.default ?? mod.Anthropic;
-  } catch {
-    return { code: "", confidence: "failed", reasoning: "@anthropic-ai/sdk not installed — install it to enable CAPTCHA solving" };
-  }
-
   const apiKey = process.env.ANTHROPIC_API_KEY ?? process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY ?? "";
   if (!apiKey) return { code: "", confidence: "failed", reasoning: "ANTHROPIC_API_KEY not set" };
 
   try {
-    const client = new AnthropicClass({ apiKey });
+    const client = new Anthropic({ apiKey });
     const msg = await client.messages.create({
-      model: "claude-sonnet-4-5",
+      model: "claude-opus-4-5",
       max_tokens: 200,
       messages: [{
         role: "user",
         content: [
           { type: "image", source: { type: "base64", media_type: "image/png", data: screenshotB64 } },
-          { type: "text", text: `You are looking at a screenshot of a ${hint}. Find the CAPTCHA verification code. It is usually 4-8 distorted letters/numbers in a box. Respond in JSON: {"code":"...","confidence":"high|medium|low|failed","reasoning":"..."}. If no CAPTCHA visible, set code="" and confidence="failed".` },
+          {
+            type: "text",
+            text: `You are looking at a screenshot of a ${hint}. Find the CAPTCHA verification code — usually 4-8 distorted letters/numbers in a box or image widget. Respond ONLY in JSON: {"code":"...","confidence":"high|medium|low|failed","reasoning":"..."}. If no CAPTCHA visible set code="" and confidence="failed".`,
+          },
         ],
       }],
     });
-    const text = msg.content[0]?.type === "text" ? (msg.content[0] as { type: string; text?: string }).text?.trim() ?? "" : "";
+    const text = msg.content[0]?.type === "text" ? (msg.content[0] as Anthropic.TextBlock).text.trim() : "";
     const match = text.match(/\{[\s\S]*\}/);
     if (match) return JSON.parse(match[0]) as CaptchaSolveResult;
     return { code: "", confidence: "failed", reasoning: "JSON parse failed" };
@@ -434,19 +422,34 @@ export async function autoSolveCaptcha(
   options: AutoCaptchaOptions = {},
 ): Promise<{ code: string; method: "ai" | "human" | "failed"; attempts: number }> {
   const maxAttempts = options.maxAttempts ?? 3;
+  const hint = options.hint ?? "Saudi government website";
+
+  // ── Phase 1: Try Claude Vision (fully automatic) ──────────────────
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const screenshot = await browser.screenshot();
-    const result = await solveCaptchaWithVision(screenshot, options.hint ?? "Saudi government website");
+    const result = await solveCaptchaWithVision(screenshot, hint);
     options.onAttempt?.(attempt, result.code, result.confidence);
     if (result.code && result.confidence !== "failed" && result.code.length >= 3) {
       return { code: result.code, method: "ai", attempts: attempt };
     }
     if (attempt < maxAttempts) await HumanBehavior.idle(1200, 2500);
   }
+
+  // ── Phase 2: Custom caller-provided fallback ──────────────────────
   if (options.onFallback) {
     const code = await options.onFallback();
-    return { code, method: "human", attempts: maxAttempts };
+    if (code) return { code, method: "human", attempts: maxAttempts };
   }
+
+  // ── Phase 3: Push to user via CaptchaQueue (human-in-the-loop) ───
+  // Takes a fresh screenshot and sends it to the app UI so the user
+  // can type the code. The browser waits, then fills it in automatically.
+  try {
+    const screenshot = await browser.screenshot(false);
+    const code = await captchaQueue.waitForHuman(screenshot, hint);
+    if (code) return { code, method: "human", attempts: maxAttempts };
+  } catch { /* expired or dismissed */ }
+
   return { code: "", method: "failed", attempts: maxAttempts };
 }
 

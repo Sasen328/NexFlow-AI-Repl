@@ -8,6 +8,7 @@ import { LivingMesh } from "@/components/layout/LivingMesh";
 import { TopBar } from "@/components/layout/TopBar";
 import { SectionSidebar } from "@/components/layout/SectionSidebar";
 import { AIAssistantBubble } from "@/components/AIAssistantBubble";
+import { CaptchaAlert } from "@/components/CaptchaAlert";
 import { MarketingLayout } from "@/components/marketing/MarketingLayout";
 import WelcomePage from "@/pages/marketing/Welcome";
 import AboutPage from "@/pages/marketing/About";
@@ -319,6 +320,7 @@ function App() {
               on the marketing pages, but the moment a persona is picked the
               bubble is available across the whole app. */}
           <AIAssistantBubble />
+          <CaptchaAlert />
         </WouterRouter>
         <Toaster />
       </TooltipProvider>
