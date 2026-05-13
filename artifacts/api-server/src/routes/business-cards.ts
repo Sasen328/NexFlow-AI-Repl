@@ -42,8 +42,25 @@ CRITICAL RULE: Default to is_business_card=true unless the image is OBVIOUSLY so
 
 GCC cards often have: dark backgrounds (black, navy, maroon, dark red, burgundy), gold/silver text, bilingual Arabic + English, just a logo + QR code, or ultra-minimalist designs.
 
-SPECIAL INSTRUCTION — QR CODES: If you see a QR code on the card, decode it completely. QR codes on business cards typically encode:
-- vCard format (VCARD, BEGIN:VCARD with name/tel/email/url/linkedin)  
+── GCC BILINGUAL CARD LAYOUT (extremely common) ──
+Most GCC professional cards follow this layout:
+  [Company logo]              [QR code or decorative element]
+  [Arabic name — e.g. سارة جيد]
+  [English name — e.g. Sara Gied]
+  [Job title — e.g. Head of Operations and Business Support]
+  [Phone] [Email] [Website]
+
+EXTRACTION RULES for bilingual cards:
+• name_ar: The line written in Arabic script (right-to-left characters). Common on Saudi/UAE/Gulf cards.
+• name_en: The Latin-script transliteration of the name, typically the line DIRECTLY BELOW the Arabic name.
+• title: The job title line — appears BELOW the English name. Read the FULL title including all words (e.g. "Head of Operations and Business Support", not just "Head of Operations").
+• company / company_ar: The company name from logo text or printed text. Read ALL lines of the company name (e.g. "The Family Office" not just "Family Office").
+
+DO NOT skip short lines or lines that appear decorative — on GCC cards these are often the person's name or department.
+
+── SPECIAL INSTRUCTION — QR CODES ──
+If you see a QR code on the card, attempt to decode it. QR codes on business cards typically encode:
+- vCard format (BEGIN:VCARD with name/tel/email/url/linkedin)  
 - LinkedIn profile URLs (linkedin.com/in/...)
 - WhatsApp links (wa.me/...)
 - A website URL
@@ -81,7 +98,8 @@ Rules:
 - Normalize phones in international format (+966, +971, +974, +965, +973, +968)
 - Strip protocol from URLs ("neom.com" not "https://neom.com") — EXCEPT LinkedIn: keep as linkedin.com/in/username
 - Return null (never empty string) for absent fields
-- Arabic names must use proper Arabic script
+- Arabic names MUST use proper Arabic script (not transliteration). E.g. "سارة جيد" not "Sara Gied"
+- title: return the COMPLETE job title string, never truncate it
 - LinkedIn URL: ONLY set if explicitly visible on the card or decoded from QR. NEVER guess.
 - If QR is decoded and contains a linkedin.com URL, put it in both qr_extracted.linkedin AND linkedin field`;
 
@@ -199,24 +217,42 @@ Return ONLY valid JSON with the same schema plus:
 }
 
 // ─── AGENT 3a: Perplexity — live person intelligence ──────────────────────
-async function agent3aPersonSearch(nameForSearch: string): Promise<{ text: string; ms: number }> {
+async function agent3aPersonSearch(
+  nameEn: string,
+  nameAr: string | null,
+  title: string | null,
+  company: string | null,
+): Promise<{ text: string; ms: number }> {
   const t0 = Date.now();
-  if (!nameForSearch) return { text: "", ms: 0 };
+  if (!nameEn && !nameAr) return { text: "", ms: 0 };
+
+  const identifiers = [
+    nameEn && `English name: "${nameEn}"`,
+    nameAr && `Arabic name: "${nameAr}"`,
+    title  && `Title: "${title}"`,
+    company && `Company: "${company}"`,
+  ].filter(Boolean).join("\n");
+
   try {
     const text = await aiChat({
       provider: "perplexity",
-      system: "You are a B2B sales intelligence assistant for GCC markets. Find and summarise verified public information about this person. Be specific — bullet points only. Focus on verifiable facts from official sources.",
-      user: `Research this GCC business professional: ${nameForSearch}
+      system: `You are a GCC B2B sales intelligence analyst. Research this professional and return everything you can verify from public sources. Be thorough — include career history, education, notable projects, company background, and any public statements or news. Output a structured brief that a sales executive would use before a first meeting.`,
+      user: `Research this GCC business professional:
+${identifiers}
 
-Find and return:
-1. Their current role and company (confirm accuracy)
-2. Career history (previous companies/roles)
-3. Education background  
-4. Any notable achievements or news mentions
-5. Company description and size
+Find and return ALL of the following:
+1. CURRENT ROLE — exact title, company, and how long they've been there
+2. CAREER HISTORY — previous roles in reverse chronological order (company, title, approximate dates)
+3. EDUCATION — university, degree, graduation year if available
+4. COMPANY PROFILE — what does "${company ?? "their company"}" do, size, AUM/revenue if known, key offerings
+5. LINKEDIN PROFILE — search for their LinkedIn URL (linkedin.com/in/...). Include it if found.
+6. NEWS & ACHIEVEMENTS — any press mentions, awards, conferences, publications, interviews
+7. PERSONAL BACKGROUND — board memberships, advisory roles, civic activities
+8. OUTREACH INSIGHT — one-sentence summary of how to approach this person professionally
 
-Be specific and cite what you found. Do NOT fabricate information.`,
-      maxTokens: 700,
+Search using both the English name "${nameEn ?? ""}" and Arabic name "${nameAr ?? ""}" for best results.
+Be specific and cite what you found. Do NOT fabricate any information — if something is not found, say so.`,
+      maxTokens: 1200,
     });
     return { text: text ?? "", ms: Date.now() - t0 };
   } catch {
@@ -226,36 +262,45 @@ Be specific and cite what you found. Do NOT fabricate information.`,
 
 // ─── AGENT 3b: Perplexity — LinkedIn-specific validated search ─────────────
 async function agent3bLinkedInValidate(
-  name: string,
+  nameEn: string,
+  nameAr: string | null,
   company: string | null,
+  title: string | null,
   candidateLinkedIn: string | null,
 ): Promise<{ url: string | null; verified: boolean; confidence: number; ms: number }> {
   const t0 = Date.now();
-  if (!name) return { url: candidateLinkedIn, verified: false, confidence: 0, ms: 0 };
+  if (!nameEn && !nameAr) return { url: candidateLinkedIn, verified: false, confidence: 0, ms: 0 };
+  const name = nameEn || nameAr || "";
   try {
-    const searchQuery = company
-      ? `LinkedIn profile of "${name}" who works at "${company}" site:linkedin.com/in`
-      : `LinkedIn profile of "${name}" site:linkedin.com/in`;
+    const searchParts = [
+      `"${name}"`,
+      company && `"${company}"`,
+      title   && `"${title}"`,
+      "site:linkedin.com/in",
+    ].filter(Boolean).join(" ");
 
     const text = await aiChat({
       provider: "perplexity",
       system: `You are a LinkedIn profile verification specialist. Your ONLY job is to find the correct LinkedIn profile URL for a specific person.
 
 RULES:
-- Only return a linkedin.com/in/ URL if you are HIGHLY confident it matches the person's name AND company
+- Search using the person's English name, Arabic name (if provided), job title, and company together for maximum precision
+- Only return a linkedin.com/in/ URL if you are HIGHLY confident it matches this specific person
 - If the candidate URL provided matches the person, confirm it
 - If you find a different/better URL, return that instead
-- If you cannot find a verified match, return null
+- If you cannot find a verified match, return NOT_FOUND
 - NEVER guess or fabricate LinkedIn URLs
-- Format: return the URL as plain text: linkedin.com/in/username (no https://)`,
-      user: `Find the LinkedIn profile for this person:
-Name: ${name}
+- Format: return the URL as plain text only: linkedin.com/in/username (no https://)`,
+      user: `Find the LinkedIn profile for this GCC professional:
+English name: ${nameEn || "unknown"}
+Arabic name: ${nameAr || "not available"}
 Company: ${company ?? "unknown"}
+Job title: ${title ?? "unknown"}
 Candidate URL from card: ${candidateLinkedIn ?? "none found on card"}
 
-Search for: ${searchQuery}
+Search query to use: ${searchParts}
 
-Return ONLY the verified LinkedIn URL (linkedin.com/in/username format) or "NOT_FOUND" if you cannot verify one with high confidence.`,
+Return ONLY the verified LinkedIn URL in linkedin.com/in/username format, or "NOT_FOUND" if you cannot verify one with high confidence.`,
       maxTokens: 300,
     });
 
@@ -311,17 +356,23 @@ async function agent5FinalScore(
   confidence: number;
   summary_en: string;
   summary_ar: string;
+  brief_en: string;
+  career_history: string[];
+  company_snapshot: string;
   next_actions: string[];
 }> {
-  const systemPrompt = `You are a GCC B2B revenue intelligence analyst.
-Combine all available intelligence sources to produce a final contact assessment.
-Output ONLY valid JSON:
+  const systemPrompt = `You are a GCC B2B revenue intelligence analyst preparing a pre-meeting brief for a senior sales executive.
+Combine ALL available intelligence sources — card data, web scrape, live Perplexity research — into a rich, actionable profile.
+Output ONLY valid JSON with this exact schema:
 {
   "lead_score": 0-100,
   "confidence": 0-100,
-  "summary_en": "2-3 sentence English contact profile using all available intelligence",
-  "summary_ar": "2-3 sentence Arabic contact profile in Arabic script (not transliteration)",
-  "next_actions": ["top 3 specific recommended outreach actions for this person"]
+  "summary_en": "1-2 sentence headline summary (who they are, role, company)",
+  "summary_ar": "1-2 sentence Arabic headline summary in proper Arabic script (not transliteration)",
+  "brief_en": "3-5 sentence comprehensive pre-meeting brief covering their background, current responsibilities, company context, and any relevant achievements or talking points. Write as if briefing a sales VP before a call.",
+  "career_history": ["Current: [title] at [company] (since ~[year])", "Previous: [title] at [company]", "...up to 4 entries, most recent first"],
+  "company_snapshot": "2-3 sentence description of the company: what they do, size/AUM, key services, GCC presence",
+  "next_actions": ["3 specific, personalised outreach actions referencing their role/company/background — not generic"]
 }`;
 
   const userPrompt = `Business card extracted data:
@@ -332,32 +383,31 @@ LinkedIn: ${linkedInVerified?.url ?? "not found"} (verified: ${linkedInVerified?
 Company web profile (BeautifulSoup scrape):
 ${webProfile ? JSON.stringify(webProfile, null, 2) : "(not available)"}
 
-Live web intelligence on this person:
-${personIntel ? personIntel.slice(0, 800) : "(not available)"}
+Live web intelligence on this person (Perplexity research):
+${personIntel ? personIntel.slice(0, 2400) : "(not available)"}
 
 Based on all sources, produce the final JSON assessment:`;
+
+  const fallback = {
+    lead_score: 60,
+    confidence: 50,
+    summary_en: `${validated?.name_en ?? "Contact"} is ${validated?.title ?? "a professional"} at ${validated?.company ?? "Unknown"}.`,
+    summary_ar: `${validated?.name_ar ?? validated?.name_en ?? "جهة الاتصال"} تشغل منصب ${validated?.title ?? "مهنية"} في ${validated?.company ?? "غير معروف"}.`,
+    brief_en: `${validated?.name_en ?? "This contact"} serves as ${validated?.title ?? "a professional"} at ${validated?.company ?? "their company"}. Review card details and conduct additional research before outreach.`,
+    career_history: [`Current: ${validated?.title ?? "Professional"} at ${validated?.company ?? "Unknown"}`],
+    company_snapshot: `${validated?.company ?? "The company"} is a GCC-based organisation. Visit their website for more details.`,
+    next_actions: ["Send a personalised intro email referencing their specific role", "Connect on LinkedIn with a tailored note", "Schedule a discovery call to understand their operational priorities"],
+  };
 
   try {
     return await aiJson<any>({
       system: systemPrompt,
       user: userPrompt,
       provider: "openai",
-      fallback: {
-        lead_score: 60,
-        confidence: 50,
-        summary_en: `${validated?.name_en ?? "Contact"} is ${validated?.title ?? "a professional"} at ${validated?.company ?? "Unknown"}.`,
-        summary_ar: `${validated?.name_ar ?? validated?.name_en ?? "جهة الاتصال"} يعمل في ${validated?.company ?? "غير معروف"}.`,
-        next_actions: ["Send personalised intro email", "Connect on LinkedIn", "Schedule discovery call"],
-      },
+      fallback,
     });
   } catch {
-    return {
-      lead_score: 60,
-      confidence: 40,
-      summary_en: `${validated?.name_en ?? "Contact"} is ${validated?.title ?? "a professional"} at ${validated?.company ?? "Unknown"}.`,
-      summary_ar: `${validated?.name_ar ?? "جهة الاتصال"} يعمل في ${validated?.company ?? "غير معروف"}.`,
-      next_actions: ["Send personalised intro email", "Connect on LinkedIn", "Schedule discovery call"],
-    };
+    return fallback;
   }
 }
 
@@ -522,7 +572,6 @@ router.post("/scan", async (req, res) => {
     ocrData.rejection_reason = null;
 
     const website = ocrData.website ?? null;
-    const nameForSearch = [ocrData.name_en, ocrData.title, ocrData.company].filter(Boolean).join(" ");
     const candidateLinkedIn = ocrData.linkedin ?? null;
 
     // ── STAGE 2: 4 agents in parallel ──────────────────────────────────────
@@ -531,11 +580,22 @@ router.post("/scan", async (req, res) => {
       // Agent 2: Claude validation + normalisation
       agent2ReasoningValidate(ocrData),
 
-      // Agent 3a: Perplexity — general person intelligence
-      agent3aPersonSearch(nameForSearch),
+      // Agent 3a: Perplexity — comprehensive person intelligence (English + Arabic name)
+      agent3aPersonSearch(
+        ocrData.name_en ?? "",
+        ocrData.name_ar ?? null,
+        ocrData.title ?? null,
+        ocrData.company ?? null,
+      ),
 
-      // Agent 3b: Perplexity — LinkedIn-specific validated search
-      agent3bLinkedInValidate(ocrData.name_en ?? "", ocrData.company ?? null, candidateLinkedIn),
+      // Agent 3b: Perplexity — LinkedIn-specific validated search (title + Arabic name included)
+      agent3bLinkedInValidate(
+        ocrData.name_en ?? "",
+        ocrData.name_ar ?? null,
+        ocrData.company ?? null,
+        ocrData.title ?? null,
+        candidateLinkedIn,
+      ),
 
       // Agent 4: BeautifulSoup — company website structured scrape
       website ? agent4WebEnrich(website) : Promise.resolve(null),
