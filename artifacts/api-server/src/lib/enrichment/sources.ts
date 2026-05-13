@@ -48,6 +48,17 @@ import {
   prospeoConnector, clearbitDeprecatedConnector, salesintelConnector, swordfishConnector,
   adaptConnector, leadgibbonConnector, linkedinSalesNavConnector, explorumConnector, vibeConnector,
 } from "./connectors/saas-stubs.js";
+// Compliance & sanctions screening (free public APIs + Saudi regulatory portals)
+import { complianceConnector } from "./connectors/compliance.js";
+// News seeder — Perplexity web search + DeepSeek synthesis
+import { newsSeederConnector } from "./connectors/news-seeder.js";
+// GCC-native + global paid source stubs (Dhow, Decypha, Argaam, Wamda,
+// FullContact, D&B, Breeze Intelligence, Bombora, Clay)
+import {
+  dhowConnector, decyphaConnector, argaamConnector, wamdaConnector,
+  fullcontactConnector, dnbConnector, breezeConnector, bomboraConnector,
+  clayConnector,
+} from "./connectors/gcc-stubs.js";
 
 export interface RegistryEntry {
   source_key: string;
@@ -537,6 +548,241 @@ export const REGISTRY: RegistryEntry[] = [
     source_key: "clearbit", name: "Clearbit (deprecated)", kind: "api",
     default_priority: 92, default_enabled: false, connector: clearbitDeprecatedConnector,
     meta: { category: "western_api", blurb: "HubSpot acquired Clearbit and the old Enrichment API is winding down. Stub kept in case you have legacy keys.", fields: ["company_name", "company_industry", "company_size", "company_logo_url"], gcc_coverage: "low", pricing: "Discontinued (legacy keys only)", docs_url: "https://dashboard.clearbit.com/docs", needs_key: true, key_label: "Bearer Token", region_badge: "Legacy", rate_hint: "Sunset" },
+  },
+  // ──────────────────────────────────────────────────────────────────
+  // COMPLIANCE & SANCTIONS SCREENING (priority 8 — runs before all paid sources)
+  // Free public APIs: OFAC SDN, UN Consolidated, EU FSF.
+  // Saudi portals: Maroof, CMA, SAMA, ZATCA, Najiz.
+  // Compliance screening order per ProspectSA PDF:
+  //   1. Maroof + CMA → 2. OFAC + UN + EU → 3. SAMA + Najiz + ZATCA
+  // ──────────────────────────────────────────────────────────────────
+  {
+    source_key: "compliance_screening",
+    name: "Compliance & Sanctions Screening",
+    kind: "api",
+    default_priority: 8,
+    default_enabled: true,
+    connector: complianceConnector,
+    meta: {
+      category: "open_data",
+      blurb: "Multi-layer sanctions & regulatory screening. Layer 1: Saudi CMA + Maroof commercial flags. Layer 2: OFAC SDN, UN Security Council, EU Consolidated (all free). Layer 3: SAMA, ZATCA tax violations, Najiz court judgments. Returns `compliance_status` JSON field.",
+      fields: ["compliance_status"],
+      gcc_coverage: "high",
+      pricing: "Free (public government APIs)",
+      docs_url: "https://ofac.treasury.gov/ofac-api",
+      needs_key: false,
+      region_badge: "KSA + Global sanctions",
+      rate_hint: "Free · ~10 req/min per portal",
+    },
+  },
+  // ──────────────────────────────────────────────────────────────────
+  // NEWS SEEDER (priority 16 — after Python scraper, before GLEIF)
+  // Perplexity live web search → DeepSeek-V3 synthesis.
+  // Fills news_recent + intent_signals + optionally company_funding.
+  // ──────────────────────────────────────────────────────────────────
+  {
+    source_key: "news_seeder",
+    name: "News Seeder (AI Search)",
+    kind: "ai_search",
+    default_priority: 16,
+    default_enabled: true,
+    connector: newsSeederConnector,
+    meta: {
+      category: "ai_orchestration",
+      blurb: "Perplexity sonar live web search finds recent news, funding rounds, M&A, and hiring signals for the company. DeepSeek-V3 (free tier via OpenRouter) synthesizes results into structured intent_signals and news_recent fields. $0.002/call.",
+      fields: ["news_recent", "intent_signals", "company_funding", "hiring_signals"],
+      gcc_coverage: "high",
+      pricing: "~$0.002/call (Perplexity + DeepSeek via OpenRouter)",
+      needs_key: false,
+      region_badge: "Global",
+      rate_hint: "OpenRouter rate limits apply",
+    },
+  },
+  // ──────────────────────────────────────────────────────────────────
+  // GCC-NATIVE PAID SOURCES (priorities 23–31)
+  // ──────────────────────────────────────────────────────────────────
+  {
+    source_key: "dhow",
+    name: "Dhow",
+    kind: "api",
+    default_priority: 23,
+    default_enabled: false,
+    connector: dhowConnector,
+    meta: {
+      category: "gcc_native",
+      blurb: "\"The Middle East's Apollo.\" GCC B2B contacts database: Arabic names, Gulf phone numbers, WhatsApp IDs, CR-linked profiles. Subscription priced in SAR. Best GCC-native contact source for local decision-makers.",
+      fields: ["email", "phone", "name_ar", "company_name_ar", "linkedin_url", "title"],
+      gcc_coverage: "high",
+      pricing: "Subscription (SAR pricing)",
+      docs_url: "https://dhow.io",
+      needs_key: true,
+      key_label: "Bearer Token (DHOW_API_KEY)",
+      region_badge: "GCC",
+      rate_hint: "Plan-tiered",
+    },
+  },
+  {
+    source_key: "decypha",
+    name: "Decypha",
+    kind: "api",
+    default_priority: 27,
+    default_enabled: false,
+    connector: decyphaConnector,
+    meta: {
+      category: "gcc_native",
+      blurb: "MENA financial data covering all 6 GCC exchanges. Revenue, EBITDA, board composition, ownership structure, analyst reports, ESG scores, dividends. Best for listed company financials across Saudi, UAE, Qatar, Kuwait, Bahrain, Oman.",
+      fields: ["company_revenue", "company_isin", "company_size", "company_description", "company_industry", "company_founded_year"],
+      gcc_coverage: "high",
+      pricing: "Subscription",
+      docs_url: "https://decypha.com",
+      needs_key: true,
+      key_label: "X-Api-Key (DECYPHA_API_KEY)",
+      region_badge: "All 6 GCC exchanges",
+      rate_hint: "Plan-tiered",
+    },
+  },
+  {
+    source_key: "argaam",
+    name: "Argaam",
+    kind: "api",
+    default_priority: 29,
+    default_enabled: false,
+    connector: argaamConnector,
+    meta: {
+      category: "gcc_native",
+      blurb: "Saudi Arabia's leading Arabic financial news + Tadawul filing aggregator. Real-time corporate actions, earnings, exec changes, M&A, bankruptcy. Arabic-first. Best KSA aggregator for same-day deal discovery. Pro tier: email alerts by company.",
+      fields: ["news_recent", "company_isin", "company_name_ar", "company_revenue", "company_industry"],
+      gcc_coverage: "high",
+      pricing: "Freemium / Pro subscription",
+      docs_url: "https://argaam.com",
+      needs_key: true,
+      key_label: "Bearer Token (ARGAAM_API_KEY)",
+      region_badge: "KSA — Very High coverage",
+      rate_hint: "Plan-tiered",
+    },
+  },
+  {
+    source_key: "wamda",
+    name: "Wamda",
+    kind: "api",
+    default_priority: 31,
+    default_enabled: false,
+    connector: wamdaConnector,
+    meta: {
+      category: "gcc_native",
+      blurb: "MENA startup ecosystem intelligence: deal announcements, exits, founder profiles, investor data. Complements MAGNiTT — Wamda is stronger on early-stage deals and founder biographical data for mid-tier HNW prospects.",
+      fields: ["company_funding", "company_description", "company_industry", "news_recent"],
+      gcc_coverage: "high",
+      pricing: "Contact sales",
+      docs_url: "https://wamda.com",
+      needs_key: true,
+      key_label: "X-API-Key (WAMDA_API_KEY)",
+      region_badge: "MENA",
+      rate_hint: "Plan-tiered",
+    },
+  },
+  // ──────────────────────────────────────────────────────────────────
+  // GLOBAL PAID SOURCES — MID PRIORITY (48–65)
+  // ──────────────────────────────────────────────────────────────────
+  {
+    source_key: "fullcontact",
+    name: "FullContact",
+    kind: "api",
+    default_priority: 48,
+    default_enabled: false,
+    connector: fullcontactConnector,
+    meta: {
+      category: "western_api",
+      blurb: "Person identity graph built on email, phone, and social handles. Strong phone → person resolution ($0.05–0.15/lookup). Medium GCC executive coverage — best for resolving a known phone/email to a full profile and employer.",
+      fields: ["full_name", "email", "phone", "phone_confidence", "linkedin_url", "title", "company_name", "company_domain"],
+      gcc_coverage: "medium",
+      pricing: "$0.05–0.15/lookup",
+      docs_url: "https://docs.fullcontact.com",
+      needs_key: true,
+      key_label: "Bearer Token (FULLCONTACT_API_KEY)",
+      region_badge: "Global · phone resolution",
+      rate_hint: "60/min",
+    },
+  },
+  {
+    source_key: "dnb",
+    name: "Dun & Bradstreet Direct+",
+    kind: "api",
+    default_priority: 52,
+    default_enabled: false,
+    connector: dnbConnector,
+    meta: {
+      category: "western_api",
+      blurb: "Global company firmographics with strong GCC coverage via regional registrar partnerships. Revenue, headcount, CR numbers, city, industry. Enterprise pricing but best-in-class for cross-referencing KSA + UAE company registrations.",
+      fields: ["company_name", "company_size", "company_revenue", "company_industry", "company_country", "company_city", "company_cr_number", "company_founded_year"],
+      gcc_coverage: "high",
+      pricing: "Enterprise",
+      docs_url: "https://directplus.dnb.com",
+      needs_key: true,
+      key_label: "Client ID:Secret (DUNS_API_KEY format: clientId:clientSecret)",
+      region_badge: "Global · GCC registrar partnerships",
+      rate_hint: "Enterprise SLA",
+    },
+  },
+  {
+    source_key: "breeze_intelligence",
+    name: "Breeze Intelligence (HubSpot)",
+    kind: "api",
+    default_priority: 55,
+    default_enabled: false,
+    connector: breezeConnector,
+    meta: {
+      category: "western_api",
+      blurb: "HubSpot Breeze Intelligence (formerly Clearbit Enrichment). Company + contact data by domain or email. $0.005/lookup — very affordable. Medium GCC executive coverage. Best for quick company firmographic fill when domain is known.",
+      fields: ["company_name", "company_description", "company_industry", "company_size", "company_revenue", "company_founded_year", "company_logo_url", "company_tech_stack", "company_city"],
+      gcc_coverage: "medium",
+      pricing: "$0.005/lookup",
+      docs_url: "https://knowledge.hubspot.com/reports/breeze-intelligence",
+      needs_key: true,
+      key_label: "HubSpot Private App Token (BREEZE_API_KEY)",
+      region_badge: "Global",
+      rate_hint: "100/min",
+    },
+  },
+  {
+    source_key: "bombora",
+    name: "Bombora Intent",
+    kind: "api",
+    default_priority: 57,
+    default_enabled: false,
+    connector: bomboraConnector,
+    meta: {
+      category: "western_api",
+      blurb: "B2B intent data — topic-level surge scores showing which companies are actively researching topics relevant to your product. Enterprise pricing. Low-Medium GCC coverage but valuable for US-GCC cross-border tech deals.",
+      fields: ["intent_signals"],
+      gcc_coverage: "medium",
+      pricing: "Enterprise",
+      docs_url: "https://bombora.com",
+      needs_key: true,
+      key_label: "Bearer Token (BOMBORA_API_KEY)",
+      region_badge: "Global · intent data",
+      rate_hint: "Enterprise SLA",
+    },
+  },
+  {
+    source_key: "clay",
+    name: "Clay (Fallback)",
+    kind: "api",
+    default_priority: 65,
+    default_enabled: false,
+    connector: clayConnector,
+    meta: {
+      category: "western_api",
+      blurb: "Clay data orchestration layer used as final waterfall fallback. Aggregates 50+ sources under one credit system. Runs only when all other sources miss a contact field. Medium GCC coverage; credit-based pricing.",
+      fields: ["email", "phone", "linkedin_url", "title", "company_name"],
+      gcc_coverage: "medium",
+      pricing: "Credits-based (clay.com pricing)",
+      docs_url: "https://clay.com/developers",
+      needs_key: true,
+      key_label: "Bearer Token (CLAY_API_KEY)",
+      region_badge: "Global · aggregated",
+      rate_hint: "Credit-limited",
+    },
   },
   // ── Manual / no-public-API tools — registered so they show in the UI
   //    with clear status; they never run automatically.

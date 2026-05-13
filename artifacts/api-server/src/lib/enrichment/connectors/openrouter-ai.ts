@@ -222,18 +222,67 @@ export const openrouterExtractorConnector: Connector = {
  *
  * Always runs even when all upstream fields are filled (it improves
  * description quality, doesn't fill blanks).
+ *
+ * Synthesis waterfall (cheapest first, per ProspectSA PDF):
+ *   1. DeepSeek-V3 :free (OpenRouter free tier, $0/call within limits)
+ *   2. Gemini 2.5 Flash  ($0.0005/call)
+ *   3. Claude 3.5 Sonnet ($0.003/call — final quality pass)
+ *
+ * Each model is tried in order; the first successful JSON response wins.
  */
-function clientFor(provider: "anthropic" | "openai" | "gemini"): { ok: boolean; client?: OpenAI; model: string } {
-  if (!openrouterReady()) return { ok: false, model: "" };
+
+interface SynthModel {
+  model: string;
+  cost_usd: number;
+  supportsJsonMode: boolean;
+}
+
+const SYNTH_CHAIN: SynthModel[] = [
+  // DeepSeek-V3 free tier — cheapest option via OpenRouter daily free allowance
+  { model: "deepseek/deepseek-chat-v3-0324:free", cost_usd: 0.000, supportsJsonMode: false },
+  // Gemini 2.5 Flash — fast, cheap, bilingual Arabic/English
+  { model: "google/gemini-2.5-flash",              cost_usd: 0.001, supportsJsonMode: false },
+  // Claude 3.5 Sonnet — best quality, deep GCC domain knowledge
+  { model: "anthropic/claude-3.5-sonnet",          cost_usd: 0.003, supportsJsonMode: true  },
+  // GPT-4o-mini — final safety net
+  { model: "openai/gpt-4o-mini",                   cost_usd: 0.001, supportsJsonMode: true  },
+];
+
+async function synthesizeJson(
+  systemPrompt: string,
+  userPrompt: string,
+): Promise<{ parsed: Record<string, unknown>; cost_usd: number } | null> {
+  if (!openrouterReady()) return null;
   const client = new OpenAI({
     apiKey: process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY!,
     baseURL: process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL!,
   });
-  const model =
-    provider === "anthropic" ? "anthropic/claude-3.5-sonnet"
-    : provider === "gemini"  ? "google/gemini-2.5-flash"
-    : "openai/gpt-4o-mini";
-  return { ok: true, client, model };
+
+  for (const synth of SYNTH_CHAIN) {
+    try {
+      const resp = await client.chat.completions.create({
+        model: synth.model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user",   content: userPrompt },
+        ],
+        max_tokens: 700,
+        ...(synth.supportsJsonMode ? { response_format: { type: "json_object" } } : {}),
+      });
+      const txt = resp.choices[0]?.message?.content ?? "";
+      if (!txt.trim()) continue;
+      // Extract JSON from the response — some models wrap it in markdown fences
+      const jsonMatch = txt.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) continue;
+      const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+      if (Object.keys(parsed).length === 0) continue;
+      return { parsed, cost_usd: synth.cost_usd };
+    } catch {
+      // Model failed or rate-limited — try next in chain
+      continue;
+    }
+  }
+  return null;
 }
 
 export const openrouterComposerConnector: Connector = {
@@ -241,19 +290,13 @@ export const openrouterComposerConnector: Connector = {
 
   async test() {
     if (!openrouterReady()) return { ok: false, message: "OpenRouter env vars not set" };
-    const c = clientFor("anthropic");
-    if (!c.ok || !c.client) return { ok: false, message: "Composer init failed" };
-    try {
-      const r = await c.client.chat.completions.create({
-        model: c.model,
-        messages: [{ role: "user", content: "Reply with the single word OK." }],
-        max_tokens: 8,
-      });
-      const text = r.choices[0]?.message?.content?.trim() ?? "";
-      return { ok: /ok/i.test(text), message: text || "no reply" };
-    } catch (e) {
-      return { ok: false, message: e instanceof Error ? e.message : String(e) };
-    }
+    const result = await synthesizeJson(
+      "You return strict JSON. Always respond with valid JSON only.",
+      'Reply with this exact JSON: {"status":"ok"}',
+    );
+    return result
+      ? { ok: true, message: `Composer OK via synthesis chain` }
+      : { ok: false, message: "All synthesis models failed" };
   },
 
   async enrich({ seed, alreadyFilled, config }): Promise<EnrichResult> {
@@ -262,54 +305,46 @@ export const openrouterComposerConnector: Connector = {
     // (waterfall.ts will be updated to pass `filled` in config.composer_input.)
     const upstream = (config as { composer_input?: Record<string, unknown> }).composer_input ?? {};
     const knownText = Object.entries(upstream)
+      .filter(([k]) => k !== "compliance_status") // don't leak raw compliance JSON into prompt
       .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
       .join("\n");
     if (!knownText) return { status: "miss", fields: {} };
 
-    // Pick provider based on what's available — Claude → GPT → Gemini fallback chain.
-    const c = clientFor("anthropic");
-    if (!c.ok || !c.client) return { status: "skipped", fields: {} };
+    const systemPrompt =
+      "You are summarizing a B2B sales lead in the GCC region. " +
+      "Given the structured data below, return strict JSON with these keys:\n" +
+      "  - company_description: 2-3 sentence narrative covering what they do, their market, and notable signals.\n" +
+      "  - news_recent: one sentence on the most recent funding/PR/expansion signal you can infer (or empty string).\n" +
+      "  - hiring_signals: one sentence on growth/hiring posture you can infer (or empty string).\n" +
+      "Always respond with valid JSON only.";
 
-    const prompt =
-      `You are summarizing a B2B sales lead in the GCC region. Given the structured data below, ` +
-      `return strict JSON with these keys:\n` +
-      `  - company_description: 2-3 sentence narrative covering what they do, their market, and notable signals.\n` +
-      `  - news_recent: one sentence on the most recent funding/PR/expansion signal you can infer (or empty string).\n` +
-      `  - hiring_signals: one sentence on growth/hiring posture you can infer (or empty string).\n\n` +
+    const userPrompt =
       `Lead seed: ${JSON.stringify(seed)}\n\n` +
       `Already-known fields:\n${knownText}\n\n` +
       `Return ONLY the JSON object.`;
 
-    try {
-      const r = await c.client.chat.completions.create({
-        model: c.model,
-        messages: [
-          { role: "system", content: "You return strict JSON. Always respond with valid JSON only." },
-          { role: "user", content: prompt },
-        ],
-        max_tokens: 600,
-        response_format: { type: "json_object" },
-      });
-      const txt = r.choices[0]?.message?.content ?? "{}";
-      const parsed = JSON.parse(txt) as Record<string, unknown>;
-      const out: Partial<Record<Field, unknown>> = {};
-      // Only overwrite description if it's missing or shorter than what AI produced.
-      const newDesc = typeof parsed.company_description === "string" ? parsed.company_description : "";
-      const oldDesc = typeof upstream.company_description === "string" ? upstream.company_description : "";
-      if (newDesc && newDesc.length > oldDesc.length) out.company_description = newDesc;
-      if (typeof parsed.news_recent === "string" && parsed.news_recent && !alreadyFilled.has("news_recent")) {
-        out.news_recent = parsed.news_recent;
-      }
-      if (typeof parsed.hiring_signals === "string" && parsed.hiring_signals && !alreadyFilled.has("hiring_signals")) {
-        out.hiring_signals = parsed.hiring_signals;
-      }
-      return {
-        status: Object.keys(out).length ? "ok" : "miss",
-        fields: out,
-        cost_usd: 0.003,
-      };
-    } catch (e) {
-      return { status: "error", fields: {}, error: e instanceof Error ? e.message : String(e) };
+    const result = await synthesizeJson(systemPrompt, userPrompt);
+    if (!result) return { status: "error", fields: {}, error: "All synthesis models failed" };
+
+    const { parsed, cost_usd } = result;
+    const out: Partial<Record<Field, unknown>> = {};
+
+    // Only overwrite description if AI produced a longer/richer version
+    const newDesc = typeof parsed.company_description === "string" ? parsed.company_description : "";
+    const oldDesc = typeof upstream.company_description === "string" ? upstream.company_description : "";
+    if (newDesc && newDesc.length > oldDesc.length) out.company_description = newDesc;
+
+    if (typeof parsed.news_recent === "string" && parsed.news_recent && !alreadyFilled.has("news_recent")) {
+      out.news_recent = parsed.news_recent;
     }
+    if (typeof parsed.hiring_signals === "string" && parsed.hiring_signals && !alreadyFilled.has("hiring_signals")) {
+      out.hiring_signals = parsed.hiring_signals;
+    }
+
+    return {
+      status: Object.keys(out).length ? "ok" : "miss",
+      fields: out,
+      cost_usd,
+    };
   },
 };

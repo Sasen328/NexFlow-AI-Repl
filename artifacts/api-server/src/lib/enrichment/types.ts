@@ -11,16 +11,20 @@ export type Field =
   | "first_name"
   | "last_name"
   | "full_name"
+  | "name_ar"             // Arabic full name
   | "email"
   | "email_verified"
   | "phone"
+  | "phone_confidence"    // 0–1 confidence score on phone number
   | "linkedin_url"
   | "twitter_handle"
   | "title"
   | "seniority"
   | "company_name"
+  | "company_name_ar"     // Arabic company name
   | "company_domain"
   | "company_country"
+  | "company_city"        // HQ city
   | "company_industry"
   | "company_size"
   | "company_funding"
@@ -31,8 +35,10 @@ export type Field =
   | "company_revenue"
   | "company_cr_number"   // GCC commercial registration number
   | "company_isin"        // GCC stock identifier
-  | "news_recent"         // recent funding / PR mentions
-  | "hiring_signals";
+  | "news_recent"         // recent funding / PR / market mentions
+  | "hiring_signals"      // open roles / headcount growth signals
+  | "intent_signals"      // buying intent indicators
+  | "compliance_status";  // JSON: { clear, flags, checked, screened_at }
 
 /** Lead seed passed into the waterfall. Sparse on purpose. */
 export interface Seed {
