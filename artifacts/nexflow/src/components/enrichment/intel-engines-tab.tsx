@@ -22,7 +22,7 @@ import {
   Globe, Star, Eye, X, Zap, CheckCircle2, Circle,
   XCircle, Clock, Sparkles, Shield, BookOpen, BarChart3,
   TrendingUp, Award, Briefcase, GraduationCap, DollarSign,
-  ChevronDown, ChevronUp, Copy, Check, Info,
+  ChevronDown, ChevronUp, Copy, Check, Info, UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/hooks/useApi";
@@ -655,18 +655,26 @@ function MasaarReport({ result, lang, setLang }: { result: any; lang: "en" | "ar
         </CollapseSection>
       )}
 
-      {/* Bilingual report */}
+      {/* Full intelligence report — parsed markdown */}
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-semibold text-sm"><FileText className="w-4 h-4" /> Bilingual Report</div>
+          <div className="flex items-center gap-2 font-semibold text-sm"><FileText className="w-4 h-4" /> Full Intelligence Report</div>
           <LangToggle lang={lang} setLang={setLang} />
         </div>
-        <div className="p-5 prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed" dir={lang === "ar" ? "rtl" : "ltr"}>
-          {lang === "en" ? (r.reportEn || r.report_en || "Report not available.") : (r.reportAr || r.report_ar || "التقرير غير متاح.")}
+        <div className="p-6" dir={lang === "ar" ? "rtl" : "ltr"}>
+          <MasaarMarkdown
+            text={lang === "en"
+              ? (r.reportEn || r.report_en || "Report not available.")
+              : (r.reportAr || r.report_ar || "التقرير غير متاح.")}
+            dir={lang === "ar" ? "rtl" : "ltr"}
+          />
         </div>
       </div>
 
-      <SaveBar runId={result.id} />
+      <div className="flex items-center gap-3 flex-wrap">
+        <PushCompanyToCrm parsed={p} runTitle={result.title} />
+        <SaveBar runId={result.id} />
+      </div>
     </div>
   );
 }
@@ -838,88 +846,7 @@ function PersonReport({ result }: { result: any }) {
         <LimitedProfileBanner name={p.fullName || "this person"} sources={result.sourcesUsed?.length ?? 0} />
       )}
 
-      {/* 2-col grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <ReportSection title="Career History" icon={Briefcase}>
-          {hasCareer ? (
-            <ul className="space-y-3">
-              {r.career.slice(0, 6).map((c: any, i: number) => (
-                <li key={i} className="relative pl-4 before:absolute before:left-0 before:top-2 before:w-1.5 before:h-1.5 before:rounded-full before:bg-[#B8A0C8]/60">
-                  <div className="text-sm font-semibold">{c.title}</div>
-                  <div className="text-xs text-muted-foreground">{c.company} · {c.period}</div>
-                  {c.description && <div className="text-xs mt-0.5 text-foreground/70">{c.description}</div>}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <NoData tip="No public career records found. Add a LinkedIn URL and re-run for better results." />
-          )}
-        </ReportSection>
-
-        <ReportSection title="Education" icon={GraduationCap}>
-          {hasEducation ? (
-            <ul className="space-y-2">
-              {r.education.map((e: any, i: number) => (
-                <li key={i} className="text-sm">
-                  <div className="font-semibold">{e.degree}</div>
-                  <div className="text-xs text-muted-foreground">{e.institution} · {e.year}</div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <NoData tip="No public education records found. Common for executives at private Saudi firms." />
-          )}
-        </ReportSection>
-
-        <ReportSection title="Wealth Profile" icon={DollarSign}>
-          {hasWealth ? (
-            <KvList data={{
-              "Est. net worth": r.wealth_profile?.estimated_net_worth,
-              "Income estimate": r.wealth_profile?.income_estimate,
-              "Wealth sources": (r.wealth_profile?.wealth_sources ?? []).join(", "),
-              "Assets": r.wealth_profile?.assets,
-              "Investments": r.wealth_profile?.investments,
-              "Lifestyle": r.wealth_profile?.lifestyle_indicators,
-            }} />
-          ) : (
-            <NoData tip="No public wealth data found. Typical for private-company executives." />
-          )}
-        </ReportSection>
-
-        <ReportSection title="Personal Profile" icon={Users}>
-          {hasPersonal ? (
-            <KvList data={{
-              "Languages": (r.personal_profile?.languages ?? []).join(", "),
-              "Interests": (r.personal_profile?.interests ?? []).join(", "),
-              "Board roles": (r.personal_profile?.board_memberships ?? []).join(", "),
-              "Style": r.personal_profile?.communication_style,
-              "Awards": (r.personal_profile?.awards ?? []).join(", "),
-              "Social": r.personal_profile?.social_presence,
-            }} />
-          ) : (
-            <NoData tip="No public personal data found. LinkedIn profile or company bio would help." />
-          )}
-        </ReportSection>
-      </div>
-
-      {/* Company analysis */}
-      {r.company_analysis && (
-        <CollapseSection title="Company Context" icon={Building2}>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <KpiTile label="Industry" value={r.company_analysis.industry} />
-            <KpiTile label="Employees" value={r.company_analysis.employees} />
-            <KpiTile label="Revenue" value={r.company_analysis.revenue_estimate} />
-            <KpiTile label="Headquarters" value={r.company_analysis.headquarters} />
-            <KpiTile label="Founded" value={r.company_analysis.founded} />
-            <KpiTile label="Market position" value={r.company_analysis.market_position} />
-          </div>
-          {r.company_analysis.recent_developments && (
-            <p className="mt-3 text-xs text-muted-foreground">{r.company_analysis.recent_developments}</p>
-          )}
-        </CollapseSection>
-      )}
-
-      {/* Approach strategy — always shown */}
+      {/* ── Approach Strategy — ALWAYS FIRST ── */}
       <div className="rounded-2xl border border-[#B8A0C8]/50 bg-gradient-to-br from-[#B8A0C8]/8 to-transparent overflow-hidden">
         <div className="px-5 py-3 border-b border-[#B8A0C8]/30 bg-[#B8A0C8]/10 flex items-center gap-2">
           <Zap className="w-4 h-4 text-[#B8A0C8]" />
@@ -939,14 +866,12 @@ function PersonReport({ result }: { result: any }) {
             <KpiTile label="Best timing" value={approach.best_timing} />
             <KpiTile label="Opening angle" value={approach.opening_angle} />
           </div>
-
           {hasContent(approach.value_proposition) && (
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Value proposition</div>
               <p className="text-sm">{approach.value_proposition}</p>
             </div>
           )}
-
           {hasContent(approach.conversation_starters) && (
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Conversation starters</div>
@@ -960,20 +885,17 @@ function PersonReport({ result }: { result: any }) {
               </ul>
             </div>
           )}
-
           {hasContent(approach.cultural_notes) && (
             <div className="text-xs italic text-muted-foreground p-3 bg-muted/50 rounded-xl border border-border">
               🕌 {approach.cultural_notes}
             </div>
           )}
-
           {hasContent(approach.recommended_approach) && (
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Recommended approach</div>
               <p className="text-sm leading-relaxed whitespace-pre-line">{approach.recommended_approach}</p>
             </div>
           )}
-
           {hasContent(approach.potential_objections) && (
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Potential objections</div>
@@ -984,7 +906,6 @@ function PersonReport({ result }: { result: any }) {
               </div>
             </div>
           )}
-
           {hasContent(approach.sample_message) && (
             <div className="rounded-xl bg-background border border-border p-4">
               <div className="flex items-center justify-between mb-2">
@@ -997,6 +918,78 @@ function PersonReport({ result }: { result: any }) {
         </div>
       </div>
 
+      {/* ── Detail sections — only if at least one has real data ── */}
+      {!isLimitedProfile && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {hasCareer && (
+            <ReportSection title="Career History" icon={Briefcase}>
+              <ul className="space-y-3">
+                {r.career.slice(0, 6).map((c: any, i: number) => (
+                  <li key={i} className="relative pl-4 before:absolute before:left-0 before:top-2 before:w-1.5 before:h-1.5 before:rounded-full before:bg-[#B8A0C8]/60">
+                    <div className="text-sm font-semibold">{c.title}</div>
+                    <div className="text-xs text-muted-foreground">{c.company} · {c.period}</div>
+                    {c.description && <div className="text-xs mt-0.5 text-foreground/70">{c.description}</div>}
+                  </li>
+                ))}
+              </ul>
+            </ReportSection>
+          )}
+          {hasEducation && (
+            <ReportSection title="Education" icon={GraduationCap}>
+              <ul className="space-y-2">
+                {r.education.map((e: any, i: number) => (
+                  <li key={i} className="text-sm">
+                    <div className="font-semibold">{e.degree}</div>
+                    <div className="text-xs text-muted-foreground">{e.institution} · {e.year}</div>
+                  </li>
+                ))}
+              </ul>
+            </ReportSection>
+          )}
+          {hasWealth && (
+            <ReportSection title="Wealth Profile" icon={DollarSign}>
+              <KvList data={{
+                "Est. net worth": r.wealth_profile?.estimated_net_worth,
+                "Income estimate": r.wealth_profile?.income_estimate,
+                "Wealth sources": (r.wealth_profile?.wealth_sources ?? []).join(", "),
+                "Assets": r.wealth_profile?.assets,
+                "Investments": r.wealth_profile?.investments,
+                "Lifestyle": r.wealth_profile?.lifestyle_indicators,
+              }} />
+            </ReportSection>
+          )}
+          {hasPersonal && (
+            <ReportSection title="Personal Profile" icon={Users}>
+              <KvList data={{
+                "Languages": (r.personal_profile?.languages ?? []).join(", "),
+                "Interests": (r.personal_profile?.interests ?? []).join(", "),
+                "Board roles": (r.personal_profile?.board_memberships ?? []).join(", "),
+                "Style": r.personal_profile?.communication_style,
+                "Awards": (r.personal_profile?.awards ?? []).join(", "),
+                "Social": r.personal_profile?.social_presence,
+              }} />
+            </ReportSection>
+          )}
+        </div>
+      )}
+
+      {/* Company analysis */}
+      {r.company_analysis && (
+        <CollapseSection title="Company Context" icon={Building2}>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <KpiTile label="Industry" value={r.company_analysis.industry} />
+            <KpiTile label="Employees" value={r.company_analysis.employees} />
+            <KpiTile label="Revenue" value={r.company_analysis.revenue_estimate} />
+            <KpiTile label="Headquarters" value={r.company_analysis.headquarters} />
+            <KpiTile label="Founded" value={r.company_analysis.founded} />
+            <KpiTile label="Market position" value={r.company_analysis.market_position} />
+          </div>
+          {r.company_analysis.recent_developments && (
+            <p className="mt-3 text-xs text-muted-foreground">{r.company_analysis.recent_developments}</p>
+          )}
+        </CollapseSection>
+      )}
+
       {/* Intel notes */}
       {notes.caveats && notes.caveats !== "Not found" && (
         <div className="rounded-xl border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
@@ -1005,7 +998,10 @@ function PersonReport({ result }: { result: any }) {
         </div>
       )}
 
-      <SaveBar runId={result.id} />
+      <div className="flex items-center gap-3 flex-wrap">
+        <PushContactToCrm profile={p} runTitle={result.title} />
+        <SaveBar runId={result.id} />
+      </div>
     </div>
   );
 }
@@ -1269,7 +1265,10 @@ function CompanyReport({ result }: { result: any }) {
         </div>
       )}
 
-      <SaveBar runId={result.id} />
+      <div className="flex items-center gap-3 flex-wrap">
+        <PushCompanyToCrm parsed={{ nameEn: p.nameEn || p.companyName, website: p.website, city: p.city }} runTitle={result.title} />
+        <SaveBar runId={result.id} />
+      </div>
     </div>
   );
 }
@@ -1409,6 +1408,9 @@ function LeadCard({ lead, rank }: { lead: any; rank: number }) {
             {lead.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{lead.location}</span>}
           </div>
           {lead.whyReach && <p className="mt-2 text-xs text-muted-foreground italic">{lead.whyReach}</p>}
+          <div className="mt-3 pt-2 border-t border-border/50">
+            <PushLeadToCrm lead={lead} />
+          </div>
         </div>
       </div>
     </div>
@@ -1570,8 +1572,11 @@ function RunDetailDrawer({ detail, onClose }: { detail: any; onClose: () => void
           <div className="rounded-lg bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-700 dark:text-rose-400">{detail.error}</div>
         )}
         {(r.reportEn || r.report_en) && (
-          <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed" dir={lang === "ar" ? "rtl" : "ltr"}>
-            {lang === "en" ? (r.reportEn || r.report_en) : (r.reportAr || r.report_ar || "التقرير غير متاح.")}
+          <div className="rounded-xl border border-border p-5" dir={lang === "ar" ? "rtl" : "ltr"}>
+            <MasaarMarkdown
+              text={lang === "en" ? (r.reportEn || r.report_en) : (r.reportAr || r.report_ar || "التقرير غير متاح.")}
+              dir={lang === "ar" ? "rtl" : "ltr"}
+            />
           </div>
         )}
         {!r.reportEn && !r.report_en && (
@@ -1754,6 +1759,285 @@ function LimitedProfileBanner({ name, sources }: { name: string; sources: number
         </p>
       </div>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARKDOWN RENDERER — for Masaar reportEn / reportAr
+// ─────────────────────────────────────────────────────────────────────────────
+
+function parseMdInline(text: string): React.ReactNode {
+  if (!text) return null;
+  const parts: React.ReactNode[] = [];
+  // Match **bold**, *italic*, `code`, [label](url)
+  const re = /\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|\[(.+?)\]\((.+?)\)/g;
+  let lastIdx = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > lastIdx) parts.push(text.slice(lastIdx, m.index));
+    if (m[1] !== undefined) parts.push(<strong key={m.index}>{m[1]}</strong>);
+    else if (m[2] !== undefined) parts.push(<em key={m.index}>{m[2]}</em>);
+    else if (m[3] !== undefined) parts.push(<code key={m.index} className="bg-muted px-1 rounded text-[11px] font-mono">{m[3]}</code>);
+    else if (m[4] !== undefined) parts.push(<a key={m.index} href={m[5]} target="_blank" rel="noreferrer" className="text-[#88B8B0] underline hover:opacity-80">{m[4]}</a>);
+    lastIdx = re.lastIndex;
+  }
+  if (lastIdx < text.length) parts.push(text.slice(lastIdx));
+  if (parts.length === 0) return null;
+  if (parts.length === 1) return parts[0];
+  return <>{parts}</>;
+}
+
+function MasaarMarkdown({ text, dir }: { text: string; dir?: "ltr" | "rtl" }) {
+  if (!text) return null;
+  const lines = text.split("\n");
+  const els: React.ReactElement[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const raw = lines[i];
+    const line = raw.trim();
+
+    if (!line) { i++; continue; }
+
+    // Horizontal rule
+    if (line === "---") {
+      els.push(<hr key={`hr${i}`} className="border-border my-5" />);
+      i++; continue;
+    }
+
+    // Headings
+    if (line.startsWith("#### ")) {
+      els.push(<p key={`h4${i}`} className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-4 mb-1">{parseMdInline(line.slice(5))}</p>);
+      i++; continue;
+    }
+    if (line.startsWith("### ")) {
+      els.push(<h3 key={`h3${i}`} className="text-sm font-bold mt-5 mb-1.5 text-foreground">{parseMdInline(line.slice(4))}</h3>);
+      i++; continue;
+    }
+    if (line.startsWith("## ")) {
+      els.push(<h2 key={`h2${i}`} className="text-base font-bold mt-6 mb-2 text-[#88B8B0] border-b border-[#88B8B0]/30 pb-1">{parseMdInline(line.slice(3))}</h2>);
+      i++; continue;
+    }
+    if (line.startsWith("# ")) {
+      els.push(<h1 key={`h1${i}`} className="text-xl font-bold mt-2 mb-3 text-foreground">{parseMdInline(line.slice(2))}</h1>);
+      i++; continue;
+    }
+
+    // Blockquote — collect consecutive "> " lines
+    if (line.startsWith("> ")) {
+      const bqLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith("> ")) {
+        bqLines.push(lines[i].trim().slice(2));
+        i++;
+      }
+      const joined = bqLines.join(" ");
+      const isWarn = joined.includes("⚠️");
+      const isNote = /^\*\*(Note|Data Gap|Source Note|Precision|Registry|Important)/.test(bqLines[0] ?? "");
+      els.push(
+        <div key={`bq${i}`} className={cn(
+          "rounded-xl p-4 my-3 text-sm space-y-1 leading-relaxed",
+          isWarn
+            ? "bg-amber-50 dark:bg-amber-950/20 border border-amber-300/70 dark:border-amber-700/40 text-amber-900 dark:text-amber-200"
+            : isNote
+            ? "bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/40"
+            : "bg-muted/50 border-l-4 border-[#88B8B0] pl-4"
+        )}>
+          {bqLines.map((bl, bi) => bl.trim() ? <p key={bi}>{parseMdInline(bl)}</p> : null)}
+        </div>
+      );
+      continue;
+    }
+
+    // Table — collect consecutive "|" lines
+    if (line.startsWith("|")) {
+      const tblLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith("|")) {
+        tblLines.push(lines[i].trim());
+        i++;
+      }
+      // Filter separator rows (e.g. |---|---|)
+      const rows = tblLines.filter(r => !/^\|[\s\-:|]+\|$/.test(r));
+      if (rows.length === 0) continue;
+      const parseCells = (row: string) => row.split("|").slice(1, -1).map(c => c.trim());
+      const [hdr, ...dataRows] = rows;
+      const headers = parseCells(hdr);
+      els.push(
+        <div key={`tbl${i}`} className="overflow-x-auto my-4 rounded-xl border border-border">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-muted/60 border-b border-border">
+                {headers.map((cell, ci) => (
+                  <th key={ci} className="text-left py-2.5 px-3 font-semibold text-foreground/80 whitespace-nowrap">{parseMdInline(cell)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {dataRows.map((row, ri) => (
+                <tr key={ri} className={cn("border-b border-border/50 last:border-0", ri % 2 === 1 ? "bg-muted/20" : "")}>
+                  {parseCells(row).map((cell, ci) => (
+                    <td key={ci} className="py-2 px-3 align-top">{parseMdInline(cell)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      continue;
+    }
+
+    // Bullet list
+    if (line.startsWith("- ") || line.startsWith("* ")) {
+      const items: string[] = [];
+      while (i < lines.length && (lines[i].trim().startsWith("- ") || lines[i].trim().startsWith("* "))) {
+        items.push(lines[i].trim().slice(2));
+        i++;
+      }
+      els.push(
+        <ul key={`ul${i}`} className="space-y-1 my-2 pl-1">
+          {items.map((item, li) => (
+            <li key={li} className="text-sm text-foreground/80 flex items-start gap-2">
+              <span className="w-1 h-1 rounded-full bg-[#88B8B0] mt-2 shrink-0" />
+              {parseMdInline(item)}
+            </li>
+          ))}
+        </ul>
+      );
+      continue;
+    }
+
+    // Regular paragraph
+    els.push(
+      <p key={`p${i}`} className="text-sm leading-relaxed text-foreground/90 mb-1">{parseMdInline(line)}</p>
+    );
+    i++;
+  }
+
+  return (
+    <div className={cn("space-y-0.5", dir === "rtl" ? "text-right" : "")} dir={dir}>
+      {els}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CRM PUSH BUTTONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PushContactToCrm({ profile, runTitle }: { profile: any; runTitle?: string }) {
+  const [st, setSt] = useState<"idle" | "saving" | "done" | "err">("idle");
+  async function push() {
+    setSt("saving");
+    const parts = (profile.fullName || "").trim().split(/\s+/);
+    const firstName = parts[0] || "Unknown";
+    const lastName = parts.slice(1).join(" ") || profile.company || "Unknown";
+    try {
+      await apiFetch("/contacts", {
+        method: "POST",
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          company: profile.company || "",
+          jobTitle: profile.title || "",
+          linkedinUrl: profile.linkedin && profile.linkedin !== "Not found" ? profile.linkedin : undefined,
+          location: profile.location || "",
+          notes: `Imported via Person Intel · ${runTitle || ""}`.trim(),
+        }),
+      });
+      setSt("done");
+    } catch { setSt("err"); }
+  }
+  return (
+    <button onClick={push} disabled={st !== "idle"}
+      className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all",
+        st === "done" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" :
+        st === "err"  ? "bg-rose-500/15 text-rose-700" :
+        "bg-[#B8A0C8]/15 text-[#B8A0C8] hover:bg-[#B8A0C8]/25"
+      )}>
+      {st === "saving" ? <Loader2 className="w-3 h-3 animate-spin" /> :
+       st === "done"   ? <CheckCircle2 className="w-3 h-3" /> :
+       st === "err"    ? <AlertTriangle className="w-3 h-3" /> :
+                         <UserPlus className="w-3 h-3" />}
+      {st === "saving" ? "Saving…" : st === "done" ? "Saved to CRM" : st === "err" ? "Save failed" : "Save to CRM"}
+    </button>
+  );
+}
+
+function PushCompanyToCrm({ parsed, runTitle }: { parsed: any; runTitle?: string }) {
+  const [st, setSt] = useState<"idle" | "saving" | "done" | "err">("idle");
+  async function push() {
+    setSt("saving");
+    const name = parsed.nameEn || parsed.nameAr || parsed.companyName || "";
+    if (!name) { setSt("err"); return; }
+    try {
+      await apiFetch("/companies", {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          website: parsed.website || parsed.contactDetails?.website || "",
+          city: parsed.headquarterCity || parsed.city || "",
+          industry: parsed.industry || "",
+          notes: `Imported via Masaar/Company Intel · ${runTitle || ""}`.trim(),
+        }),
+      });
+      setSt("done");
+    } catch { setSt("err"); }
+  }
+  return (
+    <button onClick={push} disabled={st !== "idle"}
+      className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all",
+        st === "done" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" :
+        st === "err"  ? "bg-rose-500/15 text-rose-700" :
+        "bg-[#88B8B0]/15 text-[#88B8B0] hover:bg-[#88B8B0]/25"
+      )}>
+      {st === "saving" ? <Loader2 className="w-3 h-3 animate-spin" /> :
+       st === "done"   ? <CheckCircle2 className="w-3 h-3" /> :
+       st === "err"    ? <AlertTriangle className="w-3 h-3" /> :
+                         <Building2 className="w-3 h-3" />}
+      {st === "saving" ? "Saving…" : st === "done" ? "Company saved" : st === "err" ? "Save failed" : "Save company to CRM"}
+    </button>
+  );
+}
+
+function PushLeadToCrm({ lead }: { lead: any }) {
+  const [st, setSt] = useState<"idle" | "saving" | "done" | "err">("idle");
+  async function push() {
+    setSt("saving");
+    const full = (lead.name || lead.fullName || "").trim();
+    const parts = full.split(/\s+/);
+    const firstName = parts[0] || "Unknown";
+    const lastName = parts.slice(1).join(" ") || "Lead";
+    try {
+      await apiFetch("/contacts", {
+        method: "POST",
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          company: lead.company || "",
+          jobTitle: lead.title || "",
+          email: lead.email || undefined,
+          phone: lead.phone || undefined,
+          linkedinUrl: lead.linkedin || undefined,
+          location: lead.location || "",
+          notes: `Imported via Lead Finder · ICP score ${lead.icpScore ?? lead.score ?? "?"}`,
+        }),
+      });
+      setSt("done");
+    } catch { setSt("err"); }
+  }
+  return (
+    <button onClick={push} disabled={st !== "idle"}
+      className={cn("flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all",
+        st === "done" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" :
+        st === "err"  ? "bg-rose-500/15 text-rose-700" :
+        "bg-[#D4955A]/15 text-[#D4955A] hover:bg-[#D4955A]/25"
+      )}>
+      {st === "saving" ? <Loader2 className="w-3 h-3 animate-spin" /> :
+       st === "done"   ? <CheckCircle2 className="w-3 h-3" /> :
+       st === "err"    ? <AlertTriangle className="w-3 h-3" /> :
+                         <UserPlus className="w-3 h-3" />}
+      {st === "saving" ? "Adding…" : st === "done" ? "Added to CRM" : st === "err" ? "Failed" : "Add to CRM"}
+    </button>
   );
 }
 
