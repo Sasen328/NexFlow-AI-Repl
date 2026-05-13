@@ -227,3 +227,9 @@ id = "3ITKrFkdjXRZbsYnuvfFk"
 uri = "file://LOCAL_SETUP.md"
 type = "text"
 title = "NexFlow — Local Setup Guide"
+
+[[outputs]]
+id = "T4j5PtsKN6TG_tJ1Gbd-W"
+uri = "file://nexflow-company-document.md"
+type = "text"
+title = "NexFlow — Comprehensive Company & Product Document"
