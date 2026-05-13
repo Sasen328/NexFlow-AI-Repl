@@ -41,6 +41,8 @@ import enginesRouter from "./engines";
 import briefingRouter from "./briefing";
 import assistantRouter from "./assistant";
 import webEngineRouter from "./web-engine";
+import companyIntelRouter from "./company-intel";
+import personIntelRouter from "./person-intel";
 
 const router: IRouter = Router();
 
@@ -86,5 +88,7 @@ router.use("/engines", enginesRouter);
 router.use("/briefing", briefingRouter);
 router.use("/assistant", assistantRouter);
 router.use("/engine", webEngineRouter);
+router.use("/company-intel", companyIntelRouter);
+router.use("/person-intel", personIntelRouter);
 
 export default router;

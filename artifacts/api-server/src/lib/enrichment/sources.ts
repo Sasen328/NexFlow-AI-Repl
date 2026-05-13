@@ -52,6 +52,12 @@ import {
 import { complianceConnector } from "./connectors/compliance.js";
 // News seeder — Perplexity web search + DeepSeek synthesis
 import { newsSeederConnector } from "./connectors/news-seeder.js";
+// GCC government + financial scrapers (new)
+import { argaamScraperConnector } from "./connectors/argaam-scraper.js";
+import { etimadScraperConnector } from "./connectors/etimad-scraper.js";
+import { mociScraperConnector } from "./connectors/moci-scraper.js";
+import { modonScraperConnector } from "./connectors/modon-scraper.js";
+import { hiringScraperConnector } from "./connectors/hiring-scraper.js";
 // GCC-native + global paid source stubs (Dhow, Decypha, Argaam, Wamda,
 // FullContact, D&B, Breeze Intelligence, Bombora, Clay)
 import {
@@ -810,6 +816,99 @@ export const REGISTRY: RegistryEntry[] = [
     source_key: "vibe_prospecting", name: "Vibe Prospecting", kind: "manual",
     default_priority: 99, default_enabled: false, connector: vibeConnector,
     meta: { category: "manual", blurb: "No public API documented. Manual workflow.", fields: [], gcc_coverage: "low", pricing: "Subscription", needs_key: false, region_badge: "Manual", rate_hint: "Manual" },
+  },
+  // ──────────────────────────────────────────────────────────────────
+  // GCC GOVERNMENT + FINANCIAL SCRAPERS (free, KSA-specific)
+  // ──────────────────────────────────────────────────────────────────
+  {
+    source_key: "argaam_scraper",
+    name: "Argaam (Saudi Financial News)",
+    kind: "scraper",
+    default_priority: 18,
+    default_enabled: true,
+    connector: argaamScraperConnector,
+    meta: {
+      category: "gcc_native",
+      blurb: "Saudi Arabia's leading financial news and data aggregator. Pulls corporate news, revenue signals, Arabic company names, and board announcements for Tadawul-listed and private KSA companies.",
+      fields: ["company_name_ar", "company_revenue", "company_size", "news_recent"],
+      gcc_coverage: "high",
+      pricing: "Free",
+      needs_key: false,
+      region_badge: "KSA · Gulf",
+      rate_hint: "Scraper · ~10/min",
+    },
+  },
+  {
+    source_key: "etimad_scraper",
+    name: "Etimad (Saudi Government Procurement)",
+    kind: "scraper",
+    default_priority: 19,
+    default_enabled: true,
+    connector: etimadScraperConnector,
+    meta: {
+      category: "gcc_native",
+      blurb: "Saudi e-procurement platform. Reveals tender activity, awarded contracts, and ministry relationships — a strong buying-intent signal for B2B sales into KSA government accounts.",
+      fields: ["intent_signals", "news_recent"],
+      gcc_coverage: "high",
+      pricing: "Free",
+      needs_key: false,
+      region_badge: "KSA Government",
+      rate_hint: "Scraper · ~5/min",
+    },
+  },
+  {
+    source_key: "moci_scraper",
+    name: "MoCI / Sijil (Saudi Commercial Registry)",
+    kind: "gov_registry",
+    default_priority: 17,
+    default_enabled: true,
+    connector: mociScraperConnector,
+    meta: {
+      category: "gcc_native",
+      blurb: "Saudi Ministry of Commerce official registry (mc.gov.sa / sijil.mc.gov.sa). Returns CR number, Arabic company name, legal form, founding year, registered city, and primary business activity. Authoritative for KSA entities.",
+      fields: ["company_cr_number", "company_name_ar", "company_city", "company_founded_year", "company_industry"],
+      gcc_coverage: "high",
+      pricing: "Free",
+      needs_key: false,
+      region_badge: "KSA Official Registry",
+      rate_hint: "Public portal · ~5/min",
+    },
+  },
+  {
+    source_key: "modon_scraper",
+    name: "MODON (Saudi Industrial Cities Authority)",
+    kind: "gov_registry",
+    default_priority: 21,
+    default_enabled: true,
+    connector: modonScraperConnector,
+    meta: {
+      category: "gcc_native",
+      blurb: "Saudi Authority for Industrial Cities & Technology Zones. Public directory of all industrial licensees across 35+ KSA cities. Returns city, activity, employee count, and industrial license signal for manufacturing companies.",
+      fields: ["company_name_ar", "company_city", "company_size", "company_industry", "intent_signals"],
+      gcc_coverage: "high",
+      pricing: "Free",
+      needs_key: false,
+      region_badge: "KSA Industrial",
+      rate_hint: "Public directory · ~5/min",
+    },
+  },
+  {
+    source_key: "hiring_scraper",
+    name: "Hiring Signals (Bayt + LinkedIn Jobs)",
+    kind: "scraper",
+    default_priority: 22,
+    default_enabled: true,
+    connector: hiringScraperConnector,
+    meta: {
+      category: "scraper",
+      blurb: "Scrapes active job postings from Bayt.com (GCC's largest job board) and LinkedIn Jobs. Identifies hiring velocity, department growth, and infers buying signals — e.g. 'Head of Digital Transformation' = tech budget unlocked.",
+      fields: ["hiring_signals"],
+      gcc_coverage: "high",
+      pricing: "Free",
+      needs_key: false,
+      region_badge: "GCC · Global",
+      rate_hint: "Public boards · ~10/min",
+    },
   },
   // ──────────────────────────────────────────────────────────────────
   // FINAL PASS — AI Composer always runs LAST

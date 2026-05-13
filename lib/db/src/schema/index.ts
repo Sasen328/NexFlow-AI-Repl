@@ -720,3 +720,110 @@ export const engine_runs = pgTable(
 );
 
 export type EngineRun = typeof engine_runs.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────
+// ProsEngine — Saved Person Intelligence Reports
+// ─────────────────────────────────────────────────────────────────────
+export const prosengine_research = pgTable(
+  "prosengine_research",
+  {
+    id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
+    personName: text("person_name").notNull(),
+    company: text("company"),
+    title: text("title"),
+    linkedinUrl: text("linkedin_url"),
+    sellerContext: text("seller_context"),
+    intelligenceGoals: text("intelligence_goals"),
+    knownFacts: text("known_facts"),
+    report: jsonb("report").$type<Record<string, unknown>>().notNull(),
+    tags: text("tags"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    nameIdx: index("prosengine_research_name_idx").on(t.personName),
+    createdIdx: index("prosengine_research_created_idx").on(t.createdAt),
+  }),
+);
+
+export type ProsengineResearch = typeof prosengine_research.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────
+// Company Intel — Saved Company Intelligence Reports
+// ─────────────────────────────────────────────────────────────────────
+export const company_intel_research = pgTable(
+  "company_intel_research",
+  {
+    id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
+    companyName: text("company_name").notNull(),
+    crNumber: text("cr_number"),
+    city: text("city"),
+    website: text("website"),
+    sellerContext: text("seller_context"),
+    intelligenceGoals: text("intelligence_goals"),
+    knownFacts: text("known_facts"),
+    report: jsonb("report").$type<Record<string, unknown>>().notNull(),
+    tags: text("tags"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    nameIdx: index("company_intel_research_name_idx").on(t.companyName),
+    createdIdx: index("company_intel_research_created_idx").on(t.createdAt),
+  }),
+);
+
+export type CompanyIntelResearch = typeof company_intel_research.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────
+// Lead Lists — AI-generated or manually curated lists of leads
+// ─────────────────────────────────────────────────────────────────────
+export const lead_lists = pgTable(
+  "lead_lists",
+  {
+    id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
+    name: text("name").notNull(),
+    criteria: text("criteria"),
+    status: text("status").notNull().default("pending"), // "pending" | "running" | "done" | "error"
+    totalFound: integer("total_found").default(0).notNull(),
+    sourcesSearched: text("sources_searched"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    nameIdx: index("lead_lists_name_idx").on(t.name),
+    createdIdx: index("lead_lists_created_idx").on(t.createdAt),
+  }),
+);
+
+export type LeadList = typeof lead_lists.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────
+// Lead List Items — individual leads within a list
+// ─────────────────────────────────────────────────────────────────────
+export const lead_list_items = pgTable(
+  "lead_list_items",
+  {
+    id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
+    listId: integer("list_id").notNull().references(() => lead_lists.id, { onDelete: "cascade" }),
+    personName: text("person_name"),
+    personTitle: text("person_title"),
+    biography: text("biography"),
+    linkedin: text("linkedin"),
+    companyName: text("company_name"),
+    source: text("source"),
+    sourceId: text("source_id"),
+    matchScore: integer("match_score").default(0),
+    aiScore: integer("ai_score").default(0),
+    aiReasoning: text("ai_reasoning"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    listIdx: index("lead_list_items_list_idx").on(t.listId),
+    createdIdx: index("lead_list_items_created_idx").on(t.createdAt),
+  }),
+);
+
+export type LeadListItem = typeof lead_list_items.$inferSelect;
