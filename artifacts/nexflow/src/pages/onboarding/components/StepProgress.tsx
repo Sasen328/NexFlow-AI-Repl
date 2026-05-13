@@ -24,35 +24,37 @@ export function StepProgress() {
           <div key={n} className="relative">
             {i < STEPS.length - 1 && (
               <div
-                className={[
-                  "absolute left-[17px] top-8 w-0.5 h-5 transition-all duration-500",
-                  done ? "bg-violet-400" : "bg-slate-200",
-                ].join(" ")}
+                className="absolute left-[17px] top-8 w-0.5 h-5 transition-all duration-500"
+                style={{ background: done ? "#B8A0C8" : "var(--border)" }}
               />
             )}
-            <div className={[
-              "flex items-center gap-3 py-2 px-3 rounded-xl transition-all duration-200",
-              active ? "bg-violet-50" : "hover:bg-slate-50",
-            ].join(" ")}>
-              <div className={[
-                "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300",
-                done   ? "bg-gradient-to-br from-violet-500 to-violet-700 text-white shadow-md shadow-violet-200" : "",
-                active ? "bg-gradient-to-br from-violet-600 to-violet-800 text-white ring-4 ring-violet-100 shadow-md shadow-violet-300" : "",
-                future ? "bg-slate-100 text-slate-400 border border-slate-200" : "",
-              ].join(" ")}>
-                {done ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : n}
+            <div
+              className="flex items-center gap-3 py-2 px-3 rounded-xl transition-all duration-200"
+              style={active ? { background: "rgba(184,160,200,0.08)" } : undefined}
+            >
+              <div
+                className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300"
+                style={
+                  done   ? { background: "linear-gradient(135deg, #B8A0C8, #C0A0B8)", color: "white", boxShadow: "0 2px 8px rgba(184,160,200,0.3)" } :
+                  active ? { background: "linear-gradient(135deg, #B8A0C8, #C0A0B8)", color: "white", boxShadow: "0 2px 8px rgba(184,160,200,0.4)", outline: "4px solid rgba(184,160,200,0.2)" } :
+                  future ? undefined : undefined
+                }
+              >
+                {done ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : (
+                  <span className={future ? "text-muted-foreground" : "text-white"}>{n}</span>
+                )}
               </div>
               <div className="min-w-0">
-                <p className={[
-                  "text-sm font-semibold leading-tight",
-                  active  ? "text-violet-800" : done ? "text-slate-700" : "text-slate-400",
-                ].join(" ")}>
+                <p
+                  className="text-sm font-semibold leading-tight"
+                  style={{ color: active ? "#B8A0C8" : done ? "var(--foreground)" : "var(--muted-foreground)" }}
+                >
                   {label}
                 </p>
-                <p className={[
-                  "text-[10px] mt-0.5",
-                  active ? "text-violet-500" : done ? "text-slate-400" : "text-slate-300",
-                ].join(" ")}>
+                <p
+                  className="text-[10px] mt-0.5"
+                  style={{ color: active ? "rgba(184,160,200,0.8)" : done ? "var(--muted-foreground)" : "var(--border)" }}
+                >
                   {desc}
                 </p>
               </div>

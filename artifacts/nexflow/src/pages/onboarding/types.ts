@@ -57,10 +57,10 @@ export const defaultAnswers: SetupAnswers = {
   linkedinPage: "",
   logoBase64: "",
   brandMode: "pick",
-  primaryColor: "#7C3AED",
-  secondaryColor: "#0D9488",
-  accentColor: "#D97706",
-  meshColors: ["#7C3AED", "#0D9488", "#1E1B4B"],
+  primaryColor: "#B8A0C8",
+  secondaryColor: "#88B8B0",
+  accentColor: "#C8A880",
+  meshColors: ["#B8A0C8", "#88B8B0", "#C8A880"],
   brandGuidelinesName: "",
   brandVibeAi: "",
   brandHeritageAi: "",
@@ -190,7 +190,7 @@ export interface ModuleDef {
 }
 
 export const MODULES: ModuleDef[] = [
-  { id: "core",             name: "Core CRM",           desc: "Contacts, deals, pipelines, tasks, activities and timeline",       price: "SAR 149/seat",  required: true,  category: "Foundation", colorClass: "from-violet-500 to-violet-700" },
+  { id: "core",             name: "Core CRM",           desc: "Contacts, deals, pipelines, tasks, activities and timeline",       price: "SAR 149/seat",  required: true,  category: "Foundation", colorClass: "from-[#B8A0C8] to-[#C0A0B8]" },
   { id: "dialer",           name: "Power Dialer",        desc: "Auto-dial queue, live AI coaching, call scoring & playbooks",      price: "SAR 89/seat",   required: false, category: "Engagement",  popular: true, colorClass: "from-blue-500 to-blue-700" },
   { id: "enrichment",       name: "AI Enrichment",       desc: "Pull verified data from 15+ GCC sources automatically",            price: "From SAR 50/mo",required: false, category: "Data",        popular: true, colorClass: "from-purple-500 to-purple-700" },
   { id: "marketing",        name: "Marketing Suite",     desc: "Campaigns, web forms, audience segments and performance analytics", price: "SAR 299/mo",    required: false, category: "Growth",      colorClass: "from-rose-500 to-rose-700" },
@@ -265,5 +265,5 @@ export const BRAND_PRESET_PALETTES: Record<string, { primary: string; secondary:
   "Healthcare & Trust":          { primary: "#0077b6", secondary: "#00b4d8", accent: "#48cae4", name: "Clinical Blue" },
   "Creative & Bold":             { primary: "#e63946", secondary: "#457b9d", accent: "#f1faee", name: "Vivid Studio" },
   "Khaleeji Heritage":           { primary: "#006400", secondary: "#c8a951", accent: "#8b0000", name: "Desert Royal" },
-  "Startup & Agile":             { primary: "#7C3AED", secondary: "#0D9488", accent: "#F59E0B", name: "NexFlow Signature" },
+  "Startup & Agile":             { primary: "#B8A0C8", secondary: "#88B8B0", accent: "#C8A880", name: "NexFlow Signature" },
 };

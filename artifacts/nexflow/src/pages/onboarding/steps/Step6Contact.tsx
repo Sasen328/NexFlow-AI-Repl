@@ -6,21 +6,20 @@ function Field({ label, required, hint, children }: {
 }) {
   return (
     <div>
-      <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-        {label} {required && <span className="text-red-500">*</span>}
+      <label className="block text-sm font-semibold text-foreground mb-1.5">
+        {label} {required && <span className="text-destructive">*</span>}
       </label>
       {children}
-      {hint && <p className="text-xs text-slate-400 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
     </div>
   );
 }
 
-function inp(icon?: boolean) {
-  return `w-full rounded-xl border border-slate-200 ${icon ? "pl-9" : "px-4"} px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white transition-colors`;
-}
+const inp = (icon?: boolean) =>
+  `w-full rounded-xl border border-border ${icon ? "pl-9" : "px-4"} px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#B8A0C8]/40 bg-card text-foreground transition-colors`;
 
 function IconWrap({ children }: { children: React.ReactNode }) {
-  return <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">{children}</div>;
+  return <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">{children}</div>;
 }
 
 export default function Step6Contact() {
@@ -31,8 +30,8 @@ export default function Step6Contact() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Contact Details</h2>
-        <p className="text-slate-500 mt-1">
+        <h2 className="text-2xl font-bold text-foreground">Contact Details</h2>
+        <p className="text-muted-foreground mt-1">
           {setupPath === "managed"
             ? "Our implementation team will reach out within one business day to kick off your workspace."
             : "We'll send your proposal and workspace link to this email."}
@@ -78,7 +77,7 @@ export default function Step6Contact() {
 
         <Field label="Anything else?" hint="Optional — helps our team tailor the proposal.">
           <div className="relative">
-            <div className="absolute left-3 top-3 text-slate-400 pointer-events-none">
+            <div className="absolute left-3 top-3 text-muted-foreground pointer-events-none">
               <FileText className="w-4 h-4" />
             </div>
             <textarea
@@ -86,15 +85,16 @@ export default function Step6Contact() {
               onChange={(e) => updateAnswers({ notes: e.target.value })}
               placeholder="Specific requirements, questions, or context for our team…"
               rows={3}
-              className="w-full rounded-xl border border-slate-200 pl-9 pr-4 pt-2.5 pb-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white resize-none"
+              className="w-full rounded-xl border border-border pl-9 pr-4 pt-2.5 pb-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#B8A0C8]/40 bg-card text-foreground resize-none"
             />
           </div>
         </Field>
       </div>
 
-      <div className="bg-gradient-to-br from-slate-50 to-violet-50/30 border border-slate-200 rounded-2xl p-5">
-        <p className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <CheckCircle className="w-4 h-4 text-violet-500" />
+      {/* Setup summary — shows user their choices */}
+      <div className="border border-border rounded-2xl p-5" style={{ background: "rgba(184,160,200,0.04)" }}>
+        <p className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
+          <CheckCircle className="w-4 h-4" style={{ color: "#B8A0C8" }} />
           Your setup summary
         </p>
         <div className="grid grid-cols-2 gap-y-3 text-sm">
@@ -109,14 +109,29 @@ export default function Step6Contact() {
             ["Migration",  answers.migrationNeeded ? `From ${answers.currentCrm}` : "Not required"],
           ].map(([k, v]) => (
             <div key={k} className="contents">
-              <span className="text-slate-500 text-xs">{k}</span>
-              <span className="font-medium text-slate-800 text-xs">{v}</span>
+              <span className="text-muted-foreground text-xs">{k}</span>
+              <span className="font-medium text-foreground text-xs">{v}</span>
             </div>
           ))}
         </div>
+
+        {/* Brand color preview */}
+        {answers.primaryColor && (
+          <div className="mt-4 pt-3 border-t border-border flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">Brand</span>
+            <div className="flex gap-1.5">
+              {[answers.primaryColor, answers.secondaryColor, answers.accentColor].filter(Boolean).map((c, i) => (
+                <div key={i} className="w-5 h-5 rounded-md shadow-sm border border-white/20" style={{ background: c }} title={c} />
+              ))}
+            </div>
+            {answers.logoBase64 && (
+              <img src={answers.logoBase64} alt="Logo" className="h-5 object-contain rounded ml-1" />
+            )}
+          </div>
+        )}
       </div>
 
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-muted-foreground">
         By continuing you agree to NexFlow's Terms of Service and Privacy Policy. Your data is stored in your selected region and never shared with third parties. PDPL compliant.
       </p>
     </div>

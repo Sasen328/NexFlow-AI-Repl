@@ -155,6 +155,24 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         method: "POST",
         body: JSON.stringify({ proposalId: proposal.id }),
       });
+      // Persist the full wizard choices so SetupComplete and the main app can read them
+      localStorage.setItem("nf:tenant_config", JSON.stringify({
+        companyName:    answers.companyName,
+        companyNameAr:  answers.companyNameAr ?? "",
+        primaryColor:   answers.primaryColor,
+        secondaryColor: answers.secondaryColor ?? "#88B8B0",
+        accentColor:    answers.accentColor    ?? "#C8A880",
+        logoBase64:     answers.logoBase64     ?? null,
+        enabledModules: answers.enabledModules,
+        countries:      answers.countries,
+        industry:       answers.industry,
+        crNumber:       answers.crNumber       ?? "",
+        companyWebsite: answers.companyWebsite ?? "",
+        linkedinPage:   answers.linkedinPage   ?? "",
+        setupPath,
+        slug:           data.slug ?? sessionId,
+        approvedAt:     new Date().toISOString(),
+      }));
       navigate(`/onboarding/complete?s=${sessionId}`);
       return data.slug as string;
     } catch (e: any) {
@@ -163,7 +181,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     } finally {
       setSaving(false);
     }
-  }, [sessionId, proposal, navigate]);
+  }, [sessionId, proposal, answers, setupPath, navigate]);
 
   return (
     <Ctx.Provider value={{

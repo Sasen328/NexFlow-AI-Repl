@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 function inp(extra = "") {
-  return `w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white transition-colors ${extra}`;
+  return `w-full rounded-xl border border-border px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#B8A0C8]/50 bg-card text-foreground transition-colors ${extra}`;
 }
 
 function Label({ children }: { children: React.ReactNode }) {
@@ -35,7 +35,7 @@ const BRAND_MODE_TABS: { id: BrandMode; label: string; icon: React.ReactNode; de
 ];
 
 const QUICK_PALETTES = [
-  { name: "NexFlow",      primary: "#7C3AED", secondary: "#0D9488", accent: "#D97706" },
+  { name: "NexFlow",      primary: "#B8A0C8", secondary: "#88B8B0", accent: "#C8A880" },
   { name: "Desert Royal", primary: "#006400", secondary: "#c8a951", accent: "#8b0000" },
   { name: "Midnight Gold",primary: "#1a1a2e", secondary: "#c9a84c", accent: "#8B5CF6" },
   { name: "Gulf Navy",    primary: "#1e3a5f", secondary: "#2d6a4f", accent: "#e9c46a" },
@@ -249,8 +249,8 @@ Choose colours that are distinct, harmonious, and appropriate for a premium GCC 
               className={[
                 "px-4 py-2 rounded-xl border text-sm font-medium transition-all",
                 answers.companySize === value
-                  ? "border-violet-500 bg-violet-50 text-violet-700"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-violet-300",
+                  ? "border-[#B8A0C8] bg-[#B8A0C8]/[0.07] text-[#B8A0C8]"
+                  : "border-border bg-card text-foreground hover:border-[#B8A0C8]/50",
               ].join(" ")}
             >
               {label} employees
@@ -269,8 +269,8 @@ Choose colours that are distinct, harmonious, and appropriate for a premium GCC 
               className={[
                 "px-3 py-1.5 rounded-lg border text-sm transition-all",
                 answers.countries.includes(c)
-                  ? "border-violet-500 bg-violet-50 text-violet-700 font-medium"
-                  : "border-slate-200 bg-white text-slate-500 hover:border-violet-300",
+                  ? "border-[#B8A0C8] bg-[#B8A0C8]/[0.07] text-[#B8A0C8] font-medium"
+                  : "border-border bg-card text-foreground hover:border-[#B8A0C8]/50",
               ].join(" ")}
             >
               {c}
@@ -292,8 +292,8 @@ Choose colours that are distinct, harmonious, and appropriate for a premium GCC 
               className={[
                 "flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 text-xs font-semibold transition-all",
                 bm === id
-                  ? "border-violet-500 bg-violet-50 text-violet-700"
-                  : "border-slate-200 bg-white text-slate-500 hover:border-violet-300 hover:text-violet-600",
+                  ? "border-[#B8A0C8] bg-[#B8A0C8]/[0.07] text-[#B8A0C8]"
+                  : "border-border bg-card text-muted-foreground hover:border-[#B8A0C8]/50",
               ].join(" ")}
             >
               {icon}
@@ -315,13 +315,13 @@ Choose colours that are distinct, harmonious, and appropriate for a premium GCC 
                       onClick={() => applyPreset(p)}
                       className={[
                         "relative rounded-xl border-2 overflow-hidden transition-all group",
-                        active ? "border-violet-500 shadow-md shadow-violet-100" : "border-slate-200 hover:border-violet-300",
+                        active ? "border-[#B8A0C8] shadow-md shadow-[#B8A0C8]/20" : "border-border hover:border-[#B8A0C8]/50",
                       ].join(" ")}
                     >
                       <div className="h-10 w-full" style={{ background: `linear-gradient(135deg, ${p.primary} 0%, ${p.secondary} 60%, ${p.accent} 100%)` }} />
                       <div className="px-2 py-1.5 text-[10px] font-semibold text-slate-700 text-center">{p.name}</div>
                       {active && (
-                        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-violet-600 flex items-center justify-center">
+                        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full nf-chameleon-bg flex items-center justify-center">
                           <Check className="w-2.5 h-2.5 text-white" />
                         </div>
                       )}
@@ -353,7 +353,7 @@ Choose colours that are distinct, harmonious, and appropriate for a premium GCC 
                             const v = e.target.value;
                             if (/^#[0-9a-fA-F]{0,6}$/.test(v)) updateAnswers({ [key]: v } as any);
                           }}
-                          className="w-24 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-mono bg-white focus:outline-none focus:ring-1 focus:ring-violet-400"
+                          className="w-24 rounded-lg border border-border px-2.5 py-1.5 text-xs font-mono bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-[#B8A0C8]/50"
                         />
                       </div>
                     </div>
@@ -368,15 +368,15 @@ Choose colours that are distinct, harmonious, and appropriate for a premium GCC 
           <div className="space-y-4">
             <div
               onClick={() => guidelineFileRef.current?.click()}
-              className="border-2 border-dashed border-slate-200 rounded-xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:border-violet-400 hover:bg-violet-50/30 transition-all group"
+              className="border-2 border-dashed border-border rounded-xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:border-[#B8A0C8]/60 hover:bg-[#B8A0C8]/[0.03] transition-all group"
             >
-              <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center group-hover:bg-violet-200 transition-colors">
-                <Upload className="w-5 h-5 text-violet-600" />
+              <div className="w-12 h-12 rounded-xl bg-[#B8A0C8]/10 flex items-center justify-center group-hover:bg-[#B8A0C8]/20 transition-colors">
+                <Upload className="w-5 h-5" style={{ color: "#B8A0C8" }} />
               </div>
               {answers.brandGuidelinesName ? (
                 <>
                   <p className="text-sm font-semibold text-slate-700">{answers.brandGuidelinesName}</p>
-                  <p className="text-xs text-violet-600 font-medium">Colors extracted ✓ — click to replace</p>
+                  <p className="text-xs font-medium" style={{ color: "#B8A0C8" }}>Colors extracted ✓ — click to replace</p>
                 </>
               ) : (
                 <>
@@ -431,7 +431,7 @@ Choose colours that are distinct, harmonious, and appropriate for a premium GCC 
                             updateAnswers({ meshColors: next });
                           }
                         }}
-                        className="w-24 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-mono bg-white focus:outline-none focus:ring-1 focus:ring-violet-400"
+                        className="w-24 rounded-lg border border-border px-2.5 py-1.5 text-xs font-mono bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-[#B8A0C8]/50"
                       />
                     </div>
                   </div>
@@ -481,10 +481,10 @@ Choose colours that are distinct, harmonious, and appropriate for a premium GCC 
               className={[
                 "flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-bold transition-all",
                 answers.brandVibeAi && !aiLoading
-                  ? "text-white shadow-lg shadow-violet-200 hover:-translate-y-0.5"
+                  ? "text-white shadow-lg shadow-[#B8A0C8]/30 hover:-translate-y-0.5"
                   : "bg-slate-200 text-slate-400 cursor-not-allowed",
               ].join(" ")}
-              style={answers.brandVibeAi && !aiLoading ? { background: "linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)" } : undefined}
+              style={answers.brandVibeAi && !aiLoading ? { background: "linear-gradient(135deg, #B8A0C8 0%, #88B8B0 50%, #C8A880 100%)" } : undefined}
             >
               {aiLoading ? (
                 <>
@@ -500,13 +500,13 @@ Choose colours that are distinct, harmonious, and appropriate for a premium GCC 
             </button>
 
             {!aiResult && !aiLoading && answers.brandVibeAi && (
-              <div className="bg-violet-50 border border-violet-200 rounded-xl p-3 text-xs text-violet-700">
+              <div className="rounded-xl p-3 text-xs border" style={{ background: "rgba(184,160,200,0.07)", borderColor: "rgba(184,160,200,0.3)", color: "#9A7AAE" }}>
                 AI uses Claude + GPT-4o to generate a bespoke palette based on your industry, vibe, and cultural heritage. Falls back to curated presets if AI is unavailable.
               </div>
             )}
 
             {aiResult && (
-              <div className="bg-gradient-to-br from-violet-50 to-teal-50 border border-violet-200 rounded-xl p-5">
+              <div className="rounded-xl p-5 border" style={{ background: "linear-gradient(135deg, rgba(184,160,200,0.07) 0%, rgba(136,184,176,0.07) 100%)", borderColor: "rgba(184,160,200,0.25)" }}>
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <p className="text-sm font-bold text-slate-800">AI-generated palette</p>
@@ -514,7 +514,7 @@ Choose colours that are distinct, harmonious, and appropriate for a premium GCC 
                   </div>
                   <button
                     onClick={generateAiBrand}
-                    className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 transition-colors"
+                    className="flex items-center gap-1 text-xs transition-colors" style={{ color: "#B8A0C8" }}
                   >
                     <RefreshCw className="w-3 h-3" /> Regenerate
                   </button>
@@ -523,7 +523,7 @@ Choose colours that are distinct, harmonious, and appropriate for a premium GCC 
                 <button
                   onClick={applyAiResult}
                   className="mt-4 flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold text-white transition-all"
-                  style={{ background: "linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)" }}
+                  style={{ background: "linear-gradient(135deg, #B8A0C8 0%, #88B8B0 50%, #C8A880 100%)" }}
                 >
                   <Check className="w-4 h-4" /> Apply to workspace
                   <ChevronRight className="w-3.5 h-3.5" />
@@ -540,7 +540,7 @@ Choose colours that are distinct, harmonious, and appropriate for a premium GCC 
         <div className="flex items-start gap-5">
           <div
             onClick={() => fileRef.current?.click()}
-            className="border-2 border-dashed border-slate-200 rounded-xl p-5 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-violet-400 hover:bg-violet-50/30 transition-all w-36 h-28 flex-shrink-0"
+            className="border-2 border-dashed border-border rounded-xl p-5 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-[#B8A0C8]/60 hover:bg-[#B8A0C8]/[0.03] transition-all w-36 h-28 flex-shrink-0"
           >
             {answers.logoBase64 ? (
               <img src={answers.logoBase64} alt="Logo" className="h-16 object-contain" />
@@ -587,7 +587,7 @@ Choose colours that are distinct, harmonious, and appropriate for a premium GCC 
                   {meta.label}
                 </span>
                 {isVisible && (
-                  <span className="text-xs text-violet-600 font-mono bg-violet-50 border border-violet-200 rounded px-1.5 py-0.5">
+                  <span className="text-xs font-mono rounded px-1.5 py-0.5" style={{ color: "#B8A0C8", background: "rgba(184,160,200,0.1)", border: "1px solid rgba(184,160,200,0.3)" }}>
                     #{idx + 1}
                   </span>
                 )}
