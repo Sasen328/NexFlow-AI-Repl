@@ -756,21 +756,44 @@ function PersonIntelPanel() {
   );
 }
 
+function hasContent(v: any): boolean {
+  if (!v) return false;
+  if (typeof v === "string") return v !== "" && v !== "Not found";
+  if (Array.isArray(v)) return v.length > 0;
+  return true;
+}
+
+function mergeApproach(real: any, fallback: Record<string, any>): Record<string, any> {
+  const merged: Record<string, any> = { ...fallback };
+  if (!real) return merged;
+  for (const k of Object.keys(fallback)) {
+    if (hasContent(real[k])) merged[k] = real[k];
+  }
+  return merged;
+}
+
 function PersonReport({ result }: { result: any }) {
   const r = result.report ?? {};
   const p = r.profile ?? {};
   const notes = r.intelligence_notes ?? {};
 
-  const confKind: "success" | "warn" | "error" =
-    notes.confidence_level === "High" ? "success" :
-    notes.confidence_level === "Medium" ? "warn" : "error";
+  const hasCareer = (r.career?.length ?? 0) > 0;
+  const hasEducation = (r.education?.length ?? 0) > 0;
+  const hasWealth = Object.values(r.wealth_profile ?? {}).some((v: any) => hasContent(v));
+  const hasPersonal = Object.values(r.personal_profile ?? {}).some((v: any) => hasContent(v));
+  const isLimitedProfile = !hasCareer && !hasEducation && !hasWealth && !hasPersonal;
+
+  const rawApproach = r.approach_strategy ?? {};
+  const hasRealApproach = Object.values(rawApproach).some((v: any) => hasContent(v));
+  const fallbackApproach = buildSaudiBizApproach(p.fullName ?? "", p.title ?? "", p.company ?? "");
+  const approach = hasRealApproach ? mergeApproach(rawApproach, fallbackApproach) : fallbackApproach;
+  const approachIsGenerated = !hasRealApproach;
 
   return (
     <div className="space-y-4">
       {/* Person hero card */}
       <div className="rounded-2xl border border-[#B8A0C8]/40 bg-gradient-to-br from-[#B8A0C8]/8 to-transparent p-5">
         <div className="flex items-start gap-4">
-          {/* Avatar */}
           <div className="w-14 h-14 rounded-2xl bg-[#B8A0C8]/20 flex items-center justify-center shrink-0 text-[#B8A0C8] font-bold text-xl">
             {(p.fullName || "?")[0]}
           </div>
@@ -794,7 +817,7 @@ function PersonReport({ result }: { result: any }) {
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
               {p.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{p.location}</span>}
-              {p.nationality && <span>{p.nationality}</span>}
+              {p.nationality && p.nationality !== "Not found" && <span>{p.nationality}</span>}
               {p.age && <span>{p.age} yrs</span>}
               {p.linkedin && p.linkedin !== "Not found" && (
                 <a href={p.linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[#0a66c2] hover:underline">
@@ -802,7 +825,6 @@ function PersonReport({ result }: { result: any }) {
                 </a>
               )}
             </div>
-            {/* Source chips */}
             <div className="mt-2 flex flex-wrap gap-1">
               {(result.sourcesUsed ?? []).slice(0, 6).map((s: string) => (
                 <span key={s} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#B8A0C8]/15 text-[#B8A0C8]">{s}</span>
@@ -812,10 +834,14 @@ function PersonReport({ result }: { result: any }) {
         </div>
       </div>
 
+      {isLimitedProfile && (
+        <LimitedProfileBanner name={p.fullName || "this person"} sources={result.sourcesUsed?.length ?? 0} />
+      )}
+
       {/* 2-col grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ReportSection title="Career History" icon={Briefcase}>
-          {(r.career?.length > 0) ? (
+          {hasCareer ? (
             <ul className="space-y-3">
               {r.career.slice(0, 6).map((c: any, i: number) => (
                 <li key={i} className="relative pl-4 before:absolute before:left-0 before:top-2 before:w-1.5 before:h-1.5 before:rounded-full before:bg-[#B8A0C8]/60">
@@ -825,11 +851,13 @@ function PersonReport({ result }: { result: any }) {
                 </li>
               ))}
             </ul>
-          ) : <NoData />}
+          ) : (
+            <NoData tip="No public career records found. Add a LinkedIn URL and re-run for better results." />
+          )}
         </ReportSection>
 
         <ReportSection title="Education" icon={GraduationCap}>
-          {(r.education?.length > 0) ? (
+          {hasEducation ? (
             <ul className="space-y-2">
               {r.education.map((e: any, i: number) => (
                 <li key={i} className="text-sm">
@@ -838,29 +866,39 @@ function PersonReport({ result }: { result: any }) {
                 </li>
               ))}
             </ul>
-          ) : <NoData />}
+          ) : (
+            <NoData tip="No public education records found. Common for executives at private Saudi firms." />
+          )}
         </ReportSection>
 
         <ReportSection title="Wealth Profile" icon={DollarSign}>
-          <KvList data={{
-            "Est. net worth": r.wealth_profile?.estimated_net_worth,
-            "Income estimate": r.wealth_profile?.income_estimate,
-            "Wealth sources": (r.wealth_profile?.wealth_sources ?? []).join(", "),
-            "Assets": r.wealth_profile?.assets,
-            "Investments": r.wealth_profile?.investments,
-            "Lifestyle": r.wealth_profile?.lifestyle_indicators,
-          }} />
+          {hasWealth ? (
+            <KvList data={{
+              "Est. net worth": r.wealth_profile?.estimated_net_worth,
+              "Income estimate": r.wealth_profile?.income_estimate,
+              "Wealth sources": (r.wealth_profile?.wealth_sources ?? []).join(", "),
+              "Assets": r.wealth_profile?.assets,
+              "Investments": r.wealth_profile?.investments,
+              "Lifestyle": r.wealth_profile?.lifestyle_indicators,
+            }} />
+          ) : (
+            <NoData tip="No public wealth data found. Typical for private-company executives." />
+          )}
         </ReportSection>
 
         <ReportSection title="Personal Profile" icon={Users}>
-          <KvList data={{
-            "Languages": (r.personal_profile?.languages ?? []).join(", "),
-            "Interests": (r.personal_profile?.interests ?? []).join(", "),
-            "Board roles": (r.personal_profile?.board_memberships ?? []).join(", "),
-            "Style": r.personal_profile?.communication_style,
-            "Awards": (r.personal_profile?.awards ?? []).join(", "),
-            "Social": r.personal_profile?.social_presence,
-          }} />
+          {hasPersonal ? (
+            <KvList data={{
+              "Languages": (r.personal_profile?.languages ?? []).join(", "),
+              "Interests": (r.personal_profile?.interests ?? []).join(", "),
+              "Board roles": (r.personal_profile?.board_memberships ?? []).join(", "),
+              "Style": r.personal_profile?.communication_style,
+              "Awards": (r.personal_profile?.awards ?? []).join(", "),
+              "Social": r.personal_profile?.social_presence,
+            }} />
+          ) : (
+            <NoData tip="No public personal data found. LinkedIn profile or company bio would help." />
+          )}
         </ReportSection>
       </div>
 
@@ -881,52 +919,86 @@ function PersonReport({ result }: { result: any }) {
         </CollapseSection>
       )}
 
-      {/* Approach strategy — highlighted */}
-      {r.approach_strategy && (
-        <div className="rounded-2xl border border-[#B8A0C8]/50 bg-gradient-to-br from-[#B8A0C8]/8 to-transparent overflow-hidden">
-          <div className="px-5 py-3 border-b border-[#B8A0C8]/30 bg-[#B8A0C8]/10 flex items-center gap-2">
-            <Zap className="w-4 h-4 text-[#B8A0C8]" />
-            <span className="font-semibold text-sm text-[#B8A0C8]">Approach Strategy</span>
-            <span className="ml-auto text-[10px] text-muted-foreground">AI-generated · review before use</span>
-          </div>
-          <div className="p-5 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-              <KpiTile label="Best channel" value={r.approach_strategy.best_channel} />
-              <KpiTile label="Best timing" value={r.approach_strategy.best_timing} />
-              <KpiTile label="Opening angle" value={r.approach_strategy.opening_angle} />
-            </div>
-            {r.approach_strategy.value_proposition && (
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Value proposition</div>
-                <p className="text-sm">{r.approach_strategy.value_proposition}</p>
-              </div>
-            )}
-            {r.approach_strategy.cultural_notes && (
-              <div className="text-xs italic text-muted-foreground p-3 bg-muted/50 rounded-xl border border-border">
-                🕌 {r.approach_strategy.cultural_notes}
-              </div>
-            )}
-            {r.approach_strategy.recommended_approach && (
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Recommended approach</div>
-                <p className="text-sm leading-relaxed">{r.approach_strategy.recommended_approach}</p>
-              </div>
-            )}
-            {r.approach_strategy.sample_message && (
-              <div className="rounded-xl bg-background border border-border p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Ready-to-send first message</div>
-                  <CopyButton text={r.approach_strategy.sample_message} />
-                </div>
-                <p className="text-sm leading-relaxed">{r.approach_strategy.sample_message}</p>
-              </div>
-            )}
-          </div>
+      {/* Approach strategy — always shown */}
+      <div className="rounded-2xl border border-[#B8A0C8]/50 bg-gradient-to-br from-[#B8A0C8]/8 to-transparent overflow-hidden">
+        <div className="px-5 py-3 border-b border-[#B8A0C8]/30 bg-[#B8A0C8]/10 flex items-center gap-2">
+          <Zap className="w-4 h-4 text-[#B8A0C8]" />
+          <span className="font-semibold text-sm text-[#B8A0C8]">Approach Strategy</span>
+          <span className="ml-auto text-[10px] text-muted-foreground">
+            {approachIsGenerated ? "Saudi B2B context · review before use" : "AI-generated · review before use"}
+          </span>
+          {approachIsGenerated && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400">
+              Generated
+            </span>
+          )}
         </div>
-      )}
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+            <KpiTile label="Best channel" value={approach.best_channel} />
+            <KpiTile label="Best timing" value={approach.best_timing} />
+            <KpiTile label="Opening angle" value={approach.opening_angle} />
+          </div>
+
+          {hasContent(approach.value_proposition) && (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Value proposition</div>
+              <p className="text-sm">{approach.value_proposition}</p>
+            </div>
+          )}
+
+          {hasContent(approach.conversation_starters) && (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Conversation starters</div>
+              <ul className="space-y-1">
+                {(approach.conversation_starters as string[]).map((s: string, i: number) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-foreground/80">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#B8A0C8]/60 mt-1.5 shrink-0" />
+                    {s}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {hasContent(approach.cultural_notes) && (
+            <div className="text-xs italic text-muted-foreground p-3 bg-muted/50 rounded-xl border border-border">
+              🕌 {approach.cultural_notes}
+            </div>
+          )}
+
+          {hasContent(approach.recommended_approach) && (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Recommended approach</div>
+              <p className="text-sm leading-relaxed whitespace-pre-line">{approach.recommended_approach}</p>
+            </div>
+          )}
+
+          {hasContent(approach.potential_objections) && (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Potential objections</div>
+              <div className="flex flex-wrap gap-1.5">
+                {(approach.potential_objections as string[]).map((o: string, i: number) => (
+                  <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-700 dark:text-rose-400">{o}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {hasContent(approach.sample_message) && (
+            <div className="rounded-xl bg-background border border-border p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Ready-to-send first message</div>
+                <CopyButton text={approach.sample_message as string} />
+              </div>
+              <p className="text-sm leading-relaxed whitespace-pre-line">{approach.sample_message}</p>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Intel notes */}
-      {notes.caveats && (
+      {notes.caveats && notes.caveats !== "Not found" && (
         <div className="rounded-xl border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
           <div className="font-semibold text-foreground/70 mb-1">Confidence caveats</div>
           {notes.caveats}
@@ -1155,12 +1227,13 @@ function CompanyReport({ result }: { result: any }) {
         </CollapseSection>
       )}
 
-      {/* Approach */}
-      {app.bestChannel && (
+      {/* Approach — always shown */}
+      {r.approach !== undefined && (
         <div className="rounded-2xl border border-[#C8A880]/50 bg-gradient-to-br from-[#C8A880]/8 to-transparent overflow-hidden">
           <div className="px-5 py-3 border-b border-[#C8A880]/30 bg-[#C8A880]/10 flex items-center gap-2">
             <Zap className="w-4 h-4 text-[#C8A880]" />
             <span className="font-semibold text-sm text-[#C8A880]">Approach Strategy</span>
+            <span className="ml-auto text-[10px] text-muted-foreground">AI-generated · review before use</span>
           </div>
           <div className="p-5 space-y-3">
             <div className="grid grid-cols-3 gap-3">
@@ -1168,18 +1241,28 @@ function CompanyReport({ result }: { result: any }) {
               <KpiTile label="Entry point" value={app.entryPoint} />
               <KpiTile label="Timing" value={app.bestTiming} />
             </div>
-            {app.valueProp && <p className="text-sm"><span className="font-semibold">Value prop:</span> {app.valueProp}</p>}
-            {app.openingAngle && <p className="text-sm"><span className="font-semibold">Opening angle:</span> {app.openingAngle}</p>}
-            {app.culturalNotes && (
+            {hasContent(app.valueProp) && <p className="text-sm"><span className="font-semibold">Value prop:</span> {app.valueProp}</p>}
+            {hasContent(app.openingAngle) && <p className="text-sm"><span className="font-semibold">Opening angle:</span> {app.openingAngle}</p>}
+            {hasContent(app.potentialObjections) && (
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Potential objections</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {(app.potentialObjections as string[]).map((o: string, i: number) => (
+                    <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-700 dark:text-rose-400">{o}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {hasContent(app.culturalNotes) && (
               <div className="text-xs italic text-muted-foreground p-3 bg-muted/50 rounded-xl border border-border">🕌 {app.culturalNotes}</div>
             )}
-            {app.sampleMessage && (
+            {hasContent(app.sampleMessage) && (
               <div className="rounded-xl bg-background border border-border p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sample message</div>
                   <CopyButton text={app.sampleMessage} />
                 </div>
-                <p className="text-sm leading-relaxed">{app.sampleMessage}</p>
+                <p className="text-sm leading-relaxed whitespace-pre-line">{app.sampleMessage}</p>
               </div>
             )}
           </div>
@@ -1536,13 +1619,14 @@ function CollapseSection({ title, icon: Icon, children, defaultOpen = false }: {
 }
 
 function KpiTile({ icon: Icon, label, value }: { icon?: typeof Users; label: string; value?: any }) {
+  const display = (value !== null && value !== undefined && value !== "" && value !== "Not found") ? value : "—";
   return (
     <div className="rounded-xl border border-border bg-card p-3">
       <div className="flex items-center gap-1.5 mb-1">
         {Icon && <Icon className="w-3 h-3 text-muted-foreground" />}
         <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</div>
       </div>
-      <div className="font-semibold text-sm truncate">{value ?? "—"}</div>
+      <div className={cn("font-semibold text-sm truncate", display === "—" && "text-muted-foreground")}>{display}</div>
     </div>
   );
 }
@@ -1645,4 +1729,64 @@ function SaveBar({ runId }: { runId: string }) {
   );
 }
 
-function NoData() { return <p className="text-xs italic text-muted-foreground">Not found</p>; }
+function NoData({ tip }: { tip?: string }) {
+  return (
+    <div className="py-2">
+      <p className="text-xs text-muted-foreground/70 italic">No public data found for this field.</p>
+      {tip && <p className="text-[10px] text-muted-foreground/50 mt-0.5">{tip}</p>}
+    </div>
+  );
+}
+
+function LimitedProfileBanner({ name, sources }: { name: string; sources: number }) {
+  return (
+    <div className="rounded-xl border border-amber-400/40 bg-amber-50/60 dark:bg-amber-900/10 px-4 py-3 flex items-start gap-3">
+      <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+      <div>
+        <div className="text-xs font-semibold text-amber-800 dark:text-amber-300">Limited public profile</div>
+        <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5 leading-relaxed">
+          {sources} sources searched for <strong>{name}</strong> but returned minimal structured data.
+          This is common for private executives at SME-level companies with a small digital footprint.
+          The Approach Strategy below is generated based on their known role and Saudi B2B context.
+        </p>
+        <p className="text-[10px] text-amber-600/80 dark:text-amber-500 mt-1">
+          Tip: Add their LinkedIn URL or company website URL and re-run for richer results.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function buildSaudiBizApproach(name: string, title: string, company: string): Record<string, any> {
+  const firstName = (name || "").split(" ")[0] || name || "there";
+  const isCLevel = /(ceo|president|managing director|general manager|chairman|founder|owner)/i.test(title || "");
+  const isVP = /(vp|vice president)/i.test(title || "");
+  const seniority = isCLevel ? "C-Level executive" : isVP ? "VP-level leader" : "senior leader";
+  const isConstruction = /(construct|contracting|engineering|infrastructure|build)/i.test(company || title || "");
+  const industryHint = isConstruction
+    ? "Vision 2030 infrastructure programmes, NEOM, or recent contract awards"
+    : "market trends and growth opportunities in their sector";
+
+  return {
+    best_channel: "LinkedIn",
+    best_timing: "Sunday–Wednesday, 9:00–11:30 AM (AST)",
+    opening_angle: `Reference ${industryHint} relevant to ${company || "their company"}. Keep the opening relational, not transactional.`,
+    value_proposition: `Tailored to ${seniority}s at GCC-based companies. Lead with how peers in their industry have benefited.`,
+    potential_objections: [
+      "Happy with current suppliers / vendors",
+      "No budget allocation this quarter",
+      "Too busy to evaluate new solutions",
+    ],
+    conversation_starters: [
+      "Saudi Vision 2030 — opportunities and execution challenges in their sector",
+      "Technology adoption and digital transformation in GCC firms",
+      "Talent and operational efficiency in the Saudi market",
+    ],
+    cultural_notes:
+      "Saudi executives value personal relationships and trust before business. Lead with a warm introduction or shared connection if possible. Avoid being overtly sales-driven in the first contact — propose a brief coffee or 15-minute call. Referencing shared context (a conference, a news story about their firm, or a mutual contact) significantly improves response rates.",
+    recommended_approach:
+      `As a ${title || seniority} at ${company || "their organisation"}, ${firstName} is a key decision-maker. Approach with a warm, respectful tone. Reference something specific about ${company || "their company"} to show you've done your research. Request a brief introductory call (15 min) rather than a full pitch meeting. Follow up once on LinkedIn if no response within a week — persistence is acceptable but keep it measured and professional.`,
+    sample_message:
+      `Dear ${firstName},\n\nI came across ${company || "your company"} while researching leading firms in the sector and was impressed by the work you're doing. We partner with similar organisations across the GCC to [your value proposition], and I'd love to share a few ideas that have helped comparable teams.\n\nWould you have 15 minutes for a brief call this week or next?\n\nWith respect,\n[Your name]`,
+  };
+}
