@@ -11,8 +11,6 @@ const TABS = [
   { key: "brand",   label: "Brand Kit",       href: "/brand" },
 ];
 
-const DOC_HREF = "/product-overview.html";
-
 export function MarketingTopBar() {
   const [location] = useLocation();
   const [getStartedOpen, setGetStartedOpen] = useState(false);
@@ -68,16 +66,6 @@ export function MarketingTopBar() {
               </button>
             </Link>
           ))}
-
-          {/* Product Doc — external static page */}
-          <a
-            href={DOC_HREF}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3.5 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all text-foreground/70 hover:text-foreground hover:bg-muted/40"
-          >
-            Product Doc ↗
-          </a>
 
           {/* Get Started — dropdown with Sign In / Sign Up */}
           <div className="relative">
