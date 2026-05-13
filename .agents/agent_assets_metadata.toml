@@ -245,3 +245,9 @@ id = "ddHpYS1tx0R6Jn2QrEXPk"
 uri = "file://nexflow-waterfall-sources.md"
 type = "text"
 title = "Waterfall Sources — Simple List"
+
+[[outputs]]
+id = "KZrIfNIZUofJb6ANwmCNS"
+uri = "file://nexflow-api-map.md"
+type = "text"
+title = "NexFlow — Full API & Service Cost Map"
