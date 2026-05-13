@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { contacts, companies, activities } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
-import { aiChat, aiJson, aiGeminiVisionJson } from "../lib/ai.js";
+import { aiChat, aiJson, aiGeminiVisionJson, aiOpenAIVisionJson } from "../lib/ai.js";
 
 const router = Router();
 
@@ -108,6 +108,63 @@ Rules:
     return { result };
   } catch (err: any) {
     return { result: { is_business_card: false, rejection_reason: err.message }, error: err.message };
+  }
+}
+
+// ─── AGENT 1C: GPT-4o Vision — third-pass fallback for stubborn cards ──────
+// Called when BOTH Gemini passes return no contact data. GPT-4o is often
+// better than Gemini at reading text from photos taken at an angle, with
+// shadows, creases, or dark/metallic backgrounds.
+async function agent1GptVisionOCR(
+  imageDataUrl: string,
+  hint: string = "",
+): Promise<{ result: any; error?: string }> {
+  const prompt = `You are an expert business-card OCR specialist. ${hint}
+
+This image shows a business card — extract every piece of text you can see, even if the photo is shadowed, angled, or has low contrast.
+
+Return ONLY valid JSON:
+{
+  "is_business_card": true,
+  "rejection_reason": null,
+  "name_en": string|null,
+  "name_ar": string|null,
+  "title": string|null,
+  "company": string|null,
+  "company_ar": string|null,
+  "email": string|null,
+  "mobile": string|null,
+  "office": string|null,
+  "fax": string|null,
+  "website": string|null,
+  "address": string|null,
+  "city": string|null,
+  "country": string|null,
+  "linkedin": string|null,
+  "twitter": string|null,
+  "industry_guess": string|null,
+  "ocr_confidence": 0-100,
+  "qr_detected": true|false,
+  "qr_raw_data": string|null,
+  "qr_type": "vcard"|"linkedin"|"whatsapp"|"url"|"text"|null,
+  "qr_extracted": null,
+  "fields": []
+}
+
+Rules:
+- name_ar: Arabic script line (right-to-left). name_en: Latin-script name.
+- title: full job title (never truncate — include every word).
+- company: read ALL lines of the company name.
+- Normalize phones: international format (+966, +971, +974...).
+- Confidence: reflect how clearly you can read the text (0=nothing, 100=perfect).`;
+
+  try {
+    const result = await aiOpenAIVisionJson({ prompt, imageDataUrl, maxTokens: 1500 });
+    result.is_business_card = true;
+    result.rejection_reason = null;
+    return { result };
+  } catch (err: any) {
+    return { result: { is_business_card: true, ocr_confidence: 0 }, error: err.message };
   }
 }
 
@@ -565,6 +622,33 @@ router.post("/scan", async (req, res) => {
       ocrData.is_business_card = true;
       ocrData.rejection_reason = null;
       pipeline_trace.agent1_front_ocr.override = "data_found_despite_false_flag";
+    }
+
+    // Third-pass: GPT-4o Vision fallback — runs when BOTH Gemini passes returned
+    // no contact data (shadowed photo, dark card, poor angle, etc.)
+    if (!hasContactData(ocrData)) {
+      pipeline_trace.agent1_front_ocr.note = (pipeline_trace.agent1_front_ocr.note ?? "") + ";third_pass_gpt4o_vision";
+      const [gptFront, gptBack] = await Promise.all([
+        agent1GptVisionOCR(frontUrl, "The card may be photographed at an angle or have a shadow."),
+        backUrl ? agent1GptVisionOCR(backUrl, "This is the BACK of the card — look for phone, email, address, website.") : Promise.resolve(null),
+      ]);
+      const gptMerged = mergeCardSides(gptFront.result ?? {}, gptBack?.result ?? null);
+      // Prefer GPT data for any field that Gemini left empty
+      for (const f of ["name_en","name_ar","title","company","company_ar","email","mobile","office","fax","website","address","city","country","linkedin","twitter","industry_guess"] as const) {
+        if (!ocrData[f] && gptMerged[f]) ocrData[f] = gptMerged[f];
+      }
+      pipeline_trace.agent1d_gpt4o_vision = {
+        model: "gpt-4o",
+        has_data: Boolean(hasContactData(gptMerged)),
+        ocr_confidence: gptMerged.ocr_confidence ?? 0,
+        front_error: gptFront.error ?? null,
+        back_error: gptBack?.error ?? null,
+      };
+      if (hasContactData(gptMerged)) {
+        ocrData.scan_note = "Card required GPT-4o Vision fallback (photo quality/angle)";
+      } else {
+        ocrData.scan_note = "Low-quality photo — please verify fields manually";
+      }
     }
 
     // Lock is_business_card — no downstream agent can change it

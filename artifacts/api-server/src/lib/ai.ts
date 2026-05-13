@@ -146,6 +146,37 @@ export async function aiGeminiVisionJson(opts: {
 }
 
 /**
+ * GPT-4o Vision — extract structured JSON from an image.
+ * Uses the OpenAI integration proxy (same credentials as aiChat with provider "openai").
+ * Falls back gracefully when vision is not supported.
+ */
+export async function aiOpenAIVisionJson(opts: {
+  prompt: string;
+  imageDataUrl: string;
+  maxTokens?: number;
+}): Promise<any> {
+  const { prompt, imageDataUrl, maxTokens = 2000 } = opts;
+  const client = openai(); // throws if not configured
+  const resp = await client.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          { type: "image_url", image_url: { url: imageDataUrl, detail: "high" } },
+        ] as any,
+      },
+    ],
+    max_tokens: maxTokens,
+    response_format: { type: "json_object" },
+    temperature: 0.1,
+  });
+  const text = resp.choices?.[0]?.message?.content ?? "{}";
+  try { return JSON.parse(text); } catch { return {}; }
+}
+
+/**
  * Direct Gemini text-generation — bypasses the OpenRouter proxy entirely.
  * Uses gemini-2.5-flash which is fast, reliable, and supports bilingual GCC content.
  */
