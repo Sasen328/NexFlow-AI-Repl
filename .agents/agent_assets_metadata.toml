@@ -239,3 +239,9 @@ id = "iokat5jWHVfkvpEAZ3vIX"
 uri = "file://nexflow-enrichment-sources.md"
 type = "text"
 title = "NexFlow — Enrichment Waterfall: All Sources"
+
+[[outputs]]
+id = "ddHpYS1tx0R6Jn2QrEXPk"
+uri = "file://nexflow-waterfall-sources.md"
+type = "text"
+title = "Waterfall Sources — Simple List"
