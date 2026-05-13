@@ -92,3 +92,11 @@ externalPort = 3000
 [nix]
 channel = "stable-25_05"
 packages = ["fontconfig", "ghostscript", "glib", "harfbuzz", "libxcrypt", "pango", "xcodebuild", "zlib"]
+
+[userenv]
+
+[userenv.shared]
+GEMINI_API_KEY = "AIzaSyB_CcFTQuey0pHNzUVQSKNEkKljloSoq-U"
+OPENAI_API_KEY = "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"
+PERPLEXITY_API_KEY = "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"
+ANTHROPIC_API_KEY = "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"

@@ -45,16 +45,18 @@ GCC cards often have: dark backgrounds (black, navy, maroon, dark red, burgundy)
 ── GCC BILINGUAL CARD LAYOUT (extremely common) ──
 Most GCC professional cards follow this layout:
   [Company logo]              [QR code or decorative element]
-  [Arabic name — e.g. سارة جيد]
-  [English name — e.g. Sara Gied]
-  [Job title — e.g. Head of Operations and Business Support]
+  [Arabic name — right-to-left Arabic script]
+  [English name — Latin letters directly below the Arabic name]
+  [Job title — full title, never truncate]
   [Phone] [Email] [Website]
 
 EXTRACTION RULES for bilingual cards:
-• name_ar: The line written in Arabic script (right-to-left characters). Common on Saudi/UAE/Gulf cards.
-• name_en: The Latin-script transliteration of the name, typically the line DIRECTLY BELOW the Arabic name.
-• title: The job title line — appears BELOW the English name. Read the FULL title including all words (e.g. "Head of Operations and Business Support", not just "Head of Operations").
-• company / company_ar: The company name from logo text or printed text. Read ALL lines of the company name (e.g. "The Family Office" not just "Family Office").
+• name_ar: The line written in Arabic script (right-to-left characters). Read every Arabic character exactly as printed — do NOT transliterate or guess. If you are unsure of a character, read what is actually on the card.
+• name_en: The Latin-script name, typically the line DIRECTLY BELOW the Arabic name. Read EXACTLY what is printed — do NOT substitute or guess alternative spellings.
+• title: The job title line — read the FULL title including ALL words.
+• company / company_ar: Read ALL lines of the company name exactly as printed.
+
+CRITICAL: Read what is ACTUALLY on the card. Do not substitute example names or guesses — extract the literal text visible in the image.
 
 DO NOT skip short lines or lines that appear decorative — on GCC cards these are often the person's name or department.
 
@@ -98,7 +100,7 @@ Rules:
 - Normalize phones in international format (+966, +971, +974, +965, +973, +968)
 - Strip protocol from URLs ("neom.com" not "https://neom.com") — EXCEPT LinkedIn: keep as linkedin.com/in/username
 - Return null (never empty string) for absent fields
-- Arabic names MUST use proper Arabic script (not transliteration). E.g. "سارة جيد" not "Sara Gied"
+- Arabic names MUST use proper Arabic script — read exactly what is printed, never substitute or guess
 - title: return the COMPLETE job title string, never truncate it
 - LinkedIn URL: ONLY set if explicitly visible on the card or decoded from QR. NEVER guess.
 - If QR is decoded and contains a linkedin.com URL, put it in both qr_extracted.linkedin AND linkedin field`;
@@ -209,15 +211,21 @@ Return ONLY valid JSON:
 function mergeCardSides(front: any, back: any): any {
   if (!back) return front;
   const merged: any = { ...front };
-  // Back side fills in any null fields from front
-  const textFields = [
-    "name_en", "name_ar", "title", "company", "company_ar",
-    "email", "mobile", "office", "fax", "website", "address",
-    "city", "country", "linkedin", "twitter", "industry_guess",
-  ];
-  for (const f of textFields) {
+
+  // Identity fields: front takes priority (name, title, company on the front)
+  const frontPriorityFields = ["name_en", "name_ar", "title", "company", "company_ar", "linkedin", "twitter", "industry_guess"];
+  for (const f of frontPriorityFields) {
     if (!merged[f] && back[f]) merged[f] = back[f];
   }
+
+  // Contact/location fields: BACK takes priority on GCC cards — phone, email,
+  // address, country are almost always on the back, not the front.
+  const backPriorityFields = ["email", "mobile", "office", "fax", "website", "address", "city", "country"];
+  for (const f of backPriorityFields) {
+    // Use back value if back has it (even if front also has something)
+    if (back[f]) merged[f] = back[f];
+  }
+
   // QR data: prefer whichever side found it
   if (!merged.qr_detected && back.qr_detected) {
     merged.qr_detected = back.qr_detected;
@@ -624,29 +632,49 @@ router.post("/scan", async (req, res) => {
       pipeline_trace.agent1_front_ocr.override = "data_found_despite_false_flag";
     }
 
-    // Third-pass: GPT-4o Vision fallback — runs when BOTH Gemini passes returned
-    // no contact data (shadowed photo, dark card, poor angle, etc.)
-    if (!hasContactData(ocrData)) {
+    // Third-pass: GPT-4o Vision — fires when Gemini is missing contact info.
+    // Triggers when: no contact data at all, OR email+phone both missing (common
+    // when Gemini reads the front name but can't read the dark back card).
+    // When a back image is provided, ALWAYS run GPT-4o on the back — it is far
+    // more reliable at reading dark-background cards than Gemini.
+    const missingContact = !ocrData.email && !ocrData.mobile && !ocrData.office;
+    const needsThirdPass = !hasContactData(ocrData) || (backUrl && missingContact);
+    if (needsThirdPass) {
       pipeline_trace.agent1_front_ocr.note = (pipeline_trace.agent1_front_ocr.note ?? "") + ";third_pass_gpt4o_vision";
       const [gptFront, gptBack] = await Promise.all([
-        agent1GptVisionOCR(frontUrl, "The card may be photographed at an angle or have a shadow."),
-        backUrl ? agent1GptVisionOCR(backUrl, "This is the BACK of the card — look for phone, email, address, website.") : Promise.resolve(null),
+        // Only run front pass if name/company also missing — avoid overwriting correct front data
+        !hasContactData(ocrData)
+          ? agent1GptVisionOCR(frontUrl, "The card may be photographed at an angle or have a shadow.")
+          : Promise.resolve(null),
+        // ALWAYS run back pass when back image present and contact info is missing
+        backUrl && missingContact
+          ? agent1GptVisionOCR(backUrl, "This is the BACK of the card. Focus entirely on extracting: phone numbers, email address, website, street address, city, country. These are usually printed clearly on the back.")
+          : Promise.resolve(null),
       ]);
-      const gptMerged = mergeCardSides(gptFront.result ?? {}, gptBack?.result ?? null);
-      // Prefer GPT data for any field that Gemini left empty
-      for (const f of ["name_en","name_ar","title","company","company_ar","email","mobile","office","fax","website","address","city","country","linkedin","twitter","industry_guess"] as const) {
-        if (!ocrData[f] && gptMerged[f]) ocrData[f] = gptMerged[f];
+      // Merge GPT results — only fill fields that are still empty
+      if (gptFront?.result) {
+        for (const f of ["name_en","name_ar","title","company","company_ar","linkedin","twitter","industry_guess"] as const) {
+          if (!ocrData[f] && gptFront.result[f]) ocrData[f] = gptFront.result[f];
+        }
+      }
+      if (gptBack?.result) {
+        // Back card: overwrite contact/location fields with GPT-4o readings
+        for (const f of ["email","mobile","office","fax","website","address","city","country"] as const) {
+          if (gptBack.result[f]) ocrData[f] = gptBack.result[f];
+        }
       }
       pipeline_trace.agent1d_gpt4o_vision = {
         model: "gpt-4o",
-        has_data: Boolean(hasContactData(gptMerged)),
-        ocr_confidence: gptMerged.ocr_confidence ?? 0,
-        front_error: gptFront.error ?? null,
+        ran_front: Boolean(gptFront),
+        ran_back: Boolean(gptBack),
+        back_ocr_confidence: gptBack?.result?.ocr_confidence ?? null,
+        front_error: gptFront?.error ?? null,
         back_error: gptBack?.error ?? null,
       };
-      if (hasContactData(gptMerged)) {
-        ocrData.scan_note = "Card required GPT-4o Vision fallback (photo quality/angle)";
-      } else {
+      const nowHasContact = Boolean(ocrData.email || ocrData.mobile || ocrData.office);
+      if (nowHasContact) {
+        ocrData.scan_note = "Back card required GPT-4o Vision — contact details extracted successfully";
+      } else if (!hasContactData(ocrData)) {
         ocrData.scan_note = "Low-quality photo — please verify fields manually";
       }
     }
