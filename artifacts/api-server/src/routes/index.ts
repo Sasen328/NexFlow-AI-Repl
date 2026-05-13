@@ -43,6 +43,7 @@ import assistantRouter from "./assistant";
 import webEngineRouter from "./web-engine";
 import companyIntelRouter from "./company-intel";
 import personIntelRouter from "./person-intel";
+import captchaRouter from "./captcha";
 
 const router: IRouter = Router();
 
@@ -90,5 +91,6 @@ router.use("/assistant", assistantRouter);
 router.use("/engine", webEngineRouter);
 router.use("/company-intel", companyIntelRouter);
 router.use("/person-intel", personIntelRouter);
+router.use("/captcha", captchaRouter);
 
 export default router;
