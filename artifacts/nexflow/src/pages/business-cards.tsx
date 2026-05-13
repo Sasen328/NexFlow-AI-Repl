@@ -550,20 +550,66 @@ export default function BusinessCardsPage() {
             )}
 
             {/* AI profile summary */}
-            {scanState === "complete" && fullExtracted.summary_en && (
-              <div className="glass-panel p-3 space-y-1.5 border border-[#88B8B0]/20 bg-[#88B8B0]/5">
-                <div className="text-[10px] font-bold text-[#88B8B0] uppercase tracking-wide">AI Profile</div>
-                <p className="text-xs text-foreground/80 leading-relaxed">{fullExtracted.summary_en}</p>
-                {fullExtracted.summary_ar && (
-                  <p className="text-xs text-foreground/70 leading-relaxed text-right" dir="rtl">{fullExtracted.summary_ar}</p>
-                )}
-                {fullExtracted.next_actions?.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {fullExtracted.next_actions.map((a: string, i: number) => (
-                      <span key={i} className="px-1.5 py-0.5 rounded text-[10px] bg-[#B8A0C8]/10 text-[#B8A0C8] border border-[#B8A0C8]/20">{a}</span>
-                    ))}
-                  </div>
-                )}
+            {scanState === "complete" && (fullExtracted.summary_en || fullExtracted.brief_en) && (
+              <div className="glass-panel border border-[#88B8B0]/20 bg-[#88B8B0]/5 overflow-hidden">
+                {/* Header */}
+                <div className="px-3 py-2 border-b border-[#88B8B0]/15 flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3 text-[#88B8B0]" />
+                  <span className="text-[10px] font-bold text-[#88B8B0] uppercase tracking-wide">AI Pre-Meeting Brief</span>
+                </div>
+
+                <div className="p-3 space-y-3">
+                  {/* Headline */}
+                  {fullExtracted.summary_en && (
+                    <p className="text-xs font-semibold text-foreground/90 leading-relaxed">{fullExtracted.summary_en}</p>
+                  )}
+                  {fullExtracted.summary_ar && (
+                    <p className="text-[11px] text-foreground/60 leading-relaxed text-right" dir="rtl">{fullExtracted.summary_ar}</p>
+                  )}
+
+                  {/* Full brief */}
+                  {fullExtracted.brief_en && (
+                    <p className="text-[11px] text-foreground/75 leading-relaxed border-t border-[#88B8B0]/10 pt-2">{fullExtracted.brief_en}</p>
+                  )}
+
+                  {/* Career history */}
+                  {fullExtracted.career_history?.length > 0 && (
+                    <div className="border-t border-[#88B8B0]/10 pt-2">
+                      <div className="text-[10px] font-bold text-[#88B8B0] uppercase tracking-wide mb-1.5">Career</div>
+                      <ul className="space-y-1">
+                        {fullExtracted.career_history.map((entry: string, i: number) => (
+                          <li key={i} className="text-[11px] text-foreground/70 flex items-start gap-1.5">
+                            <span className="mt-1 w-1 h-1 rounded-full bg-[#88B8B0]/60 flex-shrink-0" />
+                            {entry}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Company snapshot */}
+                  {fullExtracted.company_snapshot && (
+                    <div className="border-t border-[#88B8B0]/10 pt-2">
+                      <div className="text-[10px] font-bold text-[#88B8B0] uppercase tracking-wide mb-1">Company</div>
+                      <p className="text-[11px] text-foreground/70 leading-relaxed">{fullExtracted.company_snapshot}</p>
+                    </div>
+                  )}
+
+                  {/* Next actions */}
+                  {fullExtracted.next_actions?.length > 0 && (
+                    <div className="border-t border-[#88B8B0]/10 pt-2">
+                      <div className="text-[10px] font-bold text-[#88B8B0] uppercase tracking-wide mb-1.5">Recommended actions</div>
+                      <div className="space-y-1">
+                        {fullExtracted.next_actions.map((a: string, i: number) => (
+                          <div key={i} className="flex items-start gap-1.5">
+                            <span className="text-[10px] font-bold text-[#B8A0C8] mt-0.5">{i + 1}.</span>
+                            <span className="text-[11px] text-foreground/75">{a}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
