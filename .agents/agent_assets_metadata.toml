@@ -233,3 +233,9 @@ id = "T4j5PtsKN6TG_tJ1Gbd-W"
 uri = "file://nexflow-company-document.md"
 type = "text"
 title = "NexFlow Company Document"
+
+[[outputs]]
+id = "iokat5jWHVfkvpEAZ3vIX"
+uri = "file://nexflow-enrichment-sources.md"
+type = "text"
+title = "NexFlow — Enrichment Waterfall: All Sources"
