@@ -5,18 +5,17 @@
  *   • Anti-fingerprinting (navigator.webdriver, plugins, canvas noise, WebGL)
  *   • Human behaviour (Bézier mouse paths, gaussian typing delays, scroll chunks)
  *   • Session persistence (saves/restores cookies + localStorage per domain)
- *   • CAPTCHA auto-solving via Claude Vision API
+ *   • CAPTCHA auto-solving via Claude Vision API (lazy — only loads SDK when called)
  *   • Saudi Arabia locale (ar-SA, Asia/Riyadh timezone)
+ *
+ * NOTE: CAPTCHA solving requires @anthropic-ai/sdk at runtime.
+ * Install it in the api-server if you need CAPTCHA support:
+ *   pnpm --filter @workspace/api-server add @anthropic-ai/sdk
  */
 
 import { chromium, type Browser, type Page, type BrowserContext } from "playwright";
-import Anthropic from "@anthropic-ai/sdk";
 import * as fs from "fs";
 import * as path from "path";
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY ?? process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY ?? "",
-});
 
 // ══════════════════════════════════════════════════════════════════
 // 1. STEALTH JS — injected into every page before scripts run
@@ -162,6 +161,8 @@ export class SessionManager {
 
 // ══════════════════════════════════════════════════════════════════
 // 4. CLAUDE VISION CAPTCHA SOLVER
+//    Lazy-loads @anthropic-ai/sdk — falls back gracefully if not installed.
+//    To enable: pnpm --filter @workspace/api-server add @anthropic-ai/sdk
 // ══════════════════════════════════════════════════════════════════
 
 export interface CaptchaSolveResult {
@@ -174,19 +175,38 @@ export async function solveCaptchaWithVision(
   screenshotB64: string,
   hint = "Saudi government portal",
 ): Promise<CaptchaSolveResult> {
+  // Lazy-load Anthropic SDK — avoids hard dependency at module load time
+  let AnthropicClass: new (opts: { apiKey: string }) => {
+    messages: {
+      create(opts: Record<string, unknown>): Promise<{
+        content: Array<{ type: string; text?: string }>;
+      }>;
+    };
+  };
   try {
-    const msg = await anthropic.messages.create({
+    const mod = await import("@anthropic-ai/sdk" as string);
+    AnthropicClass = mod.default ?? mod.Anthropic;
+  } catch {
+    return { code: "", confidence: "failed", reasoning: "@anthropic-ai/sdk not installed — install it to enable CAPTCHA solving" };
+  }
+
+  const apiKey = process.env.ANTHROPIC_API_KEY ?? process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY ?? "";
+  if (!apiKey) return { code: "", confidence: "failed", reasoning: "ANTHROPIC_API_KEY not set" };
+
+  try {
+    const client = new AnthropicClass({ apiKey });
+    const msg = await client.messages.create({
       model: "claude-sonnet-4-5",
       max_tokens: 200,
       messages: [{
         role: "user",
         content: [
           { type: "image", source: { type: "base64", media_type: "image/png", data: screenshotB64 } },
-          { type: "text", text: `You are looking at a screenshot of a ${hint}. Find the CAPTCHA verification code. It is usually 4-8 distorted letters/numbers in a box. Arabic numerals (٠١٢٣٤٥٦٧٨٩) or Latin (0-9, a-z, A-Z). Respond in JSON: {"code":"...","confidence":"high|medium|low|failed","reasoning":"..."}. If no CAPTCHA visible, set code="" and confidence="failed".` },
+          { type: "text", text: `You are looking at a screenshot of a ${hint}. Find the CAPTCHA verification code. It is usually 4-8 distorted letters/numbers in a box. Respond in JSON: {"code":"...","confidence":"high|medium|low|failed","reasoning":"..."}. If no CAPTCHA visible, set code="" and confidence="failed".` },
         ],
       }],
     });
-    const text = msg.content[0].type === "text" ? msg.content[0].text.trim() : "";
+    const text = msg.content[0]?.type === "text" ? (msg.content[0] as { type: string; text?: string }).text?.trim() ?? "" : "";
     const match = text.match(/\{[\s\S]*\}/);
     if (match) return JSON.parse(match[0]) as CaptchaSolveResult;
     return { code: "", confidence: "failed", reasoning: "JSON parse failed" };
@@ -259,7 +279,8 @@ export class StealthBrowser {
         "Sec-Fetch-Site": "none", "Sec-Fetch-User": "?1",
         "Upgrade-Insecure-Requests": "1",
       },
-      ...(savedSession ? { storageState: savedSession as Parameters<typeof this.browser.newContext>[0]["storageState"] } : {}),
+      // storageState typed as any — Playwright's runtime accepts the full saved state object
+      ...(savedSession ? { storageState: savedSession as any } : {}),
     });
 
     await this.context.addInitScript(STEALTH_JS);
@@ -281,7 +302,8 @@ export class StealthBrowser {
       if (!el) return false;
       await el.click();
       await HumanBehavior.idle(150, 400);
-      await this.page.keyboard.selectAll();
+      // Select all + delete existing text (Control+a works cross-platform in Playwright)
+      await this.page.keyboard.press("Control+a");
       await this.page.keyboard.press("Backspace");
       await HumanBehavior.idle(80, 200);
       for (const ch of text) {
@@ -312,22 +334,28 @@ export class StealthBrowser {
     } catch { return false; }
   }
 
+  /**
+   * Try to fill the first visible text input using Playwright's locator API.
+   * Falls back to JS evaluation if no locator matches.
+   */
   async fillFirst(selectors: string[], value: string): Promise<boolean> {
     if (!this.page) return false;
+    // Try explicit selectors first
     for (const sel of selectors) {
       try {
         const el = await this.page.$(sel);
         if (el && await this.humanType(sel, value)) return true;
       } catch { /* try next */ }
     }
+    // Fallback: Playwright locator to find first visible text input
     try {
-      return await this.page.evaluate((v) => {
-        const inputs = Array.from(document.querySelectorAll<HTMLInputElement>("input[type='text'], input:not([type])"));
-        const vis = inputs.filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
-        if (vis[0]) { vis[0].value = v; vis[0].dispatchEvent(new Event("input", { bubbles: true })); return true; }
-        return false;
-      }, value) as boolean;
-    } catch { return false; }
+      const inputLoc = this.page.locator("input[type='text'], input:not([type])").first();
+      if (await inputLoc.count() > 0 && await inputLoc.isVisible()) {
+        await inputLoc.fill(value);
+        return true;
+      }
+    } catch { /* ignore */ }
+    return false;
   }
 
   async clickFirst(selectors: string[]): Promise<boolean> {
@@ -367,7 +395,7 @@ export class StealthBrowser {
     if (!this.page) return false;
     try {
       await this.page.waitForFunction(
-        () => !document.querySelector("#challenge-running, #cf-challenge-running, .cf-browser-verification"),
+        "!document.querySelector('#challenge-running, #cf-challenge-running, .cf-browser-verification')",
         { timeout: timeoutMs }
       );
       await HumanBehavior.idle(1500, 3000);
