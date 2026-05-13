@@ -1,0 +1,36 @@
+Replace company-intel.ts and person-intel.ts with the upgraded versions uploaded. 
+Do not touch masar-harvester.ts or enrichment-engine.ts.
+
+Expand the enrichment waterfall in enrichment-engine.ts with these new sources in 
+priority order (skip silently if API key missing, fill empty fields only, 
+Promise.allSettled() throughout, KSA scope only):
+
+P22 MAGNiTT (MAGNITT_API_KEY) · P23 Dhow (DHOW_API_KEY) · P24 Wathiq (WATHIQ_APP_ID) 
+P25 Apollo (APOLLO_API_KEY) · P26 Tadawul no key · P27 Decypha (DECYPHA_API_KEY) 
+P28 OpenCorporates no key · P29 Argaam (ARGAAM_API_KEY) · P30 Lusha (LUSHA_API_KEY) 
+P31 Wamda (WAMDA_API_KEY) · P40 Crunchbase (CRUNCHBASE_USER_KEY) · P45 RocketReach 
+(ROCKETREACH_API_KEY) · P48 FullContact (FULLCONTACT_API_KEY) · P50 PDL (PDL_API_KEY) 
+P52 D&B (DNB_API_KEY) · P57 Bombora (BOMBORA_API_KEY) · P65 Clay (CLAY_API_KEY)
+P70+ stubs disabled by default: ZoomInfo, Cognism, Proxycurl, Seamless.AI, Kaspr, 
+SignalHire, Lead411, Prospeo, Swordfish, SalesIntel, Datanyze
+Last: Claude Composer synthesis pass
+
+Add DeepSeek (DEEPSEEK_API_KEY) to AI synthesis chain at priority 1 before 
+Gemini → Claude → GPT-4o. API: api.deepseek.com (OpenAI-compatible).
+
+Add these new scrapers in scrapers/:
+wathiq-scraper.ts — CR lookup via wathiq.business.sa (stealth browser, CAPTCHA)
+argaam-scraper.ts — axios + cheerio, Saudi financials + Arabic news by company name
+etimad-scraper.ts — government contracts + tender awards (buying signal)
+moci-scraper.ts — daily new Saudi company registrations feed (buying signal)
+modon-scraper.ts — tenant lists across Saudi industrial cities
+
+Extend existing scrapers:
+bluepages-scraper.ts — remove page cap, paginate all results
+aamaly scraper — extend from 6 to 10 pages, prioritize AOA docs newer than 2023
+crawler.ts — add Bayt.com + GulfTalent + Naukrigulf hiring signals by company name
+
+Apply stealth-browser.ts across ALL enrichment tools for any JS-heavy site — not 
+just Masaar pipeline. Route Wathiq, Aamaly, Etimad, MoCI, MODON through it.
+Every stealth session must use: Accept-Language ar-SA, Timezone Asia/Riyadh, 
+Windows Chrome 121 Saudi locale UA.

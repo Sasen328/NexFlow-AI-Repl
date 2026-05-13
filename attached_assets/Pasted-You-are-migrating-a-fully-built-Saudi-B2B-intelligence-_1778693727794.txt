@@ -1,0 +1,157 @@
+You are migrating a fully-built Saudi B2B intelligence system into NexFlow, an AI-native CRM.
+NexFlow stack: Next.js 15 (App Router), Hono API routes, PostgreSQL, Drizzle ORM, Clerk auth.
+
+All source files are provided as-is. Your job is adaptation, NOT rewriting.
+Zero mocks. Zero placeholders. Every API call must be live.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — FILE PLACEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Copy all uploaded files into NexFlow under this structure:
+
+src/
+└── lib/
+    └── enrichment/
+        ├── engines/
+        │   ├── masar-harvester.ts
+        │   ├── masaar-engine.ts
+        │   ├── enrichment-engine.ts
+        │   └── web-seeder.ts
+        ├── scrapers/
+        │   ├── stealth-browser.ts
+        │   ├── crawl4ai-engine.ts
+        │   ├── crawler.ts
+        │   ├── scraper.ts
+        │   ├── browser-helper.ts
+        │   ├── bluepages-scraper.ts
+        │   └── mooresrowland-scraper.ts
+        ├── ai/
+        │   ├── gemini-search.ts
+        │   ├── anthropic-service.ts
+        │   ├── perplexity-service.ts
+        │   └── perplexity-enrichment.ts
+        ├── utils/
+        │   ├── openai.ts
+        │   ├── blocklist.ts
+        │   └── free-sources.ts
+        └── routes/
+            ├── company-intel.ts
+            └── person-intel.ts
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — DATABASE SCHEMA (Drizzle ORM)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Create src/lib/enrichment/db/schema.ts with these exact tables.
+All imports used across the source files are derived from this schema.
+
+import { pgTable, serial, text, jsonb, timestamp, integer, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
+
+// ── 1. Masar Company Database (AI Database Builder) ─────────────────────────
+export const masarCompaniesTable = pgTable("masar_companies", {
+  id: serial("id").primaryKey(),
+  nameEn: text("name_en"),
+  nameAr: text("name_ar"),
+  crNumber: text("cr_number"),
+  legalForm: text("legal_form"),
+  legalFormAr: text("legal_form_ar"),
+  city: text("city"),
+  cityAr: text("city_ar"),
+  region: text("region"),
+  paidUpCapital: text("paid_up_capital"),
+  authorizedCapital: text("authorized_capital"),
+  foundingDate: text("founding_date"),
+  foundingYear: text("founding_year"),
+  registrationDate: text("registration_date"),
+  expiryDate: text("expiry_date"),
+  authorizedSignatory: text("authorized_signatory"),
+  registrationStatus: text("registration_status"),
+  mainActivity: text("main_activity"),
+  mainActivityAr: text("main_activity_ar"),
+  capitalDistribution: text("capital_distribution"),
+  profitDistributionRules: text("profit_distribution_rules"),
+  source: text("source"),
+  sourceUrl: text("source_url"),
+  enrichmentStatus: text("enrichment_status").default("pending"),
+  website: text("website"),
+  phone: text("phone"),
+  email: text("email"),
+  employeeCount: text("employee_count"),
+  revenueEstimate: text("revenue_estimate"),
+  revenueRationale: text("revenue_rationale"),
+  shareholders: jsonb("shareholders").default([]),
+  boardOfDirectors: jsonb("board_of_directors").default([]),
+  management: jsonb("management").default([]),
+  newsHeadlines: jsonb("news_headlines").default([]),
+  enrichmentData: jsonb("enrichment_data").default({}),
+  analysisEn: text("analysis_en"),
+  analysisAr: text("analysis_ar"),
+  analysisData: jsonb("analysis_data").default({}),
+  enrichedAt: timestamp("enriched_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (t) => ({
+  crIdx: uniqueIndex("masar_cr_idx").on(t.crNumber),
+  nameEnIdx: index("masar_name_en_idx").on(t.nameEn),
+  statusIdx: index("masar_status_idx").on(t.enrichmentStatus),
+}));
+
+// ── 2. Masar Harvest Jobs ───────────────────────────────────────────────────
+export const masarHarvestJobsTable = pgTable("masar_harvest_jobs", {
+  id: serial("id").primaryKey(),
+  jobId: text("job_id").notNull().unique(),
+  keyword: text("keyword"),
+  sector: text("sector"),
+  sources: jsonb("sources").default([]),
+  status: text("status").default("running"),
+  companiesFound: integer("companies_found").default(0),
+  companiesEnriched: integer("companies_enriched").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+// ── 3. Company Intelligence Research (ProsEngine saves) ────────────────────
+export const companyIntelResearchTable = pgTable("company_intel_research", {
+  id: serial("id").primaryKey(),
+  companyName: text("company_name").notNull(),
+  website: text("website"),
+  crNumber: text("cr_number"),
+  city: text("city"),
+  report: jsonb("report"),
+  tags: text("tags"),
+  notes: text("notes"),
+  sellerContext: jsonb("seller_context"),
+  intelligenceGoals: jsonb("intelligence_goals").default([]),
+  knownFacts: text("known_facts"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ── 4. Person Intelligence Research (ProsEngine saves) ─────────────────────
+export const prosengineResearchTable = pgTable("prosengine_research", {
+  id: serial("id").primaryKey(),
+  personName: text("person_name").notNull(),
+  companyName: text("company_name"),
+  role: text("role"),
+  websiteUrl: text("website_url"),
+  linkedinUrl: text("linkedin_url"),
+  report: jsonb("report"),
+  tags: text("tags"),
+  notes: text("notes"),
+  sellerContext: jsonb("seller_context"),
+  intelligenceGoals: jsonb("intelligence_goals").default([]),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ── 5. Deleted Companies Blocklist ─────────────────────────────────────────
+export const deletedCompaniesTable = pgTable("deleted_companies", {
+  id: serial("id").primaryKey(),
+  nameEn: text("name_en"),
+  nameAr: text("name_ar"),
+  crNumber: text("cr_number"),
+  website: text("website"),
+  module: text("module"),
+  deletedAt: timestamp("deleted_at").defaultNow(),
+});
+
+// ── 6. Masar Custom Sources ────​​​​​​​​​​​​​​​​
