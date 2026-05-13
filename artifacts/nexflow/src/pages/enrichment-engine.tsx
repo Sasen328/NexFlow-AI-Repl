@@ -5,7 +5,8 @@ import {
   GitMerge, History, ChevronRight, Plus, Check, X, Loader2, Filter,
   Mail, Phone, Linkedin, Briefcase, Globe, TrendingUp, Newspaper,
   Hash, Twitter, Rss, Trash2, RefreshCw, ChevronDown, FileText, Tag,
-  FlaskConical, BrainCircuit, AlertTriangle,
+  FlaskConical, BrainCircuit, AlertTriangle, ShieldCheck, BadgeCheck,
+  CheckCircle2, AlertCircle, XCircle, ChevronUp, Star, MapPin, User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/hooks/useApi";
@@ -36,7 +37,9 @@ type Tab =
   | "bulk"
   | "cards"
   | "engines"
-  | "history";
+  | "history"
+  | "validate"
+  | "verify";
 
 type ProspectMode = "company" | "person";
 
@@ -109,7 +112,7 @@ export default function EnrichmentEnginePage() {
     const t = new URLSearchParams(window.location.search).get("tab");
     if (t === "quick") return "enrich";
     if (t === "sources") return "waterfall";
-    const valid: Tab[] = ["prospecting", "signals", "enrich", "waterfall", "bulk", "cards", "engines", "history"];
+    const valid: Tab[] = ["prospecting", "signals", "enrich", "waterfall", "bulk", "cards", "engines", "history", "validate", "verify"];
     return (valid as string[]).includes(t ?? "") ? (t as Tab) : "prospecting";
   })();
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -157,7 +160,9 @@ export default function EnrichmentEnginePage() {
         <SubTab active={tab === "bulk"}        onClick={() => setTab("bulk")}        icon={Upload}      label="Bulk Enrichment" />
         <SubTab active={tab === "cards"}       onClick={() => setTab("cards")}       icon={ScanLine}    label="Card Scanner" />
         <SubTab active={tab === "engines"}     onClick={() => setTab("engines")}     icon={BrainCircuit} label="Intel Engines" />
-        <SubTab active={tab === "history"}     onClick={() => setTab("history")}     icon={History}     label="History" />
+        <SubTab active={tab === "history"}     onClick={() => setTab("history")}     icon={History}      label="History" />
+        <SubTab active={tab === "validate"}    onClick={() => setTab("validate")}    icon={ShieldCheck}  label="Data Validator" badge="AI" />
+        <SubTab active={tab === "verify"}      onClick={() => setTab("verify")}      icon={BadgeCheck}   label="Data Verifier"  badge="AI" />
       </div>
 
       {tab === "prospecting" && <ProspectingTab seed={prospectSeed} onConsumeSeed={() => setProspectSeed(null)} />}
@@ -168,6 +173,8 @@ export default function EnrichmentEnginePage() {
       {tab === "cards"       && <Lazy><BusinessCardsPage /></Lazy>}
       {tab === "engines"     && <IntelEnginesTab />}
       {tab === "history"     && <SearchHistoryTab onRerun={rerunFromHistory} />}
+      {tab === "validate"    && <DataValidatorTab />}
+      {tab === "verify"      && <DataVerifierTab />}
     </div>
   );
 }
@@ -1293,7 +1300,7 @@ function SearchHistoryTab({ onRerun }: { onRerun: (item: SearchHistoryItem) => v
 // ─────────────────────────────────────────────────────────
 // Shared UI helpers
 // ─────────────────────────────────────────────────────────
-function SubTab({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: any; label: string }) {
+function SubTab({ active, onClick, icon: Icon, label, badge }: { active: boolean; onClick: () => void; icon: any; label: string; badge?: string }) {
   return (
     <button
       onClick={onClick}
@@ -1305,6 +1312,7 @@ function SubTab({ active, onClick, icon: Icon, label }: { active: boolean; onCli
       )}
     >
       <Icon className="w-4 h-4" /> {label}
+      {badge && <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-[#B8A0C8]/20 text-[#B8A0C8]">{badge}</span>}
     </button>
   );
 }
@@ -1613,6 +1621,509 @@ function ProspectCardPreview({ p }: { p: LabProspect }) {
             <Linkedin className="w-3 h-3" /> LinkedIn
           </a>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// DATA VALIDATOR AGENT TAB
+// ─────────────────────────────────────────────────────────
+const GRADE_COLOR: Record<string, string> = {
+  A: "#88B8B0", B: "#B8D890", C: "#C8B880", D: "#C8A880", F: "#C88080",
+};
+
+function DataValidatorTab() {
+  const [form, setForm] = useState({
+    name_en: "", email: "", mobile: "", linkedin: "",
+    company: "", title: "", country: "", website: "",
+  });
+  const [running, setRunning] = useState(false);
+  const [result, setResult]   = useState<any | null>(null);
+  const [error,  setError]    = useState<string | null>(null);
+  const [showRaw, setShowRaw] = useState(false);
+
+  function setField(k: string, v: string) {
+    setForm(f => ({ ...f, [k]: v }));
+    setResult(null);
+  }
+
+  async function runValidation() {
+    setRunning(true); setError(null); setResult(null);
+    try {
+      const r: any = await apiFetch("/data-agents/validate", {
+        method: "POST",
+        body: JSON.stringify({ contact: form }),
+      });
+      setResult(r);
+    } catch (e: any) {
+      setError(e?.message ?? "Validation failed");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  const FIELDS_CONFIG = [
+    { key: "name_en",  label: "Full name",   placeholder: "Khalid Al-Otaibi",            type: "text"  },
+    { key: "email",    label: "Email",        placeholder: "khalid@aramco.com",           type: "email" },
+    { key: "mobile",   label: "Mobile",       placeholder: "+966 50 123 4567",            type: "text"  },
+    { key: "linkedin", label: "LinkedIn URL", placeholder: "linkedin.com/in/khalid",      type: "text"  },
+    { key: "company",  label: "Company",      placeholder: "Saudi Aramco",                type: "text"  },
+    { key: "title",    label: "Title",        placeholder: "VP Business Development",     type: "text"  },
+    { key: "country",  label: "Country",      placeholder: "Saudi Arabia",               type: "text"  },
+    { key: "website",  label: "Website",      placeholder: "aramco.com",                 type: "text"  },
+  ];
+
+  const grade = result?.grade ?? null;
+
+  return (
+    <div className="p-5 space-y-5">
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-[#88B8B0]/15 border border-[#88B8B0]/30 flex items-center justify-center flex-shrink-0">
+          <ShieldCheck className="w-5 h-5 text-[#88B8B0]" />
+        </div>
+        <div>
+          <div className="flex items-center gap-2 mb-0.5">
+            <h2 className="text-lg font-bold">Data Validator Agent</h2>
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#88B8B0]/15 text-[#88B8B0] border border-[#88B8B0]/30">AI</span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Checks every contact field — format, completeness, GCC region, LinkedIn slug match — and returns a quality grade with actionable fixes.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-5">
+        {/* Input form */}
+        <div className="col-span-5 glass-panel p-4 space-y-3">
+          <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1">Contact data to validate</div>
+          {FIELDS_CONFIG.map(({ key, label, placeholder, type }) => (
+            <div key={key}>
+              <label className="text-[11px] font-semibold text-muted-foreground block mb-1">{label}</label>
+              <input
+                type={type}
+                value={(form as any)[key]}
+                onChange={e => setField(key, e.target.value)}
+                placeholder={placeholder}
+                className="w-full px-3 py-2 rounded-lg border border-border/50 bg-background text-sm focus:outline-none focus:ring-1 focus:ring-[#88B8B0]"
+              />
+            </div>
+          ))}
+          <button
+            onClick={runValidation}
+            disabled={running || !form.name_en}
+            className={cn(
+              "w-full mt-2 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition",
+              running || !form.name_en ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-[#88B8B0] hover:bg-[#78A8A0]"
+            )}>
+            {running ? <><Loader2 className="w-4 h-4 animate-spin" /> Validating…</> : <><ShieldCheck className="w-4 h-4" /> Run Validation</>}
+          </button>
+          {error && (
+            <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 rounded-lg p-2">
+              <AlertCircle className="w-3.5 h-3.5" /> {error}
+            </div>
+          )}
+        </div>
+
+        {/* Results */}
+        <div className="col-span-7 space-y-3">
+          {!result && !running && (
+            <div className="glass-panel p-8 flex flex-col items-center justify-center text-center gap-3 text-muted-foreground h-full">
+              <ShieldCheck className="w-12 h-12 text-[#88B8B0]/30" />
+              <div className="text-sm font-semibold">Fill in contact data on the left and run validation</div>
+              <div className="text-xs max-w-xs">Checks email format, phone international format, LinkedIn slug vs name, GCC region, company presence — then gives a quality grade.</div>
+            </div>
+          )}
+          {running && (
+            <div className="glass-panel p-8 flex flex-col items-center justify-center gap-3">
+              <Loader2 className="w-10 h-10 text-[#88B8B0] animate-spin" />
+              <div className="text-sm font-semibold">Running AI validation…</div>
+              <div className="text-xs text-muted-foreground">Checking field formats, completeness, GCC alignment and LinkedIn match</div>
+            </div>
+          )}
+          {result && (
+            <>
+              {/* Grade card */}
+              <div className="glass-panel p-4 flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-black text-white flex-shrink-0"
+                  style={{ background: GRADE_COLOR[grade] ?? "#88B8B0" }}>
+                  {grade}
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-bold">{result.fields_passed}/{result.fields_checked} fields passed</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{result.ai_summary}</div>
+                  <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${result.overall_score}%`, background: GRADE_COLOR[grade] ?? "#88B8B0" }} />
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="text-2xl font-black" style={{ color: GRADE_COLOR[grade] ?? "#88B8B0" }}>{result.overall_score}%</div>
+                  <div className="text-[10px] text-muted-foreground">quality score</div>
+                </div>
+              </div>
+
+              {/* Field-level results */}
+              <div className="glass-panel p-4">
+                <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3">Field-by-field report</div>
+                <div className="space-y-2">
+                  {Object.entries(result.fields ?? {}).map(([key, v]: [string, any]) => (
+                    <div key={key} className={cn(
+                      "flex items-start gap-3 p-2.5 rounded-lg border",
+                      v.ok ? "border-[#88B8B0]/20 bg-[#88B8B0]/5" : "border-amber-500/20 bg-amber-50/30 dark:bg-amber-950/10"
+                    )}>
+                      {v.ok
+                        ? <CheckCircle2 className="w-4 h-4 text-[#88B8B0] flex-shrink-0 mt-0.5" />
+                        : <AlertCircle  className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                      }
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold capitalize">{key.replace("_", " ")}</span>
+                          {v.value && <span className="text-[11px] text-muted-foreground truncate">{String(v.value).slice(0, 40)}</span>}
+                          {v.confidence !== undefined && (
+                            <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded"
+                              style={{ background: `${v.ok ? "#88B8B0" : "#C8A880"}20`, color: v.ok ? "#88B8B0" : "#C8A880" }}>
+                              {v.confidence}%
+                            </span>
+                          )}
+                        </div>
+                        {v.issue && (
+                          <div className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">{v.issue}</div>
+                        )}
+                        {v.suggestion && (
+                          <div className="text-[11px] text-[#88B8B0] mt-0.5">💡 {v.suggestion}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Issues + Recommendations */}
+              {((result.issues?.length > 0) || (result.recommendations?.length > 0)) && (
+                <div className="grid grid-cols-2 gap-3">
+                  {result.issues?.length > 0 && (
+                    <div className="glass-panel p-3">
+                      <div className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" /> Issues ({result.issues.length})
+                      </div>
+                      <ul className="space-y-1.5">
+                        {result.issues.map((issue: string, i: number) => (
+                          <li key={i} className="text-[11px] text-foreground/80 flex items-start gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0 mt-1" />
+                            {issue}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {result.recommendations?.length > 0 && (
+                    <div className="glass-panel p-3">
+                      <div className="text-xs font-bold text-[#88B8B0] uppercase tracking-wide mb-2 flex items-center gap-1">
+                        <Star className="w-3.5 h-3.5" /> Recommendations
+                      </div>
+                      <ul className="space-y-1.5">
+                        {result.recommendations.map((r: string, i: number) => (
+                          <li key={i} className="text-[11px] text-foreground/80 flex items-start gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#88B8B0] flex-shrink-0 mt-1" />
+                            {r}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// DATA VERIFIER AGENT TAB
+// ─────────────────────────────────────────────────────────
+function DataVerifierTab() {
+  const [form, setForm] = useState({
+    name_en: "", email: "", mobile: "", linkedin: "",
+    company: "", title: "", country: "", website: "",
+  });
+  const [running, setRunning]   = useState(false);
+  const [result,  setResult]    = useState<any | null>(null);
+  const [error,   setError]     = useState<string | null>(null);
+  const [showRaw, setShowRaw]   = useState(false);
+
+  function setField(k: string, v: string) {
+    setForm(f => ({ ...f, [k]: v }));
+    setResult(null);
+  }
+
+  async function runVerification() {
+    setRunning(true); setError(null); setResult(null);
+    try {
+      const r: any = await apiFetch("/data-agents/verify", {
+        method: "POST",
+        body: JSON.stringify({
+          contact: {
+            ...form,
+            first_name: form.name_en.split(" ")[0] ?? "",
+            last_name:  form.name_en.split(" ").slice(1).join(" ") ?? "",
+          }
+        }),
+      });
+      setResult(r);
+    } catch (e: any) {
+      setError(e?.message ?? "Verification failed");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  const FIELDS_CONFIG = [
+    { key: "name_en",  label: "Full name",   placeholder: "Khalid Al-Otaibi",        },
+    { key: "company",  label: "Company",      placeholder: "Saudi Aramco",            },
+    { key: "title",    label: "Title",        placeholder: "VP Business Development", },
+    { key: "email",    label: "Email",        placeholder: "khalid@aramco.com",       },
+    { key: "linkedin", label: "LinkedIn URL", placeholder: "linkedin.com/in/khalid",  },
+    { key: "country",  label: "Country",      placeholder: "Saudi Arabia",           },
+    { key: "website",  label: "Website",      placeholder: "aramco.com",             },
+  ];
+
+  const confidence = result?.confidence ?? 0;
+  const verified   = result?.verified   ?? false;
+
+  return (
+    <div className="p-5 space-y-5">
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-[#B8A0C8]/15 border border-[#B8A0C8]/30 flex items-center justify-center flex-shrink-0">
+          <BadgeCheck className="w-5 h-5 text-[#B8A0C8]" />
+        </div>
+        <div>
+          <div className="flex items-center gap-2 mb-0.5">
+            <h2 className="text-lg font-bold">Data Verifier Agent</h2>
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#B8A0C8]/15 text-[#B8A0C8] border border-[#B8A0C8]/30">AI · Live Search</span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Cross-references contact data against live web sources via Perplexity. Confirms person exists, role is accurate, company is active, and LinkedIn profile is the right person.
+          </p>
+        </div>
+      </div>
+
+      {/* How it works */}
+      <div className="glass-panel p-3 flex items-start gap-3 border border-[#B8A0C8]/20 bg-[#B8A0C8]/5">
+        <BrainCircuit className="w-4 h-4 text-[#B8A0C8] flex-shrink-0 mt-0.5" />
+        <div className="text-xs text-muted-foreground leading-relaxed">
+          <span className="font-semibold text-foreground">3 parallel Perplexity probes:</span> Person existence + role check · Company active status · LinkedIn profile match.
+          All findings synthesised by Claude into a single confidence score and field-level verification report.
+          <span className="text-amber-600 dark:text-amber-400 ml-1 font-semibold">Takes 15–30 seconds.</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-5">
+        {/* Input form */}
+        <div className="col-span-5 glass-panel p-4 space-y-3">
+          <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1">Contact data to verify</div>
+          {FIELDS_CONFIG.map(({ key, label, placeholder }) => (
+            <div key={key}>
+              <label className="text-[11px] font-semibold text-muted-foreground block mb-1">{label}</label>
+              <input
+                value={(form as any)[key]}
+                onChange={e => setField(key, e.target.value)}
+                placeholder={placeholder}
+                className="w-full px-3 py-2 rounded-lg border border-border/50 bg-background text-sm focus:outline-none focus:ring-1 focus:ring-[#B8A0C8]"
+              />
+            </div>
+          ))}
+          <button
+            onClick={runVerification}
+            disabled={running || !form.name_en}
+            className={cn(
+              "w-full mt-2 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition",
+              running || !form.name_en ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-[#B8A0C8] hover:bg-[#A890B8]"
+            )}>
+            {running
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Verifying via live web search…</>
+              : <><BadgeCheck className="w-4 h-4" /> Verify Contact</>
+            }
+          </button>
+          {error && (
+            <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 rounded-lg p-2">
+              <AlertCircle className="w-3.5 h-3.5" /> {error}
+            </div>
+          )}
+        </div>
+
+        {/* Results */}
+        <div className="col-span-7 space-y-3">
+          {!result && !running && (
+            <div className="glass-panel p-8 flex flex-col items-center justify-center text-center gap-3 text-muted-foreground h-full">
+              <BadgeCheck className="w-12 h-12 text-[#B8A0C8]/30" />
+              <div className="text-sm font-semibold">Enter contact details and run live verification</div>
+              <div className="text-xs max-w-xs">3 parallel Perplexity searches will check if this person and company exist in the public web, and if the LinkedIn profile is actually them.</div>
+            </div>
+          )}
+
+          {running && (
+            <div className="glass-panel p-8 flex flex-col items-center justify-center gap-4">
+              <Loader2 className="w-10 h-10 text-[#B8A0C8] animate-spin" />
+              <div className="text-sm font-semibold">Running 3 live verification probes…</div>
+              <div className="grid grid-cols-3 gap-2 w-full mt-2">
+                {["Person search", "Company check", "LinkedIn verify"].map((label, i) => (
+                  <div key={i} className="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-muted/30">
+                    <Loader2 className="w-4 h-4 text-[#B8A0C8] animate-spin" />
+                    <div className="text-[10px] text-muted-foreground text-center">{label}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="text-xs text-muted-foreground">Searching Perplexity → Claude synthesis (15–30s)</div>
+            </div>
+          )}
+
+          {result && (
+            <>
+              {/* Verification verdict card */}
+              <div className={cn(
+                "glass-panel p-4 border-2 flex items-center gap-4",
+                verified ? "border-[#88B8B0]/50 bg-[#88B8B0]/5" : confidence >= 50 ? "border-amber-500/40 bg-amber-50/30 dark:bg-amber-950/10" : "border-red-500/30 bg-red-50/20 dark:bg-red-950/10"
+              )}>
+                {verified
+                  ? <BadgeCheck className="w-12 h-12 text-[#88B8B0] flex-shrink-0" />
+                  : confidence >= 50
+                    ? <AlertTriangle className="w-12 h-12 text-amber-500 flex-shrink-0" />
+                    : <XCircle className="w-12 h-12 text-red-500 flex-shrink-0" />
+                }
+                <div className="flex-1">
+                  <div className={cn(
+                    "text-base font-bold",
+                    verified ? "text-[#88B8B0]" : confidence >= 50 ? "text-amber-700 dark:text-amber-300" : "text-red-600 dark:text-red-400"
+                  )}>
+                    {verified ? "Contact Verified" : confidence >= 50 ? "Partially Verified — Manual Check Needed" : "Could Not Verify"}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{result.recommendation}</div>
+                  <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{
+                      width: `${confidence}%`,
+                      background: verified ? "#88B8B0" : confidence >= 50 ? "#C8B880" : "#C88080"
+                    }} />
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="text-3xl font-black" style={{ color: verified ? "#88B8B0" : confidence >= 50 ? "#C8B880" : "#C88080" }}>
+                    {confidence}%
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">confidence</div>
+                </div>
+              </div>
+
+              {/* Source checks */}
+              <div className="glass-panel p-4">
+                <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3">Verification probes</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { key: "person_confirmed",  label: "Person",  icon: User,      color: "#88B8B0" },
+                    { key: "company_confirmed", label: "Company", icon: Building2, color: "#B8A0C8" },
+                    { key: "linkedin_confirmed",label: "LinkedIn", icon: Linkedin,  color: "#0A66C2" },
+                  ].map(({ key, label, icon: Icon, color }) => {
+                    const val = result[key];
+                    const isNull = val === null || val === undefined;
+                    return (
+                      <div key={key} className={cn(
+                        "rounded-xl p-3 border flex flex-col items-center gap-1.5 text-center",
+                        isNull ? "border-border/20 bg-muted/10 opacity-50" :
+                        val ? "border-[#88B8B0]/30 bg-[#88B8B0]/5" : "border-amber-500/30 bg-amber-50/30 dark:bg-amber-950/10"
+                      )}>
+                        {isNull
+                          ? <Icon className="w-5 h-5 text-muted-foreground" />
+                          : val
+                            ? <CheckCircle2 className="w-5 h-5" style={{ color }} />
+                            : <AlertCircle className="w-5 h-5 text-amber-500" />
+                        }
+                        <div className="text-[11px] font-semibold">{label}</div>
+                        <div className={cn(
+                          "text-[10px] font-bold",
+                          isNull ? "text-muted-foreground" : val ? "text-[#88B8B0]" : "text-amber-600 dark:text-amber-400"
+                        )}>
+                          {isNull ? "Not checked" : val ? "Confirmed" : "Unconfirmed"}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Verified field breakdown */}
+              {result.verified_fields && Object.keys(result.verified_fields).length > 0 && (
+                <div className="glass-panel p-4">
+                  <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3">Field verification details</div>
+                  <div className="space-y-2">
+                    {Object.entries(result.verified_fields).map(([field, v]: [string, any]) => (
+                      <div key={field} className="flex items-start gap-2.5">
+                        {v?.confirmed === true
+                          ? <CheckCircle2 className="w-4 h-4 text-[#88B8B0] flex-shrink-0 mt-0.5" />
+                          : v?.confirmed === false
+                            ? <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                            : <AlertCircle className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                        }
+                        <div className="flex-1">
+                          <span className="text-xs font-semibold capitalize">{field} — </span>
+                          <span className="text-xs text-muted-foreground">{v?.note ?? "—"}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Risk flags & discrepancies */}
+              {((result.risk_flags?.length > 0) || (result.discrepancies?.length > 0)) && (
+                <div className="glass-panel p-4 border border-amber-500/20 bg-amber-50/20 dark:bg-amber-950/5">
+                  <div className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" /> Flags & Discrepancies
+                  </div>
+                  {[...(result.risk_flags ?? []), ...(result.discrepancies ?? [])].map((flag: string, i: number) => (
+                    <div key={i} className="text-[11px] text-amber-700 dark:text-amber-300 flex items-start gap-1.5 mt-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0 mt-1" />
+                      {flag}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Raw findings (collapsible) */}
+              {result.raw_findings && (
+                <div className="glass-panel p-3">
+                  <button onClick={() => setShowRaw(v => !v)} className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground w-full">
+                    <FileText className="w-3.5 h-3.5" /> Raw Perplexity findings
+                    {showRaw ? <ChevronUp className="w-3.5 h-3.5 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 ml-auto" />}
+                    {result.duration_ms && <span className="ml-1 text-[10px]">{result.duration_ms}ms</span>}
+                  </button>
+                  {showRaw && (
+                    <div className="mt-3 space-y-3">
+                      {Object.entries(result.raw_findings).filter(([, v]) => v).map(([source, text]: [string, any]) => (
+                        <div key={source}>
+                          <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">{source} probe</div>
+                          <div className="text-[11px] text-foreground/70 leading-relaxed bg-muted/30 rounded p-2 whitespace-pre-wrap">
+                            {String(text).slice(0, 600)}{String(text).length > 600 ? "…" : ""}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Sources used */}
+              {result.sources_checked?.length > 0 && (
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <Globe className="w-3 h-3" /> Sources: {result.sources_checked.join(" · ")}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

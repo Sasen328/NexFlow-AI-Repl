@@ -45,6 +45,7 @@ import webEngineRouter from "./web-engine";
 import companyIntelRouter from "./company-intel";
 import personIntelRouter from "./person-intel";
 import captchaRouter from "./captcha";
+import dataAgentsRouter from "./data-agents.js";
 
 const router: IRouter = Router();
 
@@ -94,5 +95,6 @@ router.use("/company-intel", companyIntelRouter);
 router.use("/person-intel", personIntelRouter);
 router.use("/captcha", captchaRouter);
 router.use("/setup", setupRouter);
+router.use("/data-agents", dataAgentsRouter);
 
 export default router;
