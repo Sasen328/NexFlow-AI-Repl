@@ -205,6 +205,11 @@ export default function WelcomePage() {
               Start Free Trial <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
             </button>
           </Link>
+          <Link href="/onboarding">
+            <button className="group inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-sm font-bold border-2 border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all hover:scale-105 active:scale-95">
+              🏗️ Enterprise Setup
+            </button>
+          </Link>
           <Link href="/about">
             <button className="group inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-sm font-bold border border-border/60 hover:bg-muted/40 transition-all hover:scale-105 active:scale-95">
               <Play className="w-3.5 h-3.5 transition-transform group-hover:scale-125" /> See what's inside
