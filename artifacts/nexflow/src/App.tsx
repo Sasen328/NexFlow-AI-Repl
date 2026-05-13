@@ -105,6 +105,7 @@ import PermissionsPage from "@/pages/permissions";
 import ReportBuilderPage from "@/pages/report-builder";
 import CapabilitiesPage from "@/pages/capabilities";
 import InvestorsPage from "@/pages/investors";
+import OverviewPage from "@/pages/overview";
 // ─── New 6-tab IA wrapper pages (Apr 2026 restructure) ──────────────
 import LeadsPipelinePage from "@/pages/leads-pipeline";
 import LeadsListsPage from "@/pages/leads-lists";
@@ -293,6 +294,7 @@ function RootRoutes() {
   return (
     <Switch>
       <Route path="/investors" component={InvestorsPage} />
+      <Route path="/overview" component={OverviewPage} />
       <Route path="/">           <MarketingRoute><WelcomePage /></MarketingRoute></Route>
       <Route path="/welcome">    <MarketingRoute><WelcomePage /></MarketingRoute></Route>
       <Route path="/about">      <MarketingRoute><AboutPage /></MarketingRoute></Route>
