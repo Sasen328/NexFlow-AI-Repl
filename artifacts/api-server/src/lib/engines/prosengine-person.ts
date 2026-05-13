@@ -456,6 +456,12 @@ Return valid JSON only. No markdown. No explanatory text. Use "Not found" for mi
   }
 
   if (provider !== "fallback") sourcesUsed.push(`synthesis:${provider}`);
+  if (!report.intelligence_notes) {
+    report.intelligence_notes = { ...EMPTY_PERSON.intelligence_notes };
+  }
+  if (!Array.isArray(report.intelligence_notes.data_sources)) {
+    report.intelligence_notes.data_sources = [];
+  }
   report.intelligence_notes.data_sources = Array.from(new Set([...report.intelligence_notes.data_sources, ...sourcesUsed]));
 
   return { report, sourcesUsed };
