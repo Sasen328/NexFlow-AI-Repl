@@ -1,17 +1,27 @@
 export type SetupPath = "managed" | "self";
+export type BrandMode = "pick" | "upload" | "mesh" | "ai";
 
 export interface SetupAnswers {
-  // Step 1 — Company & Branding
   companyName: string;
   companyNameAr: string;
   industry: string;
   companySize: string;
   countries: string[];
+  crNumber: string;
+  companyWebsite: string;
+  linkedinPage: string;
   logoBase64: string;
+  brandMode: BrandMode;
   primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  meshColors: [string, string, string];
+  brandGuidelinesName: string;
+  brandVibeAi: string;
+  brandHeritageAi: string;
+  brandFeelingAi: string;
   tabStructure: string[];
 
-  // Step 2 — Team
   seatsSales: number;
   seatsSDR: number;
   seatsMarketing: number;
@@ -19,21 +29,17 @@ export interface SetupAnswers {
   currentCrm: string;
   migrationNeeded: boolean;
 
-  // Step 3 — Features
   enabledModules: string[];
 
-  // Step 4 — Volume & Budget
   monthlyLeadVolume: string;
   enrichmentCreditsMonthly: number;
   budgetRangeSAR: string;
   timeline: string;
 
-  // Step 5 — Integrations
   integrations: string[];
   trainingNeeded: boolean;
   supportLevel: string;
 
-  // Step 6 — Contact
   contactName: string;
   contactEmail: string;
   contactPhone: string;
@@ -46,8 +52,19 @@ export const defaultAnswers: SetupAnswers = {
   industry: "",
   companySize: "11-50",
   countries: ["Saudi Arabia"],
+  crNumber: "",
+  companyWebsite: "",
+  linkedinPage: "",
   logoBase64: "",
-  primaryColor: "#4F46E5",
+  brandMode: "pick",
+  primaryColor: "#7C3AED",
+  secondaryColor: "#0D9488",
+  accentColor: "#D97706",
+  meshColors: ["#7C3AED", "#0D9488", "#1E1B4B"],
+  brandGuidelinesName: "",
+  brandVibeAi: "",
+  brandHeritageAi: "",
+  brandFeelingAi: "",
   tabStructure: ["home", "leads", "callcenter", "datahub", "marketing", "insights"],
   seatsSales: 5,
   seatsSDR: 2,
@@ -143,34 +160,45 @@ export const GCC_COUNTRIES = [
 ];
 
 export const COMPANY_SIZES = [
-  { value: "1-10",     label: "1–10 employees" },
-  { value: "11-50",    label: "11–50 employees" },
-  { value: "51-200",   label: "51–200 employees" },
-  { value: "201-1000", label: "201–1,000 employees" },
-  { value: "1000+",    label: "1,000+ employees" },
+  { value: "1-10",     label: "1–10" },
+  { value: "11-50",    label: "11–50" },
+  { value: "51-200",   label: "51–200" },
+  { value: "201-1000", label: "201–1,000" },
+  { value: "1000+",    label: "1,000+" },
 ];
 
 export const CRM_OPTIONS = [
-  { value: "none",      label: "No CRM — using spreadsheets" },
+  { value: "none",      label: "Spreadsheets" },
   { value: "salesforce",label: "Salesforce" },
   { value: "hubspot",   label: "HubSpot" },
   { value: "zoho",      label: "Zoho CRM" },
   { value: "pipedrive", label: "Pipedrive" },
-  { value: "dynamics",  label: "Microsoft Dynamics" },
+  { value: "dynamics",  label: "Dynamics 365" },
   { value: "freshsales",label: "Freshsales" },
   { value: "other",     label: "Other" },
 ];
 
-export const MODULES = [
-  { id: "core",             name: "Core CRM",             emoji: "🏗️",  desc: "Contacts, pipelines, deals, tasks, activities",       price: "SAR 149/seat",  required: true  },
-  { id: "dialer",           name: "Power Dialer",         emoji: "📞",  desc: "Auto-dial, live AI coaching, call scoring",            price: "SAR 89/seat",   required: false },
-  { id: "enrichment",       name: "AI Enrichment",        emoji: "⚡",  desc: "Pull data from 15+ GCC sources automatically",         price: "From SAR 50/mo",required: false },
-  { id: "marketing",        name: "Marketing Suite",      emoji: "📣",  desc: "Campaigns, web forms, audiences, performance",         price: "SAR 299/mo",    required: false },
-  { id: "voice-agents",     name: "AI Voice Agents",      emoji: "🤖",  desc: "24/7 Arabic + English AI calling & qualification",     price: "SAR 599/mo",    required: false },
-  { id: "intelligence",     name: "Conversation Intel",   emoji: "🧠",  desc: "Transcription, scoring, objection detection",          price: "SAR 199/mo",    required: false },
-  { id: "forecasting",      name: "Forecasting",          emoji: "📈",  desc: "Revenue prediction, quota tracking, gap analysis",     price: "SAR 149/mo",    required: false },
-  { id: "cpq",              name: "CPQ & Quotes",         emoji: "📄",  desc: "Price quotes, discount approvals, e-contracts",        price: "SAR 99/mo",     required: false },
-  { id: "website-tracking", name: "Website Tracking",     emoji: "🌐",  desc: "Track lead activity on your website in real-time",    price: "SAR 199/mo",    required: false },
+export interface ModuleDef {
+  id: string;
+  name: string;
+  desc: string;
+  price: string;
+  required: boolean;
+  category: string;
+  popular?: boolean;
+  colorClass: string;
+}
+
+export const MODULES: ModuleDef[] = [
+  { id: "core",             name: "Core CRM",           desc: "Contacts, deals, pipelines, tasks, activities and timeline",       price: "SAR 149/seat",  required: true,  category: "Foundation", colorClass: "from-violet-500 to-violet-700" },
+  { id: "dialer",           name: "Power Dialer",        desc: "Auto-dial queue, live AI coaching, call scoring & playbooks",      price: "SAR 89/seat",   required: false, category: "Engagement",  popular: true, colorClass: "from-blue-500 to-blue-700" },
+  { id: "enrichment",       name: "AI Enrichment",       desc: "Pull verified data from 15+ GCC sources automatically",            price: "From SAR 50/mo",required: false, category: "Data",        popular: true, colorClass: "from-purple-500 to-purple-700" },
+  { id: "marketing",        name: "Marketing Suite",     desc: "Campaigns, web forms, audience segments and performance analytics", price: "SAR 299/mo",    required: false, category: "Growth",      colorClass: "from-rose-500 to-rose-700" },
+  { id: "voice-agents",     name: "AI Voice Agents",     desc: "24/7 Arabic + English AI calling, qualification and handoff",      price: "SAR 599/mo",    required: false, category: "Engagement",  colorClass: "from-cyan-500 to-cyan-700" },
+  { id: "intelligence",     name: "Conversation Intel",  desc: "Transcription, sentiment scoring and objection detection",         price: "SAR 199/mo",    required: false, category: "Intelligence",colorClass: "from-amber-500 to-amber-600" },
+  { id: "forecasting",      name: "Forecasting",         desc: "Revenue prediction, quota tracking and gap analysis dashboards",   price: "SAR 149/mo",    required: false, category: "Intelligence",colorClass: "from-emerald-500 to-emerald-700" },
+  { id: "cpq",              name: "CPQ & Quotes",        desc: "Price quotes, discount approval workflows and e-contracts",        price: "SAR 99/mo",     required: false, category: "Revenue",     colorClass: "from-orange-500 to-orange-700" },
+  { id: "website-tracking", name: "Website Tracking",    desc: "Track lead behaviour on your website in real-time",               price: "SAR 199/mo",    required: false, category: "Data",        colorClass: "from-teal-500 to-teal-700" },
 ];
 
 export const INTEGRATIONS_LIST = [
@@ -209,3 +237,33 @@ export const TIMELINES = [
   { value: "3+ months",label: "3+ months" },
   { value: "flexible", label: "Flexible" },
 ];
+
+export const BRAND_VIBES = [
+  "Luxury & Premium",
+  "Technology & Innovation",
+  "Corporate & Traditional",
+  "Government & Institutional",
+  "Healthcare & Trust",
+  "Creative & Bold",
+  "Khaleeji Heritage",
+  "Startup & Agile",
+];
+
+export const BRAND_HERITAGES = [
+  "Saudi", "Emirati", "Kuwaiti", "Qatari", "Bahraini", "Omani", "Pan-GCC", "International",
+];
+
+export const BRAND_FEELINGS = [
+  "Professional", "Trustworthy", "Dynamic", "Calm", "Bold", "Sophisticated", "Approachable", "Authoritative",
+];
+
+export const BRAND_PRESET_PALETTES: Record<string, { primary: string; secondary: string; accent: string; name: string }> = {
+  "Luxury & Premium":            { primary: "#1a1a2e", secondary: "#c9a84c", accent: "#8B5CF6", name: "Midnight Gold" },
+  "Technology & Innovation":     { primary: "#6366f1", secondary: "#06b6d4", accent: "#f59e0b", name: "Quantum Blue" },
+  "Corporate & Traditional":     { primary: "#1e3a5f", secondary: "#2d6a4f", accent: "#e9c46a", name: "Navy & Forest" },
+  "Government & Institutional":  { primary: "#003049", secondary: "#d62828", accent: "#f77f00", name: "National Heritage" },
+  "Healthcare & Trust":          { primary: "#0077b6", secondary: "#00b4d8", accent: "#48cae4", name: "Clinical Blue" },
+  "Creative & Bold":             { primary: "#e63946", secondary: "#457b9d", accent: "#f1faee", name: "Vivid Studio" },
+  "Khaleeji Heritage":           { primary: "#006400", secondary: "#c8a951", accent: "#8b0000", name: "Desert Royal" },
+  "Startup & Agile":             { primary: "#7C3AED", secondary: "#0D9488", accent: "#F59E0B", name: "NexFlow Signature" },
+};

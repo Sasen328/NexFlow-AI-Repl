@@ -1,11 +1,45 @@
 import { useWizard } from "../context";
 import { LEAD_VOLUMES, BUDGET_RANGES, TIMELINES } from "../types";
+import { Zap } from "lucide-react";
 
 const CREDIT_BUNDLES = [
-  { value: 1000,  label: "1,000 credits",  price: "SAR 50/mo",  note: "~100 contact enrichments" },
-  { value: 5000,  label: "5,000 credits",  price: "SAR 200/mo", note: "~500 contact enrichments" },
-  { value: 25000, label: "25,000 credits", price: "SAR 800/mo", note: "~2,500 contact enrichments" },
+  { value: 1000,  label: "1,000 credits",  price: "SAR 50/mo",  note: "~100 contact enrichments", tag: "" },
+  { value: 5000,  label: "5,000 credits",  price: "SAR 200/mo", note: "~500 contact enrichments", tag: "Popular" },
+  { value: 25000, label: "25,000 credits", price: "SAR 800/mo", note: "~2,500 contact enrichments", tag: "Best value" },
 ];
+
+function OptionGrid<T extends string | number>({
+  label, hint, options, value, onChange,
+}: {
+  label: string;
+  hint?: string;
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-semibold text-slate-700 mb-1">{label}</label>
+      {hint && <p className="text-xs text-slate-400 mb-3">{hint}</p>}
+      <div className="flex flex-wrap gap-2">
+        {options.map(({ value: v, label: l }) => (
+          <button
+            key={String(v)}
+            onClick={() => onChange(v)}
+            className={[
+              "px-4 py-2 rounded-xl border text-sm font-medium transition-all",
+              value === v
+                ? "border-violet-500 bg-violet-50 text-violet-700"
+                : "border-slate-200 bg-white text-slate-600 hover:border-violet-300",
+            ].join(" ")}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function Step4Volume() {
   const { answers, updateAnswers } = useWizard();
@@ -18,95 +52,61 @@ export default function Step4Volume() {
         <p className="text-slate-500 mt-1">Help us understand your scale so we can right-size your plan.</p>
       </div>
 
-      {/* Lead volume */}
-      <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-2">Monthly lead volume</label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {LEAD_VOLUMES.map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => updateAnswers({ monthlyLeadVolume: value })}
-              className={[
-                "px-4 py-2.5 rounded-xl border text-sm font-medium transition-all text-center",
-                answers.monthlyLeadVolume === value
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300",
-              ].join(" ")}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <OptionGrid
+        label="Monthly lead volume"
+        options={LEAD_VOLUMES}
+        value={answers.monthlyLeadVolume}
+        onChange={(v) => updateAnswers({ monthlyLeadVolume: v })}
+      />
 
-      {/* Enrichment credits */}
       {enrichmentEnabled && (
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-1">Enrichment credit bundle</label>
-          <p className="text-xs text-slate-400 mb-3">1 credit = 1 enrichment signal pulled (email, phone, company data, etc.)</p>
+          <p className="text-xs text-slate-400 mb-3">1 credit = 1 enrichment signal (email, phone, company data, etc.)</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {CREDIT_BUNDLES.map(({ value, label, price, note }) => (
-              <button
-                key={value}
-                onClick={() => updateAnswers({ enrichmentCreditsMonthly: value })}
-                className={[
-                  "text-left px-4 py-3 rounded-xl border-2 transition-all",
-                  answers.enrichmentCreditsMonthly === value
-                    ? "border-indigo-500 bg-indigo-50"
-                    : "border-slate-200 bg-white hover:border-indigo-300",
-                ].join(" ")}
-              >
-                <p className="text-sm font-bold text-slate-900">{label}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{note}</p>
-                <p className="text-xs font-semibold text-indigo-600 mt-1.5">{price}</p>
-              </button>
-            ))}
+            {CREDIT_BUNDLES.map(({ value, label, price, note, tag }) => {
+              const selected = answers.enrichmentCreditsMonthly === value;
+              return (
+                <button
+                  key={value}
+                  onClick={() => updateAnswers({ enrichmentCreditsMonthly: value })}
+                  className={[
+                    "relative text-left px-4 py-4 rounded-xl border-2 transition-all",
+                    selected ? "border-violet-500 bg-violet-50 shadow-md shadow-violet-100" : "border-slate-200 bg-white hover:border-violet-300",
+                  ].join(" ")}
+                >
+                  {tag && (
+                    <span className="absolute top-3 right-3 text-[10px] font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">
+                      {tag}
+                    </span>
+                  )}
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Zap className={`w-3.5 h-3.5 ${selected ? "text-violet-500" : "text-slate-300"}`} />
+                    <p className="text-sm font-bold text-slate-900">{label}</p>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5 mb-2">{note}</p>
+                  <p className={`text-xs font-bold ${selected ? "text-violet-700" : "text-slate-500"}`}>{price}</p>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* Budget range */}
-      <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-2">Monthly budget range</label>
-        <p className="text-xs text-slate-400 mb-3">Helps us tailor recommendations. You're not committing to anything yet.</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {BUDGET_RANGES.map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => updateAnswers({ budgetRangeSAR: value })}
-              className={[
-                "px-4 py-2.5 rounded-xl border text-sm font-medium transition-all text-center",
-                answers.budgetRangeSAR === value
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300",
-              ].join(" ")}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <OptionGrid
+        label="Monthly budget range"
+        hint="Helps us tailor our recommendations — you're not committing to anything yet."
+        options={BUDGET_RANGES}
+        value={answers.budgetRangeSAR}
+        onChange={(v) => updateAnswers({ budgetRangeSAR: v })}
+      />
 
-      {/* Timeline */}
-      <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-2">Preferred go-live timeline</label>
-        <div className="flex flex-wrap gap-2">
-          {TIMELINES.map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => updateAnswers({ timeline: value })}
-              className={[
-                "px-4 py-2 rounded-xl border text-sm font-medium transition-all",
-                answers.timeline === value
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300",
-              ].join(" ")}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <OptionGrid
+        label="Preferred go-live timeline"
+        options={TIMELINES}
+        value={answers.timeline}
+        onChange={(v) => updateAnswers({ timeline: v })}
+      />
     </div>
   );
 }
