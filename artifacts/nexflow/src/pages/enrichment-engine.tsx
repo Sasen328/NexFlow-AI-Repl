@@ -29,12 +29,12 @@ import { cn } from "@/lib/utils";
 import { apiFetch } from "@/hooks/useApi";
 
 // Lazy-loaded sub-pages (existing)
-const SourcesTab      = lazy(() => import("@/components/enrichment/sources-tab").then((m) => ({ default: m.SourcesTab })));
-const IntelEnginesTab = lazy(() => import("@/components/enrichment/intel-engines-tab").then((m) => ({ default: m.IntelEnginesTab })));
-const LeadEnrichPage  = lazy(() => import("./lead-enrich"));
-const BusinessCards   = lazy(() => import("./business-cards"));
-const DedupPage       = lazy(() => import("./dedup"));
-const SignalsPage     = lazy(() => import("./signals"));
+const SourcesTab       = lazy(() => import("@/components/enrichment/sources-tab").then((m) => ({ default: m.SourcesTab })));
+const MasaarPanel      = lazy(() => import("@/components/enrichment/intel-engines-tab").then((m) => ({ default: m.MasaarPanel })));
+const LeadFinderPanel  = lazy(() => import("@/components/enrichment/intel-engines-tab").then((m) => ({ default: m.LeadFinderPanel })));
+const LeadEnrichPage   = lazy(() => import("./lead-enrich"));
+const BusinessCards    = lazy(() => import("./business-cards"));
+const DedupPage        = lazy(() => import("./dedup"));
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const ACCENT   = "#B8A0C8";
@@ -44,9 +44,9 @@ const GOLD     = "#C8A880";
 // ── Tab routing ───────────────────────────────────────────────────────────────
 type MainTab        = "leadgen" | "enrich" | "settings";
 type LeadSubTab     = "masaar" | "masar" | "prosengine" | "builder";
-type ProsSubTab     = "company" | "person" | "website";
+type ProsSubTab     = "company" | "person" | "website" | "leadfinder";
 type EnrichSubTab   = "quick" | "bulk" | "waterfall" | "cards";
-type SettingsSubTab = "dedup" | "validation" | "workflow";
+type SettingsSubTab = "waterfall" | "dedup" | "validation";
 
 function usePathTab(): MainTab {
   const [location] = useLocation();
@@ -62,13 +62,13 @@ export default function EnrichmentEngine() {
   const TITLES: Record<MainTab, { label: string; desc: string }> = {
     leadgen:  { label: "Lead Generation",  desc: "Masaar Engine · Masar Database · ProsEngine · AI Builder" },
     enrich:   { label: "CRM Enrichment",   desc: "Quick Enrich · Bulk Upload · Waterfall · Card Scanner" },
-    settings: { label: "Settings",         desc: "Deduplication · Validation & Verification · Workflow Sources" },
+    settings: { label: "Settings",         desc: "Waterfall Sources · Lead Deduplication · Validation & Verification" },
   };
   const t = TITLES[mainTab];
   return (
     <div className="min-h-screen bg-background">
-      {/* Section title — no duplicate tab bar, sidebar handles navigation */}
-      <div className="border-b border-border/30 bg-background/60 backdrop-blur-md sticky top-[5.5rem] z-10 mb-6">
+      {/* Section title — static (not sticky), sidebar handles navigation */}
+      <div className="border-b border-border/30 bg-muted/30 mb-0">
         <div className="max-w-screen-2xl mx-auto px-6 py-3 flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${ACCENT}20` }}>
             <Database className="w-4 h-4" style={{ color: ACCENT }} />
@@ -79,7 +79,7 @@ export default function EnrichmentEngine() {
           </div>
         </div>
       </div>
-      <div className="max-w-screen-2xl mx-auto px-4 pb-10">
+      <div className="max-w-screen-2xl mx-auto px-4 pt-5 pb-10">
         {mainTab === "leadgen"  && <LeadGenerationTab />}
         {mainTab === "enrich"   && <CrmEnrichmentTab />}
         {mainTab === "settings" && <SettingsTab />}
@@ -139,42 +139,46 @@ function LeadGenerationTab() {
   );
 }
 
-// ── Masaar Engine Panel (Doc 1 — Saudi CR Intelligence) ───────────────────────
+// ── Masaar Engine Panel (Doc 1 — Saudi CR Intelligence, 7-agent SSE pipeline) ──
 function MasaarEnginePanel() {
   return (
     <Suspense fallback={<Spinner />}>
-      <IntelEnginesTab />
+      <MasaarPanel />
     </Suspense>
   );
 }
 
-// ── ProsEngine Panel (Doc 3 — Company · Person · Website Intel) ───────────────
+// ── ProsEngine Panel (Doc 3 — Company · Person · Website · Lead Finder) ────────
+// Per user instruction: Prospecting + Lead Finder under ONE tool
 function ProsEnginePanel() {
   const [pros, setPros] = useState<ProsSubTab>("company");
-  const pills: { id: ProsSubTab; label: string; icon: React.ElementType }[] = [
-    { id: "company", label: "Company Intel", icon: Building2 },
-    { id: "person",  label: "Person Intel",  icon: Users },
-    { id: "website", label: "Website Intel", icon: Globe },
+  const pills: { id: ProsSubTab; label: string; icon: React.ElementType; desc: string }[] = [
+    { id: "company",    label: "Company Intel",  icon: Building2, desc: "Full B2B intelligence report" },
+    { id: "person",     label: "Person Intel",   icon: Users,     desc: "Executive deep profile" },
+    { id: "website",    label: "Website Intel",  icon: Globe,     desc: "Scan & extract company data" },
+    { id: "leadfinder", label: "Lead Finder",    icon: Target,    desc: "Find named leads at any company" },
   ];
   return (
     <div>
-      <div className="flex gap-1.5 mb-5">
+      <div className="flex gap-2 mb-6 flex-wrap">
         {pills.map((p) => {
           const Icon = p.icon;
           const active = pros === p.id;
           return (
             <button key={p.id} onClick={() => setPros(p.id)}
-              className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all border", active ? "border-transparent text-white" : "border-border/40 text-foreground/60 hover:bg-muted/40")}
-              style={active ? { background: `linear-gradient(135deg, ${TEAL}CC, ${ACCENT}80)` } : undefined}>
-              <Icon className="w-3 h-3" /> {p.label}
+              className={cn("flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-semibold transition-all border", active ? "border-transparent text-white shadow-md" : "border-border/40 text-foreground/60 hover:bg-muted/40 hover:text-foreground")}
+              style={active ? { background: `linear-gradient(135deg, ${TEAL}E0, ${ACCENT}CC)`, boxShadow: `0 4px 14px ${TEAL}40` } : undefined}>
+              <Icon className="w-3.5 h-3.5" />
+              <span>{p.label}</span>
             </button>
           );
         })}
       </div>
       <Suspense fallback={<Spinner />}>
-        {pros === "company" && <CompanyIntelPanel />}
-        {pros === "person"  && <PersonIntelPanel />}
-        {pros === "website" && <WebsiteIntelPanel />}
+        {pros === "company"    && <CompanyIntelPanel />}
+        {pros === "person"     && <PersonIntelPanel />}
+        {pros === "website"    && <WebsiteIntelPanel />}
+        {pros === "leadfinder" && <LeadFinderPanel />}
       </Suspense>
     </div>
   );
@@ -1154,23 +1158,23 @@ function BulkUploadPanel() {
 // TAB 3 — SETTINGS
 // ═══════════════════════════════════════════════════════════════════════════════
 function SettingsTab() {
-  const [sub, setSub] = useState<SettingsSubTab>("dedup");
+  const [sub, setSub] = useState<SettingsSubTab>("waterfall");
   const subTabs: { id: SettingsSubTab; label: string; icon: React.ElementType }[] = [
-    { id: "dedup",      label: "Deduplication",           icon: GitMerge },
+    { id: "waterfall",  label: "Waterfall Sources",       icon: Layers },
+    { id: "dedup",      label: "Lead Deduplication",      icon: GitMerge },
     { id: "validation", label: "Validation & Verification", icon: ShieldCheck },
-    { id: "workflow",   label: "Workflow Sources",          icon: Layers },
   ];
 
   return (
     <div>
-      <div className="flex gap-1 mb-6 flex-wrap">
+      <div className="flex gap-2 mb-6 flex-wrap">
         {subTabs.map((t) => {
           const Icon = t.icon;
           const active = sub === t.id;
           return (
             <button key={t.id} onClick={() => setSub(t.id)}
-              className={cn("flex items-center gap-2 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all border", active ? "border-transparent text-white" : "border-border/40 text-foreground/60 hover:text-foreground hover:bg-muted/40")}
-              style={active ? { background: `linear-gradient(135deg, ${GOLD}CC, ${TEAL}80)` } : undefined}>
+              className={cn("flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-semibold transition-all border", active ? "border-transparent text-white shadow-md" : "border-border/40 text-foreground/60 hover:text-foreground hover:bg-muted/40")}
+              style={active ? { background: `linear-gradient(135deg, ${GOLD}CC, ${TEAL}80)`, boxShadow: `0 4px 12px ${GOLD}40` } : undefined}>
               <Icon className="w-3.5 h-3.5" /> {t.label}
             </button>
           );
@@ -1178,9 +1182,9 @@ function SettingsTab() {
       </div>
 
       <Suspense fallback={<Spinner />}>
+        {sub === "waterfall"  && <SourcesTab />}
         {sub === "dedup"      && <DedupPage />}
         {sub === "validation" && <ValidationPanel />}
-        {sub === "workflow"   && <SourcesTab />}
       </Suspense>
     </div>
   );
