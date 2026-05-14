@@ -498,7 +498,7 @@ function EngineError({ msg }: { msg: string }) {
 // MASAAR PANEL
 // ─────────────────────────────────────────────────────────────────────────────
 
-function MasaarPanel() {
+export function MasaarPanel() {
   const [crNumber, setCrNumber] = useState("");
   const [nameEn, setNameEn] = useState("");
   const [nameAr, setNameAr] = useState("");
@@ -1277,7 +1277,7 @@ function CompanyReport({ result }: { result: any }) {
 // LEAD FINDER PANEL
 // ─────────────────────────────────────────────────────────────────────────────
 
-function LeadFinderPanel() {
+export function LeadFinderPanel() {
   const [companyName, setCompanyName] = useState("");
   const [website, setWebsite] = useState("");
   const [targetRole, setTargetRole] = useState("");
