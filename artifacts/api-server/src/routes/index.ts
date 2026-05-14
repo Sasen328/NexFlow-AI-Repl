@@ -49,6 +49,7 @@ import dataAgentsRouter from "./data-agents.js";
 import masarDatabaseRouter from "./masar-database.js";
 import databaseBuilderRouter from "./database-builder.js";
 import websiteIntelRouter from "./website-intel.js";
+import prosengineRouter from "./prosengine.js";
 
 const router: IRouter = Router();
 
@@ -102,5 +103,6 @@ router.use("/data-agents", dataAgentsRouter);
 router.use("/masar", masarDatabaseRouter);
 router.use("/builder", databaseBuilderRouter);
 router.use(websiteIntelRouter);
+router.use("/prosengine", prosengineRouter);
 
 export default router;

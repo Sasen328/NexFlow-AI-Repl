@@ -70,7 +70,7 @@ const SURFACES = [
   { icon: Users,       color: "#B8A0C8", name: "CRM",         desc: "Contacts, Companies, Deals, Activities, Calls" },
   { icon: Megaphone,   color: "#88B8B0", name: "Marketing",   desc: "Campaigns, Sequences, Audiences, Performance" },
   { icon: PhoneCall,   color: "#C0A0B8", name: "Service",     desc: "Call Centre, Knowledge Base, Conversation Intelligence" },
-  { icon: Brain,       color: "#C8A880", name: "Engines",     desc: "Lead Finder, Masaar, Prosengine, Cultural Intelligence" },
+  { icon: Brain,       color: "#C8A880", name: "Engines",     desc: "Masaar, ProsEngine, Masar Database, AI Database Builder" },
   { icon: BarChart3,   color: "#B8B880", name: "Analytics",   desc: "Attribution, DataHub, Custom Dashboards" },
   { icon: Building2,   color: "#88B8C8", name: "Mobile",      desc: "Expo iOS + Android companion app" },
 ];

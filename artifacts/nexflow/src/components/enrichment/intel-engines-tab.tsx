@@ -10,7 +10,7 @@
  *   1. Masaar        — Saudi CR lookup (5-agent pipeline)
  *   2. Person Intel  — ProsEngine person dossier (20 sources)
  *   3. Company Intel — ProsEngine company dossier (11 sources)
- *   4. Lead Finder   — Discover leads at a company
+ *   4. AI Database  — Masar Company Database builder
  *   5. AI Database   — Masar company database builder
  */
 
@@ -31,7 +31,7 @@ import { apiFetch } from "@/hooks/useApi";
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-type EngineKind = "masaar" | "person_intel" | "company_intel" | "lead_finder" | "ai_database";
+type EngineKind = "masaar" | "person_intel" | "company_intel" | "ai_database";
 
 type AgentStatus = "waiting" | "running" | "done" | "error" | "skipped";
 
@@ -57,7 +57,6 @@ const ENGINE_META: Record<EngineKind, {
   masaar:       { label: "Masaar",       icon: BadgeCheck,  color: "text-[#88B8B0]", bg: "bg-[#88B8B0]/10", border: "border-[#88B8B0]/30", badge: "🇸🇦 Saudi Gov", tagline: "5-agent Saudi CR intelligence pipeline" },
   person_intel: { label: "Person Intel", icon: Users,        color: "text-[#B8A0C8]", bg: "bg-[#B8A0C8]/10", border: "border-[#B8A0C8]/30", badge: "20 sources", tagline: "Deep executive dossier with approach strategy" },
   company_intel:{ label: "Company Intel",icon: Building2,    color: "text-[#C8A880]", bg: "bg-[#C8A880]/10", border: "border-[#C8A880]/30", badge: "11 sources", tagline: "Full Saudi company intelligence report" },
-  lead_finder:  { label: "Lead Finder",  icon: Target,       color: "text-[#D4955A]", bg: "bg-[#D4955A]/10", border: "border-[#D4955A]/30", badge: "NEW", tagline: "Discover named leads at any company" },
   ai_database:  { label: "AI Database",  icon: Database,     color: "text-[#7aab9a]", bg: "bg-[#7aab9a]/10", border: "border-[#7aab9a]/30", badge: "Masar", tagline: "Saudi B2B company database builder" },
 };
 
@@ -102,17 +101,6 @@ const COMPANY_AGENTS: AgentDef[] = [
     durationHint: 10, logs: ["Claude Sonnet: comprehensive corporate analysis…", "GPT-4o: ownership %, revenue, key clients validation…", "✓ Knowledge agents complete"] },
   { num: 5, name: "Synthesis + Report", desc: "Claude (primary) · Gemini (secondary) · GPT-4o (fallback)",
     durationHint: 15, logs: ["Aggregating 11 source outputs…", "Claude Sonnet synthesis (primary, 4,000 tok)…", "Structuring: profile, financials, ownership, leadership, market, approach…", "✓ Company intelligence report ready"] },
-];
-
-const LEAD_FINDER_AGENTS: AgentDef[] = [
-  { num: 1, name: "Website Team Page Crawl", desc: "8 team-page paths · Cheerio + Crawl4AI fallback",
-    durationHint: 15, logs: ["Probing /team, /about/team, /leadership, /people, /management…", "Crawl4AI fallback on JS-heavy pages…", "Extracting names, titles, emails, LinkedIn URLs…", "✓ Team page crawl complete"] },
-  { num: 2, name: "Perplexity × 3 — People Search", desc: "Senior employees · Department heads · Contact discovery",
-    durationHint: 15, logs: ["[P1] Senior employees + titles + LinkedIn URLs…", "[P2] Department heads + contact info…", "[P3] Key decision-makers + buying authority…", "✓ Perplexity lead search done"] },
-  { num: 3, name: "Gemini × 2 — Deep Dossier", desc: "Named executives + LinkedIn profiles",
-    durationHint: 12, logs: ["[GA] Named executives (EN + AR) + LinkedIn…", "[GB] Board + advisors + government ties…", "✓ Gemini agents completed"] },
-  { num: 4, name: "Dedup + Rank + Score", desc: "Merge across sources · ICP score · Sequence recommendation",
-    durationHint: 8, logs: ["Deduplicating leads across all sources…", "ICP scoring: seniority, department, buy signal…", "Generating recommended outreach sequence…", "✓ Final ranked lead list ready"] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -238,7 +226,6 @@ export function IntelEnginesTab() {
       {active === "masaar"        && <MasaarPanel />}
       {active === "person_intel"  && <PersonIntelPanel />}
       {active === "company_intel" && <CompanyIntelPanel />}
-      {active === "lead_finder"   && <LeadFinderPanel />}
       {active === "ai_database"   && <AIDatabasePanel />}
       {active === "history"       && <HistoryPanel />}
     </div>
@@ -1274,150 +1261,6 @@ function CompanyReport({ result }: { result: any }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LEAD FINDER PANEL
-// ─────────────────────────────────────────────────────────────────────────────
-
-export function LeadFinderPanel() {
-  const [companyName, setCompanyName] = useState("");
-  const [website, setWebsite] = useState("");
-  const [targetRole, setTargetRole] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const { agentStates, logs } = useAgentProgress(LEAD_FINDER_AGENTS, busy);
-
-  async function run() {
-    if (!companyName.trim()) return;
-    setErr(null); setResult(null); setBusy(true);
-    try {
-      const data = await apiFetch("/engines/lead-finder/run", {
-        method: "POST",
-        body: JSON.stringify({
-          companyName: companyName.trim(),
-          website: website.trim() || undefined,
-          targetRole: targetRole.trim() || undefined,
-        }),
-      });
-      setResult(data);
-    } catch (e: any) {
-      setErr(e?.message ?? "Run failed");
-    } finally { setBusy(false); }
-  }
-
-  return (
-    <EngineShell engine="lead_finder" form={
-      <>
-        <Field label="Company Name" required>
-          <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Saudi Aramco" />
-        </Field>
-        <Field label="Company Website" hint="Crawls /team, /about, /leadership, /people pages">
-          <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://aramco.com" />
-        </Field>
-        <Field label="Target role / department" hint="e.g. VP Sales, Head of IT, CFO — leave blank for all senior">
-          <Input value={targetRole} onChange={(e) => setTargetRole(e.target.value)} placeholder="Head of Procurement" />
-        </Field>
-        <RunButton busy={busy} onClick={run} label="Find Leads" />
-        <SectionNote>
-          Deduplicates across website crawl + Perplexity + Gemini. Returns ranked senior contacts with ICP score.
-        </SectionNote>
-      </>
-    } result={
-      busy ? <AgentPipeline agents={LEAD_FINDER_AGENTS} states={agentStates} logs={logs} color="text-[#D4955A]" /> :
-      err ? <EngineError msg={err} /> :
-      !result ? <EngineEmpty engine="lead_finder" /> :
-      <LeadFinderReport result={result} />
-    } />
-  );
-}
-
-function LeadFinderReport({ result }: { result: any }) {
-  const r = result.report ?? {};
-  const leads: any[] = r.leads ?? r.people ?? r.contacts ?? [];
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-[#D4955A]/40 bg-gradient-to-br from-[#D4955A]/8 to-transparent p-4 flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <div className="font-bold text-lg">{leads.length} leads found</div>
-          <div className="text-xs text-muted-foreground">{r.companyName || ""} · {Math.round(result.durationMs / 1000)}s · {result.sourcesUsed?.length ?? 0} sources</div>
-        </div>
-        <div className="flex gap-1 flex-wrap">
-          {(result.sourcesUsed ?? []).slice(0, 4).map((s: string) => (
-            <span key={s} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#D4955A]/15 text-[#D4955A]">{s}</span>
-          ))}
-        </div>
-      </div>
-
-      {r.companyContext && (
-        <div className="text-sm text-muted-foreground rounded-xl border border-border bg-card p-3">
-          {r.companyContext}
-        </div>
-      )}
-
-      {leads.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-8 text-center">
-          <div className="text-sm text-muted-foreground">No leads extracted. Try adding the company website URL.</div>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {leads.map((lead: any, i: number) => (
-            <LeadCard key={i} lead={lead} rank={i + 1} />
-          ))}
-        </div>
-      )}
-
-      {r.outreachSequence && (
-        <CollapseSection title="Recommended Outreach Sequence" icon={Zap} defaultOpen>
-          <p className="text-sm leading-relaxed">{r.outreachSequence}</p>
-        </CollapseSection>
-      )}
-
-      <SaveBar runId={result.id} />
-    </div>
-  );
-}
-
-function LeadCard({ lead, rank }: { lead: any; rank: number }) {
-  const score = lead.icpScore ?? lead.score ?? null;
-  return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-start gap-3">
-        <div className="w-8 h-8 rounded-full bg-[#D4955A]/20 flex items-center justify-center shrink-0 text-[#D4955A] font-bold text-sm">
-          {rank}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <div className="font-semibold">{lead.name || lead.fullName || "—"}</div>
-              <div className="text-xs text-muted-foreground">{lead.title} {lead.department && `· ${lead.department}`}</div>
-            </div>
-            {score !== null && (
-              <div className={cn("text-xs font-bold px-2 py-1 rounded-lg",
-                score >= 80 ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" :
-                score >= 60 ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" :
-                "bg-muted text-muted-foreground"
-              )}>
-                ICP {score}
-              </div>
-            )}
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-            {lead.email && <a href={`mailto:${lead.email}`} className="flex items-center gap-1 hover:text-foreground"><Mail className="w-3 h-3" />{lead.email}</a>}
-            {lead.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{lead.phone}</span>}
-            {lead.linkedin && <a href={lead.linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[#0a66c2] hover:underline"><Linkedin className="w-3 h-3" />LinkedIn</a>}
-            {lead.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{lead.location}</span>}
-          </div>
-          {lead.whyReach && <p className="mt-2 text-xs text-muted-foreground italic">{lead.whyReach}</p>}
-          <div className="mt-3 pt-2 border-t border-border/50">
-            <PushLeadToCrm lead={lead} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // AI DATABASE PANEL (Masar Company Database)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1487,7 +1330,6 @@ function HistoryPanel() {
     masaar: "bg-[#88B8B0]/15 text-[#88B8B0]",
     person_intel: "bg-[#B8A0C8]/15 text-[#B8A0C8]",
     company_intel: "bg-[#C8A880]/15 text-[#C8A880]",
-    lead_finder: "bg-[#D4955A]/15 text-[#D4955A]",
   };
 
   return (
@@ -2019,7 +1861,7 @@ function PushLeadToCrm({ lead }: { lead: any }) {
           phone: lead.phone || undefined,
           linkedinUrl: lead.linkedin || undefined,
           location: lead.location || "",
-          notes: `Imported via Lead Finder · ICP score ${lead.icpScore ?? lead.score ?? "?"}`,
+          notes: `Imported via Intel Engine · ICP score ${lead.icpScore ?? lead.score ?? "?"}`,
         }),
       });
       setSt("done");

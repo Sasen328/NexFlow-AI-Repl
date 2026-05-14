@@ -960,7 +960,7 @@ export default function CommandCenterPage() {
             { label: "Contacts",       href: "/contacts",                    icon: Users,      color: "#88B8B0" },
             { label: "Deals",          href: "/deal-pipeline",               icon: TrendingUp, color: "#B8B880" },
             { label: "Sequences",      href: "/sequences-audiences",         icon: Layers,     color: "#C8A880" },
-            { label: "Lead Finder",    href: "/enrichment-engine?tab=intel", icon: Target,     color: "#B8A0C8" },
+            { label: "Data Seeder",    href: "/enrichment-engine", icon: Target,     color: "#B8A0C8" },
           ].map(s => {
             const Icon = s.icon;
             return (
