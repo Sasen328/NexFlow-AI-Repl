@@ -232,7 +232,7 @@ export async function runCompanyIntel(input: CompanyIntelInput): Promise<{ repor
     ...agentResults.filter((r) => r.ok && r.value).map((r) => `## ${r.name}\n${r.value}`),
   ].filter(Boolean).join("\n\n");
 
-  const { data: report, provider } = await synthesizeJson<CompanyIntelReport>({
+  const report = await synthesizeJson<CompanyIntelReport>({
     system: "You synthesize multi-source corporate intelligence into a strict JSON dossier. Return valid JSON matching the schema exactly. Use null/'' for missing scalars, [] for missing arrays — never omit keys. Mark estimates clearly in intelligence.estimatedFacts. Never fabricate ownership percentages or executive names.",
     user: `Company: ${input.companyName}
 Website: ${websiteUrl ?? "(unknown)"}
@@ -266,7 +266,6 @@ Tailor approach.sampleMessage to the seller_context.`,
     maxTokens: 3500,
   });
 
-  if (provider !== "fallback") sourcesUsed.push(`synthesis:${provider}`);
   report.intelligence.dataSources = Array.from(new Set([...(report.intelligence.dataSources ?? []), ...sourcesUsed]));
 
   return { report, sourcesUsed };

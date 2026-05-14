@@ -69,7 +69,7 @@ router.post("/profile", async (req: Request, res: Response): Promise<void> => {
   if (website) {
     tasks.push(() =>
       scraperFetch(website)
-        .then((html) => `Website content from ${website}:\n${html.slice(0, 3000)}`)
+        .then((r) => `Website content from ${website}:\n${(r.text ?? "").slice(0, 3000)}`)
         .catch(() => ""),
     );
   }
@@ -159,7 +159,7 @@ router.post("/push-crm", async (req: Request, res: Response): Promise<void> => {
     if ((profile.nameEn as string)?.trim() || (profile.crNumber as string)?.trim()) {
       const conditions = [];
       if (profile.nameEn) conditions.push(ilike(companies.name, `%${profile.nameEn}%`));
-      if (profile.crNumber) conditions.push(eq(companies.crNumber as any, profile.crNumber as string));
+      if (profile.crNumber) conditions.push(eq((companies as any).crNumber, profile.crNumber as string));
       if (conditions.length) {
         const [existing] = await db.select({ id: companies.id })
           .from(companies).where(or(...conditions)).limit(1);

@@ -87,7 +87,7 @@ router.post("/profile", async (req: Request, res: Response): Promise<void> => {
   if (linkedinUrl) {
     tasks.push(() =>
       scraperFetch(linkedinUrl)
-        .then((html) => `LinkedIn profile content:\n${html.slice(0, 2000)}`)
+        .then((r) => `LinkedIn profile content:\n${(r.text ?? "").slice(0, 2000)}`)
         .catch(() => ""),
     );
   }

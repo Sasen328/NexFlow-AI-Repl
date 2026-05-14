@@ -437,7 +437,7 @@ Return valid JSON only. No markdown. No explanatory text. Use "Not found" for mi
   }
 }`;
 
-  const { data: report, provider } = await synthesizeJson<PersonIntelReport>({
+  const report = await synthesizeJson<PersonIntelReport>({
     system: "You are an elite Saudi Arabia B2B intelligence analyst. Return valid JSON only. Be maximally specific and actionable. Ground all facts in the provided research data. Use 'Not found' for missing fields — never hallucinate. Distinguish clearly between confirmed public knowledge and intelligent inference.",
     user: synthesisPrompt,
     fallback: {
@@ -455,7 +455,6 @@ Return valid JSON only. No markdown. No explanatory text. Use "Not found" for mi
     if (!prof.linkedin || prof.linkedin === "Not found") prof.linkedin = effectiveLinkedInUrl;
   }
 
-  if (provider !== "fallback") sourcesUsed.push(`synthesis:${provider}`);
   if (!report.intelligence_notes) {
     report.intelligence_notes = { ...EMPTY_PERSON.intelligence_notes };
   }

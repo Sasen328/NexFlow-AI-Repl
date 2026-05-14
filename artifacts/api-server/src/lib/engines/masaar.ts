@@ -153,7 +153,7 @@ Return JSON with fields: nameEn, nameAr, crNumber, legalForm, legalFormAr, headq
     system: "You compare facts across multiple Saudi corporate sources and flag conflicts. Return ONLY a JSON array.",
     user: `Compare the parsed structured fields below against the raw research bundle. Flag any field where two sources disagree (e.g. different capital amounts, different shareholder percentages). Return [] if nothing conflicts.
 
-Parsed: ${JSON.stringify(parsed.data)}
+Parsed: ${JSON.stringify(parsed)}
 
 Research:
 ${researchBundle.slice(0, 6000)}
@@ -178,7 +178,7 @@ Output: JSON array of {field, source1, value1, source2, value2, severity ("high"
     system: "You are a senior Saudi B2B intelligence analyst. Write a polished English markdown report.",
     user: `Compile a comprehensive English markdown report on the Saudi company below. Sections: Overview, Legal & Registration, Ownership Structure, Leadership, Financials & Capital, Operations & Industry, Recent News, Risk Factors, Recommended Approach. Be specific. Cite source agents inline like "(Perplexity)" or "(Gemini Search)" where used. If a field is unknown, say so plainly.
 
-Parsed: ${JSON.stringify(parsed.data, null, 2)}
+Parsed: ${JSON.stringify(parsed, null, 2)}
 
 Research bundle:
 ${researchBundle}
@@ -191,7 +191,7 @@ Conflicts found: ${JSON.stringify(conflicts)}`,
   if (!reportEnFinal || reportEnFinal.length < 200) {
     reportEnFinal = await synthesizeGpt({
       system: "You are a senior Saudi B2B intelligence analyst writing in markdown.",
-      user: `Compile English intelligence report on: ${queryLabel}\n\nData:\n${JSON.stringify(parsed.data)}\n\nResearch:\n${researchBundle.slice(0, 4000)}`,
+      user: `Compile English intelligence report on: ${queryLabel}\n\nData:\n${JSON.stringify(parsed)}\n\nResearch:\n${researchBundle.slice(0, 4000)}`,
       maxTokens: 2200,
     });
   }
@@ -200,7 +200,7 @@ Conflicts found: ${JSON.stringify(conflicts)}`,
     system: "أنت محلل استخبارات أعمال سعودي. اكتب تقريراً مفصلاً بصيغة ماركداون بالعربية.",
     user: `قم بتجميع تقرير استخباراتي شامل بالعربية عن الشركة السعودية أدناه. أقسام: نظرة عامة، التسجيل القانوني، هيكل الملكية، القيادة، البيانات المالية، العمليات والصناعة، الأخبار الأخيرة، عوامل المخاطر، نهج التواصل المقترح. كن محدداً.
 
-البيانات المنظمة: ${JSON.stringify(parsed.data, null, 2)}
+البيانات المنظمة: ${JSON.stringify(parsed, null, 2)}
 
 البحث:
 ${researchBundle.slice(0, 6000)}`,
@@ -211,7 +211,7 @@ ${researchBundle.slice(0, 6000)}`,
     crNumber: cr,
     fetchedAt: new Date().toISOString(),
     sources,
-    parsed: parsed.data,
+    parsed: parsed,
     conflicts,
     reportEn: reportEnFinal || "(English report could not be generated — AI synthesis failed for all providers.)",
     reportAr: reportAr || "(لم يتم إنشاء التقرير العربي — فشلت عملية التركيب للذكاء الاصطناعي لجميع المزودين.)",
