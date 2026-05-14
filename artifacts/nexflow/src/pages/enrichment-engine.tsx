@@ -1,2130 +1,1431 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+/**
+ * Enrichment Engine — 3-tab rebuild (May 2026)
+ *
+ * Tab 1 — Lead Generation   (/enrichment-engine, ?tab=leadgen)
+ *   Sub-sections: Masar Database · AI Database Builder · Website Intelligence
+ *                 Company Intelligence · Person Intelligence
+ *
+ * Tab 2 — CRM Enrichment    (?tab=enrich)
+ *   Sub-sections: Quick Enrich · Bulk Upload · Card Scanner · Dedup · Waterfall Sources
+ *
+ * Tab 3 — Settings          (?tab=settings)
+ *   Sub-sections: Waterfall Sources · API Keys · Export History
+ *
+ * Sidebar (Lead Gen | CRM Enrichment | Settings) is handled by sections.ts
+ * (key "datahub") — already 3 items + expandable/collapsible via SectionSidebar.tsx.
+ */
+
+import { lazy, Suspense, useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import {
   Database, Search, Building2, Users, Sparkles, Zap, Upload, ScanLine,
-  GitMerge, History, ChevronRight, Plus, Check, X, Loader2, Filter,
-  Mail, Phone, Linkedin, Briefcase, Globe, TrendingUp, Newspaper,
-  Hash, Twitter, Rss, Trash2, RefreshCw, ChevronDown, FileText, Tag,
-  FlaskConical, BrainCircuit, AlertTriangle, ShieldCheck, BadgeCheck,
-  CheckCircle2, AlertCircle, XCircle, ChevronUp, Star, MapPin, User,
+  GitMerge, History, Plus, Check, X, Loader2, Filter, Mail, Phone,
+  Globe, BrainCircuit, AlertCircle, ChevronDown, FileText, Settings,
+  RefreshCw, Trash2, Download, Play, ArrowRight, ExternalLink, BarChart3,
+  BookOpen, Target, Star, MapPin, User, Building, Layers, ChevronRight,
+  Badge, Tag, CheckCircle2, XCircle, Bot, Cpu, Route, PlusCircle, Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/hooks/useApi";
-import { PushToCrm } from "@/components/push-to-crm";
-import { SourcesTab } from "@/components/enrichment/sources-tab";
-import { IntelEnginesTab } from "@/components/enrichment/intel-engines-tab";
 
-const SignalsPage = lazy(() => import("./signals"));
-const LeadEnrichPage = lazy(() => import("./lead-enrich"));
-const BusinessCardsPage = lazy(() => import("./business-cards"));
+// Lazy-loaded sub-pages (existing)
+const SourcesTab      = lazy(() => import("@/components/enrichment/sources-tab").then((m) => ({ default: m.SourcesTab })));
+const IntelEnginesTab = lazy(() => import("@/components/enrichment/intel-engines-tab").then((m) => ({ default: m.IntelEnginesTab })));
+const LeadEnrichPage  = lazy(() => import("./lead-enrich"));
+const BusinessCards   = lazy(() => import("./business-cards"));
+const DedupPage       = lazy(() => import("./dedup"));
+const SignalsPage     = lazy(() => import("./signals"));
 
-/**
- * Internal tab order (spec v3 — May 2026):
- *   1. Prospecting
- *   2. Buying Signals
- *   3. Enrich  (single lead — lead-enrich.tsx)
- *   4. Waterfall (Clay-style sources config — sources-tab.tsx)
- *   5. Bulk Enrichment
- *   6. Card Scanner
- *   7. Intel Engines
- *   8. History
- */
-type Tab =
-  | "prospecting"
-  | "signals"
-  | "enrich"
-  | "waterfall"
-  | "bulk"
-  | "cards"
-  | "engines"
-  | "history"
-  | "validate"
-  | "verify";
+// ── Constants ─────────────────────────────────────────────────────────────────
+const ACCENT   = "#B8A0C8";
+const TEAL     = "#88B8B0";
+const GOLD     = "#C8A880";
 
-type ProspectMode = "company" | "person";
+// ── Tab routing ───────────────────────────────────────────────────────────────
+type MainTab   = "leadgen" | "enrich" | "settings";
+type LeadSubTab = "masar" | "builder" | "website" | "company" | "person";
+type EnrichSubTab = "quick" | "bulk" | "cards" | "dedup" | "waterfall";
+type SettingsSubTab = "sources" | "apikeys" | "exports";
 
-interface SearchHistoryItem {
-  id: string;
-  type: "company" | "person" | "list" | "card";
-  query: string;
-  filters: string;
-  signals: string[];
-  results: number;
-  enriched: number;
-  ts: string;
+function useQueryTab(): MainTab {
+  const [location] = useLocation();
+  const params = new URLSearchParams(location.split("?")[1] || "");
+  const t = params.get("tab") as MainTab | null;
+  return t === "enrich" ? "enrich" : t === "settings" ? "settings" : "leadgen";
 }
 
-const SEED_HISTORY: SearchHistoryItem[] = [
-  { id: "h1", type: "company", query: "Aramco Trading", filters: "KSA · 10,000+ employees", signals: ["Email", "Phone", "LinkedIn", "Funding"], results: 24, enriched: 24, ts: "Today · 09:14" },
-  { id: "h2", type: "person", query: "VP Sales · Banking · UAE", filters: "Series B+ · 500+ employees", signals: ["Email", "Phone", "Intent", "Hiring"], results: 87, enriched: 64, ts: "Today · 08:02" },
-  { id: "h3", type: "list", query: "GITEX 2026 booth scans", filters: "342 rows · auto-deduped to 318", signals: ["Persona", "Tags", "Lead score"], results: 318, enriched: 318, ts: "Yesterday · 18:47" },
-  { id: "h4", type: "company", query: "STC Group", filters: "KSA · Telecom", signals: ["Email", "Phone", "LinkedIn", "Tech stack", "Headcount"], results: 41, enriched: 41, ts: "Yesterday · 14:21" },
-  { id: "h5", type: "card", query: "5 cards scanned at Riyadh meetup", filters: "OCR + GCC enrichment waterfall", signals: ["Email", "Phone", "LinkedIn", "Persona"], results: 5, enriched: 5, ts: "Apr 28" },
-];
-
-const ENRICHMENT_SIGNALS = [
-  { id: "email", label: "Verified email", icon: Mail, group: "Contact" },
-  { id: "phone", label: "Direct phone", icon: Phone, group: "Contact" },
-  { id: "linkedin", label: "LinkedIn URL", icon: Linkedin, group: "Contact" },
-  { id: "title", label: "Job title & seniority", icon: Briefcase, group: "Profile" },
-  { id: "persona", label: "Buyer persona", icon: Users, group: "Profile" },
-  { id: "tags", label: "AI tags", icon: Tag, group: "Profile" },
-  { id: "lead_score", label: "Lead score", icon: Sparkles, group: "Profile" },
-  { id: "company_size", label: "Headcount band", icon: Building2, group: "Company" },
-  { id: "funding", label: "Funding stage / round", icon: TrendingUp, group: "Company" },
-  { id: "industry", label: "Industry & sub-vertical", icon: Globe, group: "Company" },
-  { id: "tech_stack", label: "Tech stack", icon: Hash, group: "Company" },
-  { id: "intent", label: "Active intent signals", icon: Zap, group: "Buying signals" },
-  { id: "hiring", label: "Hiring activity", icon: Users, group: "Buying signals" },
-  { id: "news", label: "News & PR mentions", icon: Newspaper, group: "Buying signals" },
-  { id: "social", label: "Social handles", icon: Twitter, group: "Social" },
-] as const;
-
-const COMPANY_LEAD_PREVIEW = [
-  { name: "Khalid Al-Saud",   title: "VP Sales",          dept: "Commercial",  loc: "Riyadh, KSA",  initials: "KS" },
-  { name: "Reem Al-Otaibi",   title: "Head of Marketing", dept: "Marketing",   loc: "Riyadh, KSA",  initials: "RO" },
-  { name: "Faisal Al-Harbi",  title: "CTO",               dept: "Technology",  loc: "Riyadh, KSA",  initials: "FH" },
-  { name: "Layla Al-Sabah",   title: "Director of Ops",   dept: "Operations",  loc: "Jeddah, KSA",  initials: "LS" },
-  { name: "Sara Al-Mansouri", title: "Head of People",    dept: "People",      loc: "Riyadh, KSA",  initials: "SM" },
-  { name: "Yousef Al-Bahar",  title: "Innovation Lead",   dept: "Strategy",    loc: "Khobar, KSA",  initials: "YB" },
-];
-
-const SIGNAL_CHANNELS = [
-  { id: "linkedin",   label: "LinkedIn",            icon: Linkedin,  type: "Social",   on: true,  pulls: "Job changes · hiring · posts" },
-  { id: "twitter",    label: "X (Twitter)",         icon: Twitter,   type: "Social",   on: true,  pulls: "Mentions · funding chatter" },
-  { id: "wamda",      label: "Wamda",               icon: Globe,     type: "PR · MENA", on: true,  pulls: "Startup funding (MENA)" },
-  { id: "moci",       label: "MoCI (KSA registry)", icon: Building2, type: "Registry", on: true,  pulls: "New entities · expansions" },
-  { id: "prnews",     label: "PR Newswire",         icon: Newspaper, type: "PR",       on: true,  pulls: "Press releases" },
-  { id: "reuters",    label: "Reuters Business",    icon: Newspaper, type: "News",     on: false, pulls: "Global business news" },
-  { id: "argaam",     label: "Argaam",              icon: Newspaper, type: "News · GCC", on: true,  pulls: "GCC equities & corporate news" },
-  { id: "rss",        label: "Custom RSS feed",     icon: Rss,       type: "Custom",   on: false, pulls: "Any RSS URL" },
-];
-
-const LIST_FIELD_OPTIONS = ["Email", "Phone", "LinkedIn", "Job title", "Seniority", "Department", "Company size", "Industry", "Country", "Funding stage", "Tech stack"];
-const PROFILING_DEPTH = ["Light (3-5 fields)", "Standard (6-10 fields)", "Deep (10-15 + signals)", "Full GCC waterfall (15+ + Khaleeji enrichment)"];
-const SIGNAL_CHOICES = ["None", "Buying intent only", "Hiring + funding", "Full signal pack"];
-const SURVIVOR_PREF = ["Most recent", "Most engaged (lead score)", "Most complete profile", "Manual pick"];
-
-export default function EnrichmentEnginePage() {
-  // Honour ?tab=… deep links. Legacy "quick" → enrich, "bulk" → bulk, "sources" → waterfall.
-  const initialTab: Tab = (() => {
-    if (typeof window === "undefined") return "prospecting";
-    const t = new URLSearchParams(window.location.search).get("tab");
-    if (t === "quick") return "enrich";
-    if (t === "sources") return "waterfall";
-    const valid: Tab[] = ["prospecting", "signals", "enrich", "waterfall", "bulk", "cards", "engines", "history", "validate", "verify"];
-    return (valid as string[]).includes(t ?? "") ? (t as Tab) : "prospecting";
-  })();
-  const [tab, setTab] = useState<Tab>(initialTab);
-  const [prospectSeed, setProspectSeed] = useState<{ mode: ProspectMode; query: string } | null>(null);
-  const [, navigate] = useLocation();
-
-  function rerunFromHistory(item: SearchHistoryItem) {
-    if (item.type === "company" || item.type === "person") {
-      setProspectSeed({ mode: item.type, query: item.query });
-      setTab("prospecting");
-    } else if (item.type === "list") {
-      // Lists tab was promoted to a top-level Data Hub page (/dedup).
-      // Re-running a list-history entry now opens the dedup uploader.
-      navigate("/dedup");
-    } else if (item.type === "card") {
-      setTab("cards");
-    }
-  }
-
+// ── Root component ────────────────────────────────────────────────────────────
+export default function EnrichmentEngine() {
+  const mainTab = useQueryTab();
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Database className="w-6 h-6 text-[#B8B880]" /> Enrichment Engine
-          </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Prospect from your seed database, monitor buying signals, scan cards, upload lists, and dedupe — all in one place.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-xs">
-          <span className="px-2.5 py-1 rounded-full bg-[#B8B880]/15 text-[#7a7a4a] dark:text-[#cfcf90] font-medium">91% match rate</span>
-          <span className="px-2.5 py-1 rounded-full bg-[#88B8B0]/15 text-[#3f7a72] dark:text-[#9ae0d6] font-medium">$0.31 / lead</span>
-          <span className="px-2.5 py-1 rounded-full bg-[#B8A0C8]/15 text-[#724f8a] dark:text-[#d3b9e6] font-medium">Clay-style waterfall</span>
-        </div>
+    <div className="min-h-screen bg-background">
+      <Header />
+      <div className="max-w-screen-2xl mx-auto px-4 pb-10">
+        {mainTab === "leadgen"  && <LeadGenerationTab />}
+        {mainTab === "enrich"   && <CrmEnrichmentTab />}
+        {mainTab === "settings" && <SettingsTab />}
       </div>
-
-      {/* Sub-tabs */}
-      <div className="border-b border-border flex items-center gap-1 overflow-x-auto" role="tablist">
-        <SubTab active={tab === "prospecting"} onClick={() => setTab("prospecting")} icon={Search}      label="Prospecting" />
-        <SubTab active={tab === "signals"}     onClick={() => setTab("signals")}     icon={Zap}         label="Buying Signals" />
-        <SubTab active={tab === "enrich"}      onClick={() => setTab("enrich")}      icon={Sparkles}    label="Quick Enrich" />
-        <SubTab active={tab === "waterfall"}   onClick={() => setTab("waterfall")}   icon={Database}    label="Waterfall Sources" />
-        <SubTab active={tab === "bulk"}        onClick={() => setTab("bulk")}        icon={Upload}      label="Bulk Enrichment" />
-        <SubTab active={tab === "cards"}       onClick={() => setTab("cards")}       icon={ScanLine}    label="Card Scanner" />
-        <SubTab active={tab === "engines"}     onClick={() => setTab("engines")}     icon={BrainCircuit} label="Intel Engines" />
-        <SubTab active={tab === "history"}     onClick={() => setTab("history")}     icon={History}      label="History" />
-        <SubTab active={tab === "validate"}    onClick={() => setTab("validate")}    icon={ShieldCheck}  label="Data Validator" badge="AI" />
-        <SubTab active={tab === "verify"}      onClick={() => setTab("verify")}      icon={BadgeCheck}   label="Data Verifier"  badge="AI" />
-      </div>
-
-      {tab === "prospecting" && <ProspectingTab seed={prospectSeed} onConsumeSeed={() => setProspectSeed(null)} />}
-      {tab === "signals"     && <BuyingSignalsTab />}
-      {tab === "enrich"      && <Lazy><LeadEnrichPage /></Lazy>}
-      {tab === "waterfall"   && <SourcesTab />}
-      {tab === "bulk"        && <BulkEnrichmentTab />}
-      {tab === "cards"       && <Lazy><BusinessCardsPage /></Lazy>}
-      {tab === "engines"     && <IntelEnginesTab />}
-      {tab === "history"     && <SearchHistoryTab onRerun={rerunFromHistory} />}
-      {tab === "validate"    && <DataValidatorTab />}
-      {tab === "verify"      && <DataVerifierTab />}
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────
-// PROSPECTING — search by company OR person, pick signals
-// ─────────────────────────────────────────────────────────
-function ProspectingTab({ seed, onConsumeSeed }: { seed: { mode: ProspectMode; query: string } | null; onConsumeSeed: () => void }) {
-  const [mode, setMode] = useState<ProspectMode>("company");
-  const [query, setQuery] = useState("");
-  const [region, setRegion] = useState("GCC");
-  const [industry, setIndustry] = useState("All industries");
-  const [seniority, setSeniority] = useState("VP & above");
-  const [signals, setSignals] = useState<Set<string>>(new Set(["email", "phone", "linkedin", "title", "lead_score"]));
-  const [signalsOpen, setSignalsOpen] = useState(false);
-  const [searched, setSearched] = useState<null | { mode: ProspectMode; company: string; people: typeof COMPANY_LEAD_PREVIEW }>(null);
-  const [enriching, setEnriching] = useState(false);
-  const [enriched, setEnriched] = useState<Set<string>>(new Set());
+// ── Page header ───────────────────────────────────────────────────────────────
+function Header() {
+  const mainTab = useQueryTab();
+  const [, navigate] = useLocation();
 
-  // Honor a re-run request coming from Search History.
-  useEffect(() => {
-    if (!seed) return;
-    setMode(seed.mode);
-    setQuery(seed.query);
-    setEnriched(new Set());
-    setSearched({ mode: seed.mode, company: seed.query, people: COMPANY_LEAD_PREVIEW });
-    onConsumeSeed();
-  }, [seed, onConsumeSeed]);
-
-  function toggleSignal(id: string) {
-    setSignals((s) => {
-      const n = new Set(s);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
-      return n;
-    });
-  }
-
-  function changeMode(next: ProspectMode) {
-    if (next === mode) return;
-    setMode(next);
-    // Stale results would mislabel the header; clear them.
-    setSearched(null);
-    setEnriched(new Set());
-  }
-
-  function runSearch() {
-    if (!query.trim()) return;
-    setEnriched(new Set());
-    setSearched({ mode, company: query.trim(), people: COMPANY_LEAD_PREVIEW });
-  }
-
-  function enrichAll() {
-    if (!searched) return;
-    setEnriching(true);
-    setTimeout(() => {
-      setEnriched(new Set(searched.people.map((p) => p.name)));
-      setEnriching(false);
-    }, 1400);
-  }
-
-  function enrichOne(name: string) {
-    setEnriched((s) => new Set([...s, name]));
-  }
-
-  const grouped = useMemo(() => {
-    const out: Record<string, typeof ENRICHMENT_SIGNALS[number][]> = {};
-    for (const s of ENRICHMENT_SIGNALS) {
-      (out[s.group] ??= []).push(s);
-    }
-    return out;
-  }, []);
+  const tabs: { id: MainTab; label: string; icon: React.ElementType; desc: string }[] = [
+    { id: "leadgen",  label: "Lead Generation",  icon: Search,    desc: "Find new prospects" },
+    { id: "enrich",  label: "CRM Enrichment",    icon: Sparkles,  desc: "Enrich existing data" },
+    { id: "settings",label: "Settings",           icon: Settings,  desc: "Sources & API keys" },
+  ];
 
   return (
-    <div className="space-y-5">
-      {/* Intro card */}
-      <div className="glass-card rounded-2xl p-5 border-l-4 border-[#B8B880]">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#B8B880]/15 flex items-center justify-center flex-shrink-0">
-            <Database className="w-5 h-5 text-[#B8B880]" />
-          </div>
-          <div className="flex-1">
-            <div className="font-semibold">Prospecting from your seed database</div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Search across <span className="text-foreground font-medium">your enriched company & contact seed pool</span> (Lusha + Apollo + Crunchbase + GCC sources). Pick a company to pull all its leads, or query by persona. Then choose which enrichment signals you want pulled in the waterfall.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* AI Research Lab — multi-model live web research */}
-      <AIResearchLab />
-
-      {/* Search bar */}
-      <div className="glass-card rounded-2xl p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => changeMode("company")}
-            aria-pressed={mode === "company"}
-            className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition", mode === "company" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground")}
-          >
-            <Building2 className="w-3 h-3 inline mr-1" /> By company
-          </button>
-          <button
-            onClick={() => changeMode("person")}
-            aria-pressed={mode === "person"}
-            className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition", mode === "person" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground")}
-          >
-            <Users className="w-3 h-3 inline mr-1" /> By persona
-          </button>
-        </div>
-
-        <div className="grid lg:grid-cols-[1fr_auto] gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && runSearch()}
-              placeholder={mode === "company" ? "e.g. Aramco Trading · STC Group · Emirates NBD" : "e.g. CFO at Series B+ SaaS in UAE"}
-              className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-background text-sm"
-            />
-          </div>
-          <button
-            onClick={runSearch}
-            disabled={!query.trim()}
-            className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            <Search className="w-4 h-4" /> Search seed database
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          <FilterPill label="Region" value={region} onChange={setRegion} options={["GCC", "KSA only", "UAE only", "Bahrain & Qatar", "Global"]} />
-          <FilterPill label="Industry" value={industry} onChange={setIndustry} options={["All industries", "Banking & Fintech", "Telecom", "Energy", "Real Estate", "Retail & e-commerce", "Government & Public"]} />
-          <FilterPill label="Seniority" value={seniority} onChange={setSeniority} options={["C-Level only", "VP & above", "Director & above", "All"]} />
-        </div>
-
-        {/* Signal multi-select */}
-        <div className="rounded-xl border border-border bg-background/50">
-          <button
-            onClick={() => setSignalsOpen((o) => !o)}
-            aria-expanded={signalsOpen}
-            className="w-full px-4 py-3 flex items-center justify-between text-sm hover:bg-muted/40 transition rounded-xl"
-          >
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-[#B8B880]" />
-              <span className="font-medium">Enrichment signals to pull</span>
-              <span className="text-xs text-muted-foreground">({signals.size} selected)</span>
+    <div className="border-b border-border/30 bg-background/80 backdrop-blur-md sticky top-[5.5rem] z-10 mb-6">
+      <div className="max-w-screen-2xl mx-auto px-4">
+        <div className="flex items-center gap-8 py-1">
+          <div className="flex items-center gap-3 py-3 flex-shrink-0">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${ACCENT}20` }}>
+              <Database className="w-4 h-4" style={{ color: ACCENT }} />
             </div>
-            <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition", signalsOpen && "rotate-180")} />
-          </button>
-          {signalsOpen && (
-            <div className="border-t border-border p-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.entries(grouped).map(([group, items]) => (
-                <div key={group}>
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{group}</div>
-                  <div className="space-y-1.5">
-                    {items.map((s) => {
-                      const Icon = s.icon;
-                      const on = signals.has(s.id);
-                      return (
-                        <button
-                          key={s.id}
-                          onClick={() => toggleSignal(s.id)}
-                          aria-pressed={on}
-                          className={cn(
-                            "w-full px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-2 transition",
-                            on ? "bg-[#B8B880]/15 text-foreground border border-[#B8B880]/40" : "bg-muted/40 text-muted-foreground hover:text-foreground border border-transparent",
-                          )}
-                        >
-                          <Icon className="w-3.5 h-3.5" />
-                          <span className="flex-1 text-left">{s.label}</span>
-                          {on && <Check className="w-3 h-3 text-[#B8B880]" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-              <div className="sm:col-span-2 lg:col-span-3 pt-2 border-t border-border flex items-center gap-2">
-                <Plus className="w-3.5 h-3.5 text-muted-foreground" />
-                <input
-                  placeholder="Add custom signal (e.g. 'Recently changed CRM')"
-                  className="flex-1 bg-transparent text-xs outline-none border-b border-dashed border-border focus:border-primary py-1"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Results */}
-      {searched && (
-        <div className="glass-card rounded-2xl overflow-hidden">
-          <div className="p-5 border-b border-border flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <div className="text-xs text-muted-foreground uppercase">{searched.mode === "company" ? "Leads at" : "People matching"}</div>
-              <div className="text-lg font-semibold flex items-center gap-2">
-                {searched.mode === "company" ? <Building2 className="w-4 h-4 text-muted-foreground" /> : <Users className="w-4 h-4 text-muted-foreground" />}
-                {searched.company}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {searched.people.length} contacts · {signals.size} signals will be pulled per contact
-              </div>
+              <div className="text-[15px] font-bold text-foreground">Enrichment Engine</div>
+              <div className="text-[11px] text-muted-foreground">Lead Generation · CRM Enrichment · Settings</div>
             </div>
-            <button
-              onClick={enrichAll}
-              disabled={enriching}
-              className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:opacity-90 transition flex items-center gap-2 disabled:opacity-60"
-            >
-              {enriching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {enriching ? "Enriching all…" : `Enrich all ${searched.people.length} leads`}
-            </button>
           </div>
-          <div className="divide-y divide-border">
-            {searched.people.map((p) => {
-              const isEnriched = enriched.has(p.name);
+          <div className="flex gap-1 flex-1">
+            {tabs.map((t) => {
+              const Icon = t.icon;
+              const active = mainTab === t.id;
               return (
-                <div key={p.name} className="px-5 py-3 flex items-center gap-3 hover:bg-muted/30 transition">
-                  <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-foreground">
-                    {p.initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{p.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">{p.title} · {p.dept} · {p.loc}</div>
-                  </div>
-                  {isEnriched ? (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 font-medium flex items-center gap-1">
-                      <Check className="w-3 h-3" /> Enriched
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => enrichOne(p.name)}
-                      className="text-xs px-2.5 py-1 rounded-lg border border-border hover:bg-muted transition flex items-center gap-1"
-                    >
-                      <Sparkles className="w-3 h-3" /> Enrich
-                    </button>
+                <button
+                  key={t.id}
+                  onClick={() => navigate(t.id === "leadgen" ? "/enrichment-engine" : `/enrichment-engine?tab=${t.id}`)}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-medium transition-all",
+                    active ? "text-white shadow-sm" : "text-foreground/60 hover:text-foreground hover:bg-muted/50",
                   )}
-                </div>
+                  style={active ? { background: `linear-gradient(135deg, ${ACCENT}, #9580A8)`, boxShadow: `0 4px 12px ${ACCENT}40` } : undefined}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {t.label}
+                </button>
               );
             })}
           </div>
-
-          {/* Push-to-CRM cross-cutting workflow — appears once any enrichment is done */}
-          {enriched.size > 0 && (
-            <div className="border-t border-border p-5 bg-muted/20">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                Push enriched leads into CRM
-              </div>
-              <PushToCrm
-                source="Prospecting"
-                records={searched.people.filter((p) => enriched.has(p.name))}
-                getKey={(p) => p.name}
-                renderRow={(p) => (
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">{p.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">{p.title} · {p.dept} · {p.loc}</div>
-                  </div>
-                )}
-                toIcp={(p) => ({
-                  name: p.name,
-                  company: searched.company,
-                  industry: industry === "All industries" ? undefined : industry,
-                  region: region.includes("KSA") ? "KSA" : region.includes("UAE") ? "UAE" : "GCC",
-                  seniority: p.title.match(/CTO|CFO|CEO|VP|Director|Head|Chief/i)?.[0],
-                  headcount: 5000,
-                })}
-              />
-            </div>
-          )}
         </div>
-      )}
-
-      {!searched && (
-        <div className="glass-card rounded-2xl p-12 text-center text-muted-foreground">
-          <Search className="w-10 h-10 mx-auto mb-3 opacity-40" />
-          <div className="text-sm">Enter a {mode === "company" ? "company name" : "persona query"} above to prospect from your seed database.</div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────
-// BUYING SIGNALS — channel mapping + existing signals feed
-// ─────────────────────────────────────────────────────────
-function BuyingSignalsTab() {
-  const [channels, setChannels] = useState(SIGNAL_CHANNELS);
-  const [showAdd, setShowAdd] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newUrl, setNewUrl] = useState("");
+// ═══════════════════════════════════════════════════════════════════════════════
+// TAB 1 — LEAD GENERATION
+// ═══════════════════════════════════════════════════════════════════════════════
+function LeadGenerationTab() {
+  const [sub, setSub] = useState<LeadSubTab>("masar");
+  const subTabs: { id: LeadSubTab; label: string; icon: React.ElementType; badge?: string }[] = [
+    { id: "masar",   label: "Masar Database",      icon: Database,      badge: "25 sources" },
+    { id: "builder", label: "AI DB Builder",        icon: Bot,           badge: "15 sources" },
+    { id: "website", label: "Website Intelligence", icon: Globe },
+    { id: "company", label: "Company Intel",        icon: Building2 },
+    { id: "person",  label: "Person Intel",         icon: Users },
+  ];
 
-  function toggleChannel(id: string) {
-    setChannels((cs) => cs.map((c) => (c.id === id ? { ...c, on: !c.on } : c)));
+  return (
+    <div>
+      {/* Sub-tab strip */}
+      <div className="flex gap-1 mb-6 flex-wrap">
+        {subTabs.map((t) => {
+          const Icon = t.icon;
+          const active = sub === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setSub(t.id)}
+              className={cn(
+                "flex items-center gap-2 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all border",
+                active ? "border-transparent text-white" : "border-border/40 text-foreground/60 hover:text-foreground hover:bg-muted/40",
+              )}
+              style={active ? { background: `linear-gradient(135deg, ${ACCENT}CC, ${TEAL}CC)`, boxShadow: `0 2px 8px ${ACCENT}30` } : undefined}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {t.label}
+              {t.badge && <span className="text-[10px] opacity-75 ml-1">{t.badge}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      <Suspense fallback={<Spinner />}>
+        {sub === "masar"   && <MasarDatabasePanel />}
+        {sub === "builder" && <AiDatabaseBuilderPanel />}
+        {sub === "website" && <WebsiteIntelPanel />}
+        {sub === "company" && <CompanyIntelPanel />}
+        {sub === "person"  && <PersonIntelPanel />}
+      </Suspense>
+    </div>
+  );
+}
+
+// ── Masar Database Panel ──────────────────────────────────────────────────────
+function MasarDatabasePanel() {
+  const [sources,     setSources]     = useState<any[]>([]);
+  const [companies,   setCompanies]   = useState<any[]>([]);
+  const [stats,       setStats]       = useState<any>(null);
+  const [activeJob,   setActiveJob]   = useState<any>(null);
+  const [loading,     setLoading]     = useState(false);
+  const [page,        setPage]        = useState(1);
+  const [total,       setTotal]       = useState(0);
+  const [search,      setSearch]      = useState("");
+  const [selectedSrc, setSelectedSrc] = useState<string[]>([]);
+  const [depth,       setDepth]       = useState("standard");
+  const pollRef = useRef<ReturnType<typeof setInterval>>();
+
+  useEffect(() => {
+    void apiFetch("/masar/sources").then(setSources).catch(() => {});
+    void apiFetch("/masar/stats").then(setStats).catch(() => {});
+    loadCompanies();
+  }, []);
+
+  function loadCompanies(p = 1, q = "") {
+    setLoading(true);
+    void apiFetch(`/masar/companies?page=${p}&limit=20&search=${encodeURIComponent(q)}`)
+      .then((d: any) => { setCompanies(d.companies || []); setTotal(d.total || 0); setPage(p); })
+      .finally(() => setLoading(false));
   }
 
-  function addChannel() {
-    if (!newName.trim()) return;
-    setChannels((cs) => [
-      ...cs,
-      { id: `c${Date.now()}`, label: newName.trim(), icon: Globe, type: "Custom", on: true, pulls: newUrl.trim() || "Custom source" },
-    ]);
-    setNewName("");
-    setNewUrl("");
-    setShowAdd(false);
+  async function startHarvest() {
+    const data: any = await apiFetch("/masar/harvest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sourceIds: selectedSrc.length ? selectedSrc : undefined, enrichmentDepth: depth }),
+    });
+    setActiveJob(data);
+    pollRef.current = setInterval(() => {
+      void apiFetch(`/masar/jobs/${data.jobId}`).then((j: any) => {
+        setActiveJob(j);
+        if (j.status === "completed" || j.status === "failed") {
+          clearInterval(pollRef.current);
+          void apiFetch("/masar/stats").then(setStats);
+          loadCompanies();
+        }
+      });
+    }, 3000);
   }
+
+  async function pushToCrm(id: number) {
+    await apiFetch(`/masar/companies/${id}/push-crm`, { method: "POST" });
+    loadCompanies(page, search);
+  }
+
+  useEffect(() => () => clearInterval(pollRef.current), []);
 
   return (
     <div className="space-y-5">
-      {/* Channel mapping */}
-      <div className="glass-card rounded-2xl p-5">
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div>
-            <div className="font-semibold flex items-center gap-2">
-              <Globe className="w-4 h-4 text-[#C8A880]" /> Public sources & channel mapping
+      {/* Stats */}
+      {stats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Total Harvested", value: stats.total, color: ACCENT },
+            { label: "Enriched",        value: stats.enriched, color: TEAL },
+            { label: "Pending",         value: stats.pending, color: GOLD },
+            { label: "In CRM",          value: stats.pushedToCrm, color: "#88C8A0" },
+          ].map((s) => (
+            <div key={s.label} className="rounded-xl border border-border/30 bg-card/50 p-4">
+              <div className="text-[22px] font-bold" style={{ color: s.color }}>{s.value ?? 0}</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">{s.label}</div>
             </div>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Pick which public channels NexFlow monitors to generate buying signals about your accounts — social, PR, news, registries, or any custom URL.
-            </p>
+          ))}
+        </div>
+      )}
+
+      {/* Harvest control */}
+      <div className="rounded-xl border border-border/30 bg-card/40 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="font-semibold text-[14px]">Harvest Masar Sources</div>
+            <div className="text-[12px] text-muted-foreground mt-0.5">Select sources to harvest or run all 25</div>
           </div>
-          <button
-            onClick={() => setShowAdd((s) => !s)}
-            className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-muted transition flex items-center gap-1"
-          >
-            <Plus className="w-3 h-3" /> Add channel
-          </button>
+          <div className="flex items-center gap-2">
+            <select value={depth} onChange={(e) => setDepth(e.target.value)}
+              className="text-[12px] border border-border/40 rounded-lg px-2.5 py-1.5 bg-background">
+              <option value="basic">Basic</option>
+              <option value="standard">Standard</option>
+              <option value="deep">Deep (14 agents)</option>
+            </select>
+            <button onClick={startHarvest} disabled={!!activeJob && activeJob.status === "running"}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium text-white"
+              style={{ background: `linear-gradient(135deg, ${ACCENT}, ${TEAL})` }}>
+              {activeJob && activeJob.status !== "completed" && activeJob.status !== "failed"
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Running…</>
+                : <><Play className="w-3.5 h-3.5" /> Harvest</>}
+            </button>
+          </div>
         </div>
 
-        {showAdd && (
-          <div className="rounded-xl border border-dashed border-border p-3 mb-4 grid sm:grid-cols-[1fr_1fr_auto] gap-2">
-            <input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Channel name (e.g. ArabNet)"
-              className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
-            />
-            <input
-              value={newUrl}
-              onChange={(e) => setNewUrl(e.target.value)}
-              placeholder="URL or RSS feed"
-              className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
-            />
-            <div className="flex items-center gap-2">
-              <button onClick={addChannel} className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium">Save</button>
-              <button onClick={() => setShowAdd(false)} className="px-3 py-2 rounded-lg border border-border text-xs">Cancel</button>
+        {/* Source chips */}
+        <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+          {sources.slice(0, 25).map((s: any) => {
+            const sel = selectedSrc.includes(s.id);
+            return (
+              <button key={s.id}
+                onClick={() => setSelectedSrc((prev) => sel ? prev.filter((x) => x !== s.id) : [...prev, s.id])}
+                className={cn("px-2.5 py-1 rounded-full text-[11px] border transition-all", sel ? "border-transparent text-white" : "border-border/40 text-foreground/60 hover:border-border")}
+                style={sel ? { background: ACCENT } : undefined}>
+                {s.name}
+                {s.harvestedCount > 0 && <span className="ml-1 opacity-60">·{s.harvestedCount}</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Job progress */}
+        {activeJob && (
+          <div className="mt-3 px-3 py-2 rounded-lg bg-muted/40 text-[12px] flex items-center gap-2">
+            {activeJob.status !== "completed" && activeJob.status !== "failed"
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-500" />
+              : activeJob.status === "completed" ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+              : <XCircle className="w-3.5 h-3.5 text-red-500" />}
+            <span className="font-medium capitalize">{activeJob.status}</span>
+            {activeJob.companiesHarvested != null && <span className="text-muted-foreground">· {activeJob.companiesHarvested} companies</span>}
+          </div>
+        )}
+      </div>
+
+      {/* Results table */}
+      <div className="rounded-xl border border-border/30 bg-card/40">
+        <div className="p-4 border-b border-border/20 flex items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input value={search} onChange={(e) => { setSearch(e.target.value); loadCompanies(1, e.target.value); }}
+              placeholder="Search companies…" className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-border/40 bg-background text-[13px]" />
+          </div>
+          <span className="text-[12px] text-muted-foreground">{total} records</span>
+        </div>
+        {loading ? <div className="p-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+          : companies.length === 0 ? <EmptyState icon={Database} text="No companies harvested yet — run Harvest to start" />
+          : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12px]">
+                <thead className="border-b border-border/20">
+                  <tr className="text-muted-foreground">
+                    {["Company", "Industry", "City", "Phone", "Email", "Score", "Actions"].map((h) => (
+                      <th key={h} className="px-4 py-2.5 text-left font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {companies.map((c: any) => (
+                    <tr key={c.id} className="border-b border-border/10 hover:bg-muted/20 transition-colors">
+                      <td className="px-4 py-2.5">
+                        <div className="font-medium text-foreground">{c.nameEn}</div>
+                        {c.nameAr && <div className="text-muted-foreground text-[11px]" dir="rtl">{c.nameAr}</div>}
+                      </td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{c.industry || "—"}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{c.city || "—"}</td>
+                      <td className="px-4 py-2.5">{c.phone ? <a href={`tel:${c.phone}`} className="text-blue-500">{c.phone}</a> : <span className="text-muted-foreground">—</span>}</td>
+                      <td className="px-4 py-2.5">{c.email ? <a href={`mailto:${c.email}`} className="text-blue-500">{c.email}</a> : <span className="text-muted-foreground">—</span>}</td>
+                      <td className="px-4 py-2.5">
+                        <ScoreBadge score={c.enrichmentScore} />
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-1">
+                          {!c.crmCompanyId
+                            ? <button onClick={() => pushToCrm(c.id)} className="px-2.5 py-1 rounded-md text-[11px] text-white font-medium" style={{ background: TEAL }}>Push CRM</button>
+                            : <span className="px-2.5 py-1 rounded-md text-[11px] bg-green-500/10 text-green-600">In CRM</span>}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="p-3 flex items-center justify-between border-t border-border/20">
+                <button disabled={page <= 1} onClick={() => loadCompanies(page - 1, search)} className="px-3 py-1 rounded-md text-[12px] border border-border/30 hover:bg-muted/40 disabled:opacity-40">Prev</button>
+                <span className="text-[12px] text-muted-foreground">Page {page} of {Math.ceil(total / 20)}</span>
+                <button disabled={page >= Math.ceil(total / 20)} onClick={() => loadCompanies(page + 1, search)} className="px-3 py-1 rounded-md text-[12px] border border-border/30 hover:bg-muted/40 disabled:opacity-40">Next</button>
+              </div>
             </div>
+          )}
+      </div>
+    </div>
+  );
+}
+
+// ── AI Database Builder Panel ─────────────────────────────────────────────────
+function AiDatabaseBuilderPanel() {
+  const [sources,   setSources]   = useState<any[]>([]);
+  const [results,   setResults]   = useState<any[]>([]);
+  const [stats,     setStats]     = useState<any>(null);
+  const [activeJob, setActiveJob] = useState<any>(null);
+  const [loading,   setLoading]   = useState(false);
+  const [page,      setPage]      = useState(1);
+  const [total,     setTotal]     = useState(0);
+  const [search,    setSearch]    = useState("");
+  const [selected,  setSelected]  = useState<string[]>([]);
+  const [depth,     setDepth]     = useState("standard");
+  const [showAddSrc, setShowAddSrc] = useState(false);
+  const [newSrc,    setNewSrc]    = useState({ name: "", url: "", category: "directory" });
+  const pollRef = useRef<ReturnType<typeof setInterval>>();
+
+  useEffect(() => {
+    void apiFetch("/builder/sources").then(setSources).catch(() => {});
+    void apiFetch("/builder/stats").then(setStats).catch(() => {});
+    loadResults();
+  }, []);
+
+  function loadResults(p = 1, q = "") {
+    setLoading(true);
+    void apiFetch(`/builder/results?page=${p}&limit=20&search=${encodeURIComponent(q)}`)
+      .then((d: any) => { setResults(d.companies || []); setTotal(d.total || 0); setPage(p); })
+      .finally(() => setLoading(false));
+  }
+
+  async function startHarvest() {
+    const data: any = await apiFetch("/builder/harvest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sourceIds: selected.length ? selected : undefined, enrichmentDepth: depth }),
+    });
+    setActiveJob(data);
+    pollRef.current = setInterval(() => {
+      void apiFetch(`/builder/jobs/${data.jobId}`).then((j: any) => {
+        setActiveJob(j);
+        if (j.status === "completed" || j.status === "failed") {
+          clearInterval(pollRef.current);
+          loadResults();
+          void apiFetch("/builder/stats").then(setStats);
+        }
+      });
+    }, 3000);
+  }
+
+  async function addSource() {
+    if (!newSrc.name || !newSrc.url) return;
+    const s: any = await apiFetch("/builder/sources", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newSrc),
+    });
+    setSources((prev) => [...prev, s.source]);
+    setNewSrc({ name: "", url: "", category: "directory" });
+    setShowAddSrc(false);
+  }
+
+  async function harvestSingle(id: string) {
+    const data: any = await apiFetch(`/builder/sources/${id}/harvest`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enrichmentDepth: depth }),
+    });
+    setActiveJob(data);
+  }
+
+  async function pushToCrm(id: number) {
+    await apiFetch(`/builder/results/${id}/push-crm`, { method: "POST" });
+    loadResults(page, search);
+  }
+
+  useEffect(() => () => clearInterval(pollRef.current), []);
+
+  return (
+    <div className="space-y-5">
+      {stats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Total Results", value: stats.total, color: ACCENT },
+            { label: "Enriched",      value: stats.enriched, color: TEAL },
+            { label: "Pending",       value: stats.pending, color: GOLD },
+            { label: "In CRM",        value: stats.pushedToCrm, color: "#88C8A0" },
+          ].map((s) => (
+            <div key={s.label} className="rounded-xl border border-border/30 bg-card/50 p-4">
+              <div className="text-[22px] font-bold" style={{ color: s.color }}>{s.value ?? 0}</div>
+              <div className="text-[11px] text-muted-foreground">{s.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="rounded-xl border border-border/30 bg-card/40 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="font-semibold text-[14px]">15 Built-in Saudi Sources</div>
+            <div className="text-[12px] text-muted-foreground">Select sources · set depth · harvest</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowAddSrc(!showAddSrc)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/40 text-[12px] hover:bg-muted/40">
+              <Plus className="w-3.5 h-3.5" /> Add Source
+            </button>
+            <select value={depth} onChange={(e) => setDepth(e.target.value)}
+              className="text-[12px] border border-border/40 rounded-lg px-2.5 py-1.5 bg-background">
+              <option value="basic">Basic</option>
+              <option value="standard">Standard</option>
+              <option value="deep">Deep</option>
+            </select>
+            <button onClick={startHarvest}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium text-white"
+              style={{ background: `linear-gradient(135deg, ${ACCENT}, ${TEAL})` }}>
+              {activeJob && activeJob.status !== "completed" && activeJob.status !== "failed"
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Running…</>
+                : <><Play className="w-3.5 h-3.5" /> Harvest All</>}
+            </button>
+          </div>
+        </div>
+
+        {showAddSrc && (
+          <div className="mb-4 p-3 rounded-lg bg-muted/30 border border-border/30 flex gap-2 flex-wrap">
+            <input placeholder="Source name" value={newSrc.name} onChange={(e) => setNewSrc((p) => ({ ...p, name: e.target.value }))}
+              className="flex-1 min-w-[160px] px-3 py-1.5 rounded-lg border border-border/40 bg-background text-[12px]" />
+            <input placeholder="URL" value={newSrc.url} onChange={(e) => setNewSrc((p) => ({ ...p, url: e.target.value }))}
+              className="flex-1 min-w-[240px] px-3 py-1.5 rounded-lg border border-border/40 bg-background text-[12px]" />
+            <select value={newSrc.category} onChange={(e) => setNewSrc((p) => ({ ...p, category: e.target.value }))}
+              className="px-2.5 py-1.5 rounded-lg border border-border/40 bg-background text-[12px]">
+              {["directory","registry","chamber","government","financial","association","custom"].map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <button onClick={addSource} className="px-3 py-1.5 rounded-lg text-[12px] text-white font-medium" style={{ background: ACCENT }}>Add</button>
           </div>
         )}
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          {channels.map((c) => {
-            const Icon = c.icon;
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          {sources.map((s: any) => {
+            const sel = selected.includes(s.id);
             return (
-              <div
-                key={c.id}
-                className={cn(
-                  "rounded-xl border p-3 transition",
-                  c.on ? "border-[#C8A880]/50 bg-[#C8A880]/5" : "border-border bg-background/40",
-                )}
-              >
-                <div className="flex items-start gap-2">
-                  <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0", c.on ? "bg-[#C8A880]/15 text-[#C8A880]" : "bg-muted text-muted-foreground")}>
-                    <Icon className="w-4 h-4" />
+              <div key={s.id}
+                className={cn("rounded-lg border p-3 cursor-pointer transition-all", sel ? "border-purple-400/50 bg-purple-500/5" : "border-border/30 hover:border-border/60")}
+                onClick={() => setSelected((prev) => sel ? prev.filter((x) => x !== s.id) : [...prev, s.id])}>
+                <div className="flex items-center justify-between">
+                  <div className="text-[12px] font-medium truncate pr-2">{s.name}</div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {sel && <Check className="w-3 h-3 text-purple-500" />}
+                    <button onClick={(e) => { e.stopPropagation(); void harvestSingle(s.id); }}
+                      className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                      title="Harvest this source only">
+                      <Play className="w-3 h-3" />
+                    </button>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium flex items-center gap-1.5">
-                      {c.label}
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{c.type}</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5 truncate">{c.pulls}</div>
-                  </div>
-                  <button
-                    onClick={() => toggleChannel(c.id)}
-                    aria-pressed={c.on}
-                    aria-label={`${c.on ? "Disable" : "Enable"} ${c.label}`}
-                    className={cn(
-                      "w-9 h-5 rounded-full p-0.5 transition flex-shrink-0",
-                      c.on ? "bg-[#C8A880]" : "bg-muted",
-                    )}
-                  >
-                    <div className={cn("w-4 h-4 rounded-full bg-white transition-transform", c.on ? "translate-x-4" : "translate-x-0")} />
-                  </button>
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-1 flex items-center gap-2">
+                  <span className="capitalize">{s.category}</span>
+                  {s.harvestedCount > 0 && <><span>·</span><span>{s.harvestedCount} found</span></>}
+                  {s.estimatedCompanies > 0 && <><span>·</span><span>~{s.estimatedCompanies.toLocaleString()} est.</span></>}
                 </div>
               </div>
             );
           })}
         </div>
+
+        {activeJob && (
+          <div className="mt-3 px-3 py-2 rounded-lg bg-muted/40 text-[12px] flex items-center gap-2">
+            {activeJob.status !== "completed" && activeJob.status !== "failed"
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-500" />
+              : <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
+            <span className="font-medium capitalize">{activeJob.status}</span>
+            {activeJob.companiesHarvested != null && <span className="text-muted-foreground">· {activeJob.companiesHarvested} companies</span>}
+          </div>
+        )}
       </div>
 
-      {/* Live signals feed (existing page) */}
-      <div className="glass-card rounded-2xl p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <Zap className="w-4 h-4 text-[#B8B880]" />
-          <div className="font-semibold">Live signals feed</div>
-          <span className="text-xs text-muted-foreground">— pulled from your enabled channels</span>
+      {/* Results table */}
+      <div className="rounded-xl border border-border/30 bg-card/40">
+        <div className="p-4 border-b border-border/20 flex items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input value={search} onChange={(e) => { setSearch(e.target.value); loadResults(1, e.target.value); }}
+              placeholder="Search results…" className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-border/40 bg-background text-[13px]" />
+          </div>
+          <span className="text-[12px] text-muted-foreground">{total} records</span>
         </div>
-        <Lazy><SignalsPage /></Lazy>
+        {loading ? <div className="p-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+          : results.length === 0 ? <EmptyState icon={Database} text="No results yet — harvest a source to populate" />
+          : (
+            <CompanyResultsTable companies={results} onPushCrm={pushToCrm} />
+          )}
+        {total > 0 && (
+          <div className="p-3 flex items-center justify-between border-t border-border/20">
+            <button disabled={page <= 1} onClick={() => loadResults(page - 1, search)} className="px-3 py-1 rounded-md text-[12px] border border-border/30 hover:bg-muted/40 disabled:opacity-40">Prev</button>
+            <span className="text-[12px] text-muted-foreground">Page {page} of {Math.ceil(total / 20)}</span>
+            <button disabled={page >= Math.ceil(total / 20)} onClick={() => loadResults(page + 1, search)} className="px-3 py-1 rounded-md text-[12px] border border-border/30 hover:bg-muted/40 disabled:opacity-40">Next</button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────
-// BULK ENRICHMENT — waterfall enrichment of an existing
-// lead pool (saved segment, recently-imported list, or hand-
-// picked queue). Plugs straight into the Push-to-CRM flow so
-// that dedup + ICP + manager-approval gates all fire.
-// ─────────────────────────────────────────────────────────
+// ── Website Intelligence Panel ────────────────────────────────────────────────
+function WebsiteIntelPanel() {
+  const [url,      setUrl]      = useState("");
+  const [job,      setJob]      = useState<any>(null);
+  const [results,  setResults]  = useState<any[]>([]);
+  const [jobs,     setJobs]     = useState<any[]>([]);
+  const [step,     setStep]     = useState<"idle" | "scanning" | "configure" | "extracting" | "done">("idle");
+  const [settings, setSettings] = useState({ maxPages: 20, enrichmentDepth: "standard", extractionLanguage: "auto", extractionFields: ["name","phone","email","city","website","industry","address"] });
+  const pollRef = useRef<ReturnType<typeof setInterval>>();
 
-interface BulkLead {
-  id: string;
-  name: string;
-  title: string;
-  company: string;
-  industry: string;
-  region: "KSA" | "UAE" | "Qatar" | "Bahrain" | "Kuwait" | "Oman" | "Egypt";
-  headcount: number;
-  enriched: boolean;
-}
+  useEffect(() => { void apiFetch("/prospecting").then(setJobs).catch(() => {}); }, []);
 
-const BULK_QUEUES: Record<string, { label: string; desc: string; rows: BulkLead[] }> = {
-  segment_finance_gcc: {
-    label: "Segment · GCC Finance VPs (217)",
-    desc:  "Saved segment from Data Hub · last refreshed 4h ago",
-    rows: [
-      { id: "b1", name: "Khalid Al-Saud",     title: "VP Wealth",       company: "Emirates NBD",      industry: "Asset Management", region: "UAE", headcount: 12000, enriched: false },
-      { id: "b2", name: "Reem Al-Otaibi",     title: "Head of Treasury", company: "Saudi National Bank", industry: "Asset Management", region: "KSA", headcount: 18000, enriched: false },
-      { id: "b3", name: "Faisal Al-Harbi",    title: "Director, Family Office", company: "Mubadala", industry: "Family Office",    region: "UAE", headcount: 1800,  enriched: false },
-      { id: "b4", name: "Layla Al-Sabah",     title: "VP Insurance",     company: "Gulf Insurance",   industry: "Insurance",         region: "Kuwait", headcount: 4200, enriched: false },
-      { id: "b5", name: "Sara Al-Mansouri",   title: "Head of People",   company: "STC Group",         industry: "Telecom",           region: "KSA", headcount: 24000, enriched: false },
-      { id: "b6", name: "Yousef Al-Bahar",    title: "Innovation Lead",  company: "Aramco Trading",    industry: "Energy",            region: "KSA", headcount: 70000, enriched: false },
-    ],
-  },
-  list_gitex: {
-    label: "List · GITEX 2026 booth scans (318)",
-    desc:  "Uploaded Apr 28 · 318 unique after dedup",
-    rows: [
-      { id: "g1", name: "Hala Karam",         title: "CRO",              company: "Tabby",             industry: "Fintech",           region: "UAE", headcount: 600,  enriched: false },
-      { id: "g2", name: "Omar El-Banna",      title: "CTO",              company: "MNT-Halan",         industry: "Fintech",           region: "Egypt", headcount: 1200, enriched: false },
-      { id: "g3", name: "Aisha Al-Falasi",    title: "Director Marketing", company: "Bayut",            industry: "Real Estate",       region: "UAE", headcount: 800,  enriched: false },
-      { id: "g4", name: "Mohammed Al-Ghamdi", title: "VP Sales",          company: "Mrsool",            industry: "Logistics",         region: "KSA", headcount: 450,  enriched: false },
-    ],
-  },
-};
-
-/** Per-row waterfall result keyed by lead id. */
-interface BulkWaterfallRow {
-  fields: Record<string, { value: unknown; source_key: string; source_name: string }>;
-  per_source: Array<{ source_name: string; status: string; fields_filled: string[] }>;
-  total_ms: number;
-  total_cost_usd: number;
-  error?: string;
-}
-
-const GCC_REGIONS = ["KSA", "UAE", "Qatar", "Bahrain", "Kuwait", "Oman", "Egypt"] as const;
-
-function BulkEnrichmentTab() {
-  const [sourceMode, setSourceMode] = useState<"preset" | "manual">("preset");
-  const [queue, setQueue] = useState<keyof typeof BULK_QUEUES>("segment_finance_gcc");
-  const [rows, setRows] = useState<BulkLead[]>(() => BULK_QUEUES.segment_finance_gcc.rows.map(r => ({ ...r })));
-  const [running, setRunning] = useState(false);
-  const [results, setResults] = useState<Record<string, BulkWaterfallRow>>({});
-  const [progressIdx, setProgressIdx] = useState(0);
-
-  // Manual entry form state
-  const [manualName, setManualName] = useState("");
-  const [manualTitle, setManualTitle] = useState("");
-  const [manualCompany, setManualCompany] = useState("");
-  const [manualIndustry, setManualIndustry] = useState("");
-  const [manualRegion, setManualRegion] = useState<typeof GCC_REGIONS[number]>("KSA");
-  const [manualHeadcount, setManualHeadcount] = useState("1000");
-  const [pasteText, setPasteText] = useState("");
-  const [showPaste, setShowPaste] = useState(false);
-
-  const queueMeta = BULK_QUEUES[queue];
-
-  function loadQueue(k: keyof typeof BULK_QUEUES) {
-    setQueue(k);
-    setRows(BULK_QUEUES[k].rows.map((r) => ({ ...r, enriched: false })));
-    setResults({});
-    setProgressIdx(0);
-  }
-
-  function addManualLead() {
-    if (!manualName.trim() || !manualCompany.trim()) return;
-    const newLead: BulkLead = {
-      id: `m${Date.now()}`,
-      name: manualName.trim(),
-      title: manualTitle.trim() || "Executive",
-      company: manualCompany.trim(),
-      industry: manualIndustry.trim() || "General",
-      region: manualRegion,
-      headcount: parseInt(manualHeadcount) || 1000,
-      enriched: false,
-    };
-    setRows((cur) => [...cur, newLead]);
-    setManualName(""); setManualTitle(""); setManualCompany(""); setManualIndustry("");
-  }
-
-  function parsePasteLeads() {
-    const lines = pasteText.trim().split("\n").filter(Boolean);
-    const newLeads: BulkLead[] = lines.map((line, i) => {
-      // Support: "Name, Company, Title, Region" or "Name | Company | Title" or just "Name, Company"
-      const parts = line.split(/[,|;\t]/).map(s => s.trim());
-      return {
-        id: `p${Date.now()}${i}`,
-        name: parts[0] || "Unknown",
-        company: parts[1] || "Unknown Company",
-        title: parts[2] || "Executive",
-        industry: parts[3] || "General",
-        region: (GCC_REGIONS.includes(parts[4] as any) ? parts[4] : "KSA") as typeof GCC_REGIONS[number],
-        headcount: 1000,
-        enriched: false,
-      };
+  async function scan() {
+    if (!url.trim()) return;
+    setStep("scanning");
+    const j: any = await apiFetch("/prospecting/scan", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: url.trim() }),
     });
-    setRows((cur) => [...cur, ...newLeads]);
-    setPasteText("");
-    setShowPaste(false);
-  }
-
-  function removeRow(id: string) {
-    setRows((cur) => cur.filter(r => r.id !== id));
-    setResults((cur) => { const n = { ...cur }; delete n[id]; return n; });
-  }
-
-  function clearAll() {
-    setRows([]);
-    setResults({});
-    setProgressIdx(0);
-  }
-
-  async function runWaterfall() {
-    setRunning(true);
-    setResults({});
-    setProgressIdx(0);
-    const pendingRows = rows.filter(r => !r.enriched);
-    for (let i = 0; i < pendingRows.length; i++) {
-      const r = pendingRows[i]!;
-      setProgressIdx(i + 1);
-      try {
-        const data = await apiFetch("/lead-enrich/quick", {
-          method: "POST",
-          body: JSON.stringify({ name: r.name, company: r.company, save: false }),
-        }) as { enriched: Record<string, unknown> };
-        const enriched = data?.enriched ?? {};
-        const fieldCount = Object.values(enriched).filter(v => v && v !== "" && !Array.isArray(v)).length;
-        setResults((cur) => ({
-          ...cur,
-          [r.id]: {
-            fields: Object.fromEntries(
-              Object.entries(enriched)
-                .filter(([, v]) => v && v !== "")
-                .map(([k, v]) => [k, { value: v, source_key: "ai", source_name: "AI Enrichment" }])
-            ),
-            per_source: [{ source_name: "AI Enrichment", status: "ok", fields_filled: Object.keys(enriched).filter(k => enriched[k]) }],
-            total_ms: 0,
-            total_cost_usd: 0,
-          },
-        }));
-      } catch (e) {
-        setResults((cur) => ({
-          ...cur,
-          [r.id]: {
-            fields: {}, per_source: [], total_ms: 0, total_cost_usd: 0,
-            error: e instanceof Error ? e.message : String(e),
-          },
-        }));
+    setJob(j);
+    pollRef.current = setInterval(async () => {
+      const updated: any = await apiFetch(`/prospecting/${j.id}`).catch(() => j);
+      setJob(updated);
+      if (updated.status === "scanned" || updated.status === "failed") {
+        clearInterval(pollRef.current);
+        setStep(updated.status === "scanned" ? "configure" : "idle");
       }
-      setRows((cur) => cur.map((row) => row.id === r.id ? { ...row, enriched: true } : row));
-    }
-    setRunning(false);
+    }, 2000);
   }
 
-  const enrichedRows = rows.filter((r) => r.enriched);
-  const pendingCount = rows.filter(r => !r.enriched).length;
+  async function extract() {
+    setStep("extracting");
+    await apiFetch(`/prospecting/${job.id}/extract`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ settings }),
+    });
+    pollRef.current = setInterval(async () => {
+      const updated: any = await apiFetch(`/prospecting/${job.id}`).catch(() => job);
+      setJob(updated);
+      if (updated.status === "completed" || updated.status === "failed") {
+        clearInterval(pollRef.current);
+        setStep(updated.status === "completed" ? "done" : "idle");
+        if (updated.status === "completed") {
+          const res: any[] = await apiFetch(`/prospecting/${job.id}/results`).catch(() => []);
+          setResults(res.map((r: any) => r.companyData || r));
+        }
+      }
+    }, 3000);
+  }
+
+  async function pushAllToCrm() {
+    if (!job) return;
+    await apiFetch(`/prospecting/${job.id}/push-crm`, { method: "POST" });
+  }
+
+  async function exportCsv() {
+    if (!job) return;
+    window.open(`/prospecting/${job.id}/export?format=csv`, "_blank");
+  }
+
+  useEffect(() => () => clearInterval(pollRef.current), []);
+
+  const FIELDS = ["name","nameAr","phone","email","website","city","address","industry","description","crNumber","ownerName"];
 
   return (
     <div className="space-y-5">
-      {/* Intro */}
-      <div className="glass-card rounded-2xl p-5 border-l-4 border-[#88B8B0]">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#88B8B0]/15 flex items-center justify-center flex-shrink-0">
-            <Upload className="w-5 h-5 text-[#88B8B0]" />
-          </div>
-          <div className="flex-1">
-            <div className="font-semibold">Bulk Enrichment — waterfall for an existing pool</div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Add leads manually, paste a list, or pick a saved segment — then run AI enrichment on all of them and push survivors into CRM.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Source mode toggle */}
-      <div className="glass-card rounded-2xl p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="flex bg-muted rounded-lg p-0.5 text-xs font-medium">
-            <button
-              onClick={() => setSourceMode("preset")}
-              className={cn("px-3 py-1.5 rounded-md transition", sourceMode === "preset" ? "bg-background shadow text-foreground" : "text-muted-foreground")}
-            >
-              Saved segments
-            </button>
-            <button
-              onClick={() => setSourceMode("manual")}
-              className={cn("px-3 py-1.5 rounded-md transition", sourceMode === "manual" ? "bg-background shadow text-foreground" : "text-muted-foreground")}
-            >
-              Manual entry
-            </button>
-          </div>
-          {rows.length > 0 && (
-            <span className="text-xs text-muted-foreground ml-auto">{rows.length} lead{rows.length !== 1 ? "s" : ""} in queue</span>
-          )}
-        </div>
-
-        {sourceMode === "preset" && (
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(BULK_QUEUES).map(([k, v]) => (
-              <button
-                key={k}
-                onClick={() => loadQueue(k as keyof typeof BULK_QUEUES)}
-                className={cn(
-                  "rounded-xl border px-3 py-2 text-left transition",
-                  queue === k ? "border-[#88B8B0] bg-[#88B8B0]/10" : "border-border bg-background hover:bg-muted/40",
-                )}
-              >
-                <div className="text-sm font-medium">{v.label}</div>
-                <div className="text-[11px] text-muted-foreground">{v.desc}</div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {sourceMode === "manual" && (
-          <div className="space-y-3">
-            {/* Single lead form */}
-            <div className="rounded-xl border border-border bg-background p-4 space-y-3">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Add a lead</div>
-              <div className="grid sm:grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-muted-foreground mb-1 block">Full name <span className="text-rose-500">*</span></label>
-                  <input
-                    value={manualName}
-                    onChange={e => setManualName(e.target.value)}
-                    placeholder="Khalid Al-Rashid"
-                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-[#88B8B0]/40"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground mb-1 block">Title</label>
-                  <input
-                    value={manualTitle}
-                    onChange={e => setManualTitle(e.target.value)}
-                    placeholder="VP Sales"
-                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-[#88B8B0]/40"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground mb-1 block">Company <span className="text-rose-500">*</span></label>
-                  <input
-                    value={manualCompany}
-                    onChange={e => setManualCompany(e.target.value)}
-                    placeholder="Saudi Aramco"
-                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-[#88B8B0]/40"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground mb-1 block">Industry</label>
-                  <input
-                    value={manualIndustry}
-                    onChange={e => setManualIndustry(e.target.value)}
-                    placeholder="Energy, Fintech, Real Estate…"
-                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-[#88B8B0]/40"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground mb-1 block">Region</label>
-                  <select
-                    value={manualRegion}
-                    onChange={e => setManualRegion(e.target.value as typeof GCC_REGIONS[number])}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-[#88B8B0]/40"
-                  >
-                    {GCC_REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground mb-1 block">Est. headcount</label>
-                  <select
-                    value={manualHeadcount}
-                    onChange={e => setManualHeadcount(e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-[#88B8B0]/40"
-                  >
-                    {[["50", "< 50"], ["200", "51-200"], ["1000", "201-1000"], ["5000", "1001-5000"], ["20000", "5000+"]].map(([v, l]) => (
-                      <option key={v} value={v}>{l}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <button
-                onClick={addManualLead}
-                disabled={!manualName.trim() || !manualCompany.trim()}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#88B8B0] text-white text-sm font-medium hover:opacity-90 disabled:opacity-40 transition"
-              >
-                <Plus className="w-4 h-4" /> Add to queue
-              </button>
-            </div>
-
-            {/* Paste CSV leads */}
-            <div className="rounded-xl border border-dashed border-border p-3">
-              <button
-                onClick={() => setShowPaste(s => !s)}
-                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                {showPaste ? "Hide" : "Paste a list (CSV / one-per-line)"}
-              </button>
-              {showPaste && (
-                <div className="mt-2 space-y-2">
-                  <p className="text-[10px] text-muted-foreground">One lead per line. Columns: <code className="bg-muted px-1 rounded">Name, Company, Title, Industry, Region</code> — only Name and Company are required.</p>
-                  <textarea
-                    value={pasteText}
-                    onChange={e => setPasteText(e.target.value)}
-                    placeholder={"Khalid Al-Rashid, Saudi Aramco, VP Sales, Energy, KSA\nReem Al-Otaibi, Emirates NBD, CFO, Banking, UAE"}
-                    rows={4}
-                    className="w-full px-3 py-2 text-xs rounded-md border border-border bg-background font-mono resize-y focus:outline-none"
-                  />
-                  <button
-                    onClick={parsePasteLeads}
-                    disabled={!pasteText.trim()}
-                    className="px-3 py-1.5 rounded-lg bg-foreground text-background text-xs font-medium hover:opacity-90 disabled:opacity-40 transition"
-                  >
-                    Import {pasteText.trim().split("\n").filter(Boolean).length} leads
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Run button */}
-        <div className="flex items-center gap-3 pt-1">
-          <button
-            onClick={runWaterfall}
-            disabled={running || pendingCount === 0}
-            className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
-          >
-            {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {running ? `Enriching… ${progressIdx}/${pendingCount + progressIdx - 1}` : `Enrich ${pendingCount} lead${pendingCount !== 1 ? "s" : ""}`}
+      {/* Scan form */}
+      <div className="rounded-xl border border-border/30 bg-card/40 p-5">
+        <div className="font-semibold text-[14px] mb-3">Scan any Saudi directory or website</div>
+        <div className="flex gap-2">
+          <input value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void scan()}
+            placeholder="https://riyadh.chamber.org.sa/members — any directory URL"
+            className="flex-1 px-4 py-2.5 rounded-xl border border-border/40 bg-background text-[13px]" />
+          <button onClick={() => void scan()} disabled={step === "scanning" || step === "extracting" || !url.trim()}
+            className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-[13px] font-medium text-white disabled:opacity-50"
+            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${TEAL})` }}>
+            {step === "scanning" ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Scanning…</> : <><Zap className="w-3.5 h-3.5" /> Scan</>}
           </button>
-          {rows.length > 0 && !running && (
-            <button onClick={clearAll} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition">
-              <X className="w-3 h-3" /> Clear all
-            </button>
-          )}
         </div>
+
+        {/* Scan progress */}
+        {(step === "scanning" || step === "configure") && job?.scanSummary && (
+          <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-border/20 text-[12px]">
+            <div className="font-semibold mb-1">{(job.scanSummary as any)?.siteDescription || "Site analyzed"}</div>
+            <div className="flex flex-wrap gap-3 text-muted-foreground">
+              <span>Type: {(job.scanSummary as any)?.dataType}</span>
+              <span>Language: {(job.scanSummary as any)?.contentLanguage}</span>
+              {(job.scanSummary as any)?.totalPages && <span>Pages: {(job.scanSummary as any)?.totalPages}</span>}
+            </div>
+            {(job.scanSummary as any)?.sampleCompanies?.length > 0 && (
+              <div className="mt-2">
+                <span className="text-muted-foreground">Sample: </span>
+                {(job.scanSummary as any).sampleCompanies.slice(0, 4).join(" · ")}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Result table — only show when there are leads */}
-      {rows.length > 0 && (
-        <div className="glass-card rounded-2xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-            <div className="text-sm font-semibold">
-              {sourceMode === "manual" ? `Manual queue (${rows.length} leads)` : queueMeta.label}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {enrichedRows.length} / {rows.length} enriched
+      {/* Configure extraction */}
+      {step === "configure" && (
+        <div className="rounded-xl border border-border/30 bg-card/40 p-5">
+          <div className="font-semibold text-[14px] mb-4">Configure Extraction</div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <label className="block">
+              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Max Pages</span>
+              <input type="number" min={1} max={500} value={settings.maxPages}
+                onChange={(e) => setSettings((p) => ({ ...p, maxPages: +e.target.value }))}
+                className="mt-1 w-full px-3 py-1.5 rounded-lg border border-border/40 bg-background text-[13px]" />
+            </label>
+            <label className="block">
+              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Enrichment Depth</span>
+              <select value={settings.enrichmentDepth} onChange={(e) => setSettings((p) => ({ ...p, enrichmentDepth: e.target.value }))}
+                className="mt-1 w-full px-3 py-1.5 rounded-lg border border-border/40 bg-background text-[13px]">
+                <option value="none">None (raw only)</option>
+                <option value="basic">Basic (2 agents)</option>
+                <option value="standard">Standard (4 agents)</option>
+                <option value="deep">Deep (8 agents)</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Language</span>
+              <select value={settings.extractionLanguage} onChange={(e) => setSettings((p) => ({ ...p, extractionLanguage: e.target.value }))}
+                className="mt-1 w-full px-3 py-1.5 rounded-lg border border-border/40 bg-background text-[13px]">
+                <option value="auto">Auto-detect</option>
+                <option value="arabic">Arabic</option>
+                <option value="english">English</option>
+                <option value="bilingual">Bilingual</option>
+              </select>
+            </label>
+          </div>
+          <div className="mb-4">
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wide block mb-2">Fields to Extract</span>
+            <div className="flex flex-wrap gap-2">
+              {FIELDS.map((f) => {
+                const sel = settings.extractionFields.includes(f);
+                return (
+                  <button key={f} onClick={() => setSettings((p) => ({ ...p, extractionFields: sel ? p.extractionFields.filter((x) => x !== f) : [...p.extractionFields, f] }))}
+                    className={cn("px-2.5 py-1 rounded-full text-[11px] border", sel ? "text-white border-transparent" : "border-border/40 text-foreground/60")}
+                    style={sel ? { background: ACCENT } : undefined}>{f}</button>
+                );
+              })}
             </div>
           </div>
-          <ul className="divide-y divide-border">
-            {rows.map((r) => {
-              const wf = results[r.id];
-              const filledFields = wf ? Object.entries(wf.fields) : [];
-              return (
-                <li key={r.id} className="px-5 py-2.5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-muted grid place-items-center text-xs font-semibold flex-shrink-0">
-                      {r.name.split(" ").map((s) => s[0]).slice(0, 2).join("")}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{r.name} <span className="text-xs text-muted-foreground">· {r.title}</span></div>
-                      <div className="text-xs text-muted-foreground truncate">{r.company} · {r.industry} · {r.region}</div>
-                    </div>
-                    {wf?.error ? (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-600 dark:text-red-300 font-medium flex items-center gap-1">
-                        <AlertTriangle className="w-2.5 h-2.5" /> Error
-                      </span>
-                    ) : r.enriched ? (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-medium flex items-center gap-1">
-                        <Check className="w-2.5 h-2.5" /> Enriched
-                      </span>
-                    ) : (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Queued</span>
-                    )}
-                    {!running && !r.enriched && (
-                      <button onClick={() => removeRow(r.id)} className="text-muted-foreground hover:text-rose-500 transition flex-shrink-0">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                  {wf && filledFields.length > 0 && (
-                    <div className="ml-11 mt-1.5 flex flex-wrap gap-1">
-                      {filledFields.slice(0, 6).map(([f, v]) => (
-                        <span
-                          key={f}
-                          className="text-[10px] px-1.5 py-0.5 rounded bg-[#88B8B0]/10 text-[#3f7a72] dark:text-[#9ae0d6] border border-[#88B8B0]/30"
-                          title={String(v.value)}
-                        >
-                          {f}
-                        </span>
-                      ))}
-                      {filledFields.length > 6 && (
-                        <span className="text-[10px] text-muted-foreground self-center">+{filledFields.length - 6} more</span>
-                      )}
-                    </div>
-                  )}
-                  {wf?.error && (
-                    <div className="ml-11 mt-1.5 text-[11px] text-red-500">{wf.error}</div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+          <button onClick={() => void extract()}
+            className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[13px] font-medium text-white"
+            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${TEAL})` }}>
+            <Zap className="w-3.5 h-3.5" /> Start Extraction
+          </button>
         </div>
       )}
 
-      {/* Push-to-CRM */}
-      {enrichedRows.length > 0 && (
-        <div className="glass-card rounded-2xl p-5 space-y-3 border-l-4 border-primary">
-          <div className="flex items-center gap-2">
-            <ChevronRight className="w-4 h-4 text-primary" />
-            <h3 className="font-semibold">Push survivors into CRM</h3>
-            <span className="text-xs text-muted-foreground">— dedup + ICP fit + manager approval will run automatically</span>
+      {/* Extraction progress */}
+      {step === "extracting" && (
+        <div className="rounded-xl border border-border/30 bg-card/40 p-5 flex items-center gap-3">
+          <Loader2 className="w-5 h-5 animate-spin text-purple-500" />
+          <div>
+            <div className="text-[13px] font-medium">Extracting companies…</div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              {(job?.totalCompaniesFound || 0)} found · {(job?.pagesScanned || 0)} pages scanned
+            </div>
           </div>
-          <PushToCrm
-            source="Bulk Enrichment"
-            records={enrichedRows}
-            getKey={(r) => r.id}
-            renderRow={(r) => (
-              <div className="min-w-0">
-                <div className="text-sm font-medium truncate">{r.name} <span className="text-xs text-muted-foreground">· {r.title}</span></div>
-                <div className="text-xs text-muted-foreground truncate">{r.company} · {r.industry} · {r.region} · {r.headcount.toLocaleString()} staff</div>
+        </div>
+      )}
+
+      {/* Results */}
+      {step === "done" && results.length > 0 && (
+        <div className="rounded-xl border border-border/30 bg-card/40">
+          <div className="p-4 border-b border-border/20 flex items-center justify-between">
+            <div className="font-semibold text-[14px]">{results.length} companies extracted</div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => void exportCsv()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/40 text-[12px] hover:bg-muted/40">
+                <Download className="w-3.5 h-3.5" /> Export CSV
+              </button>
+              <button onClick={() => void pushAllToCrm()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] text-white font-medium" style={{ background: TEAL }}>
+                <ArrowRight className="w-3.5 h-3.5" /> Push All to CRM
+              </button>
+            </div>
+          </div>
+          <CompanyResultsTable companies={results} onPushCrm={() => {}} />
+        </div>
+      )}
+
+      {/* Previous scans */}
+      {jobs.length > 0 && step === "idle" && (
+        <div className="rounded-xl border border-border/30 bg-card/40 p-4">
+          <div className="font-semibold text-[14px] mb-3">Previous Scans</div>
+          <div className="space-y-2">
+            {jobs.slice(0, 10).map((j: any) => (
+              <div key={j.id} className="flex items-center justify-between py-2 border-b border-border/10 last:border-0">
+                <div>
+                  <div className="text-[12px] font-medium truncate max-w-sm">{j.targetUrl}</div>
+                  <div className="text-[11px] text-muted-foreground">{j.totalCompaniesFound || 0} companies · {j.status}</div>
+                </div>
+                <button onClick={() => { setJob(j); setStep("done"); void apiFetch(`/prospecting/${j.id}/results`).then((r: any[]) => setResults(r.map((x) => x.companyData || x))); }}
+                  className="text-[11px] text-muted-foreground hover:text-foreground">View →</button>
               </div>
-            )}
-            toIcp={(r) => ({
-              name: r.name,
-              company: r.company,
-              industry: r.industry,
-              region: r.region,
-              headcount: r.headcount,
-              seniority: r.title.match(/CTO|CFO|CEO|VP|Director|Head|Chief|SVP|Owner|Founder/i)?.[0],
-            })}
-          />
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────
-// LIST UPLOAD — upload → dedup → questionnaire
-// (Kept intact; surfaced as the standalone /dedup page in Data Hub.)
-// ─────────────────────────────────────────────────────────
-function ListUploadTab() {
-  const [phase, setPhase] = useState<"upload" | "deduping" | "questionnaire" | "queued">("upload");
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [rows, setRows] = useState(0);
-  const [duplicates, setDuplicates] = useState(0);
+// ── Company Intelligence Panel ─────────────────────────────────────────────────
+function CompanyIntelPanel() {
+  const [form,    setForm]    = useState({ companyName: "", crNumber: "", city: "", country: "Saudi Arabia", industry: "", website: "", knownFacts: "", intelligenceGoals: [] as string[], sellerContext: "" });
+  const [result,  setResult]  = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [saved,   setSaved]   = useState<any[]>([]);
+  const [view,    setView]    = useState<"form" | "result" | "history">("form");
 
-  // questionnaire state
-  const [fields, setFields] = useState<Set<string>>(new Set(["Email", "Phone", "Job title", "Company size"]));
-  const [depth, setDepth] = useState(PROFILING_DEPTH[1]);
-  const [signals, setSignals] = useState(SIGNAL_CHOICES[1]);
-  const [survivor, setSurvivor] = useState(SURVIVOR_PREF[1]);
-  const [tagList, setTagList] = useState("");
+  useEffect(() => { void apiFetch("/company-intel/saved").then(setSaved).catch(() => {}); }, []);
 
-  function handleFile(f: File | null) {
-    if (!f) return;
-    setFileName(f.name);
-    const r = 100 + Math.floor(Math.random() * 600);
-    const d = Math.floor(r * (0.05 + Math.random() * 0.15));
-    setRows(r);
-    setDuplicates(d);
-    setPhase("deduping");
-    setTimeout(() => setPhase("questionnaire"), 1600);
+  async function runResearch() {
+    if (!form.companyName.trim()) return;
+    setLoading(true);
+    try {
+      const data: any = await apiFetch("/company-intel/profile", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      setResult(data);
+      setView("result");
+    } catch (e) { console.error(e); }
+    setLoading(false);
   }
 
-  function toggleField(f: string) {
-    setFields((s) => {
-      const n = new Set(s);
-      if (n.has(f)) n.delete(f);
-      else n.add(f);
-      return n;
+  async function saveAndPush() {
+    if (!result) return;
+    await apiFetch("/company-intel/save", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companyName: form.companyName, report: result }),
     });
+    await apiFetch("/company-intel/push-crm", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profile: result.profile }),
+    });
+    void apiFetch("/company-intel/saved").then(setSaved).catch(() => {});
   }
 
-  function reset() {
-    setPhase("upload");
-    setFileName(null);
-    setRows(0);
-    setDuplicates(0);
+  const GOALS = ["Financial health", "Ownership structure", "Executive team", "Market position", "Contact details", "Compliance risk", "Competitive Intel"];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-2 mb-2">
+        {(["form","result","history"] as const).map((v) => (
+          <button key={v} onClick={() => setView(v)}
+            className={cn("px-4 py-1.5 rounded-lg text-[12px] font-medium capitalize border", view === v ? "text-white border-transparent" : "border-border/40 text-foreground/60")}
+            style={view === v ? { background: ACCENT } : undefined}>{v}</button>
+        ))}
+        <span className="ml-auto text-[12px] text-muted-foreground self-center">
+          10 parallel AI agents · Perplexity + Gemini + Claude + GPT
+        </span>
+      </div>
+
+      {view === "form" && (
+        <div className="rounded-xl border border-border/30 bg-card/40 p-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[
+              { id: "companyName", label: "Company Name *", placeholder: "Aramco, STC, SABIC…" },
+              { id: "crNumber",    label: "CR Number",      placeholder: "1010012345" },
+              { id: "city",        label: "City",           placeholder: "Riyadh" },
+              { id: "country",     label: "Country",        placeholder: "Saudi Arabia" },
+              { id: "industry",    label: "Industry",       placeholder: "Oil & Gas" },
+              { id: "website",     label: "Website",        placeholder: "https://…" },
+            ].map(({ id, label, placeholder }) => (
+              <label key={id} className="block">
+                <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</span>
+                <input value={(form as any)[id]} onChange={(e) => setForm((p) => ({ ...p, [id]: e.target.value }))}
+                  placeholder={placeholder}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-border/40 bg-background text-[13px]" />
+              </label>
+            ))}
+          </div>
+          <label className="block mt-4">
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Known Facts (optional)</span>
+            <textarea value={form.knownFacts} onChange={(e) => setForm((p) => ({ ...p, knownFacts: e.target.value }))}
+              rows={2} placeholder="Any existing intel — employees, products, contacts…"
+              className="mt-1 w-full px-3 py-2 rounded-lg border border-border/40 bg-background text-[13px] resize-none" />
+          </label>
+          <div className="mt-4">
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wide block mb-2">Intelligence Goals</span>
+            <div className="flex flex-wrap gap-2">
+              {GOALS.map((g) => {
+                const sel = form.intelligenceGoals.includes(g);
+                return (
+                  <button key={g} onClick={() => setForm((p) => ({ ...p, intelligenceGoals: sel ? p.intelligenceGoals.filter((x) => x !== g) : [...p.intelligenceGoals, g] }))}
+                    className={cn("px-2.5 py-1 rounded-full text-[11px] border", sel ? "text-white border-transparent" : "border-border/40 text-foreground/60")}
+                    style={sel ? { background: ACCENT } : undefined}>{g}</button>
+                );
+              })}
+            </div>
+          </div>
+          <button onClick={() => void runResearch()} disabled={loading || !form.companyName.trim()}
+            className="mt-5 flex items-center gap-2 px-6 py-2.5 rounded-xl text-[13px] font-medium text-white disabled:opacity-50"
+            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${TEAL})` }}>
+            {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Researching…</> : <><BrainCircuit className="w-4 h-4" /> Run 10-Agent Research</>}
+          </button>
+        </div>
+      )}
+
+      {view === "result" && result && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="text-[13px] text-muted-foreground">{result.sourcesUsed} sources used · {result.durationMs ? `${(result.durationMs / 1000).toFixed(1)}s` : ""}</div>
+            <button onClick={() => void saveAndPush()} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] text-white font-medium" style={{ background: TEAL }}>
+              <ArrowRight className="w-3.5 h-3.5" /> Save + Push to CRM
+            </button>
+          </div>
+          <ProfileCard profile={result.profile} type="company" />
+        </div>
+      )}
+
+      {view === "history" && (
+        <div className="space-y-2">
+          {saved.length === 0 ? <EmptyState icon={History} text="No saved research yet" />
+            : saved.map((r: any) => (
+              <div key={r.id} className="rounded-xl border border-border/30 bg-card/40 p-4 flex items-center justify-between">
+                <div>
+                  <div className="font-medium text-[13px]">{r.companyName}</div>
+                  <div className="text-[11px] text-muted-foreground">{new Date(r.createdAt).toLocaleDateString()}</div>
+                </div>
+                <button onClick={() => { setResult(r.report); setView("result"); }}
+                  className="text-[12px] text-muted-foreground hover:text-foreground">View →</button>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Person Intelligence Panel ─────────────────────────────────────────────────
+function PersonIntelPanel() {
+  const [form,    setForm]    = useState({ personName: "", title: "", company: "", linkedinUrl: "", country: "Saudi Arabia", knownFacts: "", intelligenceGoals: [] as string[] });
+  const [result,  setResult]  = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [saved,   setSaved]   = useState<any[]>([]);
+  const [view,    setView]    = useState<"form" | "result" | "history">("form");
+
+  useEffect(() => { void apiFetch("/person-intel/saved").then(setSaved).catch(() => {}); }, []);
+
+  async function runResearch() {
+    if (!form.personName.trim()) return;
+    setLoading(true);
+    try {
+      const data: any = await apiFetch("/person-intel/profile", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      setResult(data);
+      setView("result");
+    } catch (e) { console.error(e); }
+    setLoading(false);
   }
+
+  async function saveAndPush() {
+    if (!result) return;
+    await apiFetch("/person-intel/save", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ personName: form.personName, company: form.company, title: form.title, linkedinUrl: form.linkedinUrl, report: result }),
+    });
+    await apiFetch("/person-intel/push-crm", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profile: result.profile }),
+    });
+    void apiFetch("/person-intel/saved").then(setSaved).catch(() => {});
+  }
+
+  const GOALS = ["Career history", "Board positions", "Business interests", "Contact details", "Communication style", "Buying authority", "Best approach"];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-2 mb-2">
+        {(["form","result","history"] as const).map((v) => (
+          <button key={v} onClick={() => setView(v)}
+            className={cn("px-4 py-1.5 rounded-lg text-[12px] font-medium capitalize border", view === v ? "text-white border-transparent" : "border-border/40 text-foreground/60")}
+            style={view === v ? { background: ACCENT } : undefined}>{v}</button>
+        ))}
+        <span className="ml-auto text-[12px] text-muted-foreground self-center">
+          16 parallel AI agents · Perplexity ×5 · Gemini ×5 · Claude · GPT ×2 · Gemini Direct
+        </span>
+      </div>
+
+      {view === "form" && (
+        <div className="rounded-xl border border-border/30 bg-card/40 p-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[
+              { id: "personName",  label: "Full Name *",  placeholder: "Mohammed Al-Rashid" },
+              { id: "title",       label: "Title",        placeholder: "CEO, VP Sales…" },
+              { id: "company",     label: "Company",      placeholder: "Aramco, STC…" },
+              { id: "linkedinUrl", label: "LinkedIn URL", placeholder: "https://linkedin.com/in/…" },
+              { id: "country",     label: "Country",      placeholder: "Saudi Arabia" },
+            ].map(({ id, label, placeholder }) => (
+              <label key={id} className="block">
+                <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</span>
+                <input value={(form as any)[id]} onChange={(e) => setForm((p) => ({ ...p, [id]: e.target.value }))}
+                  placeholder={placeholder}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-border/40 bg-background text-[13px]" />
+              </label>
+            ))}
+          </div>
+          <label className="block mt-4">
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Known Facts (optional)</span>
+            <textarea value={form.knownFacts} onChange={(e) => setForm((p) => ({ ...p, knownFacts: e.target.value }))}
+              rows={2} placeholder="Any context you already have…"
+              className="mt-1 w-full px-3 py-2 rounded-lg border border-border/40 bg-background text-[13px] resize-none" />
+          </label>
+          <div className="mt-4">
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wide block mb-2">Intelligence Goals</span>
+            <div className="flex flex-wrap gap-2">
+              {GOALS.map((g) => {
+                const sel = form.intelligenceGoals.includes(g);
+                return (
+                  <button key={g} onClick={() => setForm((p) => ({ ...p, intelligenceGoals: sel ? p.intelligenceGoals.filter((x) => x !== g) : [...p.intelligenceGoals, g] }))}
+                    className={cn("px-2.5 py-1 rounded-full text-[11px] border", sel ? "text-white border-transparent" : "border-border/40 text-foreground/60")}
+                    style={sel ? { background: ACCENT } : undefined}>{g}</button>
+                );
+              })}
+            </div>
+          </div>
+          <button onClick={() => void runResearch()} disabled={loading || !form.personName.trim()}
+            className="mt-5 flex items-center gap-2 px-6 py-2.5 rounded-xl text-[13px] font-medium text-white disabled:opacity-50"
+            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${TEAL})` }}>
+            {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Researching… (takes ~75s)</> : <><BrainCircuit className="w-4 h-4" /> Run 16-Agent Research</>}
+          </button>
+        </div>
+      )}
+
+      {view === "result" && result && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="text-[13px] text-muted-foreground">{result.sourcesUsed} sources used · {result.durationMs ? `${(result.durationMs / 1000).toFixed(1)}s` : ""}</div>
+            <button onClick={() => void saveAndPush()} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] text-white font-medium" style={{ background: TEAL }}>
+              <ArrowRight className="w-3.5 h-3.5" /> Save + Push to CRM
+            </button>
+          </div>
+          <ProfileCard profile={result.profile} type="person" />
+        </div>
+      )}
+
+      {view === "history" && (
+        <div className="space-y-2">
+          {saved.length === 0 ? <EmptyState icon={History} text="No saved research yet" />
+            : saved.map((r: any) => (
+              <div key={r.id} className="rounded-xl border border-border/30 bg-card/40 p-4 flex items-center justify-between">
+                <div>
+                  <div className="font-medium text-[13px]">{r.personName}</div>
+                  <div className="text-[11px] text-muted-foreground">{r.company} · {new Date(r.createdAt).toLocaleDateString()}</div>
+                </div>
+                <button onClick={() => { setResult(r.report); setView("result"); }}
+                  className="text-[12px] text-muted-foreground hover:text-foreground">View →</button>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TAB 2 — CRM ENRICHMENT
+// ═══════════════════════════════════════════════════════════════════════════════
+function CrmEnrichmentTab() {
+  const [sub, setSub] = useState<EnrichSubTab>("quick");
+  const subTabs: { id: EnrichSubTab; label: string; icon: React.ElementType }[] = [
+    { id: "quick",     label: "Quick Enrich",   icon: Sparkles },
+    { id: "bulk",      label: "Bulk Upload",     icon: Upload },
+    { id: "cards",     label: "Card Scanner",    icon: ScanLine },
+    { id: "dedup",     label: "Deduplication",   icon: GitMerge },
+    { id: "waterfall", label: "Waterfall",       icon: Route },
+  ];
+
+  return (
+    <div>
+      <div className="flex gap-1 mb-6 flex-wrap">
+        {subTabs.map((t) => {
+          const Icon = t.icon;
+          const active = sub === t.id;
+          return (
+            <button key={t.id} onClick={() => setSub(t.id)}
+              className={cn("flex items-center gap-2 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all border", active ? "border-transparent text-white" : "border-border/40 text-foreground/60 hover:text-foreground hover:bg-muted/40")}
+              style={active ? { background: `linear-gradient(135deg, ${TEAL}CC, ${ACCENT}CC)` } : undefined}>
+              <Icon className="w-3.5 h-3.5" /> {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <Suspense fallback={<Spinner />}>
+        {sub === "quick"     && <LeadEnrichPage />}
+        {sub === "bulk"      && <BulkUploadPanel />}
+        {sub === "cards"     && <BusinessCards />}
+        {sub === "dedup"     && <DedupPage />}
+        {sub === "waterfall" && <SourcesTab />}
+      </Suspense>
+    </div>
+  );
+}
+
+// ── Bulk Upload Panel ─────────────────────────────────────────────────────────
+function BulkUploadPanel() {
+  const [file, setFile] = useState<File | null>(null);
+  const [phase, setPhase] = useState<"upload" | "deduping" | "questionnaire" | "queued">("upload");
+  const [answers, setAnswers] = useState({ fields: "all", depth: "standard", signalPack: "buying", dedup: "newest", batchTag: "" });
+
+  const QUESTIONS = [
+    { key: "fields", label: "Which data fields do you need?", options: ["all", "contact-only", "profile-only", "company-only"] },
+    { key: "depth",  label: "Profiling depth?",               options: ["basic", "standard", "deep"] },
+    { key: "signalPack", label: "Signal pack to apply?",      options: ["buying", "hiring", "funding", "news", "none"] },
+    { key: "dedup",  label: "Dedup survivor preference?",     options: ["newest", "oldest", "highest-score"] },
+  ];
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (f) { setFile(f); setPhase("deduping"); setTimeout(() => setPhase("questionnaire"), 2000); }
+  }
+
+  function queue() { setPhase("queued"); }
 
   return (
     <div className="space-y-5">
       {phase === "upload" && (
-        <div className="glass-card rounded-2xl p-8 text-center">
-          <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
-          <div className="font-semibold">Upload a list to enrich</div>
-          <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-            Drop a CSV / Excel file. We'll auto-deduplicate it, then ask you a few questions about what data and profiling you need before queueing it for the enrichment waterfall.
-          </p>
-          <label className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition cursor-pointer">
-            <Upload className="w-4 h-4" /> Choose file
-            <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={(e) => handleFile(e.target.files?.[0] ?? null)} />
+        <div className="rounded-xl border-2 border-dashed border-border/40 bg-card/30 p-10 flex flex-col items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: `${ACCENT}20` }}>
+            <Upload className="w-6 h-6" style={{ color: ACCENT }} />
+          </div>
+          <div className="text-center">
+            <div className="font-semibold text-[15px]">Upload a contact list</div>
+            <div className="text-[12px] text-muted-foreground mt-1">CSV, XLSX, or VCF — up to 50,000 rows</div>
+          </div>
+          <label className="cursor-pointer px-5 py-2.5 rounded-xl text-[13px] font-medium text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${TEAL})` }}>
+            Choose File
+            <input type="file" accept=".csv,.xlsx,.vcf" className="sr-only" onChange={handleFile} />
           </label>
-          <div className="text-xs text-muted-foreground mt-3">CSV · XLSX · up to 50,000 rows</div>
         </div>
       )}
 
       {phase === "deduping" && (
-        <div className="glass-card rounded-2xl p-8 flex flex-col items-center text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-[#B8B880] mb-3" />
-          <div className="font-semibold">Deduping {fileName}…</div>
-          <div className="text-sm text-muted-foreground mt-1">{rows.toLocaleString()} rows · scanning for duplicates</div>
+        <div className="rounded-xl border border-border/30 bg-card/40 p-5 flex items-center gap-3">
+          <Loader2 className="w-5 h-5 animate-spin text-purple-500" />
+          <div>
+            <div className="font-medium">Deduplicating {file?.name}…</div>
+            <div className="text-[12px] text-muted-foreground">Checking against CRM for existing records</div>
+          </div>
         </div>
       )}
 
       {phase === "questionnaire" && (
-        <div className="space-y-5">
-          {/* Dedup result strip */}
-          <div className="glass-card rounded-2xl p-5 border-l-4 border-emerald-500">
-            <div className="flex items-center gap-3 flex-wrap">
-              <FileText className="w-5 h-5 text-emerald-500" />
-              <div className="flex-1 min-w-[200px]">
-                <div className="font-medium text-sm">{fileName} — deduplicated</div>
-                <div className="text-xs text-muted-foreground">
-                  {rows.toLocaleString()} rows uploaded · <span className="text-amber-600 font-medium">{duplicates} duplicates merged</span> · <span className="text-emerald-600 font-medium">{(rows - duplicates).toLocaleString()} unique records</span>
-                </div>
-              </div>
-              <button onClick={reset} className="text-xs px-2.5 py-1 rounded-lg border border-border hover:bg-muted transition flex items-center gap-1">
-                <X className="w-3 h-3" /> Cancel
-              </button>
-            </div>
-          </div>
-
-          {/* Questionnaire */}
-          <div className="glass-card rounded-2xl p-6 space-y-5">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#B8A0C8]/15 flex items-center justify-center flex-shrink-0">
-                <Sparkles className="w-4 h-4 text-[#B8A0C8]" />
-              </div>
-              <div>
-                <div className="font-semibold">A few quick questions before we enrich</div>
-                <p className="text-xs text-muted-foreground mt-0.5">Tell NexFlow what data, profiling depth, and survivor rules you want for this list.</p>
-              </div>
-            </div>
-
-            {/* Q1: fields */}
-            <div>
-              <div className="text-xs font-medium text-muted-foreground mb-2">1 · Which fields do you need filled in?</div>
-              <div className="flex flex-wrap gap-1.5">
-                {LIST_FIELD_OPTIONS.map((f) => {
-                  const on = fields.has(f);
-                  return (
-                    <button
-                      key={f}
-                      onClick={() => toggleField(f)}
-                      aria-pressed={on}
-                      className={cn(
-                        "px-2.5 py-1 rounded-full text-xs font-medium transition border",
-                        on ? "bg-[#B8B880]/20 text-foreground border-[#B8B880]/40" : "bg-muted/40 text-muted-foreground border-transparent hover:text-foreground",
-                      )}
-                    >
-                      {on && <Check className="w-3 h-3 inline mr-1" />}
-                      {f}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Q2: profiling depth */}
-            <Question label="2 · Profiling depth" value={depth} onChange={setDepth} options={PROFILING_DEPTH} />
-
-            {/* Q3: signals */}
-            <Question label="3 · Which buying signals do you want?" value={signals} onChange={setSignals} options={SIGNAL_CHOICES} />
-
-            {/* Q4: survivor */}
-            <Question label="4 · When duplicates were merged, who should win as the survivor?" value={survivor} onChange={setSurvivor} options={SURVIVOR_PREF} />
-
-            {/* Q5: tags */}
-            <div>
-              <div className="text-xs font-medium text-muted-foreground mb-2">5 · Tag this batch (optional)</div>
-              <input
-                value={tagList}
-                onChange={(e) => setTagList(e.target.value)}
-                placeholder="e.g. GITEX 2026 · Riyadh roadshow · Q2 KSA expansion"
-                className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm"
-              />
-            </div>
-
-            <div className="pt-3 border-t border-border flex items-center justify-between gap-3 flex-wrap">
-              <div className="text-xs text-muted-foreground">
-                {fields.size} fields · {depth.split(" ")[0]} profiling · {signals}
-              </div>
-              <button
-                onClick={() => setPhase("queued")}
-                disabled={fields.size === 0}
-                className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition flex items-center gap-2 disabled:opacity-50"
-              >
-                <Sparkles className="w-4 h-4" /> Queue for enrichment
-              </button>
-            </div>
-          </div>
+        <div className="rounded-xl border border-border/30 bg-card/40 p-5 space-y-4">
+          <div className="font-semibold text-[14px]">Configure Enrichment for "{file?.name}"</div>
+          {QUESTIONS.map((q) => (
+            <label key={q.key} className="block">
+              <span className="text-[12px] font-medium">{q.label}</span>
+              <select value={(answers as any)[q.key]} onChange={(e) => setAnswers((p) => ({ ...p, [q.key]: e.target.value }))}
+                className="mt-1.5 w-full max-w-xs px-3 py-1.5 rounded-lg border border-border/40 bg-background text-[13px]">
+                {q.options.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </label>
+          ))}
+          <label className="block">
+            <span className="text-[12px] font-medium">Batch tag (optional)</span>
+            <input value={answers.batchTag} onChange={(e) => setAnswers((p) => ({ ...p, batchTag: e.target.value }))}
+              placeholder="e.g. GITEX-2026"
+              className="mt-1.5 w-full max-w-xs px-3 py-1.5 rounded-lg border border-border/40 bg-background text-[13px]" />
+          </label>
+          <button onClick={queue} className="px-5 py-2.5 rounded-xl text-[13px] font-medium text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${TEAL})` }}>
+            Queue for Enrichment
+          </button>
         </div>
       )}
 
       {phase === "queued" && (
-        <div className="glass-card rounded-2xl p-10 text-center">
-          <Check className="w-10 h-10 mx-auto mb-3 text-emerald-500" />
-          <div className="font-semibold">Queued · {(rows - duplicates).toLocaleString()} records</div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Estimated completion ~ {Math.max(2, Math.round((rows - duplicates) / 120))} min. We'll notify you when this batch is ready and the new contacts are visible in your CRM.
-          </p>
-          <button
-            onClick={reset}
-            className="mt-4 px-3 py-1.5 rounded-lg border border-border text-xs hover:bg-muted transition inline-flex items-center gap-1"
-          >
-            <Plus className="w-3 h-3" /> Upload another list
-          </button>
+        <div className="rounded-xl border border-green-400/30 bg-green-500/5 p-5 flex items-center gap-3">
+          <CheckCircle2 className="w-5 h-5 text-green-500" />
+          <div>
+            <div className="font-medium text-green-700 dark:text-green-400">{file?.name} is queued for enrichment</div>
+            <div className="text-[12px] text-muted-foreground mt-0.5">Batch tag: {answers.batchTag || "none"} · Depth: {answers.depth} · Signals: {answers.signalPack}</div>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────
-// SEARCH HISTORY
-// ─────────────────────────────────────────────────────────
-function SearchHistoryTab({ onRerun }: { onRerun: (item: SearchHistoryItem) => void }) {
-  const [items, setItems] = useState(SEED_HISTORY);
-  const [filter, setFilter] = useState<"all" | "company" | "person" | "list" | "card">("all");
-
-  const visible = filter === "all" ? items : items.filter((i) => i.type === filter);
+// ═══════════════════════════════════════════════════════════════════════════════
+// TAB 3 — SETTINGS
+// ═══════════════════════════════════════════════════════════════════════════════
+function SettingsTab() {
+  const [sub, setSub] = useState<SettingsSubTab>("sources");
+  const subTabs: { id: SettingsSubTab; label: string; icon: React.ElementType }[] = [
+    { id: "sources",  label: "Waterfall Sources", icon: Layers },
+    { id: "apikeys",  label: "API Keys",           icon: Tag },
+    { id: "exports",  label: "Export History",     icon: Download },
+  ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-1 flex-wrap">
-          {(["all", "company", "person", "list", "card"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              aria-pressed={filter === f}
-              className={cn(
-                "px-2.5 py-1 rounded-full text-xs font-medium capitalize transition",
-                filter === f ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {f === "all" ? "All searches" : f === "card" ? "Card scans" : f}
-            </button>
-          ))}
-        </div>
-        <div className="text-xs text-muted-foreground">{visible.length} entries</div>
-      </div>
-
-      <div className="glass-card rounded-2xl divide-y divide-border overflow-hidden">
-        {visible.length === 0 && (
-          <div className="p-10 text-center text-muted-foreground text-sm">No searches in this filter yet.</div>
-        )}
-        {visible.map((h) => {
-          const TypeIcon = h.type === "company" ? Building2 : h.type === "person" ? Users : h.type === "list" ? Upload : ScanLine;
+    <div>
+      <div className="flex gap-1 mb-6 flex-wrap">
+        {subTabs.map((t) => {
+          const Icon = t.icon;
+          const active = sub === t.id;
           return (
-            <div key={h.id} className="p-4 flex items-start gap-3 hover:bg-muted/30 transition group">
-              <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center flex-shrink-0 text-muted-foreground">
-                <TypeIcon className="w-4 h-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium">{h.query}</span>
-                  <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{h.type}</span>
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5 truncate">{h.filters}</div>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {h.signals.map((s) => (
-                    <span key={s} className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#B8B880]/15 text-[#7a7a4a] dark:text-[#cfcf90]">{s}</span>
-                  ))}
-                </div>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <div className="text-xs text-muted-foreground">{h.ts}</div>
-                <div className="text-sm font-semibold mt-0.5">{h.enriched}/{h.results}</div>
-                <div className="text-[10px] text-muted-foreground">enriched / found</div>
-              </div>
-              <div className="flex items-center gap-1 ml-2 opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition">
-                <button
-                  onClick={() => onRerun(h)}
-                  aria-label="Re-run search"
-                  title="Re-run search"
-                  className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setItems((arr) => arr.filter((x) => x.id !== h.id))}
-                  aria-label="Delete entry"
-                  title="Delete entry"
-                  className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-red-500"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              </div>
-            </div>
+            <button key={t.id} onClick={() => setSub(t.id)}
+              className={cn("flex items-center gap-2 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all border", active ? "border-transparent text-white" : "border-border/40 text-foreground/60 hover:text-foreground hover:bg-muted/40")}
+              style={active ? { background: `linear-gradient(135deg, ${GOLD}CC, ${TEAL}80)` } : undefined}>
+              <Icon className="w-3.5 h-3.5" /> {t.label}
+            </button>
           );
         })}
       </div>
+
+      <Suspense fallback={<Spinner />}>
+        {sub === "sources" && <SourcesTab />}
+        {sub === "apikeys" && <ApiKeysPanel />}
+        {sub === "exports" && <ExportHistoryPanel />}
+      </Suspense>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────
-// Shared UI helpers
-// ─────────────────────────────────────────────────────────
-function SubTab({ active, onClick, icon: Icon, label, badge }: { active: boolean; onClick: () => void; icon: any; label: string; badge?: string }) {
-  return (
-    <button
-      onClick={onClick}
-      role="tab"
-      aria-selected={active}
-      className={cn(
-        "px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap",
-        active ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
-      )}
-    >
-      <Icon className="w-4 h-4" /> {label}
-      {badge && <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-[#B8A0C8]/20 text-[#B8A0C8]">{badge}</span>}
-    </button>
-  );
-}
-
-function FilterPill({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[] }) {
-  return (
-    <label className="rounded-xl border border-border bg-background/50 px-3 py-2 flex items-center gap-2 text-xs">
-      <span className="text-muted-foreground">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="flex-1 bg-transparent outline-none text-foreground font-medium cursor-pointer"
-      >
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
-    </label>
-  );
-}
-
-function Question({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: readonly string[] }) {
-  return (
-    <div>
-      <div className="text-xs font-medium text-muted-foreground mb-2">{label}</div>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm cursor-pointer"
-      >
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
-    </div>
-  );
-}
-
-function Lazy({ children }: { children: React.ReactNode }) {
-  return (
-    <Suspense fallback={
-      <div className="glass-card rounded-2xl p-10 flex items-center justify-center text-muted-foreground">
-        <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading…
-      </div>
-    }>
-      {children}
-    </Suspense>
-  );
-}
-
-// ── AI Research Lab — multi-model live web prospect generation ─────────────
-type LabProspect = {
-  first_name: string;
-  last_name: string;
-  title: string;
-  seniority: string;
-  email?: string | null;
-  phone?: string | null;
-  linkedin_url?: string | null;
-  company: { name: string; industry: string; country: string; size: string; website?: string | null };
-  persona: string;
-  pain_points: string[];
-  buying_signals: string[];
-  next_actions: { action: string; reason: string }[];
-  lead_score: number;
-  confidence: number;
-  research_sources: string[];
-  summary: string;
-};
-
-function AIResearchLab() {
-  const [query, setQuery] = useState("");
-  const [region, setRegion] = useState("UAE");
-  const [count, setCount] = useState(5);
-  const [running, setRunning] = useState(false);
-  const [stage, setStage] = useState<string>("");
-  const [result, setResult] = useState<{ prospects: LabProspect[]; pipeline: string[] } | null>(null);
-  const [savedSummary, setSavedSummary] = useState<{ count: number } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(true);
-
-  const presets = [
-    "CFOs at Series B+ fintechs in UAE",
-    "Heads of Sales at SaaS companies in Saudi Arabia hiring AEs",
-    "VP Engineering at logistics startups in GCC with recent funding",
-    "CMOs at e-commerce brands in Qatar launching in 2026",
+// ── API Keys Panel ────────────────────────────────────────────────────────────
+function ApiKeysPanel() {
+  const PROVIDERS = [
+    { id: "perplexity", name: "Perplexity AI",      desc: "Used for searchWeb — 9 agents in Person Intel, 7 in Company Intel",   envKey: "PERPLEXITY_API_KEY",  color: "#5436DA" },
+    { id: "gemini",     name: "Google Gemini",       desc: "Used for searchGrounded + Gemini Direct — 5+ agents per profile",     envKey: "GEMINI_API_KEY",      color: "#1A73E8" },
+    { id: "anthropic",  name: "Anthropic Claude",    desc: "Used for synthesis + Company Intel + Person Intel reports",            envKey: "ANTHROPIC_API_KEY",   color: "#C1441A" },
+    { id: "openai",     name: "OpenAI GPT-4o-mini",  desc: "Used for synthesizeGpt + fallback synthesis passes",                  envKey: "OPENAI_API_KEY",      color: "#10A37F" },
+    { id: "enricher",   name: "Enrichment Scraper",  desc: "Sidecar URL for Crawl4AI / BS4 / Playwright heavy scraping",         envKey: "ENRICHMENT_SCRAPER_URL", color: "#6B7280", isUrl: true },
   ];
 
-  const run = async (save: boolean) => {
-    if (!query.trim()) return;
-    setRunning(true);
-    setError(null);
-    setSavedSummary(null);
-    if (!save) setResult(null);
-
-    const stages = save
-      ? ["Perplexity researching the live web…", "Gemini structuring prospect cards…", "Claude refining personas & next actions…", "Saving prospects to your CRM…"]
-      : ["Perplexity researching the live web…", "Gemini structuring prospect cards…", "Claude refining personas & next actions…"];
-    let i = 0;
-    setStage(stages[0]);
-    const tick = setInterval(() => { i = Math.min(i + 1, stages.length - 1); setStage(stages[i]); }, 4500);
-
-    try {
-      const r = (await apiFetch("/prospects/research", {
-        method: "POST",
-        body: JSON.stringify({ query, region, count, save }),
-      })) as any;
-      setResult({ prospects: r.prospects ?? [], pipeline: r.pipeline ?? [] });
-      if (save) setSavedSummary({ count: (r.saved ?? []).length });
-    } catch (e: any) {
-      setError(e?.message ?? "Research failed");
-    } finally {
-      clearInterval(tick);
-      setStage("");
-      setRunning(false);
-    }
-  };
-
   return (
-    <div className="rounded-2xl border border-violet-300/40 bg-gradient-to-br from-violet-500/10 via-fuchsia-500/5 to-transparent p-5 space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3 flex-1">
-          <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center flex-shrink-0">
-            <FlaskConical className="w-5 h-5 text-violet-600" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold">AI Research Lab</span>
-              <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-600/15 text-violet-700 font-bold">live · multi-model</span>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Real prospects from the live web. <span className="text-foreground font-medium">Perplexity</span> researches → <span className="text-foreground font-medium">Gemini</span> structures → <span className="text-foreground font-medium">Claude</span> refines persona &amp; next actions. Save straight to your CRM with auto-generated buying signals.
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="p-1.5 rounded-lg hover:bg-violet-500/10 text-violet-700"
-          aria-label={expanded ? "Collapse" : "Expand"}
-        >
-          <ChevronDown className={cn("w-4 h-4 transition-transform", !expanded && "-rotate-90")} />
-        </button>
+    <div className="space-y-3">
+      <div className="rounded-xl border border-amber-400/30 bg-amber-500/5 p-4 text-[12px] text-amber-700 dark:text-amber-400 flex gap-2">
+        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+        <div>API keys are managed as environment secrets — switch to the <strong>CRM Admin</strong> persona or contact your Replit admin to update them. All enrichment tools fall back to sample data when keys are missing.</div>
       </div>
 
-      {expanded && (
-        <>
-          <div className="grid lg:grid-cols-[1fr_140px_120px_auto] gap-2">
-            <div className="relative">
-              <BrainCircuit className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-violet-600" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !running && run(false)}
-                disabled={running}
-                placeholder="e.g. Heads of Procurement at Series B+ logistics in KSA hiring AEs"
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-background text-sm"
-              />
+      {PROVIDERS.map((p) => (
+        <div key={p.id} className="rounded-xl border border-border/30 bg-card/40 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0" style={{ background: p.color }}>
+                {p.name.slice(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <div className="font-semibold text-[13px]">{p.name}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">{p.desc}</div>
+              </div>
             </div>
-            <select
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
-              disabled={running}
-              className="px-3 py-2.5 rounded-xl border border-border bg-background text-sm"
-            >
-              <option>UAE</option>
-              <option>KSA</option>
-              <option>Qatar</option>
-              <option>Kuwait</option>
-              <option>Bahrain</option>
-              <option>Oman</option>
-              <option>GCC</option>
-            </select>
-            <select
-              value={count}
-              onChange={(e) => setCount(parseInt(e.target.value))}
-              disabled={running}
-              className="px-3 py-2.5 rounded-xl border border-border bg-background text-sm"
-            >
-              {[3, 5, 8, 10, 15].map((n) => <option key={n} value={n}>{n} prospects</option>)}
-            </select>
-            <button
-              onClick={() => run(false)}
-              disabled={running || !query.trim()}
-              className="px-4 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 disabled:opacity-50 flex items-center gap-2"
-            >
-              {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              Research
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <code className="text-[11px] bg-muted/50 px-2 py-1 rounded font-mono text-muted-foreground">{p.envKey}</code>
+              <div className="w-2 h-2 rounded-full bg-green-500" title="Configured" />
+            </div>
           </div>
-
-          {!running && !result && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-muted-foreground">Try:</span>
-              {presets.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setQuery(p)}
-                  className="text-xs px-2 py-1 rounded-lg border border-violet-200/60 bg-violet-50/50 hover:bg-violet-100/80 text-violet-700"
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {running && stage && (
-            <div className="rounded-xl border border-violet-300/50 bg-violet-50/50 px-4 py-3 flex items-center gap-3">
-              <Loader2 className="w-4 h-4 animate-spin text-violet-700" />
-              <span className="text-sm text-violet-900 font-medium">{stage}</span>
-            </div>
-          )}
-
-          {error && (
-            <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
-              <X className="w-4 h-4" /> {error}
-            </div>
-          )}
-
-          {savedSummary && (
-            <div className="rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-center gap-2">
-              <Check className="w-4 h-4" /> Saved {savedSummary.count} new prospects to your CRM with auto-generated buying signals.
-            </div>
-          )}
-
-          {result && result.prospects.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="text-xs text-muted-foreground">
-                  Pipeline: {result.pipeline.join("  →  ")}
-                </div>
-                <button
-                  onClick={() => run(true)}
-                  disabled={running}
-                  className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {running ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                  Save all {result.prospects.length} to CRM
-                </button>
-              </div>
-              <div className="grid md:grid-cols-2 gap-3">
-                {result.prospects.map((p, i) => (
-                  <ProspectCardPreview key={i} p={p} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {result && result.prospects.length === 0 && !running && (
-            <div className="text-sm text-muted-foreground text-center py-6">
-              Research returned no structured prospects. Try a more specific query.
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-function ProspectCardPreview({ p }: { p: LabProspect }) {
-  return (
-    <div className="rounded-xl border border-border bg-background/60 p-4 space-y-3 hover:border-violet-300 transition">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="font-semibold truncate">{p.first_name} {p.last_name}</div>
-          <div className="text-xs text-muted-foreground truncate">{p.title} · {p.company?.name}</div>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <div className="text-xs font-bold text-violet-700">{p.lead_score}</div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{p.persona}</div>
-        </div>
-      </div>
-      {p.summary && (
-        <div className="text-xs text-foreground/80 line-clamp-3">{p.summary}</div>
-      )}
-      {p.buying_signals?.length > 0 && (
-        <div className="space-y-1">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Buying signals</div>
-          {p.buying_signals.slice(0, 2).map((s, i) => (
-            <div key={i} className="flex items-start gap-1.5 text-xs text-foreground/80">
-              <Zap className="w-3 h-3 text-amber-500 flex-shrink-0 mt-0.5" />
-              <span className="line-clamp-1">{s}</span>
-            </div>
+      ))}
+
+      <div className="rounded-xl border border-border/30 bg-card/40 p-4">
+        <div className="font-semibold text-[13px] mb-2">Data Quality Rules</div>
+        <div className="space-y-2 text-[12px] text-muted-foreground">
+          {[
+            "Phone numbers normalized to +966 format",
+            "Dedup threshold: 85% name similarity OR exact email/CR match",
+            "Auto-validate email with MX check before saving",
+            "Arabic names preserved alongside English transliteration",
+            "CR numbers validated against 10-digit Muqawil format",
+          ].map((rule) => (
+            <div key={rule} className="flex items-center gap-2"><Check className="w-3 h-3 text-green-500 flex-shrink-0" />{rule}</div>
           ))}
         </div>
-      )}
-      {p.next_actions?.length > 0 && (
-        <div className="space-y-1">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Next actions</div>
-          {p.next_actions.slice(0, 2).map((a, i) => (
-            <div key={i} className="flex items-start gap-1.5 text-xs">
-              <span className="px-1.5 py-0.5 rounded bg-violet-100 text-violet-800 text-[10px] font-bold uppercase">{a.action}</span>
-              <span className="text-foreground/70 line-clamp-1">{a.reason}</span>
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/50">
-        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-          <Globe className="w-3 h-3" />
-          <span>{p.company?.country} · {p.company?.size}</span>
-          {p.research_sources?.length > 0 && (
-            <>
-              <span>·</span>
-              <span>{p.research_sources.length} sources</span>
-            </>
-          )}
-        </div>
-        {p.linkedin_url && (
-          <a href={p.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-violet-700 hover:underline flex items-center gap-1">
-            <Linkedin className="w-3 h-3" /> LinkedIn
-          </a>
-        )}
       </div>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────
-// DATA VALIDATOR AGENT TAB
-// ─────────────────────────────────────────────────────────
-const GRADE_COLOR: Record<string, string> = {
-  A: "#88B8B0", B: "#B8D890", C: "#C8B880", D: "#C8A880", F: "#C88080",
-};
-
-function DataValidatorTab() {
-  const [form, setForm] = useState({
-    name_en: "", email: "", mobile: "", linkedin: "",
-    company: "", title: "", country: "", website: "",
-  });
-  const [running, setRunning] = useState(false);
-  const [result, setResult]   = useState<any | null>(null);
-  const [error,  setError]    = useState<string | null>(null);
-  const [showRaw, setShowRaw] = useState(false);
-
-  function setField(k: string, v: string) {
-    setForm(f => ({ ...f, [k]: v }));
-    setResult(null);
-  }
-
-  async function runValidation() {
-    setRunning(true); setError(null); setResult(null);
-    try {
-      const r: any = await apiFetch("/data-agents/validate", {
-        method: "POST",
-        body: JSON.stringify({ contact: form }),
-      });
-      setResult(r);
-    } catch (e: any) {
-      setError(e?.message ?? "Validation failed");
-    } finally {
-      setRunning(false);
-    }
-  }
-
-  const FIELDS_CONFIG = [
-    { key: "name_en",  label: "Full name",   placeholder: "Khalid Al-Otaibi",            type: "text"  },
-    { key: "email",    label: "Email",        placeholder: "khalid@aramco.com",           type: "email" },
-    { key: "mobile",   label: "Mobile",       placeholder: "+966 50 123 4567",            type: "text"  },
-    { key: "linkedin", label: "LinkedIn URL", placeholder: "linkedin.com/in/khalid",      type: "text"  },
-    { key: "company",  label: "Company",      placeholder: "Saudi Aramco",                type: "text"  },
-    { key: "title",    label: "Title",        placeholder: "VP Business Development",     type: "text"  },
-    { key: "country",  label: "Country",      placeholder: "Saudi Arabia",               type: "text"  },
-    { key: "website",  label: "Website",      placeholder: "aramco.com",                 type: "text"  },
-  ];
-
-  const grade = result?.grade ?? null;
+// ── Export History Panel ──────────────────────────────────────────────────────
+function ExportHistoryPanel() {
+  const [history, setHistory] = useState<any[]>([]);
+  useEffect(() => { void apiFetch("/prospecting/exports/history").then(setHistory).catch(() => {}); }, []);
 
   return (
-    <div className="p-5 space-y-5">
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-[#88B8B0]/15 border border-[#88B8B0]/30 flex items-center justify-center flex-shrink-0">
-          <ShieldCheck className="w-5 h-5 text-[#88B8B0]" />
-        </div>
-        <div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <h2 className="text-lg font-bold">Data Validator Agent</h2>
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#88B8B0]/15 text-[#88B8B0] border border-[#88B8B0]/30">AI</span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Checks every contact field — format, completeness, GCC region, LinkedIn slug match — and returns a quality grade with actionable fixes.
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-12 gap-5">
-        {/* Input form */}
-        <div className="col-span-5 glass-panel p-4 space-y-3">
-          <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1">Contact data to validate</div>
-          {FIELDS_CONFIG.map(({ key, label, placeholder, type }) => (
-            <div key={key}>
-              <label className="text-[11px] font-semibold text-muted-foreground block mb-1">{label}</label>
-              <input
-                type={type}
-                value={(form as any)[key]}
-                onChange={e => setField(key, e.target.value)}
-                placeholder={placeholder}
-                className="w-full px-3 py-2 rounded-lg border border-border/50 bg-background text-sm focus:outline-none focus:ring-1 focus:ring-[#88B8B0]"
-              />
-            </div>
-          ))}
-          <button
-            onClick={runValidation}
-            disabled={running || !form.name_en}
-            className={cn(
-              "w-full mt-2 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition",
-              running || !form.name_en ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-[#88B8B0] hover:bg-[#78A8A0]"
-            )}>
-            {running ? <><Loader2 className="w-4 h-4 animate-spin" /> Validating…</> : <><ShieldCheck className="w-4 h-4" /> Run Validation</>}
-          </button>
-          {error && (
-            <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 rounded-lg p-2">
-              <AlertCircle className="w-3.5 h-3.5" /> {error}
-            </div>
-          )}
-        </div>
-
-        {/* Results */}
-        <div className="col-span-7 space-y-3">
-          {!result && !running && (
-            <div className="glass-panel p-8 flex flex-col items-center justify-center text-center gap-3 text-muted-foreground h-full">
-              <ShieldCheck className="w-12 h-12 text-[#88B8B0]/30" />
-              <div className="text-sm font-semibold">Fill in contact data on the left and run validation</div>
-              <div className="text-xs max-w-xs">Checks email format, phone international format, LinkedIn slug vs name, GCC region, company presence — then gives a quality grade.</div>
-            </div>
-          )}
-          {running && (
-            <div className="glass-panel p-8 flex flex-col items-center justify-center gap-3">
-              <Loader2 className="w-10 h-10 text-[#88B8B0] animate-spin" />
-              <div className="text-sm font-semibold">Running AI validation…</div>
-              <div className="text-xs text-muted-foreground">Checking field formats, completeness, GCC alignment and LinkedIn match</div>
-            </div>
-          )}
-          {result && (
-            <>
-              {/* Grade card */}
-              <div className="glass-panel p-4 flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-black text-white flex-shrink-0"
-                  style={{ background: GRADE_COLOR[grade] ?? "#88B8B0" }}>
-                  {grade}
-                </div>
-                <div className="flex-1">
-                  <div className="text-sm font-bold">{result.fields_passed}/{result.fields_checked} fields passed</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{result.ai_summary}</div>
-                  <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${result.overall_score}%`, background: GRADE_COLOR[grade] ?? "#88B8B0" }} />
-                  </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <div className="text-2xl font-black" style={{ color: GRADE_COLOR[grade] ?? "#88B8B0" }}>{result.overall_score}%</div>
-                  <div className="text-[10px] text-muted-foreground">quality score</div>
-                </div>
-              </div>
-
-              {/* Field-level results */}
-              <div className="glass-panel p-4">
-                <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3">Field-by-field report</div>
-                <div className="space-y-2">
-                  {Object.entries(result.fields ?? {}).map(([key, v]: [string, any]) => (
-                    <div key={key} className={cn(
-                      "flex items-start gap-3 p-2.5 rounded-lg border",
-                      v.ok ? "border-[#88B8B0]/20 bg-[#88B8B0]/5" : "border-amber-500/20 bg-amber-50/30 dark:bg-amber-950/10"
-                    )}>
-                      {v.ok
-                        ? <CheckCircle2 className="w-4 h-4 text-[#88B8B0] flex-shrink-0 mt-0.5" />
-                        : <AlertCircle  className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                      }
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold capitalize">{key.replace("_", " ")}</span>
-                          {v.value && <span className="text-[11px] text-muted-foreground truncate">{String(v.value).slice(0, 40)}</span>}
-                          {v.confidence !== undefined && (
-                            <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded"
-                              style={{ background: `${v.ok ? "#88B8B0" : "#C8A880"}20`, color: v.ok ? "#88B8B0" : "#C8A880" }}>
-                              {v.confidence}%
-                            </span>
-                          )}
-                        </div>
-                        {v.issue && (
-                          <div className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">{v.issue}</div>
-                        )}
-                        {v.suggestion && (
-                          <div className="text-[11px] text-[#88B8B0] mt-0.5">💡 {v.suggestion}</div>
-                        )}
-                      </div>
-                    </div>
+    <div className="space-y-3">
+      <div className="rounded-xl border border-border/30 bg-card/40 p-4">
+        <div className="font-semibold text-[14px] mb-4">Export History</div>
+        {history.length === 0 ? <EmptyState icon={Download} text="No exports yet — use the Website Intelligence tool to export extracted companies" />
+          : (
+            <table className="w-full text-[12px]">
+              <thead className="border-b border-border/20">
+                <tr className="text-muted-foreground">
+                  {["Filename","Format","Records","Date","Actions"].map((h) => (
+                    <th key={h} className="px-3 py-2 text-left font-medium">{h}</th>
                   ))}
-                </div>
-              </div>
-
-              {/* Issues + Recommendations */}
-              {((result.issues?.length > 0) || (result.recommendations?.length > 0)) && (
-                <div className="grid grid-cols-2 gap-3">
-                  {result.issues?.length > 0 && (
-                    <div className="glass-panel p-3">
-                      <div className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-2 flex items-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5" /> Issues ({result.issues.length})
-                      </div>
-                      <ul className="space-y-1.5">
-                        {result.issues.map((issue: string, i: number) => (
-                          <li key={i} className="text-[11px] text-foreground/80 flex items-start gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0 mt-1" />
-                            {issue}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {result.recommendations?.length > 0 && (
-                    <div className="glass-panel p-3">
-                      <div className="text-xs font-bold text-[#88B8B0] uppercase tracking-wide mb-2 flex items-center gap-1">
-                        <Star className="w-3.5 h-3.5" /> Recommendations
-                      </div>
-                      <ul className="space-y-1.5">
-                        {result.recommendations.map((r: string, i: number) => (
-                          <li key={i} className="text-[11px] text-foreground/80 flex items-start gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#88B8B0] flex-shrink-0 mt-1" />
-                            {r}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((h: any) => (
+                  <tr key={h.id} className="border-b border-border/10 hover:bg-muted/20">
+                    <td className="px-3 py-2 font-medium truncate max-w-[200px]">{h.filename}</td>
+                    <td className="px-3 py-2 text-muted-foreground uppercase">{h.format}</td>
+                    <td className="px-3 py-2">{h.recordCount?.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{new Date(h.createdAt).toLocaleDateString()}</td>
+                    <td className="px-3 py-2">
+                      <button className="text-muted-foreground hover:text-foreground"><Download className="w-3.5 h-3.5" /></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
-        </div>
       </div>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────
-// DATA VERIFIER AGENT TAB
-// ─────────────────────────────────────────────────────────
-function DataVerifierTab() {
-  const [form, setForm] = useState({
-    name_en: "", email: "", mobile: "", linkedin: "",
-    company: "", title: "", country: "", website: "",
-  });
-  const [running, setRunning]   = useState(false);
-  const [result,  setResult]    = useState<any | null>(null);
-  const [error,   setError]     = useState<string | null>(null);
-  const [showRaw, setShowRaw]   = useState(false);
+// ═══════════════════════════════════════════════════════════════════════════════
+// SHARED SUB-COMPONENTS
+// ═══════════════════════════════════════════════════════════════════════════════
 
-  function setField(k: string, v: string) {
-    setForm(f => ({ ...f, [k]: v }));
-    setResult(null);
-  }
-
-  async function runVerification() {
-    setRunning(true); setError(null); setResult(null);
-    try {
-      const r: any = await apiFetch("/data-agents/verify", {
-        method: "POST",
-        body: JSON.stringify({
-          contact: {
-            ...form,
-            first_name: form.name_en.split(" ")[0] ?? "",
-            last_name:  form.name_en.split(" ").slice(1).join(" ") ?? "",
-          }
-        }),
-      });
-      setResult(r);
-    } catch (e: any) {
-      setError(e?.message ?? "Verification failed");
-    } finally {
-      setRunning(false);
-    }
-  }
-
-  const FIELDS_CONFIG = [
-    { key: "name_en",  label: "Full name",   placeholder: "Khalid Al-Otaibi",        },
-    { key: "company",  label: "Company",      placeholder: "Saudi Aramco",            },
-    { key: "title",    label: "Title",        placeholder: "VP Business Development", },
-    { key: "email",    label: "Email",        placeholder: "khalid@aramco.com",       },
-    { key: "linkedin", label: "LinkedIn URL", placeholder: "linkedin.com/in/khalid",  },
-    { key: "country",  label: "Country",      placeholder: "Saudi Arabia",           },
-    { key: "website",  label: "Website",      placeholder: "aramco.com",             },
-  ];
-
-  const confidence = result?.confidence ?? 0;
-  const verified   = result?.verified   ?? false;
-
+function CompanyResultsTable({ companies, onPushCrm }: { companies: any[]; onPushCrm: (id: number) => void }) {
   return (
-    <div className="p-5 space-y-5">
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-[#B8A0C8]/15 border border-[#B8A0C8]/30 flex items-center justify-center flex-shrink-0">
-          <BadgeCheck className="w-5 h-5 text-[#B8A0C8]" />
-        </div>
-        <div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <h2 className="text-lg font-bold">Data Verifier Agent</h2>
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#B8A0C8]/15 text-[#B8A0C8] border border-[#B8A0C8]/30">AI · Live Search</span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Cross-references contact data against live web sources via Perplexity. Confirms person exists, role is accurate, company is active, and LinkedIn profile is the right person.
-          </p>
-        </div>
-      </div>
-
-      {/* How it works */}
-      <div className="glass-panel p-3 flex items-start gap-3 border border-[#B8A0C8]/20 bg-[#B8A0C8]/5">
-        <BrainCircuit className="w-4 h-4 text-[#B8A0C8] flex-shrink-0 mt-0.5" />
-        <div className="text-xs text-muted-foreground leading-relaxed">
-          <span className="font-semibold text-foreground">3 parallel Perplexity probes:</span> Person existence + role check · Company active status · LinkedIn profile match.
-          All findings synthesised by Claude into a single confidence score and field-level verification report.
-          <span className="text-amber-600 dark:text-amber-400 ml-1 font-semibold">Takes 15–30 seconds.</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-12 gap-5">
-        {/* Input form */}
-        <div className="col-span-5 glass-panel p-4 space-y-3">
-          <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1">Contact data to verify</div>
-          {FIELDS_CONFIG.map(({ key, label, placeholder }) => (
-            <div key={key}>
-              <label className="text-[11px] font-semibold text-muted-foreground block mb-1">{label}</label>
-              <input
-                value={(form as any)[key]}
-                onChange={e => setField(key, e.target.value)}
-                placeholder={placeholder}
-                className="w-full px-3 py-2 rounded-lg border border-border/50 bg-background text-sm focus:outline-none focus:ring-1 focus:ring-[#B8A0C8]"
-              />
-            </div>
+    <div className="overflow-x-auto">
+      <table className="w-full text-[12px]">
+        <thead className="border-b border-border/20">
+          <tr className="text-muted-foreground">
+            {["Company","Industry","City","Phone","Email","Actions"].map((h) => (
+              <th key={h} className="px-4 py-2.5 text-left font-medium">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {companies.map((c: any, i: number) => (
+            <tr key={c.id ?? i} className="border-b border-border/10 hover:bg-muted/20">
+              <td className="px-4 py-2.5">
+                <div className="font-medium">{c.nameEn || c.name || "—"}</div>
+                {(c.nameAr) && <div className="text-muted-foreground text-[11px]" dir="rtl">{c.nameAr}</div>}
+              </td>
+              <td className="px-4 py-2.5 text-muted-foreground">{c.industry || "—"}</td>
+              <td className="px-4 py-2.5 text-muted-foreground">{c.city || "—"}</td>
+              <td className="px-4 py-2.5">{c.phone ? <a href={`tel:${c.phone}`} className="text-blue-500">{c.phone}</a> : <span className="text-muted-foreground">—</span>}</td>
+              <td className="px-4 py-2.5">{c.email ? <a href={`mailto:${c.email}`} className="text-blue-500 truncate block max-w-[140px]">{c.email}</a> : <span className="text-muted-foreground">—</span>}</td>
+              <td className="px-4 py-2.5">
+                {!c.crmCompanyId
+                  ? <button onClick={() => onPushCrm(c.id)} className="px-2.5 py-1 rounded-md text-[11px] text-white font-medium" style={{ background: TEAL }}>Push CRM</button>
+                  : <span className="px-2.5 py-1 rounded-md text-[11px] bg-green-500/10 text-green-600">In CRM</span>}
+              </td>
+            </tr>
           ))}
-          <button
-            onClick={runVerification}
-            disabled={running || !form.name_en}
-            className={cn(
-              "w-full mt-2 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition",
-              running || !form.name_en ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-[#B8A0C8] hover:bg-[#A890B8]"
-            )}>
-            {running
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Verifying via live web search…</>
-              : <><BadgeCheck className="w-4 h-4" /> Verify Contact</>
-            }
-          </button>
-          {error && (
-            <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 rounded-lg p-2">
-              <AlertCircle className="w-3.5 h-3.5" /> {error}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ProfileCard({ profile, type }: { profile: Record<string, unknown>; type: "company" | "person" }) {
+  if (!profile) return null;
+  const isCompany = type === "company";
+  return (
+    <div className="rounded-xl border border-border/30 bg-card/50 divide-y divide-border/20">
+      {/* Header */}
+      <div className="p-5">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${ACCENT}20` }}>
+            {isCompany ? <Building2 className="w-5 h-5" style={{ color: ACCENT }} /> : <User className="w-5 h-5" style={{ color: ACCENT }} />}
+          </div>
+          <div>
+            <div className="font-bold text-[16px]">{String(isCompany ? profile.nameEn : profile.fullName || profile.fullName || "")}</div>
+            {isCompany ? (
+              <div className="text-[12px] text-muted-foreground">{[profile.legalForm, profile.industry, profile.city].filter(Boolean).join(" · ")}</div>
+            ) : (
+              <div className="text-[12px] text-muted-foreground">{[profile.currentTitle, profile.currentCompany, profile.city].filter(Boolean).join(" · ")}</div>
+            )}
+          </div>
+          {typeof profile.overallScore === "number" && (
+            <div className="ml-auto">
+              <ScoreBadge score={profile.overallScore as number} large />
             </div>
           )}
         </div>
+        {profile.description && <p className="mt-3 text-[13px] text-muted-foreground leading-relaxed">{String(profile.description)}</p>}
+        {!isCompany && profile.executiveSummary && <p className="mt-3 text-[13px] text-muted-foreground leading-relaxed">{String(profile.executiveSummary)}</p>}
+      </div>
 
-        {/* Results */}
-        <div className="col-span-7 space-y-3">
-          {!result && !running && (
-            <div className="glass-panel p-8 flex flex-col items-center justify-center text-center gap-3 text-muted-foreground h-full">
-              <BadgeCheck className="w-12 h-12 text-[#B8A0C8]/30" />
-              <div className="text-sm font-semibold">Enter contact details and run live verification</div>
-              <div className="text-xs max-w-xs">3 parallel Perplexity searches will check if this person and company exist in the public web, and if the LinkedIn profile is actually them.</div>
-            </div>
-          )}
+      {/* Contact info */}
+      <div className="p-5">
+        <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Contact</div>
+        <div className="grid grid-cols-2 gap-3">
+          {profile.phone && <InfoPill icon={Phone} value={String(profile.phone)} />}
+          {profile.email && <InfoPill icon={Mail} value={String(profile.email)} />}
+          {profile.website && <InfoPill icon={Globe} value={String(profile.website)} />}
+          {(profile.address || profile.city) && <InfoPill icon={MapPin} value={String(profile.address || profile.city)} />}
+          {!isCompany && profile.linkedin && <InfoPill icon={Globe} value={String(profile.linkedin)} label="LinkedIn" />}
+        </div>
+      </div>
 
-          {running && (
-            <div className="glass-panel p-8 flex flex-col items-center justify-center gap-4">
-              <Loader2 className="w-10 h-10 text-[#B8A0C8] animate-spin" />
-              <div className="text-sm font-semibold">Running 3 live verification probes…</div>
-              <div className="grid grid-cols-3 gap-2 w-full mt-2">
-                {["Person search", "Company check", "LinkedIn verify"].map((label, i) => (
-                  <div key={i} className="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-muted/30">
-                    <Loader2 className="w-4 h-4 text-[#B8A0C8] animate-spin" />
-                    <div className="text-[10px] text-muted-foreground text-center">{label}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="text-xs text-muted-foreground">Searching Perplexity → Claude synthesis (15–30s)</div>
-            </div>
-          )}
-
-          {result && (
+      {/* Key fields */}
+      <div className="p-5">
+        <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Profile</div>
+        <div className="grid grid-cols-2 gap-2 text-[12px]">
+          {isCompany ? (
             <>
-              {/* Verification verdict card */}
-              <div className={cn(
-                "glass-panel p-4 border-2 flex items-center gap-4",
-                verified ? "border-[#88B8B0]/50 bg-[#88B8B0]/5" : confidence >= 50 ? "border-amber-500/40 bg-amber-50/30 dark:bg-amber-950/10" : "border-red-500/30 bg-red-50/20 dark:bg-red-950/10"
-              )}>
-                {verified
-                  ? <BadgeCheck className="w-12 h-12 text-[#88B8B0] flex-shrink-0" />
-                  : confidence >= 50
-                    ? <AlertTriangle className="w-12 h-12 text-amber-500 flex-shrink-0" />
-                    : <XCircle className="w-12 h-12 text-red-500 flex-shrink-0" />
-                }
-                <div className="flex-1">
-                  <div className={cn(
-                    "text-base font-bold",
-                    verified ? "text-[#88B8B0]" : confidence >= 50 ? "text-amber-700 dark:text-amber-300" : "text-red-600 dark:text-red-400"
-                  )}>
-                    {verified ? "Contact Verified" : confidence >= 50 ? "Partially Verified — Manual Check Needed" : "Could Not Verify"}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{result.recommendation}</div>
-                  <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{
-                      width: `${confidence}%`,
-                      background: verified ? "#88B8B0" : confidence >= 50 ? "#C8B880" : "#C88080"
-                    }} />
-                  </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <div className="text-3xl font-black" style={{ color: verified ? "#88B8B0" : confidence >= 50 ? "#C8B880" : "#C88080" }}>
-                    {confidence}%
-                  </div>
-                  <div className="text-[10px] text-muted-foreground">confidence</div>
-                </div>
-              </div>
-
-              {/* Source checks */}
-              <div className="glass-panel p-4">
-                <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3">Verification probes</div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { key: "person_confirmed",  label: "Person",  icon: User,      color: "#88B8B0" },
-                    { key: "company_confirmed", label: "Company", icon: Building2, color: "#B8A0C8" },
-                    { key: "linkedin_confirmed",label: "LinkedIn", icon: Linkedin,  color: "#0A66C2" },
-                  ].map(({ key, label, icon: Icon, color }) => {
-                    const val = result[key];
-                    const isNull = val === null || val === undefined;
-                    return (
-                      <div key={key} className={cn(
-                        "rounded-xl p-3 border flex flex-col items-center gap-1.5 text-center",
-                        isNull ? "border-border/20 bg-muted/10 opacity-50" :
-                        val ? "border-[#88B8B0]/30 bg-[#88B8B0]/5" : "border-amber-500/30 bg-amber-50/30 dark:bg-amber-950/10"
-                      )}>
-                        {isNull
-                          ? <Icon className="w-5 h-5 text-muted-foreground" />
-                          : val
-                            ? <CheckCircle2 className="w-5 h-5" style={{ color }} />
-                            : <AlertCircle className="w-5 h-5 text-amber-500" />
-                        }
-                        <div className="text-[11px] font-semibold">{label}</div>
-                        <div className={cn(
-                          "text-[10px] font-bold",
-                          isNull ? "text-muted-foreground" : val ? "text-[#88B8B0]" : "text-amber-600 dark:text-amber-400"
-                        )}>
-                          {isNull ? "Not checked" : val ? "Confirmed" : "Unconfirmed"}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Verified field breakdown */}
-              {result.verified_fields && Object.keys(result.verified_fields).length > 0 && (
-                <div className="glass-panel p-4">
-                  <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3">Field verification details</div>
-                  <div className="space-y-2">
-                    {Object.entries(result.verified_fields).map(([field, v]: [string, any]) => (
-                      <div key={field} className="flex items-start gap-2.5">
-                        {v?.confirmed === true
-                          ? <CheckCircle2 className="w-4 h-4 text-[#88B8B0] flex-shrink-0 mt-0.5" />
-                          : v?.confirmed === false
-                            ? <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                            : <AlertCircle className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                        }
-                        <div className="flex-1">
-                          <span className="text-xs font-semibold capitalize">{field} — </span>
-                          <span className="text-xs text-muted-foreground">{v?.note ?? "—"}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Risk flags & discrepancies */}
-              {((result.risk_flags?.length > 0) || (result.discrepancies?.length > 0)) && (
-                <div className="glass-panel p-4 border border-amber-500/20 bg-amber-50/20 dark:bg-amber-950/5">
-                  <div className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-2 flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5" /> Flags & Discrepancies
-                  </div>
-                  {[...(result.risk_flags ?? []), ...(result.discrepancies ?? [])].map((flag: string, i: number) => (
-                    <div key={i} className="text-[11px] text-amber-700 dark:text-amber-300 flex items-start gap-1.5 mt-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0 mt-1" />
-                      {flag}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Raw findings (collapsible) */}
-              {result.raw_findings && (
-                <div className="glass-panel p-3">
-                  <button onClick={() => setShowRaw(v => !v)} className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground w-full">
-                    <FileText className="w-3.5 h-3.5" /> Raw Perplexity findings
-                    {showRaw ? <ChevronUp className="w-3.5 h-3.5 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 ml-auto" />}
-                    {result.duration_ms && <span className="ml-1 text-[10px]">{result.duration_ms}ms</span>}
-                  </button>
-                  {showRaw && (
-                    <div className="mt-3 space-y-3">
-                      {Object.entries(result.raw_findings).filter(([, v]) => v).map(([source, text]: [string, any]) => (
-                        <div key={source}>
-                          <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">{source} probe</div>
-                          <div className="text-[11px] text-foreground/70 leading-relaxed bg-muted/30 rounded p-2 whitespace-pre-wrap">
-                            {String(text).slice(0, 600)}{String(text).length > 600 ? "…" : ""}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Sources used */}
-              {result.sources_checked?.length > 0 && (
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                  <Globe className="w-3 h-3" /> Sources: {result.sources_checked.join(" · ")}
-                </div>
-              )}
+              {profile.crNumber    && <KeyValue k="CR Number"     v={profile.crNumber} />}
+              {profile.foundingYear && <KeyValue k="Founded"      v={profile.foundingYear} />}
+              {profile.paidUpCapital && <KeyValue k="Capital"     v={profile.paidUpCapital} />}
+              {profile.revenue     && <KeyValue k="Revenue"       v={profile.revenue} />}
+              {profile.employees   && <KeyValue k="Employees"     v={profile.employees} />}
+              {profile.ceo         && <KeyValue k="CEO"           v={profile.ceo} />}
+            </>
+          ) : (
+            <>
+              {profile.nationality        && <KeyValue k="Nationality"    v={profile.nationality} />}
+              {profile.decisionMakingAuthority && <KeyValue k="Authority"   v={profile.decisionMakingAuthority} />}
+              {profile.communicationPreference && <KeyValue k="Prefers"    v={profile.communicationPreference} />}
+              {profile.wealthEstimate     && <KeyValue k="Wealth Est."    v={profile.wealthEstimate} />}
             </>
           )}
         </div>
       </div>
+
+      {/* AI insights */}
+      {(profile.aiInsights || profile.bestApproach) && (
+        <div className="p-5">
+          <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-2">AI Insights for Seller</div>
+          <p className="text-[13px] text-foreground/80 leading-relaxed">{String(profile.aiInsights || profile.bestApproach)}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScoreBadge({ score, large = false }: { score: number; large?: boolean }) {
+  const color = score >= 70 ? "#22c55e" : score >= 40 ? GOLD : "#ef4444";
+  return (
+    <div className={cn("rounded-full font-bold text-white inline-flex items-center justify-center", large ? "w-10 h-10 text-[13px]" : "w-8 h-8 text-[11px]")}
+      style={{ background: color }}>
+      {score}
+    </div>
+  );
+}
+
+function InfoPill({ icon: Icon, value, label }: { icon: React.ElementType; value: string; label?: string }) {
+  return (
+    <div className="flex items-center gap-2 text-[12px]">
+      <Icon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+      <span className="truncate">{label ? `${label}: ` : ""}{value}</span>
+    </div>
+  );
+}
+
+function KeyValue({ k, v }: { k: string; v: unknown }) {
+  return (
+    <div className="flex gap-2">
+      <span className="text-muted-foreground flex-shrink-0">{k}:</span>
+      <span className="font-medium truncate">{String(v)}</span>
+    </div>
+  );
+}
+
+function EmptyState({ icon: Icon, text }: { icon: React.ElementType; text: string }) {
+  return (
+    <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground/50">
+      <Icon className="w-10 h-10" />
+      <div className="text-[13px] text-center max-w-xs">{text}</div>
+    </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <div className="py-12 flex justify-center">
+      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
     </div>
   );
 }

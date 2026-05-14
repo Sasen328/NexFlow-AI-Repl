@@ -871,3 +871,199 @@ export const tenant_configs = pgTable("tenant_configs", {
 export type SetupSession  = typeof setup_sessions.$inferSelect;
 export type SetupProposal = typeof setup_proposals.$inferSelect;
 export type TenantConfig  = typeof tenant_configs.$inferSelect;
+
+// ── Masar Company Database (Doc 2) ──────────────────────────────────────────
+
+export const masar_companies = pgTable("masar_companies", {
+  id:               integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  nameEn:           text("name_en"),
+  nameAr:           text("name_ar"),
+  crNumber:         text("cr_number"),
+  legalForm:        text("legal_form"),
+  city:             text("city"),
+  industry:         text("industry"),
+  phone:            text("phone"),
+  email:            text("email"),
+  website:          text("website"),
+  address:          text("address"),
+  paidUpCapital:    text("paid_up_capital"),
+  foundingYear:     integer("founding_year"),
+  employees:        integer("employees"),
+  revenue:          text("revenue"),
+  ownerName:        text("owner_name"),
+  ownerNameAr:      text("owner_name_ar"),
+  ownerTitle:       text("owner_title"),
+  keyExecutives:    text("key_executives"),
+  shareholders:     text("shareholders"),
+  board:            text("board"),
+  description:      text("description"),
+  marketPositioning: text("market_positioning"),
+  sourceId:         text("source_id"),
+  sourceUrl:        text("source_url"),
+  enrichmentStatus: text("enrichment_status").default("pending"),
+  enrichmentScore:  integer("enrichment_score").default(0),
+  isValidated:      boolean("is_validated").default(false),
+  isDuplicate:      boolean("is_duplicate").default(false),
+  crmContactId:     text("crm_contact_id"),
+  crmCompanyId:     text("crm_company_id"),
+  rawData:          jsonb("raw_data"),
+  createdAt:        timestamp("created_at").defaultNow(),
+  updatedAt:        timestamp("updated_at").defaultNow(),
+}, (t) => ({
+  crIdx:      index("masar_companies_cr_idx").on(t.crNumber),
+  nameIdx:    index("masar_companies_name_idx").on(t.nameEn),
+  sourceIdx:  index("masar_companies_source_idx").on(t.sourceId),
+  statusIdx:  index("masar_companies_status_idx").on(t.enrichmentStatus),
+}));
+
+export const masar_harvest_jobs = pgTable("masar_harvest_jobs", {
+  id:                 integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  jobId:              text("job_id").unique().notNull(),
+  sourceIds:          jsonb("source_ids").default([]),
+  status:             text("status").default("pending"),
+  progress:           integer("progress").default(0),
+  companiesHarvested: integer("companies_harvested").default(0),
+  companiesTotal:     integer("companies_total").default(0),
+  error:              text("error"),
+  startedAt:          timestamp("started_at"),
+  completedAt:        timestamp("completed_at"),
+  createdAt:          timestamp("created_at").defaultNow(),
+});
+
+export const masar_custom_sources = pgTable("masar_custom_sources", {
+  id:                 integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  name:               text("name").notNull(),
+  nameAr:             text("name_ar"),
+  url:                text("url").notNull(),
+  category:           text("category").notNull(),
+  description:        text("description"),
+  estimatedCompanies: integer("estimated_companies").default(0),
+  isActive:           boolean("is_active").default(true),
+  createdAt:          timestamp("created_at").defaultNow(),
+});
+
+export type MasarCompany      = typeof masar_companies.$inferSelect;
+export type MasarHarvestJob   = typeof masar_harvest_jobs.$inferSelect;
+export type MasarCustomSource = typeof masar_custom_sources.$inferSelect;
+
+// ── AI Database Builder (Doc 4) ───────────────────────────────────────────
+
+export const builder_companies = pgTable("builder_companies", {
+  id:               integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  nameEn:           text("name_en").notNull(),
+  nameAr:           text("name_ar"),
+  crNumber:         text("cr_number"),
+  legalForm:        text("legal_form"),
+  city:             text("city"),
+  industry:         text("industry"),
+  phone:            text("phone"),
+  email:            text("email"),
+  website:          text("website"),
+  address:          text("address"),
+  foundingYear:     integer("founding_year"),
+  employeeCount:    integer("employee_count"),
+  revenue:          text("revenue"),
+  ownerName:        text("owner_name"),
+  ownerNameAr:      text("owner_name_ar"),
+  ownerTitle:       text("owner_title"),
+  keyExecutives:    text("key_executives"),
+  shareholders:     text("shareholders"),
+  description:      text("description"),
+  marketPositioning: text("market_positioning"),
+  sourceId:         text("source_id"),
+  sourceUrl:        text("source_url"),
+  enrichmentStatus: text("enrichment_status").default("pending"),
+  enrichmentScore:  integer("enrichment_score").default(0),
+  isValidated:      boolean("is_validated").default(false),
+  isDuplicate:      boolean("is_duplicate").default(false),
+  crmContactId:     text("crm_contact_id"),
+  crmCompanyId:     text("crm_company_id"),
+  rawData:          jsonb("raw_data"),
+  createdAt:        timestamp("created_at").defaultNow(),
+  updatedAt:        timestamp("updated_at").defaultNow(),
+}, (t) => ({
+  crIdx:     index("builder_companies_cr_idx").on(t.crNumber),
+  nameIdx:   index("builder_companies_name_idx").on(t.nameEn),
+  sourceIdx: index("builder_companies_source_idx").on(t.sourceId),
+  statusIdx: index("builder_companies_status_idx").on(t.enrichmentStatus),
+  dupIdx:    index("builder_companies_dup_idx").on(t.isDuplicate),
+}));
+
+export const builder_jobs = pgTable("builder_jobs", {
+  id:                 integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  jobId:              text("job_id").unique().notNull(),
+  type:               text("type").default("builder_harvest"),
+  status:             text("status").default("pending"),
+  sourceIds:          jsonb("source_ids").default([]),
+  sourcesTotal:       integer("sources_total").default(0),
+  companiesHarvested: integer("companies_harvested").default(0),
+  progress:           integer("progress").default(0),
+  error:              text("error"),
+  startedAt:          timestamp("started_at"),
+  completedAt:        timestamp("completed_at"),
+  createdAt:          timestamp("created_at").defaultNow(),
+});
+
+export const builder_custom_sources = pgTable("builder_custom_sources", {
+  id:                 integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  name:               text("name").notNull(),
+  nameAr:             text("name_ar"),
+  url:                text("url").notNull(),
+  category:           text("category").notNull(),
+  description:        text("description"),
+  estimatedCompanies: integer("estimated_companies").default(0),
+  createdAt:          timestamp("created_at").defaultNow(),
+});
+
+export type BuilderCompany      = typeof builder_companies.$inferSelect;
+export type BuilderJob          = typeof builder_jobs.$inferSelect;
+export type BuilderCustomSource = typeof builder_custom_sources.$inferSelect;
+
+// ── Prospecting / Website Intel (Doc 3 §6) ────────────────────────────────
+
+export const prospecting_jobs = pgTable("prospecting_jobs", {
+  id:                   integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  targetUrl:            text("target_url").notNull(),
+  status:               text("status").default("scanning"),
+  settings:             jsonb("settings"),
+  scanSummary:          jsonb("scan_summary"),
+  scanResult:           jsonb("scan_result"),
+  pagesScanned:         integer("pages_scanned").default(0),
+  totalCompaniesFound:  integer("total_companies_found").default(0),
+  totalEnriched:        integer("total_enriched").default(0),
+  error:                text("error"),
+  completedAt:          timestamp("completed_at"),
+  updatedAt:            timestamp("updated_at").defaultNow(),
+  createdAt:            timestamp("created_at").defaultNow(),
+}, (t) => ({
+  statusIdx:  index("prospecting_jobs_status_idx").on(t.status),
+  createdIdx: index("prospecting_jobs_created_idx").on(t.createdAt),
+}));
+
+export const prospecting_results = pgTable("prospecting_results", {
+  id:               integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  jobId:            integer("job_id").notNull().references(() => prospecting_jobs.id, { onDelete: "cascade" }),
+  companyData:      jsonb("company_data"),
+  enrichmentStatus: text("enrichment_status").default("pending"),
+  sourceUrl:        text("source_url"),
+  pushedToCrm:      boolean("pushed_to_crm").default(false),
+  crmContactId:     text("crm_contact_id"),
+  crmCompanyId:     text("crm_company_id"),
+  createdAt:        timestamp("created_at").defaultNow(),
+}, (t) => ({
+  jobIdx: index("prospecting_results_job_idx").on(t.jobId),
+}));
+
+export const export_history = pgTable("export_history", {
+  id:          integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  jobId:       integer("job_id"),
+  format:      text("format"),
+  filename:    text("filename"),
+  recordCount: integer("record_count").default(0),
+  fileSize:    integer("file_size").default(0),
+  createdAt:   timestamp("created_at").defaultNow(),
+});
+
+export type ProspectingJob    = typeof prospecting_jobs.$inferSelect;
+export type ProspectingResult = typeof prospecting_results.$inferSelect;
+export type ExportHistory     = typeof export_history.$inferSelect;

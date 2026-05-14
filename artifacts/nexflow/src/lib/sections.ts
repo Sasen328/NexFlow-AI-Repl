@@ -74,6 +74,7 @@ export const SECTIONS: SectionDef[] = [
       { icon: GitBranch,  label: "Deals",           href: "/deal-pipeline",  desc: "Kanban pipeline · stages · win/loss" },
       { icon: GitBranch,  label: "Sequences",       href: "/sequences-audiences", desc: "Multi-touch cadences · automation rules · templates", group: "Automation" },
       { icon: Layers,     label: "Templates",       href: "/templates",      desc: "Reusable email · WhatsApp · script templates", group: "Automation" },
+      { icon: Target,     label: "Segments",        href: "/segments",       desc: "Dynamic segments, filters, smart lists", group: "Automation" },
     ],
   },
 
@@ -99,29 +100,24 @@ export const SECTIONS: SectionDef[] = [
       { icon: Bot,             label: "AI Voice Agent",      href: "/callcenter/agent",          desc: "Automated callers · settings & deployments", group: "Command Center" },
       { icon: Layers,          label: "Templates",           href: "/templates",                 desc: "Reusable scripts · email · WhatsApp templates",  group: "Command Center" },
       { icon: BookOpen,        label: "Knowledge Base",      href: "/callcenter/knowledge-base", desc: "Talk tracks · objections · playbooks",           group: "Command Center" },
+      { icon: Bot,             label: "AI Workforce",        href: "/datahub/workforce",         desc: "Custom AI agents, prompts & scoring — build and deploy AI reps", group: "Capabilities" },
     ],
   },
 
-  // ─── 4. Enrichment Engine (per spec §05, §08 — was "Data Hub") ────
+  // ─── 4. Enrichment (was "Data Hub") ────────────────────────────────
   // Key remains "datahub" so ROLE_NAV / legacy deep links keep working.
+  // 3-tab sidebar: Lead Generation | CRM Enrichment | Settings
   {
     key: "datahub",
     label: "★ Enrichment",
     icon: Database,
-    tagline: "Engine · Dedup · Segments · AI Workforce.",
+    tagline: "Lead Generation · CRM Enrichment · Settings.",
     accent: "#B8A0C8",
     defaultHref: "/enrichment-engine",
     items: [
-      // Engine is the hub. Signals and Sources are also surfaced at the
-      // sidebar level (deep-linking into the corresponding inner tab) so
-      // users can jump straight to "what's the buying signal" or "which
-      // data providers do we have configured" without scanning tabs.
-      { icon: BrainCircuit,    label: "Engine",            href: "/enrichment-engine",                  desc: "The waterfall · Prospecting · Enrich · Cards · Intel Engines" },
-      { icon: Zap,             label: "Buying Signals",    href: "/enrichment-engine?tab=signals",      desc: "Hiring · funding · tech-change · intent triggers" },
-      { icon: Database,        label: "Sources",           href: "/enrichment-engine?tab=sources",      desc: "Hunter · Apollo · Lusha · Wathiq · MAGNiTT — keys & priority" },
-      { icon: FileSpreadsheet, label: "Dedup",             href: "/dedup",                              desc: "List Upload · duplicate detection · auto-merge" },
-      { icon: Target,          label: "Segments",          href: "/datahub/segments",                   desc: "Dynamic segments, filters, smart lists" },
-      { icon: Bot,             label: "AI Workforce",      href: "/datahub/workforce",                  desc: "Custom AI agents, prompts & scoring" },
+      { icon: Search,    label: "Lead Generation",  href: "/enrichment-engine",              desc: "Masar DB · AI Builder · Website Intel · Company & Person profiles" },
+      { icon: Sparkles,  label: "CRM Enrichment",   href: "/enrichment-engine?tab=enrich",   desc: "Enrich contacts · bulk upload · card scanner · dedup · waterfall" },
+      { icon: Settings,  label: "Settings",          href: "/enrichment-engine?tab=settings", desc: "Waterfall sources · API keys · data rules · export history" },
     ],
   },
 
