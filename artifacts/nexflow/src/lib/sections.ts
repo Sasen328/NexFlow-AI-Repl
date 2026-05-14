@@ -115,9 +115,9 @@ export const SECTIONS: SectionDef[] = [
     accent: "#B8A0C8",
     defaultHref: "/enrichment-engine",
     items: [
-      { icon: Search,    label: "Lead Generation",  href: "/enrichment-engine",              desc: "Masar DB · AI Builder · Website Intel · Company & Person profiles" },
-      { icon: Sparkles,  label: "CRM Enrichment",   href: "/enrichment-engine?tab=enrich",   desc: "Enrich contacts · bulk upload · card scanner · dedup · waterfall" },
-      { icon: Settings,  label: "Settings",          href: "/enrichment-engine?tab=settings", desc: "Waterfall sources · API keys · data rules · export history" },
+      { icon: Search,    label: "Lead Generation",  href: "/enrichment-engine",         desc: "Masar DB · AI Builder · Website Intel · Company & Person profiles" },
+      { icon: Sparkles,  label: "CRM Enrichment",   href: "/enrichment-engine/enrich",   desc: "Quick Enrich · Bulk Upload · Card Scanner" },
+      { icon: Settings,  label: "Settings",          href: "/enrichment-engine/settings", desc: "Waterfall sources · Dedup · API keys · export history" },
     ],
   },
 
