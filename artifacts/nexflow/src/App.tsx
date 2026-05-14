@@ -244,8 +244,9 @@ function AppLayout() {
           <Route path="/dedup" component={DedupPage} />
           <Route path="/lead-enrich" component={LeadEnrichPage} />
           <Route path="/enrichment-engine" component={EnrichmentEnginePage} />
-          {/* /search-history is now an internal "Save History" tab in /enrichment-engine — redirect any old deep links straight onto that tab */}
-          <Route path="/search-history"><Redirect to="/enrichment-engine?tab=history" /></Route>
+          <Route path="/enrichment-engine/enrich" component={EnrichmentEnginePage} />
+          <Route path="/enrichment-engine/settings" component={EnrichmentEnginePage} />
+          <Route path="/search-history"><Redirect to="/enrichment-engine" /></Route>
           <Route path="/marketing-assistant" component={MarketingAssistantPage} />
           {/* New Marketing tab structure (overhaul) */}
           <Route path="/marketing-dashboard" component={MarketingDashboardPage} />

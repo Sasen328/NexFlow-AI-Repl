@@ -44,19 +44,20 @@ const GOLD     = "#C8A880";
 // ── Tab routing ───────────────────────────────────────────────────────────────
 type MainTab   = "leadgen" | "enrich" | "settings";
 type LeadSubTab = "masar" | "builder" | "website" | "company" | "person";
-type EnrichSubTab = "quick" | "bulk" | "cards" | "dedup" | "waterfall";
-type SettingsSubTab = "sources" | "apikeys" | "exports";
+type EnrichSubTab = "quick" | "bulk" | "cards";
+type SettingsSubTab = "sources" | "dedup" | "apikeys" | "exports";
 
-function useQueryTab(): MainTab {
+function usePathTab(): MainTab {
   const [location] = useLocation();
-  const params = new URLSearchParams(location.split("?")[1] || "");
-  const t = params.get("tab") as MainTab | null;
-  return t === "enrich" ? "enrich" : t === "settings" ? "settings" : "leadgen";
+  const path = location.split("?")[0];
+  if (path === "/enrichment-engine/enrich" || path === "/datahub/enrichment/enrich") return "enrich";
+  if (path === "/enrichment-engine/settings" || path === "/datahub/enrichment/settings") return "settings";
+  return "leadgen";
 }
 
 // ── Root component ────────────────────────────────────────────────────────────
 export default function EnrichmentEngine() {
-  const mainTab = useQueryTab();
+  const mainTab = usePathTab();
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -71,13 +72,19 @@ export default function EnrichmentEngine() {
 
 // ── Page header ───────────────────────────────────────────────────────────────
 function Header() {
-  const mainTab = useQueryTab();
+  const mainTab = usePathTab();
   const [, navigate] = useLocation();
+
+  const PATH: Record<MainTab, string> = {
+    leadgen:  "/enrichment-engine",
+    enrich:   "/enrichment-engine/enrich",
+    settings: "/enrichment-engine/settings",
+  };
 
   const tabs: { id: MainTab; label: string; icon: React.ElementType; desc: string }[] = [
     { id: "leadgen",  label: "Lead Generation",  icon: Search,    desc: "Find new prospects" },
-    { id: "enrich",  label: "CRM Enrichment",    icon: Sparkles,  desc: "Enrich existing data" },
-    { id: "settings",label: "Settings",           icon: Settings,  desc: "Sources & API keys" },
+    { id: "enrich",   label: "CRM Enrichment",   icon: Sparkles,  desc: "Enrich existing data" },
+    { id: "settings", label: "Settings",          icon: Settings,  desc: "Sources & API keys" },
   ];
 
   return (
@@ -100,7 +107,7 @@ function Header() {
               return (
                 <button
                   key={t.id}
-                  onClick={() => navigate(t.id === "leadgen" ? "/enrichment-engine" : `/enrichment-engine?tab=${t.id}`)}
+                  onClick={() => navigate(PATH[t.id])}
                   className={cn(
                     "flex items-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-medium transition-all",
                     active ? "text-white shadow-sm" : "text-foreground/60 hover:text-foreground hover:bg-muted/50",
@@ -1021,11 +1028,9 @@ function PersonIntelPanel() {
 function CrmEnrichmentTab() {
   const [sub, setSub] = useState<EnrichSubTab>("quick");
   const subTabs: { id: EnrichSubTab; label: string; icon: React.ElementType }[] = [
-    { id: "quick",     label: "Quick Enrich",   icon: Sparkles },
-    { id: "bulk",      label: "Bulk Upload",     icon: Upload },
-    { id: "cards",     label: "Card Scanner",    icon: ScanLine },
-    { id: "dedup",     label: "Deduplication",   icon: GitMerge },
-    { id: "waterfall", label: "Waterfall",       icon: Route },
+    { id: "quick", label: "Quick Enrich",  icon: Sparkles },
+    { id: "bulk",  label: "Bulk Upload",   icon: Upload },
+    { id: "cards", label: "Card Scanner",  icon: ScanLine },
   ];
 
   return (
@@ -1045,11 +1050,9 @@ function CrmEnrichmentTab() {
       </div>
 
       <Suspense fallback={<Spinner />}>
-        {sub === "quick"     && <LeadEnrichPage />}
-        {sub === "bulk"      && <BulkUploadPanel />}
-        {sub === "cards"     && <BusinessCards />}
-        {sub === "dedup"     && <DedupPage />}
-        {sub === "waterfall" && <SourcesTab />}
+        {sub === "quick" && <LeadEnrichPage />}
+        {sub === "bulk"  && <BulkUploadPanel />}
+        {sub === "cards" && <BusinessCards />}
       </Suspense>
     </div>
   );
@@ -1146,9 +1149,10 @@ function BulkUploadPanel() {
 function SettingsTab() {
   const [sub, setSub] = useState<SettingsSubTab>("sources");
   const subTabs: { id: SettingsSubTab; label: string; icon: React.ElementType }[] = [
-    { id: "sources",  label: "Waterfall Sources", icon: Layers },
-    { id: "apikeys",  label: "API Keys",           icon: Tag },
-    { id: "exports",  label: "Export History",     icon: Download },
+    { id: "sources", label: "Waterfall Sources", icon: Layers },
+    { id: "dedup",   label: "Deduplication",     icon: GitMerge },
+    { id: "apikeys", label: "API Keys",           icon: Tag },
+    { id: "exports", label: "Export History",     icon: Download },
   ];
 
   return (
@@ -1169,6 +1173,7 @@ function SettingsTab() {
 
       <Suspense fallback={<Spinner />}>
         {sub === "sources" && <SourcesTab />}
+        {sub === "dedup"   && <DedupPage />}
         {sub === "apikeys" && <ApiKeysPanel />}
         {sub === "exports" && <ExportHistoryPanel />}
       </Suspense>
