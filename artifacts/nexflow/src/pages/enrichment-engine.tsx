@@ -36,8 +36,9 @@ const BusinessCards    = lazy(() => import("./business-cards"));
 const DedupPage        = lazy(() => import("./dedup"));
 
 // Dedicated engine panels — each in its own file with distinct UI
-const MasarDatabasePanel     = lazy(() => import("@/components/enrichment/masar-database-panel").then((m) => ({ default: m.MasarDatabasePanel })));
-const AiDatabaseBuilderPanel = lazy(() => import("@/components/enrichment/ai-database-builder-panel").then((m) => ({ default: m.AiDatabaseBuilderPanel })));
+const MasarDatabasePanel          = lazy(() => import("@/components/enrichment/masar-database-panel").then((m) => ({ default: m.MasarDatabasePanel })));
+const AiDatabaseBuilderPanel      = lazy(() => import("@/components/enrichment/ai-database-builder-panel").then((m) => ({ default: m.AiDatabaseBuilderPanel })));
+const SignalTriggeredEnrichment   = lazy(() => import("@/components/enrichment/signal-triggered-enrichment").then((m) => ({ default: m.SignalTriggeredEnrichment })));
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const ACCENT   = "#B8A0C8";
@@ -48,7 +49,7 @@ const GOLD     = "#C8A880";
 type MainTab        = "leadgen" | "enrich" | "settings";
 type LeadSubTab     = "masaar" | "masar" | "prosengine" | "builder" | "cards";
 type ProsSubTab     = "company" | "person" | "website" | "seeder";
-type EnrichSubTab   = "quick" | "bulk" | "waterfall";
+type EnrichSubTab   = "signals" | "quick" | "bulk" | "waterfall";
 type SettingsSubTab = "waterfall" | "dedup" | "validation";
 
 function usePathTab(): MainTab {
@@ -836,11 +837,12 @@ function DataSeederPanel() {
 // TAB 2 — CRM ENRICHMENT
 // ═══════════════════════════════════════════════════════════════════════════════
 function CrmEnrichmentTab() {
-  const [sub, setSub] = useState<EnrichSubTab>("quick");
-  const subTabs: { id: EnrichSubTab; label: string; icon: React.ElementType }[] = [
-    { id: "quick",     label: "Quick Enrich", icon: Sparkles },
-    { id: "bulk",      label: "Bulk Upload",  icon: Upload },
-    { id: "waterfall", label: "Waterfall",    icon: Layers },
+  const [sub, setSub] = useState<EnrichSubTab>("signals");
+  const subTabs: { id: EnrichSubTab; label: string; icon: React.ElementType; badge?: string }[] = [
+    { id: "signals",   label: "Signal Triggers", icon: Zap,      badge: "NEW" },
+    { id: "quick",     label: "Quick Enrich",    icon: Sparkles },
+    { id: "bulk",      label: "Bulk Upload",     icon: Upload },
+    { id: "waterfall", label: "Waterfall",       icon: Layers },
   ];
 
   return (
@@ -854,12 +856,18 @@ function CrmEnrichmentTab() {
               className={cn("flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-semibold transition-all border", active ? "border-transparent text-white shadow-md" : "border-border/40 text-foreground/60 hover:text-foreground hover:bg-muted/40")}
               style={active ? { background: `linear-gradient(135deg, ${TEAL}CC, ${ACCENT}CC)`, boxShadow: `0 4px 12px ${TEAL}30` } : undefined}>
               <Icon className="w-3.5 h-3.5" /> {t.label}
+              {t.badge && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-red-500 text-white">
+                  {t.badge}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
       <Suspense fallback={<Spinner />}>
+        {sub === "signals"   && <SignalTriggeredEnrichment />}
         {sub === "quick"     && <LeadEnrichPage />}
         {sub === "bulk"      && <BulkUploadPanel />}
         {sub === "waterfall" && <SourcesTab />}
