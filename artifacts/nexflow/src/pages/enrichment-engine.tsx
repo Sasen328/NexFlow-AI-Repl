@@ -31,7 +31,6 @@ import { apiFetch } from "@/hooks/useApi";
 // Lazy-loaded sub-pages (existing)
 const SourcesTab       = lazy(() => import("@/components/enrichment/sources-tab").then((m) => ({ default: m.SourcesTab })));
 const MasaarPanel      = lazy(() => import("@/components/enrichment/intel-engines-tab").then((m) => ({ default: m.MasaarPanel })));
-const LeadFinderPanel  = lazy(() => import("@/components/enrichment/intel-engines-tab").then((m) => ({ default: m.LeadFinderPanel })));
 const LeadEnrichPage   = lazy(() => import("./lead-enrich"));
 const BusinessCards    = lazy(() => import("./business-cards"));
 const DedupPage        = lazy(() => import("./dedup"));
@@ -43,9 +42,9 @@ const GOLD     = "#C8A880";
 
 // ── Tab routing ───────────────────────────────────────────────────────────────
 type MainTab        = "leadgen" | "enrich" | "settings";
-type LeadSubTab     = "masaar" | "masar" | "prosengine" | "builder";
-type ProsSubTab     = "company" | "person" | "website" | "leadfinder";
-type EnrichSubTab   = "quick" | "bulk" | "waterfall" | "cards";
+type LeadSubTab     = "masaar" | "masar" | "prosengine" | "builder" | "cards";
+type ProsSubTab     = "company" | "person" | "website" | "seeder";
+type EnrichSubTab   = "quick" | "bulk" | "waterfall";
 type SettingsSubTab = "waterfall" | "dedup" | "validation";
 
 function usePathTab(): MainTab {
@@ -60,8 +59,8 @@ function usePathTab(): MainTab {
 export default function EnrichmentEngine() {
   const mainTab = usePathTab();
   const TITLES: Record<MainTab, { label: string; desc: string }> = {
-    leadgen:  { label: "Lead Generation",  desc: "Masaar Engine · Masar Database · ProsEngine · AI Builder" },
-    enrich:   { label: "CRM Enrichment",   desc: "Quick Enrich · Bulk Upload · Waterfall · Card Scanner" },
+    leadgen:  { label: "Lead Generation",  desc: "Masaar Engine · Masar Database · ProsEngine · AI Builder · Card Scanner" },
+    enrich:   { label: "CRM Enrichment",   desc: "Quick Enrich · Bulk Upload · Waterfall" },
     settings: { label: "Settings",         desc: "Waterfall Sources · Lead Deduplication · Validation & Verification" },
   };
   const t = TITLES[mainTab];
@@ -94,15 +93,16 @@ export default function EnrichmentEngine() {
 function LeadGenerationTab() {
   const [sub, setSub] = useState<LeadSubTab>("masaar");
   const subTabs: { id: LeadSubTab; label: string; icon: React.ElementType; badge?: string; desc: string }[] = [
-    { id: "masaar",    label: "Masaar Engine",     icon: BrainCircuit, badge: "Doc 1", desc: "Saudi CR intelligence — 7-agent SSE pipeline" },
-    { id: "masar",     label: "Masar Database",    icon: Database,     badge: "25 src", desc: "25-source agentic company harvest" },
-    { id: "prosengine",label: "ProsEngine",        icon: Cpu,          badge: "Doc 3",  desc: "Company · Person · Website intelligence" },
-    { id: "builder",   label: "AI DB Builder",     icon: Bot,          badge: "15 src", desc: "15-source AI database builder" },
+    { id: "masaar",    label: "Masaar Engine",  icon: BrainCircuit, badge: "Doc 1",   desc: "Saudi CR intelligence — 7-agent SSE pipeline" },
+    { id: "masar",     label: "Masar Database", icon: Database,     badge: "25 src",  desc: "25-source agentic company harvest" },
+    { id: "prosengine",label: "ProsEngine",     icon: Cpu,          badge: "Doc 3",   desc: "Company · Person · Website · Data Seeder" },
+    { id: "builder",   label: "AI DB Builder",  icon: Bot,          badge: "15 src",  desc: "15-source AI database builder" },
+    { id: "cards",     label: "Card Scanner",   icon: ScanLine,     badge: "5-agent", desc: "Scan business cards → enriched leads" },
   ];
 
   return (
     <div>
-      {/* 4-engine sub-tab strip */}
+      {/* 5-engine sub-tab strip */}
       <div className="flex gap-2 mb-6 flex-wrap">
         {subTabs.map((t) => {
           const Icon = t.icon;
@@ -134,6 +134,7 @@ function LeadGenerationTab() {
         {sub === "masar"      && <MasarDatabasePanel />}
         {sub === "prosengine" && <ProsEnginePanel />}
         {sub === "builder"    && <AiDatabaseBuilderPanel />}
+        {sub === "cards"      && <BusinessCards />}
       </Suspense>
     </div>
   );
@@ -148,15 +149,14 @@ function MasaarEnginePanel() {
   );
 }
 
-// ── ProsEngine Panel (Doc 3 — Company · Person · Website · Lead Finder) ────────
-// Per user instruction: Prospecting + Lead Finder under ONE tool
+// ── ProsEngine Panel (Doc 3 — 4 tools: Company Intel · Person Intel · Website Intel · Data Seeder) ──
 function ProsEnginePanel() {
   const [pros, setPros] = useState<ProsSubTab>("company");
   const pills: { id: ProsSubTab; label: string; icon: React.ElementType; desc: string }[] = [
-    { id: "company",    label: "Company Intel",  icon: Building2, desc: "Full B2B intelligence report" },
-    { id: "person",     label: "Person Intel",   icon: Users,     desc: "Executive deep profile" },
-    { id: "website",    label: "Website Intel",  icon: Globe,     desc: "Scan & extract company data" },
-    { id: "leadfinder", label: "Lead Finder",    icon: Target,    desc: "Find named leads at any company" },
+    { id: "company", label: "Company Intel",  icon: Building2,  desc: "Full B2B intelligence report" },
+    { id: "person",  label: "Person Intel",   icon: Users,      desc: "Executive deep profile" },
+    { id: "website", label: "Website Intel",  icon: Globe,      desc: "Scan & extract company data" },
+    { id: "seeder",  label: "Data Seeder",    icon: Database,   desc: "Generate or scrape company/executive records" },
   ];
   return (
     <div>
@@ -175,10 +175,10 @@ function ProsEnginePanel() {
         })}
       </div>
       <Suspense fallback={<Spinner />}>
-        {pros === "company"    && <CompanyIntelPanel />}
-        {pros === "person"     && <PersonIntelPanel />}
-        {pros === "website"    && <WebsiteIntelPanel />}
-        {pros === "leadfinder" && <LeadFinderPanel />}
+        {pros === "company" && <CompanyIntelPanel />}
+        {pros === "person"  && <PersonIntelPanel />}
+        {pros === "website" && <WebsiteIntelPanel />}
+        {pros === "seeder"  && <DataSeederPanel />}
       </Suspense>
     </div>
   );
@@ -1031,28 +1031,206 @@ function PersonIntelPanel() {
   );
 }
 
+// ── Data Seeder Panel (Doc 3 §4 — text prompt OR URL scrape) ──────────────────
+function DataSeederPanel() {
+  const [mode,    setMode]    = useState<"prompt" | "url">("prompt");
+  const [prompt,  setPrompt]  = useState("");
+  const [url,     setUrl]     = useState("");
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<any[]>([]);
+  const [error,   setError]   = useState("");
+
+  const EXAMPLE_PROMPTS = [
+    "Find 20 tech companies in Riyadh with 50+ employees",
+    "List Saudi fintech startups founded after 2018",
+    "Top 10 construction contractors in the Eastern Province",
+    "Healthcare companies registered in Jeddah with CR",
+  ];
+
+  async function runSeed() {
+    setLoading(true); setError(""); setResults([]);
+    try {
+      const body = mode === "prompt"
+        ? { mode: "prompt", prompt }
+        : { mode: "url", url };
+      const data: any = await apiFetch("/prosengine/seed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      setResults(Array.isArray(data?.records) ? data.records : Array.isArray(data) ? data : []);
+    } catch (e: any) {
+      setError(e?.message || "Seeder failed");
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="rounded-xl border border-border/30 bg-card/40 p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${TEAL}20` }}>
+            <Database className="w-5 h-5" style={{ color: TEAL }} />
+          </div>
+          <div>
+            <div className="font-semibold text-[14px]">Data Seeder</div>
+            <div className="text-[12px] text-muted-foreground">Generate or extract Saudi company/executive records via text prompt or URL</div>
+          </div>
+        </div>
+
+        {/* Mode toggle */}
+        <div className="flex gap-2 mb-4">
+          {(["prompt", "url"] as const).map((m) => (
+            <button key={m} onClick={() => setMode(m)}
+              className={cn("flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-medium border transition-all",
+                mode === m ? "text-white border-transparent" : "border-border/40 text-foreground/60 hover:bg-muted/40")}
+              style={mode === m ? { background: TEAL } : undefined}>
+              {m === "prompt" ? <><Sparkles className="w-3.5 h-3.5" /> Text Prompt</> : <><Globe className="w-3.5 h-3.5" /> Scrape URL</>}
+            </button>
+          ))}
+        </div>
+
+        {mode === "prompt" ? (
+          <div className="space-y-3">
+            <label className="block">
+              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Describe what records you need</span>
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                rows={3}
+                placeholder="e.g. Find 20 tech companies in Riyadh with 50+ employees, include CEO names and CR numbers"
+                className="mt-1 w-full px-3 py-2.5 rounded-lg border border-border/40 bg-background text-[13px] resize-none"
+              />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {EXAMPLE_PROMPTS.map((ex) => (
+                <button key={ex} onClick={() => setPrompt(ex)}
+                  className="text-[11px] px-2.5 py-1 rounded-full border border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all">
+                  {ex}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <label className="block">
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Directory or Company URL to Scrape</span>
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://yellowpages.com.sa/... or any company website"
+              className="mt-1 w-full px-3 py-2 rounded-lg border border-border/40 bg-background text-[13px]"
+            />
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              For directories: extracts all company listings. For single company URLs: extracts profile + executive data.
+            </p>
+          </label>
+        )}
+
+        <button
+          onClick={() => void runSeed()}
+          disabled={loading || (mode === "prompt" ? !prompt.trim() : !url.trim())}
+          className="mt-4 flex items-center gap-2 px-6 py-2.5 rounded-xl text-[13px] font-medium text-white disabled:opacity-50"
+          style={{ background: `linear-gradient(135deg, ${TEAL}, ${ACCENT})` }}>
+          {loading
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> Seeding records…</>
+            : <><Zap className="w-4 h-4" /> {mode === "prompt" ? "Generate Records" : "Scrape & Extract"}</>}
+        </button>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 flex items-center gap-2 text-[13px] text-destructive">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+        </div>
+      )}
+
+      {/* Results table */}
+      {results.length > 0 && (
+        <div className="rounded-xl border border-border/30 bg-card/40 overflow-hidden">
+          <div className="px-4 py-3 border-b border-border/20 flex items-center justify-between">
+            <span className="font-semibold text-[13px]">{results.length} records extracted</span>
+            <div className="flex gap-2">
+              <button className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg border border-border/40 hover:bg-muted/40">
+                <Download className="w-3.5 h-3.5" /> Export CSV
+              </button>
+              <button className="flex items-center gap-1.5 text-[12px] text-white px-3 py-1.5 rounded-lg"
+                style={{ background: ACCENT }}>
+                <ArrowRight className="w-3.5 h-3.5" /> Push to CRM
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12px]">
+              <thead>
+                <tr className="border-b border-border/20 bg-muted/20">
+                  {["Name (EN)", "Name (AR)", "CR Number", "City", "Industry", "Website", "Contact"].map((h) => (
+                    <th key={h} className="text-left px-4 py-2 text-[11px] text-muted-foreground font-medium whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((r: any, i) => (
+                  <tr key={i} className="border-b border-border/10 hover:bg-muted/10 transition-colors">
+                    <td className="px-4 py-2.5 font-medium">{r.nameEn || r.name_en || r.name || "—"}</td>
+                    <td className="px-4 py-2.5 font-arabic text-right" dir="rtl">{r.nameAr || r.name_ar || "—"}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground font-mono text-[11px]">{r.crNumber || r.cr_number || "—"}</td>
+                    <td className="px-4 py-2.5">{r.city || "—"}</td>
+                    <td className="px-4 py-2.5">{r.industry || r.mainActivity || r.main_activity || "—"}</td>
+                    <td className="px-4 py-2.5">
+                      {(r.website || r.sourceUrl) ? (
+                        <a href={r.website || r.sourceUrl} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1 text-blue-500 hover:underline">
+                          <ExternalLink className="w-3 h-3" /> Link
+                        </a>
+                      ) : "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-muted-foreground">{r.phone || r.email || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Empty state before run */}
+      {!loading && results.length === 0 && !error && (
+        <div className="rounded-xl border border-dashed border-border/40 p-10 text-center">
+          <Database className="w-8 h-8 mx-auto mb-3 text-muted-foreground/40" />
+          <div className="text-[13px] text-muted-foreground">
+            Enter a prompt or URL above and click <strong>Generate Records</strong> to seed company/executive data.
+          </div>
+          <div className="mt-2 text-[11px] text-muted-foreground/60">
+            Cross-module context sharing: Person Intel and other tools auto-read seeded records.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB 2 — CRM ENRICHMENT
 // ═══════════════════════════════════════════════════════════════════════════════
 function CrmEnrichmentTab() {
   const [sub, setSub] = useState<EnrichSubTab>("quick");
   const subTabs: { id: EnrichSubTab; label: string; icon: React.ElementType }[] = [
-    { id: "quick",     label: "Quick Enrich",  icon: Sparkles },
-    { id: "bulk",      label: "Bulk Upload",   icon: Upload },
-    { id: "waterfall", label: "Waterfall",     icon: Layers },
-    { id: "cards",     label: "Card Scanner",  icon: ScanLine },
+    { id: "quick",     label: "Quick Enrich", icon: Sparkles },
+    { id: "bulk",      label: "Bulk Upload",  icon: Upload },
+    { id: "waterfall", label: "Waterfall",    icon: Layers },
   ];
 
   return (
     <div>
-      <div className="flex gap-1 mb-6 flex-wrap">
+      <div className="flex gap-2 mb-6 flex-wrap">
         {subTabs.map((t) => {
           const Icon = t.icon;
           const active = sub === t.id;
           return (
             <button key={t.id} onClick={() => setSub(t.id)}
-              className={cn("flex items-center gap-2 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all border", active ? "border-transparent text-white" : "border-border/40 text-foreground/60 hover:text-foreground hover:bg-muted/40")}
-              style={active ? { background: `linear-gradient(135deg, ${TEAL}CC, ${ACCENT}CC)` } : undefined}>
+              className={cn("flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-semibold transition-all border", active ? "border-transparent text-white shadow-md" : "border-border/40 text-foreground/60 hover:text-foreground hover:bg-muted/40")}
+              style={active ? { background: `linear-gradient(135deg, ${TEAL}CC, ${ACCENT}CC)`, boxShadow: `0 4px 12px ${TEAL}30` } : undefined}>
               <Icon className="w-3.5 h-3.5" /> {t.label}
             </button>
           );
@@ -1063,7 +1241,6 @@ function CrmEnrichmentTab() {
         {sub === "quick"     && <LeadEnrichPage />}
         {sub === "bulk"      && <BulkUploadPanel />}
         {sub === "waterfall" && <SourcesTab />}
-        {sub === "cards"     && <BusinessCards />}
       </Suspense>
     </div>
   );
