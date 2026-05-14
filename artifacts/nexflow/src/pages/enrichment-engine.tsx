@@ -23,7 +23,7 @@ import {
   Globe, BrainCircuit, AlertCircle, ChevronDown, FileText, Settings,
   RefreshCw, Trash2, Download, Play, ArrowRight, ExternalLink, BarChart3,
   BookOpen, Target, Star, MapPin, User, Building, Layers, ChevronRight,
-  Badge, Tag, CheckCircle2, XCircle, Bot, Cpu, Route, PlusCircle, Eye,
+  Badge, Tag, CheckCircle2, XCircle, Bot, Cpu, Route, PlusCircle, Eye, ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/hooks/useApi";
@@ -42,10 +42,11 @@ const TEAL     = "#88B8B0";
 const GOLD     = "#C8A880";
 
 // ── Tab routing ───────────────────────────────────────────────────────────────
-type MainTab   = "leadgen" | "enrich" | "settings";
-type LeadSubTab = "masar" | "builder" | "website" | "company" | "person";
-type EnrichSubTab = "quick" | "bulk" | "cards";
-type SettingsSubTab = "sources" | "dedup" | "apikeys" | "exports";
+type MainTab        = "leadgen" | "enrich" | "settings";
+type LeadSubTab     = "masaar" | "masar" | "prosengine" | "builder";
+type ProsSubTab     = "company" | "person" | "website";
+type EnrichSubTab   = "quick" | "bulk" | "waterfall" | "cards";
+type SettingsSubTab = "dedup" | "validation" | "workflow";
 
 function usePathTab(): MainTab {
   const [location] = useLocation();
@@ -58,9 +59,26 @@ function usePathTab(): MainTab {
 // ── Root component ────────────────────────────────────────────────────────────
 export default function EnrichmentEngine() {
   const mainTab = usePathTab();
+  const TITLES: Record<MainTab, { label: string; desc: string }> = {
+    leadgen:  { label: "Lead Generation",  desc: "Masaar Engine · Masar Database · ProsEngine · AI Builder" },
+    enrich:   { label: "CRM Enrichment",   desc: "Quick Enrich · Bulk Upload · Waterfall · Card Scanner" },
+    settings: { label: "Settings",         desc: "Deduplication · Validation & Verification · Workflow Sources" },
+  };
+  const t = TITLES[mainTab];
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      {/* Section title — no duplicate tab bar, sidebar handles navigation */}
+      <div className="border-b border-border/30 bg-background/60 backdrop-blur-md sticky top-[5.5rem] z-10 mb-6">
+        <div className="max-w-screen-2xl mx-auto px-6 py-3 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${ACCENT}20` }}>
+            <Database className="w-4 h-4" style={{ color: ACCENT }} />
+          </div>
+          <div>
+            <div className="text-[14px] font-bold text-foreground">{t.label}</div>
+            <div className="text-[11px] text-muted-foreground">{t.desc}</div>
+          </div>
+        </div>
+      </div>
       <div className="max-w-screen-2xl mx-auto px-4 pb-10">
         {mainTab === "leadgen"  && <LeadGenerationTab />}
         {mainTab === "enrich"   && <CrmEnrichmentTab />}
@@ -70,79 +88,22 @@ export default function EnrichmentEngine() {
   );
 }
 
-// ── Page header ───────────────────────────────────────────────────────────────
-function Header() {
-  const mainTab = usePathTab();
-  const [, navigate] = useLocation();
-
-  const PATH: Record<MainTab, string> = {
-    leadgen:  "/enrichment-engine",
-    enrich:   "/enrichment-engine/enrich",
-    settings: "/enrichment-engine/settings",
-  };
-
-  const tabs: { id: MainTab; label: string; icon: React.ElementType; desc: string }[] = [
-    { id: "leadgen",  label: "Lead Generation",  icon: Search,    desc: "Find new prospects" },
-    { id: "enrich",   label: "CRM Enrichment",   icon: Sparkles,  desc: "Enrich existing data" },
-    { id: "settings", label: "Settings",          icon: Settings,  desc: "Sources & API keys" },
-  ];
-
-  return (
-    <div className="border-b border-border/30 bg-background/80 backdrop-blur-md sticky top-[5.5rem] z-10 mb-6">
-      <div className="max-w-screen-2xl mx-auto px-4">
-        <div className="flex items-center gap-8 py-1">
-          <div className="flex items-center gap-3 py-3 flex-shrink-0">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${ACCENT}20` }}>
-              <Database className="w-4 h-4" style={{ color: ACCENT }} />
-            </div>
-            <div>
-              <div className="text-[15px] font-bold text-foreground">Enrichment Engine</div>
-              <div className="text-[11px] text-muted-foreground">Lead Generation · CRM Enrichment · Settings</div>
-            </div>
-          </div>
-          <div className="flex gap-1 flex-1">
-            {tabs.map((t) => {
-              const Icon = t.icon;
-              const active = mainTab === t.id;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => navigate(PATH[t.id])}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-medium transition-all",
-                    active ? "text-white shadow-sm" : "text-foreground/60 hover:text-foreground hover:bg-muted/50",
-                  )}
-                  style={active ? { background: `linear-gradient(135deg, ${ACCENT}, #9580A8)`, boxShadow: `0 4px 12px ${ACCENT}40` } : undefined}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════════════════════════
-// TAB 1 — LEAD GENERATION
+// TAB 1 — LEAD GENERATION  (4 engines matching the 4 reference docs)
 // ═══════════════════════════════════════════════════════════════════════════════
 function LeadGenerationTab() {
-  const [sub, setSub] = useState<LeadSubTab>("masar");
-  const subTabs: { id: LeadSubTab; label: string; icon: React.ElementType; badge?: string }[] = [
-    { id: "masar",   label: "Masar Database",      icon: Database,      badge: "25 sources" },
-    { id: "builder", label: "AI DB Builder",        icon: Bot,           badge: "15 sources" },
-    { id: "website", label: "Website Intelligence", icon: Globe },
-    { id: "company", label: "Company Intel",        icon: Building2 },
-    { id: "person",  label: "Person Intel",         icon: Users },
+  const [sub, setSub] = useState<LeadSubTab>("masaar");
+  const subTabs: { id: LeadSubTab; label: string; icon: React.ElementType; badge?: string; desc: string }[] = [
+    { id: "masaar",    label: "Masaar Engine",     icon: BrainCircuit, badge: "Doc 1", desc: "Saudi CR intelligence — 7-agent SSE pipeline" },
+    { id: "masar",     label: "Masar Database",    icon: Database,     badge: "25 src", desc: "25-source agentic company harvest" },
+    { id: "prosengine",label: "ProsEngine",        icon: Cpu,          badge: "Doc 3",  desc: "Company · Person · Website intelligence" },
+    { id: "builder",   label: "AI DB Builder",     icon: Bot,          badge: "15 src", desc: "15-source AI database builder" },
   ];
 
   return (
     <div>
-      {/* Sub-tab strip */}
-      <div className="flex gap-1 mb-6 flex-wrap">
+      {/* 4-engine sub-tab strip */}
+      <div className="flex gap-2 mb-6 flex-wrap">
         {subTabs.map((t) => {
           const Icon = t.icon;
           const active = sub === t.id;
@@ -151,25 +112,69 @@ function LeadGenerationTab() {
               key={t.id}
               onClick={() => setSub(t.id)}
               className={cn(
-                "flex items-center gap-2 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all border",
-                active ? "border-transparent text-white" : "border-border/40 text-foreground/60 hover:text-foreground hover:bg-muted/40",
+                "flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-semibold transition-all border",
+                active ? "border-transparent text-white shadow-lg" : "border-border/40 text-foreground/60 hover:text-foreground hover:bg-muted/40",
               )}
-              style={active ? { background: `linear-gradient(135deg, ${ACCENT}CC, ${TEAL}CC)`, boxShadow: `0 2px 8px ${ACCENT}30` } : undefined}
+              style={active ? { background: `linear-gradient(135deg, ${ACCENT}E0, ${TEAL}CC)`, boxShadow: `0 4px 14px ${ACCENT}40` } : undefined}
             >
-              <Icon className="w-3.5 h-3.5" />
+              <Icon className="w-4 h-4" />
               {t.label}
-              {t.badge && <span className="text-[10px] opacity-75 ml-1">{t.badge}</span>}
+              {t.badge && (
+                <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full font-bold", active ? "bg-white/20 text-white" : "bg-muted text-muted-foreground")}>
+                  {t.badge}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
       <Suspense fallback={<Spinner />}>
-        {sub === "masar"   && <MasarDatabasePanel />}
-        {sub === "builder" && <AiDatabaseBuilderPanel />}
-        {sub === "website" && <WebsiteIntelPanel />}
-        {sub === "company" && <CompanyIntelPanel />}
-        {sub === "person"  && <PersonIntelPanel />}
+        {sub === "masaar"     && <MasaarEnginePanel />}
+        {sub === "masar"      && <MasarDatabasePanel />}
+        {sub === "prosengine" && <ProsEnginePanel />}
+        {sub === "builder"    && <AiDatabaseBuilderPanel />}
+      </Suspense>
+    </div>
+  );
+}
+
+// ── Masaar Engine Panel (Doc 1 — Saudi CR Intelligence) ───────────────────────
+function MasaarEnginePanel() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <IntelEnginesTab />
+    </Suspense>
+  );
+}
+
+// ── ProsEngine Panel (Doc 3 — Company · Person · Website Intel) ───────────────
+function ProsEnginePanel() {
+  const [pros, setPros] = useState<ProsSubTab>("company");
+  const pills: { id: ProsSubTab; label: string; icon: React.ElementType }[] = [
+    { id: "company", label: "Company Intel", icon: Building2 },
+    { id: "person",  label: "Person Intel",  icon: Users },
+    { id: "website", label: "Website Intel", icon: Globe },
+  ];
+  return (
+    <div>
+      <div className="flex gap-1.5 mb-5">
+        {pills.map((p) => {
+          const Icon = p.icon;
+          const active = pros === p.id;
+          return (
+            <button key={p.id} onClick={() => setPros(p.id)}
+              className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all border", active ? "border-transparent text-white" : "border-border/40 text-foreground/60 hover:bg-muted/40")}
+              style={active ? { background: `linear-gradient(135deg, ${TEAL}CC, ${ACCENT}80)` } : undefined}>
+              <Icon className="w-3 h-3" /> {p.label}
+            </button>
+          );
+        })}
+      </div>
+      <Suspense fallback={<Spinner />}>
+        {pros === "company" && <CompanyIntelPanel />}
+        {pros === "person"  && <PersonIntelPanel />}
+        {pros === "website" && <WebsiteIntelPanel />}
       </Suspense>
     </div>
   );
@@ -1028,9 +1033,10 @@ function PersonIntelPanel() {
 function CrmEnrichmentTab() {
   const [sub, setSub] = useState<EnrichSubTab>("quick");
   const subTabs: { id: EnrichSubTab; label: string; icon: React.ElementType }[] = [
-    { id: "quick", label: "Quick Enrich",  icon: Sparkles },
-    { id: "bulk",  label: "Bulk Upload",   icon: Upload },
-    { id: "cards", label: "Card Scanner",  icon: ScanLine },
+    { id: "quick",     label: "Quick Enrich",  icon: Sparkles },
+    { id: "bulk",      label: "Bulk Upload",   icon: Upload },
+    { id: "waterfall", label: "Waterfall",     icon: Layers },
+    { id: "cards",     label: "Card Scanner",  icon: ScanLine },
   ];
 
   return (
@@ -1050,9 +1056,10 @@ function CrmEnrichmentTab() {
       </div>
 
       <Suspense fallback={<Spinner />}>
-        {sub === "quick" && <LeadEnrichPage />}
-        {sub === "bulk"  && <BulkUploadPanel />}
-        {sub === "cards" && <BusinessCards />}
+        {sub === "quick"     && <LeadEnrichPage />}
+        {sub === "bulk"      && <BulkUploadPanel />}
+        {sub === "waterfall" && <SourcesTab />}
+        {sub === "cards"     && <BusinessCards />}
       </Suspense>
     </div>
   );
@@ -1147,12 +1154,11 @@ function BulkUploadPanel() {
 // TAB 3 — SETTINGS
 // ═══════════════════════════════════════════════════════════════════════════════
 function SettingsTab() {
-  const [sub, setSub] = useState<SettingsSubTab>("sources");
+  const [sub, setSub] = useState<SettingsSubTab>("dedup");
   const subTabs: { id: SettingsSubTab; label: string; icon: React.ElementType }[] = [
-    { id: "sources", label: "Waterfall Sources", icon: Layers },
-    { id: "dedup",   label: "Deduplication",     icon: GitMerge },
-    { id: "apikeys", label: "API Keys",           icon: Tag },
-    { id: "exports", label: "Export History",     icon: Download },
+    { id: "dedup",      label: "Deduplication",           icon: GitMerge },
+    { id: "validation", label: "Validation & Verification", icon: ShieldCheck },
+    { id: "workflow",   label: "Workflow Sources",          icon: Layers },
   ];
 
   return (
@@ -1172,11 +1178,45 @@ function SettingsTab() {
       </div>
 
       <Suspense fallback={<Spinner />}>
-        {sub === "sources" && <SourcesTab />}
-        {sub === "dedup"   && <DedupPage />}
-        {sub === "apikeys" && <ApiKeysPanel />}
-        {sub === "exports" && <ExportHistoryPanel />}
+        {sub === "dedup"      && <DedupPage />}
+        {sub === "validation" && <ValidationPanel />}
+        {sub === "workflow"   && <SourcesTab />}
       </Suspense>
+    </div>
+  );
+}
+
+// ── Validation & Verification Panel ───────────────────────────────────────────
+function ValidationPanel() {
+  const CHECKS = [
+    { id: "email",   label: "Email Validation",       desc: "Syntax, MX record, disposable-domain, and catch-all detection", icon: "✉", enabled: true },
+    { id: "phone",   label: "Phone Verification",     desc: "E.164 format check, country-code extraction, line-type lookup",  icon: "📞", enabled: true },
+    { id: "company", label: "Company Name Matching",  desc: "Fuzzy-match CRM company names against CR / Wamda registry",      icon: "🏢", enabled: true },
+    { id: "dupe",    label: "Duplicate Detection",    desc: "Token-overlap + embedding similarity before records are written", icon: "⚡", enabled: false },
+    { id: "gdpr",    label: "GDPR / PDPL Compliance", desc: "Flag EU contacts and KSA PDPL-subject records for review queue",  icon: "🛡", enabled: true },
+  ];
+  const [checks, setChecks] = useState(() => Object.fromEntries(CHECKS.map((c) => [c.id, c.enabled])));
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl border border-border/30 bg-card/30 p-4 text-[12px] text-muted-foreground mb-2">
+        Validation rules run automatically on every enrichment write. Toggle rules to enable or disable per pipeline.
+      </div>
+      {CHECKS.map((c) => (
+        <div key={c.id} className="rounded-xl border border-border/30 bg-card/40 p-4 flex items-start gap-4">
+          <span className="text-xl mt-0.5">{c.icon}</span>
+          <div className="flex-1">
+            <div className="font-semibold text-[13px]">{c.label}</div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">{c.desc}</div>
+          </div>
+          <button
+            onClick={() => setChecks((p) => ({ ...p, [c.id]: !p[c.id] }))}
+            className={cn("relative w-10 h-5 rounded-full transition-colors flex-shrink-0 mt-0.5", checks[c.id] ? "bg-purple-500" : "bg-muted")}
+          >
+            <span className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform", checks[c.id] ? "translate-x-5" : "translate-x-0.5")} />
+          </button>
+        </div>
+      ))}
     </div>
   );
 }
