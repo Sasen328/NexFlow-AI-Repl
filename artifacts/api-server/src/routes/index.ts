@@ -46,6 +46,9 @@ import companyIntelRouter from "./company-intel";
 import personIntelRouter from "./person-intel";
 import captchaRouter from "./captcha";
 import dataAgentsRouter from "./data-agents.js";
+import masarDatabaseRouter from "./masar-database.js";
+import databaseBuilderRouter from "./database-builder.js";
+import websiteIntelRouter from "./website-intel.js";
 
 const router: IRouter = Router();
 
@@ -96,5 +99,8 @@ router.use("/person-intel", personIntelRouter);
 router.use("/captcha", captchaRouter);
 router.use("/setup", setupRouter);
 router.use("/data-agents", dataAgentsRouter);
+router.use("/masar", masarDatabaseRouter);
+router.use("/builder", databaseBuilderRouter);
+router.use(websiteIntelRouter);
 
 export default router;
