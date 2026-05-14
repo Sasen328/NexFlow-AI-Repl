@@ -105,8 +105,8 @@ async function fetchCompanyNamesFromSource(source: typeof MASAR_SOURCES[number],
 
   // Fallback: Cheerio scraper
   try {
-    const html = await scraperFetch(source.url);
-    const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 4000);
+    const scrapeResult = await scraperFetch(source.url);
+    const text = (scrapeResult.text ?? "").replace(/\s+/g, " ").slice(0, 4000);
     const extracted = await synthesizeJson<{ names: string[] }>({
       system: "Extract Saudi company names from this web page text. Return ONLY valid JSON.",
       user: `Source: ${source.name}\n${keyword ? `Keyword filter: ${keyword}\n` : ""}Text:\n${text}\n\nReturn JSON: { "names": ["Company Name 1", "Company Name 2", ...] } — up to 30 company names visible on this page.`,
@@ -244,12 +244,13 @@ router.post("/custom-sources", async (req: Request, res: Response): Promise<void
   const { name, url, category, description, estimatedCompanies } = req.body as Record<string, any>;
   if (!name || !url || !category) { res.status(400).json({ error: "name, url, and category are required" }); return; }
   const [inserted] = await db.insert(masar_custom_sources).values({ name: name.trim(), url: url.trim(), category: category.trim(), description: description?.trim() || null, estimatedCompanies: estimatedCompanies || 0 }).returning();
-  res.json({ success: true, source: { id: `custom-${inserted.id}`, ...inserted, isCustom: true } });
+  const { id: dbId, ...rest } = inserted;
+  res.json({ success: true, source: { id: `custom-${dbId}`, ...rest, isCustom: true } });
 });
 
 // ── DELETE /masar/custom-sources/:id ─────────────────────────────────────────
 router.delete("/custom-sources/:id", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   if (!isNaN(id)) await db.delete(masar_custom_sources).where(eq(masar_custom_sources.id, id));
   res.json({ success: true });
 });
@@ -334,7 +335,7 @@ router.post("/harvest/:sourceId", async (req: Request, res: Response): Promise<v
   req.body.sourceIds = [sourceId];
   req.body.keyword = keyword;
   req.body.enrichmentDepth = enrichmentDepth;
-  return router.handle({ ...req, url: "/harvest", method: "POST" } as any, res, () => {});
+  return (router as any).handle({ ...req, url: "/harvest", method: "POST" }, res, () => {});
 });
 
 // ── GET /masar/jobs ───────────────────────────────────────────────────────────
@@ -345,16 +346,17 @@ router.get("/jobs", async (_req: Request, res: Response): Promise<void> => {
 
 // ── GET /masar/jobs/:jobId ────────────────────────────────────────────────────
 router.get("/jobs/:jobId", async (req: Request, res: Response): Promise<void> => {
-  const [job] = await db.select().from(masar_harvest_jobs).where(eq(masar_harvest_jobs.jobId, req.params.jobId)).limit(1);
+  const [job] = await db.select().from(masar_harvest_jobs).where(eq(masar_harvest_jobs.jobId, String(req.params.jobId))).limit(1);
   if (!job) { res.status(404).json({ error: "Job not found" }); return; }
   res.json(job);
 });
 
 // ── DELETE /masar/jobs/:jobId — cancel job ────────────────────────────────────
 router.delete("/jobs/:jobId", async (req: Request, res: Response): Promise<void> => {
-  const ctrl = activeJobs.get(req.params.jobId);
+  const jobId = String(req.params.jobId);
+  const ctrl = activeJobs.get(jobId);
   if (ctrl) ctrl.cancel = true;
-  await db.update(masar_harvest_jobs).set({ status: "cancelled" }).where(eq(masar_harvest_jobs.jobId, req.params.jobId));
+  await db.update(masar_harvest_jobs).set({ status: "cancelled" }).where(eq(masar_harvest_jobs.jobId, jobId));
   res.json({ success: true });
 });
 
@@ -387,7 +389,7 @@ router.get("/companies", async (req: Request, res: Response): Promise<void> => {
 
 // ── GET /masar/companies/:id ──────────────────────────────────────────────────
 router.get("/companies/:id", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   const [row] = await db.select().from(masar_companies).where(eq(masar_companies.id, id)).limit(1);
   if (!row) { res.status(404).json({ error: "Not found" }); return; }
   res.json(row);
@@ -395,7 +397,7 @@ router.get("/companies/:id", async (req: Request, res: Response): Promise<void> 
 
 // ── POST /masar/companies/:id/enrich — re-enrich a single company ─────────────
 router.post("/companies/:id/enrich", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   const [company] = await db.select().from(masar_companies).where(eq(masar_companies.id, id)).limit(1);
   if (!company) { res.status(404).json({ error: "Not found" }); return; }
   const enriched = await enrichCompanyRecord(company.nameEn || "Unknown", company.sourceId || "manual", "deep");
@@ -405,7 +407,7 @@ router.post("/companies/:id/enrich", async (req: Request, res: Response): Promis
 
 // ── POST /masar/companies/:id/push-crm ───────────────────────────────────────
 router.post("/companies/:id/push-crm", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   const [row] = await db.select().from(masar_companies).where(eq(masar_companies.id, id)).limit(1);
   if (!row) { res.status(404).json({ error: "Not found" }); return; }
 
@@ -414,7 +416,7 @@ router.post("/companies/:id/push-crm", async (req: Request, res: Response): Prom
     let companyId: string | null = null;
     const conditions = [];
     if (row.nameEn) conditions.push(ilike(companies.name, `%${row.nameEn}%`));
-    if (row.crNumber) conditions.push(eq(companies.crNumber as any, row.crNumber));
+    if (row.crNumber) conditions.push(eq((companies as any).crNumber, row.crNumber));
     if (conditions.length) {
       const [existing] = await db.select({ id: companies.id }).from(companies).where(or(...conditions)).limit(1);
       if (existing) companyId = String(existing.id);
@@ -460,7 +462,7 @@ router.post("/companies/:id/push-crm", async (req: Request, res: Response): Prom
 
 // ── DELETE /masar/companies/:id ───────────────────────────────────────────────
 router.delete("/companies/:id", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   await db.delete(masar_companies).where(eq(masar_companies.id, id));
   res.json({ success: true });
 });

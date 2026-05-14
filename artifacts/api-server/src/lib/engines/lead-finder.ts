@@ -317,7 +317,7 @@ Return JSON with EXACTLY these keys:
 
 Rank leads: decision makers first. Aim for ${count} leads. DO NOT return an empty leads array if any names appear in the bundle above.`;
 
-  let { data, provider } = await synthesizeJson<LeadFinderReport>({
+  let data = await synthesizeJson<LeadFinderReport>({
     system: synthesisSystem,
     user: synthesisUser,
     fallback,
@@ -346,13 +346,10 @@ Return ONLY the JSON object described earlier.`;
       preferredProvider: "gemini",
       maxTokens: 2500,
     });
-    if ((retry.data.leads ?? []).length > 0) {
-      data = retry.data;
-      provider = `${retry.provider}(retry)`;
+    if ((retry.leads ?? []).length > 0) {
+      data = retry;
     }
   }
-
-  if (provider !== "fallback") sourcesUsed.push(`synthesis:${provider}`);
 
   // Recompute aggregates if synthesizer omitted them
   if (!data.byDepartment || Object.keys(data.byDepartment).length === 0) {
@@ -372,7 +369,7 @@ Return ONLY the JSON object described earlier.`;
   data.generatedAt = data.generatedAt || new Date().toISOString();
   data.company = data.company || { name: company, website: websiteUrl, city: input.city ?? null };
 
-  logger.info({ scope: "lead_finder", company, totalFound: data.totalFound, provider }, "Lead Finder complete");
+  logger.info({ scope: "lead_finder", company, totalFound: data.totalFound }, "Lead Finder complete");
 
   return { report: data, sourcesUsed };
 }

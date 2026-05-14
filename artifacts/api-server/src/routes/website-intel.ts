@@ -34,8 +34,8 @@ async function scanWebsite(url: string): Promise<{ text: string; pagesScanned: n
 
   // Cheerio fallback
   try {
-    const html = await scraperFetch(url);
-    return { text: html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 6000), pagesScanned: 1 };
+    const r = await scraperFetch(url);
+    return { text: (r.text ?? "").replace(/\s+/g, " ").slice(0, 6000), pagesScanned: 1 };
   } catch { return { text: "", pagesScanned: 0 }; }
 }
 
@@ -66,7 +66,7 @@ async function crawlPageWithAI(
 
   // Cheerio fallback
   if (!pageText) {
-    try { pageText = (await scraperFetch(url)).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 5000); } catch { }
+    try { pageText = ((await scraperFetch(url)).text ?? "").replace(/\s+/g, " ").slice(0, 5000); } catch { }
   }
 
   if (!pageText) return { companies: [], isLastPage: true };
@@ -160,7 +160,7 @@ Return JSON:
 
 // ── POST /prospecting/:jobId/extract — start extraction ───────────────────────
 router.post("/prospecting/:jobId/extract", async (req: Request, res: Response): Promise<void> => {
-  const jobId = parseInt(req.params.jobId);
+  const jobId = parseInt(String(req.params.jobId));
   const { settings } = req.body as { settings: { maxPages: number; enrichmentDepth: string; extractionLanguage: string; extractionFields: string[]; userAnswers: Record<string, string | string[]> } };
 
   const [job] = await db.select().from(prospecting_jobs).where(eq(prospecting_jobs.id, jobId)).limit(1);
@@ -233,26 +233,26 @@ router.get("/prospecting", async (_req: Request, res: Response): Promise<void> =
 
 // ── GET /prospecting/:jobId ───────────────────────────────────────────────────
 router.get("/prospecting/:jobId", async (req: Request, res: Response): Promise<void> => {
-  const [job] = await db.select().from(prospecting_jobs).where(eq(prospecting_jobs.id, parseInt(req.params.jobId))).limit(1);
+  const [job] = await db.select().from(prospecting_jobs).where(eq(prospecting_jobs.id, parseInt(String(req.params.jobId)))).limit(1);
   if (!job) { res.status(404).json({ error: "Not found" }); return; }
   res.json(job);
 });
 
 // ── GET /prospecting/:jobId/results ───────────────────────────────────────────
 router.get("/prospecting/:jobId/results", async (req: Request, res: Response): Promise<void> => {
-  const results = await db.select().from(prospecting_results).where(eq(prospecting_results.jobId, parseInt(req.params.jobId))).orderBy(prospecting_results.id).limit(500);
+  const results = await db.select().from(prospecting_results).where(eq(prospecting_results.jobId, parseInt(String(req.params.jobId)))).orderBy(prospecting_results.id).limit(500);
   res.json(results);
 });
 
 // ── DELETE /prospecting/:jobId ────────────────────────────────────────────────
 router.delete("/prospecting/:jobId", async (req: Request, res: Response): Promise<void> => {
-  await db.delete(prospecting_jobs).where(eq(prospecting_jobs.id, parseInt(req.params.jobId)));
+  await db.delete(prospecting_jobs).where(eq(prospecting_jobs.id, parseInt(String(req.params.jobId))));
   res.json({ success: true });
 });
 
 // ── POST /prospecting/:jobId/push-crm — push all results to CRM ───────────────
 router.post("/prospecting/:jobId/push-crm", async (req: Request, res: Response): Promise<void> => {
-  const jobId = parseInt(req.params.jobId);
+  const jobId = parseInt(String(req.params.jobId ?? ""));
   const results = await db.select().from(prospecting_results).where(eq(prospecting_results.jobId, jobId));
   let pushed = 0;
   for (const row of results) {
@@ -279,7 +279,7 @@ router.post("/prospecting/:jobId/push-crm", async (req: Request, res: Response):
 // ── POST /prospecting/:jobId/export ───────────────────────────────────────────
 router.post("/prospecting/:jobId/export", async (req: Request, res: Response): Promise<void> => {
   const { format = "csv" } = req.body as { format?: string };
-  const jobId = parseInt(req.params.jobId);
+  const jobId = parseInt(String(req.params.jobId));
   const results = await db.select().from(prospecting_results).where(eq(prospecting_results.jobId, jobId));
   const companies_ = results.map((r) => r.companyData as Record<string, unknown>).filter(Boolean);
   const filename = `prospecting-${jobId}-${Date.now()}.${format}`;
@@ -328,8 +328,8 @@ router.post("/prosengine/research-url", async (req: Request, res: Response): Pro
   // Crawl the website
   let siteText = "";
   try {
-    const html = await scraperFetch(url);
-    siteText = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 5000);
+    const r = await scraperFetch(url);
+    siteText = (r.text ?? "").replace(/\s+/g, " ").slice(0, 5000);
   } catch { /* non-fatal */ }
 
   // Parallel research with Gemini + Claude

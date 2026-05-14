@@ -2,43 +2,77 @@
  * Thin AI helpers used by the four engines.
  *
  * Provider routing strategy (in priority order):
- *   1. Direct Gemini REST API  → most reliable in this environment; used for
- *      grounded research and JSON synthesis fallback.
- *   2. Perplexity via OpenRouter → live web search with citations.
- *   3. Claude via OpenRouter   → knowledge synthesis / structured JSON.
- *   4. GPT-4o-mini via OpenRouter → fallback synthesis.
+ *   1. Direct Gemini REST API  → most reliable in this environment
+ *   2. Perplexity via OpenRouter → live web search with citations
+ *   3. Claude via OpenRouter   → knowledge synthesis / structured JSON
+ *   4. GPT-4o-mini via OpenRouter → fallback synthesis
  *
  * All helpers NEVER throw — they log and return empty string / fallback so
  * the waterfall keeps moving even when one provider is down.
+ *
+ * fanOut signature: accepts plain Array<() => Promise<T>> + optional
+ * second arg of number | { timeoutMs?: number }.
+ * Returns PromiseSettledResult<T>[] so callers can check .status === "fulfilled".
+ *
+ * synthesizeJson: returns T directly (not wrapped in { data, provider }).
  */
 
 import { jsonrepair } from "jsonrepair";
 import { aiChat, aiJson, aiGeminiChat, type AiProvider } from "../ai.js";
 import { logger } from "../logger.js";
 
-/** Run N AI calls in parallel; never throws — failures become empty strings. */
+export type FanOutResult<T> = {
+  /** PromiseSettledResult-compatible */
+  status: "fulfilled" | "rejected";
+  value?: T;
+  reason?: unknown;
+  /** Named-job-compatible (r.name, r.ok, r.value) */
+  name: string;
+  ok: boolean;
+  error?: string;
+};
+
+type JobSpec<T> = (() => Promise<T>) | { name: string; run: () => Promise<T> };
+
+/**
+ * Run N AI calls in parallel; never throws.
+ * Accepts plain functions OR { name, run } objects.
+ * Returns results that satisfy BOTH PromiseSettledResult AND {name,ok,value} patterns.
+ */
 export async function fanOut<T>(
-  jobs: Array<{ name: string; run: () => Promise<T> }>,
-  timeoutMs = 18_000,
-): Promise<Array<{ name: string; ok: boolean; value?: T; error?: string }>> {
-  const wrap = jobs.map(({ name, run }) =>
-    Promise.race([
-      run().then((value) => ({ name, ok: true as const, value })),
-      new Promise<{ name: string; ok: false; error: string }>((resolve) =>
-        setTimeout(() => resolve({ name, ok: false, error: "timeout" }), timeoutMs),
+  jobs: Array<JobSpec<T>>,
+  optsOrMs: number | { timeoutMs?: number } = 18_000,
+): Promise<FanOutResult<T>[]> {
+  const ms =
+    typeof optsOrMs === "number" ? optsOrMs : (optsOrMs.timeoutMs ?? 18_000);
+
+  const wrapped = jobs.map((job, i) => {
+    const name = typeof job === "function" ? `job_${i}` : job.name;
+    const fn   = typeof job === "function" ? job          : job.run;
+    return Promise.race([
+      fn().then((value): FanOutResult<T> => ({
+        status: "fulfilled", value, name, ok: true,
+      })),
+      new Promise<FanOutResult<T>>((resolve) =>
+        setTimeout(
+          () => resolve({ status: "rejected", reason: new Error("timeout"), name, ok: false, error: "timeout" }),
+          ms,
+        ),
       ),
-    ]).catch((err) => ({
+    ]).catch((reason): FanOutResult<T> => ({
+      status: "rejected",
+      reason,
       name,
-      ok: false as const,
-      error: err?.message ?? String(err),
-    })),
-  );
-  return Promise.all(wrap);
+      ok: false,
+      error: reason?.message ?? String(reason),
+    }));
+  });
+
+  return Promise.all(wrapped);
 }
 
 /** Free-text web research — Perplexity (live web) via OpenRouter, falls back to Gemini direct. */
 export async function searchWeb(query: string, maxTokens = 1200): Promise<string> {
-  // Primary: Perplexity sonar via OpenRouter (live web search with citations)
   try {
     const text = await aiChat({
       provider: "perplexity",
@@ -51,7 +85,6 @@ export async function searchWeb(query: string, maxTokens = 1200): Promise<string
     logger.warn({ err: e, scope: "engines/ai/searchWeb/perplexity" }, "perplexity failed");
   }
 
-  // Fallback: Direct Gemini (works reliably in this environment)
   try {
     const text = await aiGeminiChat({
       system: "You are a research analyst with comprehensive knowledge of GCC/MENA business leaders and companies. Answer the question factually and specifically. Use bullet points. Include names, titles, LinkedIn URLs if known.",
@@ -70,7 +103,6 @@ export async function searchWeb(query: string, maxTokens = 1200): Promise<string
  * Falls back to OpenRouter Gemini, then Perplexity.
  */
 export async function searchGrounded(query: string, maxTokens = 1200): Promise<string> {
-  // Primary: Direct Gemini API (proven working — same key used by business card scanner)
   try {
     const text = await aiGeminiChat({
       system: "You are a research analyst with deep knowledge of GCC/MENA business, government, and corporate leadership. Answer factually and specifically. Include names, titles, dates, and sources. Bullet-point format.",
@@ -82,7 +114,6 @@ export async function searchGrounded(query: string, maxTokens = 1200): Promise<s
     logger.warn({ err: e, scope: "engines/ai/searchGrounded/direct" }, "direct gemini failed");
   }
 
-  // Fallback: OpenRouter Gemini
   try {
     const text = await aiChat({
       provider: "gemini",
@@ -95,7 +126,6 @@ export async function searchGrounded(query: string, maxTokens = 1200): Promise<s
     logger.warn({ err: e, scope: "engines/ai/searchGrounded/openrouter" }, "openrouter gemini failed");
   }
 
-  // Last resort: Perplexity
   try {
     const text = await aiChat({
       provider: "perplexity",
@@ -111,7 +141,14 @@ export async function searchGrounded(query: string, maxTokens = 1200): Promise<s
 }
 
 /** Direct Gemini knowledge synthesis — for structured data extraction and dossiers. */
-export async function synthesizeGeminiDirect(opts: { system: string; user: string; maxTokens?: number }): Promise<string> {
+export async function synthesizeGeminiDirect(
+  optsOrPrompt: { system: string; user: string; maxTokens?: number } | string,
+  maxTokensLegacy?: number,
+): Promise<string> {
+  const opts =
+    typeof optsOrPrompt === "string"
+      ? { system: "You are a Saudi B2B intelligence analyst.", user: optsOrPrompt, maxTokens: maxTokensLegacy ?? 2000 }
+      : optsOrPrompt;
   try {
     const text = await aiGeminiChat({
       system: opts.system,
@@ -166,7 +203,6 @@ function isGoodData(data: unknown): boolean {
 
 /** Extract the outermost JSON object from a possibly-polluted AI response. */
 function extractJsonBlock(text: string): string {
-  // Strip markdown fences first
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenced) return fenced[1]!.trim();
   const braceStart = text.indexOf("{");
@@ -175,22 +211,19 @@ function extractJsonBlock(text: string): string {
   return text.trim();
 }
 
-/** Try parsing JSON; if that fails, try extractJsonBlock + jsonrepair; throws only if all fail. */
+/** Try parsing JSON; if that fails, try extractJsonBlock + jsonrepair. */
 function robustParse<T>(raw: string): T {
-  // Attempt 1: standard parse
   try { return JSON.parse(raw) as T; } catch { /* fall through */ }
-  // Attempt 2: strip prose wrapper, then parse
   const block = extractJsonBlock(raw);
   try { return JSON.parse(block) as T; } catch { /* fall through */ }
-  // Attempt 3: jsonrepair handles unescaped quotes, trailing commas, truncated JSON, etc.
   return JSON.parse(jsonrepair(block)) as T;
 }
 
 /**
  * Strict-JSON synthesis — tries providers in order, returns first usable result.
+ * Returns T directly (not wrapped in { data, provider }).
  *
- * Order: DeepSeek (if key set) → Gemini JSON-mode → Claude → GPT-4o-mini → OpenRouter auto.
- * Each provider catches its own errors. Final fallback = caller's `opts.fallback`.
+ * Order: DeepSeek → Gemini JSON-mode → Claude → GPT-4o-mini → OpenRouter auto → fallback.
  */
 export async function synthesizeJson<T>(opts: {
   system: string;
@@ -198,10 +231,10 @@ export async function synthesizeJson<T>(opts: {
   fallback: T;
   preferredProvider?: AiProvider;
   maxTokens?: number;
-}): Promise<{ data: T; provider: string }> {
+}): Promise<T> {
   const maxTokens = opts.maxTokens ?? 3000;
 
-  // ── 0. DeepSeek (deepseek-chat via direct API — fast & cheap JSON synthesis)
+  // ── 0. DeepSeek (fast & cheap JSON synthesis if key available)
   const deepseekKey = process.env.DEEPSEEK_API_KEY;
   if (deepseekKey) {
     try {
@@ -227,7 +260,7 @@ export async function synthesizeJson<T>(opts: {
           const parsed = robustParse<T>(raw);
           if (isGoodData(parsed)) {
             logger.info({ scope: "engines/ai/synthesizeJson" }, "synthesized via deepseek");
-            return { data: parsed, provider: "deepseek" };
+            return parsed;
           }
         }
       }
@@ -237,8 +270,6 @@ export async function synthesizeJson<T>(opts: {
   }
 
   // ── 1. Direct Gemini with responseMimeType: "application/json"
-  //    This forces Gemini to return JSON-structured output; robustParse handles
-  //    any residual formatting issues (embedded chars, trailing text, etc.)
   try {
     const raw = await aiChat({
       provider: "gemini",
@@ -251,7 +282,7 @@ export async function synthesizeJson<T>(opts: {
       const parsed = robustParse<T>(raw);
       if (isGoodData(parsed)) {
         logger.info({ scope: "engines/ai/synthesizeJson" }, "synthesized via gemini_direct");
-        return { data: parsed, provider: "gemini_direct" };
+        return parsed;
       }
     }
   } catch (e) {
@@ -268,7 +299,7 @@ export async function synthesizeJson<T>(opts: {
     });
     if (isGoodData(data)) {
       logger.info({ scope: "engines/ai/synthesizeJson" }, "synthesized via anthropic");
-      return { data, provider: "anthropic" };
+      return data;
     }
   } catch (e) {
     logger.warn({ err: e, scope: "engines/ai/synthesizeJson/anthropic" }, "claude JSON failed");
@@ -284,13 +315,13 @@ export async function synthesizeJson<T>(opts: {
     });
     if (isGoodData(data)) {
       logger.info({ scope: "engines/ai/synthesizeJson" }, "synthesized via openai");
-      return { data, provider: "openai" };
+      return data;
     }
   } catch (e) {
     logger.warn({ err: e, scope: "engines/ai/synthesizeJson/openai" }, "gpt JSON failed");
   }
 
-  // ── 4. Gemini via OpenRouter (last resort proxy path)
+  // ── 4. Gemini via OpenRouter (last resort)
   try {
     const data = await aiJson<T>({
       provider: "gemini",
@@ -300,14 +331,14 @@ export async function synthesizeJson<T>(opts: {
     });
     if (isGoodData(data)) {
       logger.info({ scope: "engines/ai/synthesizeJson" }, "synthesized via gemini_openrouter");
-      return { data, provider: "gemini_openrouter" };
+      return data;
     }
   } catch (e) {
     logger.warn({ err: e, scope: "engines/ai/synthesizeJson/gemini" }, "openrouter gemini JSON failed");
   }
 
   logger.warn({ scope: "engines/ai/synthesizeJson" }, "all providers failed — using fallback");
-  return { data: opts.fallback, provider: "fallback" };
+  return opts.fallback;
 }
 
 /** Heuristic: a candidate string looks like a real human name. */
@@ -317,6 +348,5 @@ export function looksLikeName(s: string): boolean {
   if (t.length < 4 || t.length > 80) return false;
   if (/[<>{}|\[\]]/.test(t)) return false;
   if (/^https?:|^www\./i.test(t)) return false;
-  // At least one space (first + last name) OR Arabic letters
   return /\s/.test(t) || /[\u0600-\u06FF]/.test(t);
 }

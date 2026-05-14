@@ -84,8 +84,8 @@ async function harvestSource(
 
   // Cheerio scrape + AI extraction
   try {
-    const html = await scraperFetch(source.url);
-    const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 4000);
+    const scrapeResult = await scraperFetch(source.url);
+    const text = (scrapeResult.text ?? "").replace(/\s+/g, " ").slice(0, 4000);
     const result = await synthesizeJson<{ names: string[] }>({
       system: "Extract Saudi company names from web page text. Return ONLY valid JSON.",
       user: `Source: ${source.name}\nURL: ${source.url}\nText:\n${text}\n\nReturn JSON: { "names": ["Name 1", ...] } — list up to 40 company names visible on this page.`,
@@ -207,12 +207,13 @@ router.post("/sources", async (req: Request, res: Response): Promise<void> => {
   const { name, url, category, description, estimatedCompanies } = req.body as Record<string, any>;
   if (!name || !url || !category) { res.status(400).json({ error: "name, url, and category are required" }); return; }
   const [inserted] = await db.insert(builder_custom_sources).values({ name: name.trim(), nameAr: name.trim(), url: url.trim(), category: category.trim(), description: description?.trim() || null, estimatedCompanies: estimatedCompanies || 0 }).returning();
-  res.json({ success: true, source: { id: `custom-${inserted.id}`, ...inserted, isCustom: true } });
+  const { id: dbId, ...rest } = inserted;
+  res.json({ success: true, source: { id: `custom-${dbId}`, ...rest, isCustom: true } });
 });
 
 // ── DELETE /builder/sources/:id ───────────────────────────────────────────────
 router.delete("/sources/:id", async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const numId = id.startsWith("custom-") ? parseInt(id.replace("custom-", ""), 10) : parseInt(id, 10);
   if (!isNaN(numId)) await db.delete(builder_custom_sources).where(eq(builder_custom_sources.id, numId));
   res.json({ success: true });
@@ -220,7 +221,7 @@ router.delete("/sources/:id", async (req: Request, res: Response): Promise<void>
 
 // ── POST /builder/sources/:id/harvest — single source harvest ─────────────────
 router.post("/sources/:id/harvest", async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const { enrichmentDepth = "standard" } = req.body as Record<string, any>;
   const jobId = `builder_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const [job] = await db.insert(builder_jobs).values({ jobId, sourceIds: [id], status: "harvesting", startedAt: new Date() }).returning();
@@ -292,7 +293,7 @@ router.post("/harvest", async (req: Request, res: Response): Promise<void> => {
 
 // ── GET /builder/jobs/:jobId ──────────────────────────────────────────────────
 router.get("/jobs/:jobId", async (req: Request, res: Response): Promise<void> => {
-  const [job] = await db.select().from(builder_jobs).where(eq(builder_jobs.jobId, req.params.jobId)).limit(1);
+  const [job] = await db.select().from(builder_jobs).where(eq(builder_jobs.jobId, String(req.params.jobId))).limit(1);
   if (!job) { res.status(404).json({ error: "Job not found" }); return; }
   res.json(job);
 });
@@ -321,7 +322,7 @@ router.get("/results", async (req: Request, res: Response): Promise<void> => {
 
 // ── GET /builder/results/:id ──────────────────────────────────────────────────
 router.get("/results/:id", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   const [row] = await db.select().from(builder_companies).where(eq(builder_companies.id, id)).limit(1);
   if (!row) { res.status(404).json({ error: "Not found" }); return; }
   res.json(row);
@@ -329,7 +330,7 @@ router.get("/results/:id", async (req: Request, res: Response): Promise<void> =>
 
 // ── POST /builder/results/:id/enrich ─────────────────────────────────────────
 router.post("/results/:id/enrich", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   const [company] = await db.select().from(builder_companies).where(eq(builder_companies.id, id)).limit(1);
   if (!company) { res.status(404).json({ error: "Not found" }); return; }
   const enriched = await enrichBuilderCompany(company.nameEn || "Unknown", company.sourceId || "manual", "deep");
@@ -339,7 +340,7 @@ router.post("/results/:id/enrich", async (req: Request, res: Response): Promise<
 
 // ── POST /builder/results/:id/save-enrichment ─────────────────────────────────
 router.post("/results/:id/save-enrichment", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   const { keyExecutives, shareholders, description, marketPositioning } = req.body as Record<string, any>;
   await db.update(builder_companies).set({ keyExecutives: keyExecutives || undefined, shareholders: shareholders || undefined, description: description || undefined, marketPositioning: marketPositioning || undefined, enrichmentStatus: "enriched" }).where(eq(builder_companies.id, id));
   res.json({ success: true });
@@ -347,7 +348,7 @@ router.post("/results/:id/save-enrichment", async (req: Request, res: Response):
 
 // ── DELETE /builder/results/:id ───────────────────────────────────────────────
 router.delete("/results/:id", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   await db.delete(builder_companies).where(eq(builder_companies.id, id));
   res.json({ success: true });
 });
@@ -366,7 +367,7 @@ router.post("/push-to-database", async (req: Request, res: Response): Promise<vo
     // Dedup check
     const conditions: any[] = [];
     if (row.nameEn) conditions.push(ilike(companies.name, `%${row.nameEn}%`));
-    if (row.crNumber) conditions.push(eq(companies.crNumber as any, row.crNumber));
+    if (row.crNumber) conditions.push(eq((companies as any).crNumber, row.crNumber));
     const [existing] = conditions.length ? await db.select({ id: companies.id }).from(companies).where(or(...conditions)).limit(1) : [];
     let companyId: string;
     if (existing) {
@@ -383,13 +384,13 @@ router.post("/push-to-database", async (req: Request, res: Response): Promise<vo
 
 // ── POST /builder/results/:id/push-crm — single company push ─────────────────
 router.post("/results/:id/push-crm", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   const [row] = await db.select().from(builder_companies).where(eq(builder_companies.id, id)).limit(1);
   if (!row) { res.status(404).json({ error: "Not found" }); return; }
 
   const conditions: any[] = [];
   if (row.nameEn) conditions.push(ilike(companies.name, `%${row.nameEn}%`));
-  if (row.crNumber) conditions.push(eq(companies.crNumber as any, row.crNumber));
+  if (row.crNumber) conditions.push(eq((companies as any).crNumber, row.crNumber));
   const [existing] = conditions.length ? await db.select({ id: companies.id }).from(companies).where(or(...conditions)).limit(1) : [];
 
   let companyId: string;

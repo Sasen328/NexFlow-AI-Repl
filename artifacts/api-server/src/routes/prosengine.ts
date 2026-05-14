@@ -35,8 +35,8 @@ async function runWebSeeder(url: string, query: string, opts: { maxPages?: numbe
   } catch { /* fall through */ }
 
   try {
-    const text = await scraperFetch(url);
-    return { text: text?.slice(0, 8000) || "" };
+    const r = await scraperFetch(url);
+    return { text: r.text?.slice(0, 8000) || "" };
   } catch { return null; }
 }
 
