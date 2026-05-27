@@ -6,18 +6,6 @@
       "sourceType": "github",
       "computedHash": "3e8e1e6d9b56fa1126e09c589b171e786efee01c806623f7cb41dfde724b0274"
     },
-    "audit-website": {
-      "source": "squirrelscan/skills",
-      "sourceType": "github",
-      "skillPath": "audit-website/SKILL.md",
-      "computedHash": "2c060290f90340e8bb6009502ec936b8ebb3ff889332a43e24bf210528ebba9f"
-    },
-    "brainstorming": {
-      "source": "obra/superpowers",
-      "sourceType": "github",
-      "skillPath": "skills/brainstorming/SKILL.md",
-      "computedHash": "8df9b47092524833138b58682d03f2e153a242e550d1693657afdbee0cc9cdb0"
-    },
     "browser-use": {
       "source": "browser-use/browser-use",
       "sourceType": "github",
@@ -32,12 +20,6 @@
       "source": "anthropics/skills",
       "sourceType": "github",
       "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
-    },
-    "pdf": {
-      "source": "anthropics/skills",
-      "sourceType": "github",
-      "skillPath": "skills/pdf/SKILL.md",
-      "computedHash": "cfbc539377088ca7e44a813b30c306327385bbd973cd7a721e1743f60837dd62"
     },
     "pptx": {
       "source": "anthropics/skills",
