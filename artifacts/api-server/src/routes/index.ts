@@ -50,6 +50,9 @@ import masarDatabaseRouter from "./masar-database.js";
 import databaseBuilderRouter from "./database-builder.js";
 import websiteIntelRouter from "./website-intel.js";
 import prosengineRouter from "./prosengine.js";
+import aiChatRouter from "./ai-chat.js";
+import leadGenomeRouter from "./lead-genome.js";
+import sourcesRouter from "./sources.js";
 
 const router: IRouter = Router();
 
@@ -104,5 +107,8 @@ router.use("/masar", masarDatabaseRouter);
 router.use("/builder", databaseBuilderRouter);
 router.use(websiteIntelRouter);
 router.use("/prosengine", prosengineRouter);
+router.use(aiChatRouter);
+router.use(leadGenomeRouter);
+router.use(sourcesRouter);
 
 export default router;
