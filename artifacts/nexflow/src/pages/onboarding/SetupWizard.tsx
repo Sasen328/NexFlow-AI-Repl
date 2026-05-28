@@ -33,6 +33,9 @@ function StepFallback() {
 export default function SetupWizard() {
   const { step, totalSteps, goNext, goBack, saving, error, answers, sessionId } = useWizard();
 
+  const brandPrimary = answers.primaryColor || "#B8A0C8";
+  const brandSecondary = answers.secondaryColor || "#88B8B0";
+
   if (!sessionId) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -84,7 +87,7 @@ export default function SetupWizard() {
                     "h-1.5 rounded-full transition-all duration-500",
                     i < step ? "w-8" : "bg-border w-5",
                   ].join(" ")}
-                  style={i < step ? { background: "#B8A0C8" } : undefined}
+                  style={i < step ? { background: brandPrimary } : undefined}
                 />
               ))}
             </div>
@@ -97,14 +100,15 @@ export default function SetupWizard() {
               <svg className="w-8 h-8 -rotate-90" viewBox="0 0 32 32">
                 <circle cx="16" cy="16" r="13" fill="none" stroke="var(--border)" strokeWidth="3" />
                 <circle
-                  cx="16" cy="16" r="13" fill="none" stroke="#B8A0C8" strokeWidth="3"
+                  cx="16" cy="16" r="13" fill="none" strokeWidth="3"
+                  stroke={brandPrimary}
                   strokeDasharray={`${2 * Math.PI * 13}`}
                   strokeDashoffset={`${2 * Math.PI * 13 * (1 - progressPct / 100)}`}
                   strokeLinecap="round"
                   className="transition-all duration-500"
                 />
               </svg>
-              <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold" style={{ color: "#B8A0C8" }}>{step}/{totalSteps}</span>
+              <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold" style={{ color: brandPrimary }}>{step}/{totalSteps}</span>
             </div>
           </div>
         </div>
@@ -124,8 +128,11 @@ export default function SetupWizard() {
             {/* Progress bar */}
             <div className="h-1 bg-muted">
               <div
-                className="h-1 rounded-full transition-all duration-700 nf-chameleon-bg"
-                style={{ width: `${progressPct}%` }}
+                className="h-1 rounded-full transition-all duration-700"
+                style={{
+                  width: `${progressPct}%`,
+                  background: `linear-gradient(90deg, ${brandPrimary}, ${brandSecondary})`,
+                }}
               />
             </div>
 
@@ -145,7 +152,18 @@ export default function SetupWizard() {
               <div className="flex items-center justify-between mt-10 pt-6 border-t border-border">
                 <button
                   onClick={goBack}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:border-[#B8A0C8]/50 hover:text-[#B8A0C8] transition-all"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground transition-all"
+                  style={{
+                    // Use brand color on hover via CSS variable passed inline
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = `${brandPrimary}80`;
+                    (e.currentTarget as HTMLButtonElement).style.color = brandPrimary;
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "";
+                    (e.currentTarget as HTMLButtonElement).style.color = "";
+                  }}
                 >
                   ← Back
                 </button>
@@ -156,9 +174,13 @@ export default function SetupWizard() {
                   className={[
                     "flex items-center gap-2 px-7 py-2.5 rounded-xl text-sm font-bold transition-all duration-200",
                     canProceed && !saving
-                      ? "nf-chameleon-bg text-white shadow-lg hover:-translate-y-0.5"
+                      ? "text-white shadow-lg hover:-translate-y-0.5"
                       : "bg-muted text-muted-foreground cursor-not-allowed",
                   ].join(" ")}
+                  style={canProceed && !saving ? {
+                    background: `linear-gradient(135deg, ${brandPrimary} 0%, ${brandSecondary} 100%)`,
+                    boxShadow: `0 4px 14px ${brandPrimary}60`,
+                  } : undefined}
                 >
                   {saving ? (
                     <>
