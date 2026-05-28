@@ -1,18 +1,14 @@
 /**
- * Enrichment Engine — 3-tab rebuild (May 2026)
+ * Enrichment Engine — 9-tab prototype design (May 2026)
  *
- * Tab 1 — Lead Generation   (/enrichment-engine, ?tab=leadgen)
- *   Sub-sections: Masar Database · AI Database Builder · Website Intelligence
- *                 Company Intelligence · Person Intelligence
+ * Top-nav tabs (match enrichment-prototype.html):
+ *   AI Chat · SwarmBoard · Lead Genome · Lead Factory · Harvest AI
+ *   Card Scanner · ProsEngine · CRM Enrichment · Settings
  *
- * Tab 2 — CRM Enrichment    (?tab=enrich)
- *   Sub-sections: Quick Enrich · Bulk Upload · Card Scanner · Dedup · Waterfall Sources
- *
- * Tab 3 — Settings          (?tab=settings)
- *   Sub-sections: Waterfall Sources · API Keys · Export History
- *
- * Sidebar (Lead Gen | CRM Enrichment | Settings) is handled by sections.ts
- * (key "datahub") — already 3 items + expandable/collapsible via SectionSidebar.tsx.
+ * Sidebar legacy paths still resolve:
+ *   /enrichment-engine          → "chat" tab
+ *   /enrichment-engine/enrich   → "crm" tab
+ *   /enrichment-engine/settings → "settings" tab
  */
 
 import { lazy, Suspense, useEffect, useState, useRef } from "react";
@@ -39,6 +35,12 @@ const DedupPage        = lazy(() => import("./dedup"));
 const MasarDatabasePanel          = lazy(() => import("@/components/enrichment/masar-database-panel").then((m) => ({ default: m.MasarDatabasePanel })));
 const AiDatabaseBuilderPanel      = lazy(() => import("@/components/enrichment/ai-database-builder-panel").then((m) => ({ default: m.AiDatabaseBuilderPanel })));
 const SignalTriggeredEnrichment   = lazy(() => import("@/components/enrichment/signal-triggered-enrichment").then((m) => ({ default: m.SignalTriggeredEnrichment })));
+
+// ── Prototype 9-tab panels (new)
+const NexusChatPanel    = lazy(() => import("@/components/enrichment/nexus-chat-panel").then((m) => ({ default: m.NexusChatPanel })));
+const SwarmBoardPanel   = lazy(() => import("@/components/enrichment/swarm-board-panel").then((m) => ({ default: m.SwarmBoardPanel })));
+const LeadGenomePanel   = lazy(() => import("@/components/enrichment/lead-genome-panel").then((m) => ({ default: m.LeadGenomePanel })));
+const LeadFactoryPanel  = lazy(() => import("@/components/enrichment/lead-factory-panel").then((m) => ({ default: m.LeadFactoryPanel })));
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const ACCENT   = "#B8A0C8";
