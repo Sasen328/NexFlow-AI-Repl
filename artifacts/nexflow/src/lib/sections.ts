@@ -29,6 +29,8 @@ export interface SectionItem {
   /** Optional group header rendered above this item in the sidebar.
    *  Items sharing the same group label are visually clustered. */
   group?: string;
+  /** Sub-items shown in the sidebar when this item is the active page. */
+  subItems?: { icon: LucideIcon; label: string; href: string }[];
 }
 
 export interface SectionDef {
@@ -68,7 +70,14 @@ export const SECTIONS: SectionDef[] = [
     accent: "#88B8B0",
     defaultHref: "/command-center",
     items: [
-      { icon: Sparkles,   label: "Command Center",  href: "/command-center", desc: "Live scorecards · push actions to any contact · search & jump", group: "Command" },
+      { icon: Sparkles,   label: "Command Center",  href: "/command-center", desc: "Live scorecards · push actions to any contact · search & jump", group: "Command",
+        subItems: [
+          { icon: BarChart3,    label: "Live Scorecards",  href: "/command-center?tab=scorecards" },
+          { icon: Zap,          label: "Quick Actions",    href: "/command-center?tab=actions" },
+          { icon: BrainCircuit, label: "AI List Builder",  href: "/command-center?tab=list-builder" },
+          { icon: ListIcon,     label: "Priority Queue",   href: "/command-center?tab=queue" },
+        ],
+      },
       { icon: Users,      label: "Contacts",        href: "/contacts",       desc: "All contacts · enrich · score · history" },
       { icon: Building2,  label: "Companies",       href: "/companies",      desc: "Accounts · revenue · contacts roster" },
       { icon: GitBranch,  label: "Deals",           href: "/deal-pipeline",  desc: "Kanban pipeline · stages · win/loss" },
