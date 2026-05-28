@@ -76,7 +76,7 @@ function DesktopSidebar({ section, location }: { section: SectionDef; location: 
         "hidden lg:flex flex-shrink-0 flex-col border-r border-border/30 bg-background/60 backdrop-blur-md sticky self-start z-20 transition-all duration-200",
         collapsed ? "w-[56px]" : "w-[232px]",
       )}
-      style={{ top: "5.5rem", height: "calc(100vh - 5.5rem)" }}
+      style={{ top: "var(--topbar-h, 5.5rem)", height: "calc(100vh - var(--topbar-h, 5.5rem))" }}
       aria-label={`${section.label} navigation`}
     >
       <div className={cn("border-b border-border/30 flex items-center gap-2", collapsed ? "px-2 py-3 justify-center" : "px-4 py-4")}>
@@ -172,7 +172,7 @@ function MobileSubnav({ section, location }: { section: SectionDef; location: st
   return (
     <div
       className="lg:hidden border-b border-border/30 bg-background/80 backdrop-blur-md sticky z-20"
-      style={{ top: "5.5rem" }}
+      style={{ top: "var(--topbar-h, 5.5rem)" }}
     >
       <button
         type="button"
