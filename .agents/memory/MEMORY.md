@@ -1,2 +1,2 @@
-- [Dark mode bootstrap](dark-mode-bootstrap.md) — must initialize dark class + tenant CSS vars eagerly in main.tsx before React renders, or flash occurs on every reload
+- [Dark mode bootstrap](dark-mode-bootstrap.md) — eager apply runs at module-import time in useTheme.ts (not main.tsx); key is "nf:theme"; system-pref fallback uses matchMedia
 - [Tenant branding fallbacks](tenant-branding-fallbacks.md) — applyTenantBranding must apply NexFlow defaults when config=null; early return breaks card color-intelligence in dev/demo
