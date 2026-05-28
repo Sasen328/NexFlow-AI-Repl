@@ -1,0 +1,1139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1280, initial-scale=1" />
+<title>NexFlow — Calm OS Redesign · Tour</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --rd-sand:#F7F4ED;--rd-sand-2:#FBF9F4;--rd-cream:#E8E2D5;--rd-cream-2:#EFEADE;
+  --rd-ink:#1F1B16;--rd-ink-2:#3B342C;--rd-mute:#8A8175;--rd-mute-2:#A89F92;
+  --rd-accent:#C75A3D;--rd-accent-soft:#F4DACD;--rd-sage:#7A8F76;--rd-sage-soft:#DBE3D5;
+  --rd-amber:#C99544;--rd-card:#FFFFFF;
+  --rd-shadow-lift:0 12px 40px -12px rgba(31,27,22,.18),0 0 0 1px #E8E2D5;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--rd-sand);color:var(--rd-ink);
+  font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:13.5px;line-height:1.45;letter-spacing:-.005em;
+  -webkit-font-smoothing:antialiased;}
+.rd-display{font-family:'Playfair Display','Times New Roman',serif;font-weight:400;letter-spacing:-.025em}
+.rd-mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-feature-settings:'tnum'}
+.rd-card{background:#fff;border:1px solid var(--rd-cream);border-radius:14px}
+.rd-pill{border-radius:999px;padding:3px 9px;font-size:11px;letter-spacing:.01em;display:inline-block}
+.rd-divider{height:1px;background:var(--rd-cream)}
+@keyframes rd-pulse{0%,100%{box-shadow:0 0 0 0 rgba(199,90,61,.3)}50%{box-shadow:0 0 0 8px rgba(199,90,61,0)}}
+.rd-pulse{animation:rd-pulse 2.6s ease-out infinite}
+@keyframes rd-blink{0%,100%{opacity:1}50%{opacity:.3}}
+.rd-blink{animation:rd-blink 1.2s ease-in-out infinite}
+.rd-health-track{background:linear-gradient(90deg,#B85C3F 0%,#C99544 35%,#7A8F76 75%,#5C7A58 100%)}
+
+/* layout helpers */
+.flex{display:flex}.inline-flex{display:inline-flex}.items-center{align-items:center}
+.items-start{align-items:flex-start}.items-baseline{align-items:baseline}
+.items-stretch{align-items:stretch}.justify-between{justify-content:space-between}
+.justify-center{justify-content:center}.justify-end{justify-content:flex-end}
+.flex-col{flex-direction:column}.flex-1{flex:1}.flex-wrap{flex-wrap:wrap}
+.cursor-pointer{cursor:pointer}.relative{position:relative}.absolute{position:absolute}
+.text-center{text-align:center}.ml-auto{margin-left:auto}.mr-auto{margin-right:auto}
+
+/* TOUR bar */
+.tour-bar{position:fixed;top:0;left:0;right:0;z-index:9999;display:flex;align-items:center;gap:6px;
+  padding:10px 14px;background:rgba(247,244,237,.92);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--rd-cream);}
+.tour-bar .brand{display:flex;align-items:center;gap:8px;padding-right:12px;border-right:1px solid var(--rd-cream);margin-right:6px;}
+.tour-bar .brand .nx{font-family:'Playfair Display',serif;font-size:18px;color:var(--rd-ink)}
+.tour-bar .brand .lbl{font-size:10.5px;letter-spacing:.06em;color:var(--rd-mute);text-transform:uppercase}
+.tour-bar .grow{flex:1}
+.tour-bar button{background:transparent;border:1px solid transparent;color:var(--rd-mute);
+  padding:6px 11px;border-radius:8px;font:inherit;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+.tour-bar button:hover{color:var(--rd-ink);background:var(--rd-card);border-color:var(--rd-cream)}
+.tour-bar button.on{color:var(--rd-ink);background:var(--rd-card);border-color:var(--rd-cream);font-weight:500}
+.tour-bar button.on .num{color:var(--rd-accent)}
+.tour-bar .num{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--rd-mute-2)}
+.tour-bar .meta{font-size:11px;color:var(--rd-mute);padding:0 8px}
+
+.surface{display:none;min-height:100vh;padding-top:46px}
+.surface.active{display:flex}
+
+/* shared layout for surfaces */
+.app{display:flex;width:100%;min-height:calc(100vh - 46px);position:relative;background:var(--rd-sand);}
+.rail{width:220px;padding:28px 18px;border-right:1px solid var(--rd-cream);background:var(--rd-sand);
+  display:flex;flex-direction:column;justify-content:space-between;flex-shrink:0;}
+.rail .logo{display:flex;align-items:center;gap:8px;padding:0 6px;margin-bottom:40px;}
+.rail .logo .nx{font-family:'Playfair Display',serif;font-size:22px;color:var(--rd-ink);line-height:1}
+.rail .logo .lbl{font-size:12px;color:var(--rd-mute);letter-spacing:.04em}
+.rail nav{display:flex;flex-direction:column;gap:4px}
+.rail .item{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:8px;color:var(--rd-mute);font-size:13px;cursor:pointer;}
+.rail .item.active{color:var(--rd-ink);background:var(--rd-cream);font-weight:500}
+.rail .item .dot{width:4px;height:4px;border-radius:999px;background:var(--rd-accent);margin-left:auto}
+.rail .footer{display:flex;flex-direction:column;gap:12px;padding:0 6px}
+.rail .me{display:flex;align-items:center;gap:10px}
+.rail .me .av{width:28px;height:28px;border-radius:999px;background:var(--rd-accent);color:#fff;font-size:11px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.rail .me .name{font-size:12px}
+.rail .me .role{font-size:11px;color:var(--rd-mute)}
+.rail .set{display:flex;align-items:center;gap:8px;color:var(--rd-mute);font-size:12px}
+
+main.col{flex:1;overflow:auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:20px 36px 0 36px}
+.crumb{display:flex;align-items:center;gap:8px;color:var(--rd-mute);font-size:12px}
+.crumb .here{color:var(--rd-ink)}
+.search{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;border:1px solid var(--rd-cream);background:#fff;color:var(--rd-mute);font-size:12px}
+.search .k{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--rd-mute-2)}
+
+/* icons */
+svg.i{stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+
+/* conductor bubble */
+.cbubble{position:absolute;bottom:28px;right:32px;z-index:50;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.cbubble .pill{display:flex;align-items:center;gap:8px;padding:6px 10px 6px 8px;background:#fff;border:1px solid var(--rd-cream);border-radius:14px;font-size:11px;color:var(--rd-ink-2);box-shadow:var(--rd-shadow-lift)}
+.cbubble .orb{width:52px;height:52px;border-radius:999px;background:var(--rd-ink);color:var(--rd-sand);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--rd-shadow-lift);position:relative}
+.cbubble .badge{position:absolute;top:-2px;right:-2px;width:18px;height:18px;border-radius:999px;background:var(--rd-accent);color:#fff;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;border:2px solid var(--rd-sand)}
+
+/* 360 button */
+.btn-360{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:#fff;border:1px solid var(--rd-cream);color:var(--rd-ink);font-size:12px;font-weight:500;cursor:pointer}
+.btn-dark{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:9px;background:var(--rd-ink);color:var(--rd-sand);font-size:12.5px;font-weight:500;border:0;cursor:pointer}
+.btn-line{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:9px;background:transparent;color:var(--rd-ink);font-size:12.5px;border:1px solid var(--rd-cream);cursor:pointer}
+
+/* small atoms */
+.av{width:26px;height:26px;border-radius:999px;background:var(--rd-cream);color:var(--rd-ink-2);font-size:10.5px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cb{width:14px;height:14px;border-radius:999px;border:1.5px solid var(--rd-mute-2);display:inline-flex;align-items:center;justify-content:center;background:transparent;flex-shrink:0}
+.cb.done{border-color:var(--rd-sage);background:var(--rd-sage)}
+.cb.done::after{content:"";width:4px;height:4px;background:#fff;border-radius:999px}
+
+.brief-card{padding:22px 24px;background:linear-gradient(135deg,#FFFFFF 0%,#FBF9F4 60%,#F4DACD 220%);border:1px solid var(--rd-cream);border-radius:14px}
+.section-tag{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--rd-mute);letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px}
+.section-tag svg{color:var(--rd-accent)}
+
+/* table */
+.tbl-head{display:grid;grid-template-columns:24px 2fr 1.5fr 1.2fr 1.4fr 1fr 1.6fr;padding:10px 16px;font-size:11px;color:var(--rd-mute);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--rd-cream)}
+.tbl-row{display:grid;grid-template-columns:24px 2fr 1.5fr 1.2fr 1.4fr 1fr 1.6fr;padding:11px 16px;border-bottom:1px solid var(--rd-cream);align-items:center;cursor:pointer}
+.tbl-row:last-child{border-bottom:0}
+.tbl-row.first{background:var(--rd-sand-2)}
+.starbtn{cursor:pointer;color:var(--rd-mute-2)}
+.starbtn.on{color:var(--rd-accent)}
+.starbtn.on svg{fill:var(--rd-accent)}
+
+.healthbar{display:flex;align-items:center;gap:8px}
+.healthbar .track{width:56px;height:5px;border-radius:999px;background:var(--rd-cream);position:relative;overflow:hidden}
+.healthbar .bar{position:absolute;left:0;top:0;height:100%;border-radius:999px}
+
+.stage{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:500;letter-spacing:.01em}
+.stg-disc{background:#EFEAE0;color:#8A8175}
+.stg-prop{background:#F4DACD;color:#8C3B22}
+.stg-quote{background:#F8E7C8;color:#8A6020}
+.stg-neg{background:#F4DACD;color:#8C3B22}
+.stg-won{background:#DBE3D5;color:#4F6A4B}
+
+/* tabs row */
+.tabs{display:flex;align-items:baseline;gap:24px;border-bottom:1px solid var(--rd-cream);margin-bottom:18px}
+.tab{padding-bottom:12px;position:relative;cursor:pointer}
+.tab .lbl{font-family:'Playfair Display',serif;font-size:22px;color:var(--rd-mute-2);display:inline-flex;align-items:center;gap:6px}
+.tab.active .lbl{color:var(--rd-ink)}
+.tab.active::after{content:"";position:absolute;bottom:-1px;left:0;right:0;height:2px;background:var(--rd-accent)}
+.tab.accent .lbl svg{color:var(--rd-accent)}
+
+/* pulse band on People */
+.pulse-card{padding:14px 18px;margin-bottom:14px;background:linear-gradient(135deg,#FFFFFF 0%,#FBF9F4 60%,#F4DACD 240%);border:1px solid var(--rd-cream);border-radius:14px}
+.chip-pulse{display:inline-flex;align-items:center;gap:10px;padding:8px 12px;border-radius:999px;background:#fff;border:1px solid var(--rd-cream);cursor:pointer}
+.chip-pulse .ico{width:22px;height:22px;border-radius:999px;display:flex;align-items:center;justify-content:center}
+.chip-pulse .v{font-family:'Playfair Display',serif;font-size:17px;color:var(--rd-ink);line-height:1}
+.chip-pulse .l{font-size:11.5px;color:var(--rd-mute)}
+
+/* Smart lists rail addon */
+.smartlists{margin-top:28px}
+.smartlists .h{font-size:10.5px;color:var(--rd-mute);text-transform:uppercase;letter-spacing:.08em;padding:0 10px 8px}
+.smartlists .row{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:7px;font-size:12.5px;color:var(--rd-mute);cursor:pointer}
+.smartlists .row.on{color:var(--rd-ink);background:var(--rd-sand-2);font-weight:500}
+.smartlists .row .n{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--rd-mute-2)}
+.smartlists .add{display:flex;align-items:center;gap:6px;padding:8px 10px;font-size:12px;color:var(--rd-mute);cursor:pointer}
+
+/* filter chips */
+.fchip{display:inline-block;padding:4px 10px;border-radius:999px;border:1px solid var(--rd-cream);background:transparent;color:var(--rd-mute);font-size:11.5px;cursor:pointer}
+.fchip.on{background:var(--rd-ink);color:var(--rd-sand);border-color:var(--rd-ink)}
+
+/* SmartFlow KPI cards */
+.kpi-card{background:#fff;border:1px solid var(--rd-cream);border-radius:14px;padding:16px 18px}
+.kpi-card .l{font-size:11px;color:var(--rd-mute);text-transform:uppercase;letter-spacing:.06em}
+.kpi-card .v{font-family:'Playfair Display',serif;font-size:30px;color:var(--rd-ink);line-height:1.1;margin-top:4px}
+.kpi-card .d{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px}
+.kpi-card .d.up{color:var(--rd-sage)}
+.kpi-card .d.down{color:var(--rd-accent)}
+.kpi-card .d .vs{color:var(--rd-mute)}
+
+/* Funnel */
+.funnel-row{margin-bottom:10px}
+.funnel-row:last-child{margin-bottom:0}
+.funnel-row .meta{display:flex;justify-content:space-between;font-size:11.5px;color:var(--rd-ink-2);margin-bottom:6px}
+.funnel-row .track{position:relative;height:28px;border-radius:6px;background:var(--rd-sand-2);overflow:hidden;border:1px solid var(--rd-cream)}
+.funnel-row .bar{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--rd-accent) 0%,#D17B5A 100%);border-radius:5px}
+
+/* drawer */
+.dim{position:absolute;inset:0;background:rgba(31,27,22,.16)}
+.drawer{position:absolute;top:0;right:0;bottom:0;width:560px;background:var(--rd-sand);border-left:1px solid var(--rd-cream);box-shadow:-20px 0 60px -20px rgba(31,27,22,.18);overflow:auto;z-index:20}
+.drawer-head{padding:24px 28px 16px;border-bottom:1px solid var(--rd-cream)}
+.drawer-body{padding:20px 28px}
+
+/* call modal */
+.call-stage{display:flex;align-items:center;justify-content:center;flex-direction:column;flex:1;padding:32px;gap:18px;position:relative}
+.call-card{background:#fff;border:1px solid var(--rd-cream);border-radius:14px;width:640px;padding:18px 22px;box-shadow:var(--rd-shadow-lift)}
+.coach{position:absolute;right:32px;top:32px;width:300px;background:#fff;border:1px solid var(--rd-cream);border-radius:14px;padding:14px 16px;box-shadow:0 6px 20px -8px rgba(31,27,22,.14)}
+.ai-inbox{position:absolute;right:32px;bottom:120px;width:360px;background:#fff;border:1px solid var(--rd-cream);border-radius:14px;padding:14px 16px;box-shadow:var(--rd-shadow-lift)}
+.transcript-row{display:grid;grid-template-columns:60px 1fr;gap:12px;padding:8px 0}
+
+/* expandable KPI */
+.chip-kpi{padding:12px 14px;border:1px solid var(--rd-cream);border-radius:14px;background:#fff;flex:1;cursor:pointer}
+.chip-kpi.exp{border-color:var(--rd-accent)}
+.chip-kpi .row{display:flex;align-items:center;gap:10px}
+.chip-kpi .ico{width:28px;height:28px;border-radius:999px;display:flex;align-items:center;justify-content:center}
+.chip-kpi .l{font-size:11px;color:var(--rd-mute)}
+.chip-kpi .v{font-family:'Playfair Display',serif;font-size:22px;color:var(--rd-ink);line-height:1.1}
+
+/* scrollbar gentle */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#D5CFC2;border-radius:999px}
+::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+
+<!-- ============= ICONS SPRITE ============= -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2h-4v-7H9v7H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/></symbol>
+  <symbol id="i-cright" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
+  <symbol id="i-cdown" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-arrow-ur" viewBox="0 0 24 24"><path d="M7 17L17 7M7 7h10v10"/></symbol>
+  <symbol id="i-cdot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
+  <symbol id="i-tup" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></symbol>
+  <symbol id="i-tdown" viewBox="0 0 24 24"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 24 24"><path d="M21 16l-4 4-4-4M17 20V4M3 8l4-4 4 4M7 4v16"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></symbol>
+  <symbol id="i-corner" viewBox="0 0 24 24"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></symbol>
+  <symbol id="i-aright" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8"/></symbol>
+  <symbol id="i-mic-off" viewBox="0 0 24 24"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23M12 19v3M8 22h8"/></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></symbol>
+  <symbol id="i-poff" viewBox="0 0 24 24"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67M5 5l14 14"/></symbol>
+  <symbol id="i-mc" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7A4 4 0 0 1 9 18h6a4 4 0 0 1 1-3.3A7 7 0 0 0 12 2z"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-act" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></symbol>
+  <symbol id="i-aup" viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></symbol>
+</defs>
+</svg>
+
+<!-- ============= TOUR BAR ============= -->
+<nav class="tour-bar" id="tour">
+  <div class="brand">
+    <span class="nx">nx</span>
+    <span class="lbl">NEXFLOW · CALM OS TOUR</span>
+  </div>
+  <button data-go="home" class="on"><svg class="i" width="13" height="13"><use href="#i-home"/></svg> Home <span class="num">1</span></button>
+  <button data-go="crm"><svg class="i" width="13" height="13"><use href="#i-users"/></svg> CRM · People <span class="num">2</span></button>
+  <button data-go="smartflow"><svg class="i" width="13" height="13"><use href="#i-spark"/></svg> AI SmartFlow <span class="num">3</span></button>
+  <button data-go="drawer"><svg class="i" width="13" height="13"><use href="#i-file"/></svg> Person Drawer <span class="num">4</span></button>
+  <button data-go="callinbox"><svg class="i" width="13" height="13"><use href="#i-phone"/></svg> Live Call + AI Inbox <span class="num">5</span></button>
+  <span class="grow"></span>
+  <span class="meta">Press <span class="rd-mono">1–5</span> to switch · static prototype</span>
+</nav>
+
+<!-- =============================================================
+     1. HOME
+============================================================= -->
+<section id="surface-home" class="surface active">
+  <div class="app">
+    <!-- rail -->
+    <aside class="rail">
+      <div>
+        <div class="logo"><span class="nx">nx</span><span class="lbl">NEXFLOW</span></div>
+        <nav>
+          <div class="item active"><svg class="i" width="15" height="15"><use href="#i-home"/></svg> Home <span class="dot"></span></div>
+          <div class="item"><svg class="i" width="15" height="15"><use href="#i-users"/></svg> CRM</div>
+          <div class="item"><svg class="i" width="15" height="15"><use href="#i-msg"/></svg> Comms</div>
+        </nav>
+      </div>
+      <div class="footer">
+        <div class="set"><svg class="i" width="14" height="14"><use href="#i-settings"/></svg><span>Settings</span></div>
+        <div class="me"><div class="av" style="background:var(--rd-accent);color:#fff">SK</div><div><div class="name">Sara Khalid</div><div class="role">Sales Rep</div></div></div>
+      </div>
+    </aside>
+
+    <!-- main -->
+    <main class="col">
+      <!-- topbar -->
+      <div class="topbar">
+        <div class="crumb"><span>Tuesday</span><span>·</span><span>Apr 30, 2026</span><span>·</span><span>Dubai 09:14</span></div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="btn-360"><svg class="i" width="12" height="12" style="color:var(--rd-accent);stroke-width:1.8"><use href="#i-compass"/></svg> 360° AI Analysis <svg class="i" width="11" height="11" style="color:var(--rd-mute);stroke-width:1.8"><use href="#i-cright"/></svg></button>
+          <div class="search"><svg class="i" width="13" height="13"><use href="#i-search"/></svg><span>Search anything</span><span class="k">⌘K</span></div>
+        </div>
+      </div>
+
+      <section style="padding:28px 36px 12px">
+        <h1 class="rd-display" style="font-size:38px;line-height:1.05;margin:0">Tuesday morning, Sara.</h1>
+        <p style="color:var(--rd-mute);margin:8px 0 0;font-size:14px">Conductor reviewed last night. <span style="color:var(--rd-ink)">3 things</span> need your decision before 11am.</p>
+      </section>
+
+      <!-- Conductor Brief Hero -->
+      <section style="padding:16px 36px 0">
+        <div class="brief-card">
+          <div class="section-tag"><svg class="i" width="12" height="12"><use href="#i-spark"/></svg>Conductor Brief · synced 7 min ago</div>
+          <div class="flex items-start" style="gap:24px;justify-content:space-between">
+            <div style="max-width:540px">
+              <div class="rd-display" style="font-size:22px;line-height:1.25">Khaled is the keystone today. He'll close the Aramco pilot if you address the Q2 budget objection in the first 5 minutes.</div>
+              <div class="flex flex-wrap" style="gap:8px;margin-top:16px">
+                <button class="btn-dark">Run morning playbook <svg class="i" width="14" height="14" style="stroke-width:2"><use href="#i-cright"/></svg></button>
+                <button class="btn-line">Open all 3 in drawer</button>
+              </div>
+            </div>
+            <div style="flex:1;max-width:320px;padding-left:24px;border-left:1px solid var(--rd-cream-2)">
+              <div style="font-size:11px;color:var(--rd-mute);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Yesterday's commitments</div>
+              <div class="flex items-center" style="gap:10px;padding:5px 0;font-size:12.5px"><span class="cb done"></span><span style="color:var(--rd-mute);text-decoration:line-through">Send Q1 case study to Khaled</span></div>
+              <div class="flex items-center" style="gap:10px;padding:5px 0;font-size:12.5px"><span class="cb done"></span><span style="color:var(--rd-mute);text-decoration:line-through">Confirm pricing tier with Layla</span></div>
+              <div class="flex items-center" style="gap:10px;padding:5px 0;font-size:12.5px"><span class="cb"></span><span>Schedule pilot kickoff with Faisal</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stats -->
+      <section style="padding:20px 36px 0">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+          <div class="rd-card" style="padding:18px 20px">
+            <div style="font-size:11px;color:var(--rd-mute);text-transform:uppercase;letter-spacing:.06em">Open prospects</div>
+            <div class="rd-display" style="font-size:36px;line-height:1;margin-top:4px">23</div>
+            <div style="font-size:11px;margin-top:8px;color:var(--rd-mute)">+4 this week</div>
+          </div>
+          <div class="rd-card" style="padding:18px 20px">
+            <div style="font-size:11px;color:var(--rd-mute);text-transform:uppercase;letter-spacing:.06em">Today's commitments</div>
+            <div class="rd-display" style="font-size:36px;line-height:1;margin-top:4px">5</div>
+            <div style="font-size:11px;margin-top:8px;color:var(--rd-mute)">from Conductor</div>
+          </div>
+          <div class="rd-card" style="padding:18px 20px">
+            <div style="font-size:11px;color:var(--rd-mute);text-transform:uppercase;letter-spacing:.06em">Overdue follow-ups</div>
+            <div class="rd-display" style="font-size:36px;line-height:1;margin-top:4px">2</div>
+            <div style="font-size:11px;margin-top:8px;color:var(--rd-accent)">needs attention</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tasks list -->
+      <section style="padding:28px 36px 100px">
+        <div class="flex items-center justify-between" style="margin-bottom:12px">
+          <div class="flex items-baseline" style="gap:12px">
+            <h2 class="rd-display" style="font-size:22px;margin:0">Today's tasks</h2>
+            <span style="color:var(--rd-mute);font-size:12px">1 done · 4 to go · ordered by Conductor</span>
+          </div>
+          <div class="flex items-center" style="gap:8px;font-size:11.5px;color:var(--rd-mute)">
+            <span>View:</span><span style="color:var(--rd-ink);font-weight:500">Today</span><span>·</span><span>Tomorrow</span><span>·</span><span>Week</span>
+          </div>
+        </div>
+        <div class="rd-card">
+          <div style="padding:8px 16px 4px;font-size:10.5px;color:var(--rd-mute-2);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--rd-cream)">Done · 1</div>
+          <!-- done row -->
+          <div style="display:grid;grid-template-columns:22px 48px 1fr auto;gap:14px;padding:12px 16px;border-bottom:1px solid var(--rd-cream);cursor:pointer">
+            <div style="padding-top:2px"><span class="cb done" style="width:16px;height:16px"></span></div>
+            <div class="rd-mono" style="font-size:11px;color:var(--rd-mute);padding-top:3px">08:30</div>
+            <div>
+              <div class="flex items-center flex-wrap" style="gap:8px">
+                <span style="font-size:13px;color:var(--rd-ink);font-weight:500;text-decoration:line-through">Slack standup recap</span>
+                <span style="font-size:11.5px;color:var(--rd-mute)">·</span>
+                <span style="font-size:12px;color:var(--rd-ink-2)">Omar Habibi</span>
+                <span style="font-size:11.5px;color:var(--rd-mute)">· Careem</span>
+                <svg class="i" width="11" height="11" style="color:var(--rd-sage);stroke-width:1.8"><use href="#i-msg"/></svg>
+              </div>
+              <div style="font-size:11.5px;color:var(--rd-mute);margin-top:3px;font-style:italic">
+                <svg class="i" width="9" height="9" style="color:var(--rd-accent);stroke-width:1.8;display:inline;margin-right:5px"><use href="#i-spark"/></svg>
+                Posted to #ksa-deals at 08:34.
+              </div>
+            </div>
+            <div class="flex items-center" style="gap:8px;padding-top:2px">
+              <button style="padding:4px 10px;border-radius:7px;background:transparent;border:1px solid var(--rd-cream);font-size:11.5px;color:var(--rd-ink-2);cursor:pointer">Open</button>
+              <svg class="i" width="14" height="14" style="color:var(--rd-mute-2)"><use href="#i-more"/></svg>
+            </div>
+          </div>
+
+          <div style="padding:10px 16px 4px;font-size:10.5px;color:var(--rd-mute-2);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--rd-cream);border-top:1px solid var(--rd-cream)">Up next · 4</div>
+
+          <!-- task rows -->
+          <div style="display:grid;grid-template-columns:22px 48px 1fr auto;gap:14px;padding:12px 16px;border-bottom:1px solid var(--rd-cream);cursor:pointer">
+            <div style="padding-top:2px"><span class="cb" style="width:16px;height:16px"></span></div>
+            <div class="rd-mono" style="font-size:11px;color:var(--rd-mute);padding-top:3px">10:00</div>
+            <div>
+              <div class="flex items-center flex-wrap" style="gap:8px">
+                <span style="font-size:13px;color:var(--rd-ink);font-weight:500">Discovery call</span>
+                <span style="font-size:11.5px;color:var(--rd-mute)">·</span>
+                <span style="font-size:12px;color:var(--rd-ink-2)">Khaled Al-Mansoori</span>
+                <span style="font-size:11.5px;color:var(--rd-mute)">· CTO Aramco Digital</span>
+                <svg class="i" width="11" height="11" style="color:var(--rd-accent);stroke-width:1.8"><use href="#i-phone"/></svg>
+              </div>
+              <div style="font-size:11.5px;color:var(--rd-mute);margin-top:3px;font-style:italic">
+                <svg class="i" width="9" height="9" style="color:var(--rd-accent);stroke-width:1.8;display:inline;margin-right:5px"><use href="#i-spark"/></svg>
+                Yesterday's blocker: Q2 budget. Bring the pilot ROI doc.
+              </div>
+            </div>
+            <div class="flex items-center" style="gap:8px;padding-top:2px"><button style="padding:4px 10px;border-radius:7px;background:transparent;border:1px solid var(--rd-cream);font-size:11.5px;color:var(--rd-ink-2);cursor:pointer">Open</button><svg class="i" width="14" height="14" style="color:var(--rd-mute-2)"><use href="#i-more"/></svg></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:22px 48px 1fr auto;gap:14px;padding:12px 16px;border-bottom:1px solid var(--rd-cream);cursor:pointer">
+            <div style="padding-top:2px"><span class="cb" style="width:16px;height:16px"></span></div>
+            <div class="rd-mono" style="font-size:11px;color:var(--rd-mute);padding-top:3px">11:30</div>
+            <div>
+              <div class="flex items-center flex-wrap" style="gap:8px">
+                <span style="font-size:13px;color:var(--rd-ink);font-weight:500">Send pricing follow-up</span>
+                <span style="font-size:11.5px;color:var(--rd-mute)">·</span>
+                <span style="font-size:12px;color:var(--rd-ink-2)">Layla Hamadi</span>
+                <span style="font-size:11.5px;color:var(--rd-mute)">· VP Ops Maersk MENA</span>
+                <svg class="i" width="11" height="11" style="color:var(--rd-amber);stroke-width:1.8"><use href="#i-mail"/></svg>
+              </div>
+              <div style="font-size:11.5px;color:var(--rd-mute);margin-top:3px;font-style:italic">
+                <svg class="i" width="9" height="9" style="color:var(--rd-accent);stroke-width:1.8;display:inline;margin-right:5px"><use href="#i-spark"/></svg>
+                Composer drafted it. Awaiting your approval.
+              </div>
+            </div>
+            <div class="flex items-center" style="gap:8px;padding-top:2px"><button style="padding:4px 10px;border-radius:7px;background:transparent;border:1px solid var(--rd-cream);font-size:11.5px;color:var(--rd-ink-2);cursor:pointer">Open</button><svg class="i" width="14" height="14" style="color:var(--rd-mute-2)"><use href="#i-more"/></svg></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:22px 48px 1fr auto;gap:14px;padding:12px 16px;border-bottom:1px solid var(--rd-cream);cursor:pointer">
+            <div style="padding-top:2px"><span class="cb" style="width:16px;height:16px"></span></div>
+            <div class="rd-mono" style="font-size:11px;color:var(--rd-mute);padding-top:3px">14:00</div>
+            <div>
+              <div class="flex items-center flex-wrap" style="gap:8px">
+                <span style="font-size:13px;color:var(--rd-ink);font-weight:500">Calendar nudge</span>
+                <span style="font-size:11.5px;color:var(--rd-mute)">·</span>
+                <span style="font-size:12px;color:var(--rd-ink-2)">Faisal Al-Otaibi</span>
+                <span style="font-size:11.5px;color:var(--rd-mute)">· Director STC</span>
+                <svg class="i" width="11" height="11" style="color:var(--rd-sage);stroke-width:1.8"><use href="#i-cal"/></svg>
+              </div>
+              <div style="font-size:11.5px;color:var(--rd-mute);margin-top:3px;font-style:italic">
+                <svg class="i" width="9" height="9" style="color:var(--rd-accent);stroke-width:1.8;display:inline;margin-right:5px"><use href="#i-spark"/></svg>
+                Silent 6 days. Listener flagged risk. Coach suggests 1-line check-in.
+              </div>
+            </div>
+            <div class="flex items-center" style="gap:8px;padding-top:2px"><button style="padding:4px 10px;border-radius:7px;background:transparent;border:1px solid var(--rd-cream);font-size:11.5px;color:var(--rd-ink-2);cursor:pointer">Open</button><svg class="i" width="14" height="14" style="color:var(--rd-mute-2)"><use href="#i-more"/></svg></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:22px 48px 1fr auto;gap:14px;padding:12px 16px;cursor:pointer">
+            <div style="padding-top:2px"><span class="cb" style="width:16px;height:16px"></span></div>
+            <div class="rd-mono" style="font-size:11px;color:var(--rd-mute);padding-top:3px">16:30</div>
+            <div>
+              <div class="flex items-center flex-wrap" style="gap:8px">
+                <span style="font-size:13px;color:var(--rd-ink);font-weight:500">Quote review</span>
+                <span style="font-size:11.5px;color:var(--rd-mute)">·</span>
+                <span style="font-size:12px;color:var(--rd-ink-2)">Mariam Bouazizi</span>
+                <span style="font-size:11.5px;color:var(--rd-mute)">· Founder Tabby Africa</span>
+                <svg class="i" width="11" height="11" style="color:var(--rd-accent);stroke-width:1.8"><use href="#i-arrow-ur"/></svg>
+              </div>
+              <div style="font-size:11.5px;color:var(--rd-mute);margin-top:3px;font-style:italic">
+                <svg class="i" width="9" height="9" style="color:var(--rd-accent);stroke-width:1.8;display:inline;margin-right:5px"><use href="#i-spark"/></svg>
+                Dispatcher built v3. Margin stays at 38%. Open?
+              </div>
+            </div>
+            <div class="flex items-center" style="gap:8px;padding-top:2px"><button style="padding:4px 10px;border-radius:7px;background:transparent;border:1px solid var(--rd-cream);font-size:11.5px;color:var(--rd-ink-2);cursor:pointer">Open</button><svg class="i" width="14" height="14" style="color:var(--rd-mute-2)"><use href="#i-more"/></svg></div>
+          </div>
+
+          <div class="flex items-center" style="gap:8px;padding:11px 16px;border-top:1px solid var(--rd-cream);font-size:12.5px;color:var(--rd-mute);cursor:pointer">
+            <svg class="i" width="13" height="13" style="stroke-width:2"><use href="#i-plus"/></svg>
+            <span>Add task</span>
+            <span class="rd-mono ml-auto" style="font-size:10px;color:var(--rd-mute-2)">N</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Conductor bubble -->
+    <div class="cbubble">
+      <div class="pill"><svg class="i" width="10" height="10" style="color:var(--rd-accent);stroke-width:2"><use href="#i-cdot"/></svg><span>3 need you</span></div>
+      <div class="orb rd-pulse"><svg class="i" width="20" height="20" style="stroke-width:1.5"><use href="#i-spark"/></svg><span class="badge">3</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================================
+     2. CRM People  (with pulse band + AI SmartFlow tab)
+============================================================= -->
+<section id="surface-crm" class="surface">
+  <div class="app">
+    <aside class="rail">
+      <div>
+        <div class="logo"><span class="nx">nx</span><span class="lbl">NEXFLOW</span></div>
+        <nav>
+          <div class="item"><svg class="i" width="15" height="15"><use href="#i-home"/></svg> Home</div>
+          <div class="item active"><svg class="i" width="15" height="15"><use href="#i-users"/></svg> CRM <span class="dot"></span></div>
+          <div class="item"><svg class="i" width="15" height="15"><use href="#i-msg"/></svg> Comms</div>
+        </nav>
+        <div class="smartlists">
+          <div class="h">Smart Lists</div>
+          <div class="row on">My open prospects <span class="n">23</span></div>
+          <div class="row">Follow-ups due today <span class="n">5</span></div>
+          <div class="row">Hot · stage 4+ <span class="n">8</span></div>
+          <div class="row">Closing this week <span class="n">3</span></div>
+          <div class="row">Silent 7+ days <span class="n">6</span></div>
+          <div class="row">By segment · Enterprise <span class="n">14</span></div>
+          <div class="add"><svg class="i" width="11" height="11" style="stroke-width:2"><use href="#i-plus"/></svg> New smart list</div>
+        </div>
+      </div>
+      <div class="footer">
+        <div class="set"><svg class="i" width="14" height="14"><use href="#i-settings"/></svg><span>Settings</span></div>
+        <div class="me"><div class="av" style="background:var(--rd-accent);color:#fff">SK</div><div><div class="name">Sara Khalid</div><div class="role">Sales Rep</div></div></div>
+      </div>
+    </aside>
+
+    <main class="col">
+      <div class="topbar">
+        <div class="crumb"><span>CRM</span><span>·</span><span class="here">People</span></div>
+        <div class="search"><svg class="i" width="13" height="13"><use href="#i-search"/></svg><span>Search anything</span><span class="k">⌘K</span></div>
+      </div>
+
+      <div style="padding:20px 36px 0">
+        <div class="tabs">
+          <div class="tab active"><span class="lbl">People</span></div>
+          <div class="tab"><span class="lbl">Companies</span></div>
+          <div class="tab"><span class="lbl">Deals</span></div>
+          <div class="tab accent"><span class="lbl"><svg class="i" width="13" height="13" style="stroke-width:1.8"><use href="#i-spark"/></svg> AI SmartFlow</span></div>
+          <div class="ml-auto" style="padding-bottom:12px;color:var(--rd-mute);font-size:12px"><span style="color:var(--rd-ink)">23</span> people · <span class="rd-mono">My open</span></div>
+        </div>
+
+        <!-- Pulse band -->
+        <div class="pulse-card">
+          <div class="flex items-start" style="gap:16px">
+            <div style="flex:1">
+              <div class="section-tag" style="margin-bottom:6px"><svg class="i" width="11" height="11" style="stroke-width:1.8"><use href="#i-spark"/></svg>Today's pulse</div>
+              <div style="font-size:13.5px;line-height:1.5;max-width:640px">Pipeline is healthy — <span style="color:var(--rd-accent);font-weight:500">3 hot signals</span> from yesterday's activity. Your highest-leverage move: re-engage <span style="font-weight:500">Faisal</span> before tomorrow.</div>
+            </div>
+            <button class="btn-line" style="padding:6px 11px;font-size:11.5px;border-radius:8px">Open SmartFlow <svg class="i" width="11" height="11"><use href="#i-cright"/></svg></button>
+          </div>
+          <div class="flex items-center flex-wrap" style="gap:8px;margin-top:12px">
+            <div class="chip-pulse"><div class="ico" style="background:var(--rd-accent-soft)"><svg class="i" width="11" height="11" style="color:var(--rd-accent);stroke-width:2"><use href="#i-cdot"/></svg></div><div class="flex items-baseline" style="gap:6px"><span class="v">8</span><span class="l">tasks today</span></div></div>
+            <div class="chip-pulse"><div class="ico" style="background:#F8E7C8"><svg class="i" width="11" height="11" style="color:var(--rd-amber);stroke-width:2"><use href="#i-flame"/></svg></div><div class="flex items-baseline" style="gap:6px"><span class="v">5</span><span class="l">hot signals</span></div></div>
+            <div class="chip-pulse"><div class="ico" style="background:var(--rd-accent-soft)"><svg class="i" width="11" height="11" style="color:var(--rd-accent);stroke-width:2"><use href="#i-alert"/></svg></div><div class="flex items-baseline" style="gap:6px"><span class="v">2</span><span class="l">SLA breaches</span></div></div>
+            <div class="chip-pulse"><div class="ico" style="background:var(--rd-sage-soft)"><svg class="i" width="11" height="11" style="color:var(--rd-sage);stroke-width:2"><use href="#i-tup"/></svg></div><div class="flex items-baseline" style="gap:6px"><span class="v">$120k</span><span class="l">pipeline at risk</span></div></div>
+          </div>
+        </div>
+
+        <!-- filter chips -->
+        <div class="flex items-center" style="gap:8px;margin-bottom:16px">
+          <span class="fchip on">Open</span>
+          <span class="fchip">Hot · stage 4+</span>
+          <span class="fchip">Pending follow-up</span>
+          <span class="fchip">Health &lt; 50</span>
+          <span class="fchip">Segment · Enterprise</span>
+          <div class="ml-auto" style="display:flex;gap:10px;color:var(--rd-mute);font-size:11.5px">
+            <button style="background:transparent;border:0;display:inline-flex;align-items:center;gap:5px;color:var(--rd-mute);cursor:pointer"><svg class="i" width="12" height="12" style="stroke-width:1.8"><use href="#i-filter"/></svg> Filter</button>
+            <button style="background:transparent;border:0;display:inline-flex;align-items:center;gap:5px;color:var(--rd-mute);cursor:pointer"><svg class="i" width="12" height="12" style="stroke-width:1.8"><use href="#i-sort"/></svg> Sort</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- table -->
+      <div style="padding:0 36px 100px">
+        <div class="rd-card" style="overflow:hidden">
+          <div class="tbl-head"><span></span><span>Person</span><span>Company</span><span>Stage</span><span>Last touch</span><span>Health</span><span>Next action</span></div>
+          <!-- 7 rows -->
+          <div class="tbl-row first">
+            <span class="starbtn on"><svg class="i" width="12" height="12" style="stroke-width:1.5"><use href="#i-star"/></svg></span>
+            <div class="flex items-center" style="gap:10px"><div class="av">KA</div><div><div style="font-size:13px">Khaled Al-Mansoori</div><div style="font-size:11px;color:var(--rd-mute)">CTO</div></div></div>
+            <div style="font-size:12.5px;color:var(--rd-ink-2)">Aramco Digital</div>
+            <div><span class="stage stg-neg">Negotiation</span></div>
+            <div style="font-size:11.5px;color:var(--rd-mute)">yesterday · call</div>
+            <div class="healthbar"><div class="track"><div class="bar rd-health-track" style="width:87%"></div></div><span class="rd-mono" style="font-size:10.5px;color:var(--rd-mute)">87</span></div>
+            <div class="flex items-center justify-between"><span style="font-size:12px;color:var(--rd-ink-2)">Send pilot ROI doc</span><span class="flex items-center" style="gap:4px;font-size:10.5px;color:var(--rd-accent)">Open <svg class="i" width="11" height="11"><use href="#i-cright"/></svg></span></div>
+          </div>
+          <div class="tbl-row">
+            <span class="starbtn on"><svg class="i" width="12" height="12" style="stroke-width:1.5"><use href="#i-star"/></svg></span>
+            <div class="flex items-center" style="gap:10px"><div class="av">LH</div><div><div style="font-size:13px">Layla Hamadi</div><div style="font-size:11px;color:var(--rd-mute)">VP Operations</div></div></div>
+            <div style="font-size:12.5px;color:var(--rd-ink-2)">Maersk MENA</div>
+            <div><span class="stage stg-prop">Proposal</span></div>
+            <div style="font-size:11.5px;color:var(--rd-mute)">2d · email</div>
+            <div class="healthbar"><div class="track"><div class="bar rd-health-track" style="width:72%"></div></div><span class="rd-mono" style="font-size:10.5px;color:var(--rd-mute)">72</span></div>
+            <div style="font-size:12px;color:var(--rd-ink-2)">Approve Composer draft</div>
+          </div>
+          <div class="tbl-row">
+            <span class="starbtn"><svg class="i" width="12" height="12" style="stroke-width:1.5"><use href="#i-star"/></svg></span>
+            <div class="flex items-center" style="gap:10px"><div class="av">FA</div><div><div style="font-size:13px">Faisal Al-Otaibi</div><div style="font-size:11px;color:var(--rd-mute)">Director</div></div></div>
+            <div style="font-size:12.5px;color:var(--rd-ink-2)">STC Solutions</div>
+            <div><span class="stage stg-disc">Discovery</span></div>
+            <div style="font-size:11.5px;color:var(--rd-mute)">6d · silent</div>
+            <div class="healthbar"><div class="track"><div class="bar rd-health-track" style="width:34%"></div></div><span class="rd-mono" style="font-size:10.5px;color:var(--rd-mute)">34</span></div>
+            <div style="font-size:12px;color:var(--rd-ink-2)">Listener: nudge today</div>
+          </div>
+          <div class="tbl-row">
+            <span class="starbtn"><svg class="i" width="12" height="12" style="stroke-width:1.5"><use href="#i-star"/></svg></span>
+            <div class="flex items-center" style="gap:10px"><div class="av">MB</div><div><div style="font-size:13px">Mariam Bouazizi</div><div style="font-size:11px;color:var(--rd-mute)">Founder</div></div></div>
+            <div style="font-size:12.5px;color:var(--rd-ink-2)">Tabby Africa</div>
+            <div><span class="stage stg-quote">Quote</span></div>
+            <div style="font-size:11.5px;color:var(--rd-mute)">today · WhatsApp</div>
+            <div class="healthbar"><div class="track"><div class="bar rd-health-track" style="width:81%"></div></div><span class="rd-mono" style="font-size:10.5px;color:var(--rd-mute)">81</span></div>
+            <div style="font-size:12px;color:var(--rd-ink-2)">Quote v3 ready</div>
+          </div>
+          <div class="tbl-row">
+            <span class="starbtn"><svg class="i" width="12" height="12" style="stroke-width:1.5"><use href="#i-star"/></svg></span>
+            <div class="flex items-center" style="gap:10px"><div class="av">OH</div><div><div style="font-size:13px">Omar Habibi</div><div style="font-size:11px;color:var(--rd-mute)">Head of Growth</div></div></div>
+            <div style="font-size:12.5px;color:var(--rd-ink-2)">Careem</div>
+            <div><span class="stage stg-disc">Discovery</span></div>
+            <div style="font-size:11.5px;color:var(--rd-mute)">1d · meeting</div>
+            <div class="healthbar"><div class="track"><div class="bar rd-health-track" style="width:66%"></div></div><span class="rd-mono" style="font-size:10.5px;color:var(--rd-mute)">66</span></div>
+            <div style="font-size:12px;color:var(--rd-ink-2)">Schedule demo</div>
+          </div>
+          <div class="tbl-row">
+            <span class="starbtn"><svg class="i" width="12" height="12" style="stroke-width:1.5"><use href="#i-star"/></svg></span>
+            <div class="flex items-center" style="gap:10px"><div class="av">NE</div><div><div style="font-size:13px">Noor El-Sayed</div><div style="font-size:11px;color:var(--rd-mute)">VP Product</div></div></div>
+            <div style="font-size:12.5px;color:var(--rd-ink-2)">Talabat</div>
+            <div><span class="stage stg-won">Closed Won</span></div>
+            <div style="font-size:11.5px;color:var(--rd-mute)">today · contract</div>
+            <div class="healthbar"><div class="track"><div class="bar rd-health-track" style="width:94%"></div></div><span class="rd-mono" style="font-size:10.5px;color:var(--rd-mute)">94</span></div>
+            <div style="font-size:12px;color:var(--rd-ink-2)">Onboarding handoff</div>
+          </div>
+          <div class="tbl-row">
+            <span class="starbtn"><svg class="i" width="12" height="12" style="stroke-width:1.5"><use href="#i-star"/></svg></span>
+            <div class="flex items-center" style="gap:10px"><div class="av">YA</div><div><div style="font-size:13px">Yusuf Al-Rashid</div><div style="font-size:11px;color:var(--rd-mute)">Procurement Lead</div></div></div>
+            <div style="font-size:12.5px;color:var(--rd-ink-2)">ADNOC Distribution</div>
+            <div><span class="stage stg-neg">Negotiation</span></div>
+            <div style="font-size:11.5px;color:var(--rd-mute)">3d · call</div>
+            <div class="healthbar"><div class="track"><div class="bar rd-health-track" style="width:58%"></div></div><span class="rd-mono" style="font-size:10.5px;color:var(--rd-mute)">58</span></div>
+            <div style="font-size:12px;color:var(--rd-ink-2)">Counter on payment terms</div>
+          </div>
+        </div>
+        <div class="flex items-center justify-between" style="margin-top:12px;font-size:11px;color:var(--rd-mute)">
+          <span>Showing 7 of 23 · click any row to open the drawer</span>
+          <div class="flex items-center" style="gap:6px"><svg class="i" width="9" height="9" style="color:var(--rd-sage)"><use href="#i-cdot"/></svg> 3 enriched in last hour</div>
+        </div>
+      </div>
+
+      <!-- floating add -->
+      <button style="position:absolute;bottom:28px;left:248px;background:var(--rd-accent);color:#fff;padding:10px 16px;border-radius:999px;border:0;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;box-shadow:0 6px 20px -4px rgba(199,90,61,.4)">
+        <svg class="i" width="14" height="14" style="stroke-width:2.2"><use href="#i-plus"/></svg> Add person
+      </button>
+    </main>
+
+    <div class="cbubble"><div class="orb rd-pulse"><svg class="i" width="20" height="20" style="stroke-width:1.5"><use href="#i-spark"/></svg></div></div>
+  </div>
+</section>
+
+<!-- =============================================================
+     3. AI SmartFlow Insights
+============================================================= -->
+<section id="surface-smartflow" class="surface">
+  <div class="app">
+    <aside class="rail">
+      <div>
+        <div class="logo"><span class="nx">nx</span><span class="lbl">NEXFLOW</span></div>
+        <nav>
+          <div class="item"><svg class="i" width="15" height="15"><use href="#i-home"/></svg> Home</div>
+          <div class="item active"><svg class="i" width="15" height="15"><use href="#i-users"/></svg> CRM <span class="dot"></span></div>
+          <div class="item"><svg class="i" width="15" height="15"><use href="#i-msg"/></svg> Comms</div>
+        </nav>
+      </div>
+      <div class="footer">
+        <div class="set"><svg class="i" width="14" height="14"><use href="#i-settings"/></svg><span>Settings</span></div>
+        <div class="me"><div class="av" style="background:var(--rd-accent);color:#fff">SK</div><div><div class="name">Sara Khalid</div><div class="role">Sales Rep</div></div></div>
+      </div>
+    </aside>
+
+    <main class="col">
+      <div class="topbar">
+        <div class="crumb"><span>CRM</span><span>·</span><span class="here">AI SmartFlow</span></div>
+        <div class="search"><svg class="i" width="13" height="13"><use href="#i-search"/></svg><span>Search anything</span><span class="k">⌘K</span></div>
+      </div>
+
+      <div style="padding:20px 36px 0">
+        <div class="tabs">
+          <div class="tab"><span class="lbl">People</span></div>
+          <div class="tab"><span class="lbl">Companies</span></div>
+          <div class="tab"><span class="lbl">Deals</span></div>
+          <div class="tab active accent"><span class="lbl"><svg class="i" width="13" height="13" style="stroke-width:1.8"><use href="#i-spark"/></svg> AI SmartFlow</span></div>
+        </div>
+      </div>
+
+      <div style="padding:20px 36px 100px;display:grid;grid-template-columns:1fr 360px;gap:24px;align-items:start">
+        <!-- LEFT 70% -->
+        <div>
+          <!-- AI overview -->
+          <div class="brief-card">
+            <div class="section-tag" style="margin-bottom:8px"><svg class="i" width="11" height="11"><use href="#i-spark"/></svg>Today's overview · synced 4 min ago</div>
+            <div class="rd-display" style="font-size:19px;line-height:1.4">Your pipeline added <span style="color:var(--rd-accent)">$84k</span> in motion this week — driven by 3 enterprise reactivations. Two SLA breaches need attention before EOD; both are <span style="font-style:italic">Riyadh-based</span>.</div>
+          </div>
+
+          <!-- 3 KPI chips -->
+          <div class="flex items-stretch" style="gap:12px;margin-top:16px">
+            <div class="chip-kpi exp">
+              <div class="row"><div class="ico" style="background:var(--rd-accent-soft)"><svg class="i" width="13" height="13" style="color:var(--rd-accent);stroke-width:2"><use href="#i-cdot"/></svg></div><div class="flex-1"><div class="l">Tasks Today</div><div class="v">8</div></div><svg class="i" width="13" height="13" style="color:var(--rd-mute-2);transform:rotate(90deg)"><use href="#i-cright"/></svg></div>
+              <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--rd-cream);font-size:11.5px;color:var(--rd-ink-2);line-height:1.55">
+                <div class="flex items-center" style="gap:8px"><span style="width:4px;height:4px;border-radius:999px;background:var(--rd-accent)"></span> Re-engage Faisal · 6d silent</div>
+                <div class="flex items-center" style="gap:8px;margin-top:4px"><span style="width:4px;height:4px;border-radius:999px;background:var(--rd-accent)"></span> Aramco intent surge · 3 site visits</div>
+                <div class="flex items-center" style="gap:8px;margin-top:4px"><span style="width:4px;height:4px;border-radius:999px;background:var(--rd-accent)"></span> Hala opened pricing · twice today</div>
+              </div>
+            </div>
+            <div class="chip-kpi"><div class="row"><div class="ico" style="background:#F8E7C8"><svg class="i" width="13" height="13" style="color:var(--rd-amber);stroke-width:2"><use href="#i-flame"/></svg></div><div class="flex-1"><div class="l">Hot Signals</div><div class="v">5</div></div><svg class="i" width="13" height="13" style="color:var(--rd-mute-2)"><use href="#i-cright"/></svg></div></div>
+            <div class="chip-kpi"><div class="row"><div class="ico" style="background:var(--rd-accent-soft)"><svg class="i" width="13" height="13" style="color:var(--rd-accent);stroke-width:2"><use href="#i-alert"/></svg></div><div class="flex-1"><div class="l">SLA Breaches</div><div class="v">2</div></div><svg class="i" width="13" height="13" style="color:var(--rd-mute-2)"><use href="#i-cright"/></svg></div></div>
+          </div>
+
+          <!-- Pipeline Overview header -->
+          <div class="flex items-center justify-between" style="margin:28px 0 12px">
+            <div class="flex items-baseline" style="gap:12px">
+              <h2 class="rd-display" style="font-size:22px;margin:0">Pipeline Overview</h2>
+              <span style="font-size:11.5px;color:var(--rd-mute)">4.2 · since inception</span>
+            </div>
+            <button style="padding:5px 11px;border-radius:8px;background:#fff;border:1px solid var(--rd-cream);font-size:11.5px;color:var(--rd-ink-2);display:inline-flex;align-items:center;gap:6px;cursor:pointer">Since Inception <svg class="i" width="11" height="11" style="color:var(--rd-mute);stroke-width:1.8"><use href="#i-cdown"/></svg></button>
+          </div>
+
+          <!-- 4 KPI cards -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+            <div class="kpi-card"><div class="l">Total Leads</div><div class="v">1,847</div><div class="d up"><svg class="i" width="11" height="11" style="stroke-width:2"><use href="#i-tup"/></svg><span>+12%</span><span class="vs">vs prior period</span></div></div>
+            <div class="kpi-card"><div class="l">Total Engagements</div><div class="v">6,294</div><div class="d up"><svg class="i" width="11" height="11" style="stroke-width:2"><use href="#i-tup"/></svg><span>+8%</span><span class="vs">vs prior period</span></div></div>
+            <div class="kpi-card"><div class="l">Missed Opportunities</div><div class="v">46</div><div class="d up"><svg class="i" width="11" height="11" style="stroke-width:2"><use href="#i-tup"/></svg><span>−5%</span><span class="vs">vs prior period</span></div></div>
+            <div class="kpi-card"><div class="l">Active Pipeline</div><div class="v">$2.4M</div><div class="d up"><svg class="i" width="11" height="11" style="stroke-width:2"><use href="#i-tup"/></svg><span>+18%</span><span class="vs">vs prior period</span></div></div>
+          </div>
+
+          <!-- Funnel -->
+          <div class="rd-card" style="padding:20px 22px">
+            <div class="flex items-center justify-between" style="margin-bottom:16px">
+              <div class="rd-display" style="font-size:17px">Funnel</div>
+              <div style="font-size:11px;color:var(--rd-mute)"><span class="rd-mono" style="color:var(--rd-ink)">10.7%</span> overall conversion</div>
+            </div>
+            <div class="funnel-row"><div class="meta"><div class="flex items-center" style="gap:8px"><span style="font-weight:500">Lead</span><span class="rd-mono" style="color:var(--rd-mute);font-size:10.5px">1847 leads</span></div><div class="flex items-center" style="gap:8px"><span style="font-size:10.5px;color:var(--rd-mute)">42% → conv</span><span class="rd-mono" style="font-size:11px">$5.8M</span></div></div><div class="track"><div class="bar" style="width:100%"></div></div></div>
+            <div class="funnel-row"><div class="meta"><div class="flex items-center" style="gap:8px"><span style="font-weight:500">Qualified</span><span class="rd-mono" style="color:var(--rd-mute);font-size:10.5px">776 leads</span></div><div class="flex items-center" style="gap:8px"><span style="font-size:10.5px;color:var(--rd-mute)">58% → conv</span><span class="rd-mono" style="font-size:11px">$3.6M</span></div></div><div class="track"><div class="bar" style="width:42%"></div></div></div>
+            <div class="funnel-row"><div class="meta"><div class="flex items-center" style="gap:8px"><span style="font-weight:500">Proposal</span><span class="rd-mono" style="color:var(--rd-mute);font-size:10.5px">450 leads</span></div><div class="flex items-center" style="gap:8px"><span style="font-size:10.5px;color:var(--rd-mute)">49% → conv</span><span class="rd-mono" style="font-size:11px">$2.4M</span></div></div><div class="track"><div class="bar" style="width:24%"></div></div></div>
+            <div class="funnel-row"><div class="meta"><div class="flex items-center" style="gap:8px"><span style="font-weight:500">Negotiation</span><span class="rd-mono" style="color:var(--rd-mute);font-size:10.5px">221 leads</span></div><div class="flex items-center" style="gap:8px"><span style="font-size:10.5px;color:var(--rd-mute)">89% → conv</span><span class="rd-mono" style="font-size:11px">$1.5M</span></div></div><div class="track"><div class="bar" style="width:12%"></div></div></div>
+            <div class="funnel-row"><div class="meta"><div class="flex items-center" style="gap:8px"><span style="font-weight:500">Closed Won</span><span class="rd-mono" style="color:var(--rd-mute);font-size:10.5px">197 leads</span></div><div class="flex items-center" style="gap:8px"><span class="rd-mono" style="font-size:11px">$1.3M</span></div></div><div class="track"><div class="bar" style="width:11%"></div></div></div>
+          </div>
+
+          <!-- AI Analysis -->
+          <div class="rd-card" style="padding:20px 22px;margin-top:16px">
+            <div class="flex items-center justify-between" style="margin-bottom:16px">
+              <div class="flex items-center" style="gap:8px">
+                <svg class="i" width="14" height="14" style="color:var(--rd-accent);stroke-width:1.8"><use href="#i-spark"/></svg>
+                <div class="rd-display" style="font-size:17px">AI Analysis</div>
+                <span class="rd-pill" style="background:var(--rd-sand-2);color:var(--rd-mute);border:1px solid var(--rd-cream);font-size:10px">5 insights · 1 lateral</span>
+              </div>
+              <button class="btn-dark" style="padding:7px 13px;font-size:12px;border-radius:9px"><svg class="i" width="11" height="11" style="stroke-width:2;fill:var(--rd-sand)"><use href="#i-play"/></svg> Run Analysis</button>
+            </div>
+
+            <div class="flex items-start" style="gap:10px;padding:8px 0">
+              <span style="width:6px;height:6px;border-radius:999px;background:var(--rd-sage);margin-top:7px;flex-shrink:0"></span>
+              <div style="flex:1">
+                <div class="flex items-center" style="gap:8px;margin-bottom:2px"><span style="font-size:10px;color:var(--rd-sage);text-transform:uppercase;letter-spacing:.06em;font-weight:600">Conversion</span></div>
+                <div style="font-size:12.5px;color:var(--rd-ink-2);line-height:1.5">Negotiation → Closed Won is at <span style="color:var(--rd-ink);font-weight:500">89%</span> — your strongest stage. Bottleneck is Qualified → Proposal at 58%.</div>
+              </div>
+            </div>
+
+            <div class="flex items-start" style="gap:10px;padding:8px 0">
+              <span style="width:6px;height:6px;border-radius:999px;background:var(--rd-sage);margin-top:7px;flex-shrink:0"></span>
+              <div style="flex:1">
+                <div class="flex items-center" style="gap:8px;margin-bottom:2px"><span style="font-size:10px;color:var(--rd-sage);text-transform:uppercase;letter-spacing:.06em;font-weight:600">Velocity</span></div>
+                <div style="font-size:12.5px;color:var(--rd-ink-2);line-height:1.5">Average deal cycle dropped <span style="color:var(--rd-sage);font-weight:500">11 days</span> since enabling Conductor's morning brief. ROI on AI cost: 4.7×.</div>
+              </div>
+            </div>
+
+            <div class="flex items-start" style="gap:10px;padding:8px 0">
+              <span style="width:6px;height:6px;border-radius:999px;background:var(--rd-sage);margin-top:7px;flex-shrink:0"></span>
+              <div style="flex:1">
+                <div class="flex items-center" style="gap:8px;margin-bottom:2px"><span style="font-size:10px;color:var(--rd-sage);text-transform:uppercase;letter-spacing:.06em;font-weight:600">Risk</span></div>
+                <div style="font-size:12.5px;color:var(--rd-ink-2);line-height:1.5">Riyadh-based deals are 2.3× more likely to slip in Q2 due to Ramadan budget cycles. <span style="color:var(--rd-ink);font-weight:500">3 deals at risk</span>: Aramco, STC, ADNOC.</div>
+              </div>
+            </div>
+
+            <div class="flex items-start" style="gap:10px;padding:8px 0">
+              <span style="width:6px;height:6px;border-radius:999px;background:var(--rd-sage);margin-top:7px;flex-shrink:0"></span>
+              <div style="flex:1">
+                <div class="flex items-center" style="gap:8px;margin-bottom:2px"><span style="font-size:10px;color:var(--rd-sage);text-transform:uppercase;letter-spacing:.06em;font-weight:600">Cohort</span></div>
+                <div style="font-size:12.5px;color:var(--rd-ink-2);line-height:1.5">Leads from MAGNiTT enrichment close at 1.6× the rate of LinkedIn-sourced leads — but cost 4× more per lead. Net ROI still favors MAGNiTT for Enterprise.</div>
+              </div>
+            </div>
+
+            <div class="flex items-start" style="gap:10px;padding:8px 0">
+              <span style="width:6px;height:6px;border-radius:999px;background:var(--rd-accent);margin-top:7px;flex-shrink:0"></span>
+              <div style="flex:1">
+                <div class="flex items-center" style="gap:8px;margin-bottom:2px">
+                  <span style="font-size:10px;color:var(--rd-accent);text-transform:uppercase;letter-spacing:.06em;font-weight:600">Lateral correlation</span>
+                  <span class="rd-pill" style="background:var(--rd-accent-soft);color:#8C3B22;font-size:9.5px;font-weight:500;padding:1px 6px">lateral</span>
+                </div>
+                <div style="font-size:12.5px;color:var(--rd-ink-2);line-height:1.5">Deals where Sara made the <span style="font-weight:500">first call before 10am</span> close 38% faster regardless of stage entered. <span style="color:var(--rd-mute);font-style:italic">Hypothesis: morning calls catch decision-makers in receptive state.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT 30% sticky -->
+        <aside style="position:sticky;top:66px">
+          <!-- Watchlist -->
+          <div class="rd-card" style="padding:16px 18px">
+            <div class="flex items-center justify-between" style="margin-bottom:8px">
+              <div class="flex items-center" style="gap:8px">
+                <svg class="i" width="13" height="13" style="color:var(--rd-accent);stroke-width:1.8"><use href="#i-eye"/></svg>
+                <div style="font-size:12.5px;font-weight:500">AI Watchlist</div>
+              </div>
+              <span class="rd-pill" style="background:var(--rd-accent-soft);color:#8C3B22;padding:2px 7px;font-size:10px;font-weight:500">5</span>
+            </div>
+            <p style="font-size:11px;color:var(--rd-mute);margin:0 0 4px">Accounts AI is monitoring right now</p>
+
+            <!-- watchlist items -->
+            <div style="padding:12px 0;border-bottom:1px solid var(--rd-cream)">
+              <div class="flex items-center justify-between" style="margin-bottom:6px">
+                <div class="flex items-center" style="gap:10px"><div class="av">KA</div><div><div style="font-size:12.5px;font-weight:500">Khaled Al-Mansoori</div><div style="font-size:10.5px;color:var(--rd-mute)">Aramco Digital</div></div></div>
+                <div class="flex items-center" style="gap:4px;color:var(--rd-accent);font-size:11px"><svg class="i" width="10" height="10" style="stroke-width:2"><use href="#i-aup"/></svg><span class="rd-mono">92</span></div>
+              </div>
+              <div style="font-size:11.5px;color:var(--rd-mute);line-height:1.45;padding-left:36px;font-style:italic"><svg class="i" width="9" height="9" style="color:var(--rd-accent);stroke-width:1.8;display:inline;margin-right:4px"><use href="#i-spark"/></svg>3 visits to pricing today + opened Q2 ROI doc</div>
+            </div>
+            <div style="padding:12px 0;border-bottom:1px solid var(--rd-cream)">
+              <div class="flex items-center justify-between" style="margin-bottom:6px">
+                <div class="flex items-center" style="gap:10px"><div class="av">HM</div><div><div style="font-size:12.5px;font-weight:500">Hala Mansour</div><div style="font-size:10.5px;color:var(--rd-mute)">Etisalat by e&amp;</div></div></div>
+                <div class="flex items-center" style="gap:4px;color:var(--rd-amber);font-size:11px"><svg class="i" width="10" height="10" style="stroke-width:2"><use href="#i-aup"/></svg><span class="rd-mono">84</span></div>
+              </div>
+              <div style="font-size:11.5px;color:var(--rd-mute);line-height:1.45;padding-left:36px;font-style:italic"><svg class="i" width="9" height="9" style="color:var(--rd-amber);stroke-width:1.8;display:inline;margin-right:4px"><use href="#i-spark"/></svg>CFO opened security brief twice — buying signal</div>
+            </div>
+            <div style="padding:12px 0;border-bottom:1px solid var(--rd-cream)">
+              <div class="flex items-center justify-between" style="margin-bottom:6px">
+                <div class="flex items-center" style="gap:10px"><div class="av">FA</div><div><div style="font-size:12.5px;font-weight:500">Faisal Al-Otaibi</div><div style="font-size:10.5px;color:var(--rd-mute)">STC Solutions</div></div></div>
+                <div class="flex items-center" style="gap:4px;color:var(--rd-accent);font-size:11px"><svg class="i" width="10" height="10" style="stroke-width:2"><use href="#i-aup"/></svg><span class="rd-mono">71</span></div>
+              </div>
+              <div style="font-size:11.5px;color:var(--rd-mute);line-height:1.45;padding-left:36px;font-style:italic"><svg class="i" width="9" height="9" style="color:var(--rd-accent);stroke-width:1.8;display:inline;margin-right:4px"><use href="#i-spark"/></svg>Silent 6d. Listener: nudge or risk losing slot</div>
+            </div>
+            <div style="padding:12px 0">
+              <div class="flex items-center justify-between" style="margin-bottom:6px">
+                <div class="flex items-center" style="gap:10px"><div class="av">TB</div><div><div style="font-size:12.5px;font-weight:500">Tariq Bensalem</div><div style="font-size:10.5px;color:var(--rd-mute)">OCP Group</div></div></div>
+                <div class="flex items-center" style="gap:4px;color:var(--rd-sage);font-size:11px"><svg class="i" width="10" height="10" style="stroke-width:2"><use href="#i-aup"/></svg><span class="rd-mono">66</span></div>
+              </div>
+              <div style="font-size:11.5px;color:var(--rd-mute);line-height:1.45;padding-left:36px;font-style:italic"><svg class="i" width="9" height="9" style="color:var(--rd-sage);stroke-width:1.8;display:inline;margin-right:4px"><use href="#i-spark"/></svg>LinkedIn engagement spike from competitor news</div>
+            </div>
+            <button style="margin-top:6px;padding:5px 0;background:transparent;border:0;color:var(--rd-mute);font-size:11px;display:inline-flex;align-items:center;gap:4px;cursor:pointer"><svg class="i" width="10" height="10" style="stroke-width:2"><use href="#i-plus"/></svg> Add to watchlist</button>
+          </div>
+
+          <!-- Live signals -->
+          <div class="rd-card" style="padding:16px 18px;margin-top:14px">
+            <div class="flex items-center justify-between" style="margin-bottom:8px">
+              <div class="flex items-center" style="gap:8px"><svg class="i" width="13" height="13" style="color:var(--rd-sage);stroke-width:1.8"><use href="#i-act"/></svg><div style="font-size:12.5px;font-weight:500">Live signals</div></div>
+              <div class="flex items-center" style="gap:6px;font-size:10.5px;color:var(--rd-mute)"><span class="rd-blink" style="width:5px;height:5px;border-radius:999px;background:var(--rd-sage);display:inline-block"></span> live</div>
+            </div>
+            <div class="flex items-start" style="gap:10px;padding:9px 0;border-bottom:1px solid var(--rd-cream)"><div style="width:22px;height:22px;border-radius:999px;background:var(--rd-sand-2);border:1px solid var(--rd-cream);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg class="i" width="10" height="10" style="color:var(--rd-accent);stroke-width:1.8"><use href="#i-eye"/></svg></div><div style="flex:1;font-size:11.5px;color:var(--rd-ink-2);line-height:1.5"><span style="color:var(--rd-ink);font-weight:500">Khaled</span> opened pricing page · 3rd visit today</div><span class="rd-mono" style="font-size:10px;color:var(--rd-mute-2);padding-top:4px">2m</span></div>
+            <div class="flex items-start" style="gap:10px;padding:9px 0;border-bottom:1px solid var(--rd-cream)"><div style="width:22px;height:22px;border-radius:999px;background:var(--rd-sand-2);border:1px solid var(--rd-cream);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg class="i" width="10" height="10" style="color:var(--rd-sage);stroke-width:1.8"><use href="#i-mail"/></svg></div><div style="flex:1;font-size:11.5px;color:var(--rd-ink-2);line-height:1.5"><span style="color:var(--rd-ink);font-weight:500">Layla</span> replied to your email · sentiment positive</div><span class="rd-mono" style="font-size:10px;color:var(--rd-mute-2);padding-top:4px">9m</span></div>
+            <div class="flex items-start" style="gap:10px;padding:9px 0;border-bottom:1px solid var(--rd-cream)"><div style="width:22px;height:22px;border-radius:999px;background:var(--rd-sand-2);border:1px solid var(--rd-cream);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg class="i" width="10" height="10" style="color:var(--rd-amber);stroke-width:1.8"><use href="#i-phone"/></svg></div><div style="flex:1;font-size:11.5px;color:var(--rd-ink-2);line-height:1.5"><span style="color:var(--rd-ink);font-weight:500">Yusuf</span> missed call · auto-rescheduled by Conductor</div><span class="rd-mono" style="font-size:10px;color:var(--rd-mute-2);padding-top:4px">14m</span></div>
+            <div class="flex items-start" style="gap:10px;padding:9px 0;border-bottom:1px solid var(--rd-cream)"><div style="width:22px;height:22px;border-radius:999px;background:var(--rd-sand-2);border:1px solid var(--rd-cream);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg class="i" width="10" height="10" style="color:var(--rd-accent);stroke-width:1.8"><use href="#i-bell"/></svg></div><div style="flex:1;font-size:11.5px;color:var(--rd-ink-2);line-height:1.5"><span style="color:var(--rd-ink);font-weight:500">Hala</span> opened security brief twice in 5 min</div><span class="rd-mono" style="font-size:10px;color:var(--rd-mute-2);padding-top:4px">22m</span></div>
+            <div class="flex items-start" style="gap:10px;padding:9px 0;border-bottom:1px solid var(--rd-cream)"><div style="width:22px;height:22px;border-radius:999px;background:var(--rd-sand-2);border:1px solid var(--rd-cream);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg class="i" width="10" height="10" style="color:var(--rd-sage);stroke-width:1.8"><use href="#i-cal"/></svg></div><div style="flex:1;font-size:11.5px;color:var(--rd-ink-2);line-height:1.5"><span style="color:var(--rd-ink);font-weight:500">Mariam</span> accepted Quote v3 calendar invite</div><span class="rd-mono" style="font-size:10px;color:var(--rd-mute-2);padding-top:4px">38m</span></div>
+            <div class="flex items-start" style="gap:10px;padding:9px 0"><div style="width:22px;height:22px;border-radius:999px;background:var(--rd-sand-2);border:1px solid var(--rd-cream);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg class="i" width="10" height="10" style="color:var(--rd-amber);stroke-width:1.8"><use href="#i-bulb"/></svg></div><div style="flex:1;font-size:11.5px;color:var(--rd-ink-2);line-height:1.5">Coach surfaced new objection pattern in 3 calls today</div><span class="rd-mono" style="font-size:10px;color:var(--rd-mute-2);padding-top:4px">1h</span></div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <div class="cbubble"><div class="orb rd-pulse"><svg class="i" width="20" height="20" style="stroke-width:1.5"><use href="#i-spark"/></svg></div></div>
+  </div>
+</section>
+
+<!-- =============================================================
+     4. PERSON DRAWER  (drawer slides over dimmed CRM)
+============================================================= -->
+<section id="surface-drawer" class="surface">
+  <div class="app">
+    <aside class="rail" style="opacity:.6">
+      <div>
+        <div class="logo"><span class="nx">nx</span><span class="lbl">NEXFLOW</span></div>
+        <nav>
+          <div class="item"><svg class="i" width="15" height="15"><use href="#i-home"/></svg> Home</div>
+          <div class="item active"><svg class="i" width="15" height="15"><use href="#i-users"/></svg> CRM <span class="dot"></span></div>
+          <div class="item"><svg class="i" width="15" height="15"><use href="#i-msg"/></svg> Comms</div>
+        </nav>
+      </div>
+      <div class="footer">
+        <div class="me"><div class="av" style="background:var(--rd-accent);color:#fff">SK</div><div><div class="name">Sara Khalid</div><div class="role">Sales Rep</div></div></div>
+      </div>
+    </aside>
+
+    <main class="col" style="opacity:.45;pointer-events:none">
+      <div class="topbar"><div class="crumb"><span>CRM</span><span>·</span><span class="here">People</span></div></div>
+      <div style="padding:20px 36px 0">
+        <div class="tabs">
+          <div class="tab active"><span class="lbl">People</span></div>
+          <div class="tab"><span class="lbl">Companies</span></div>
+          <div class="tab"><span class="lbl">Deals</span></div>
+        </div>
+      </div>
+      <div style="padding:0 36px 60px">
+        <div class="rd-card" style="overflow:hidden">
+          <div style="display:grid;grid-template-columns:24px 1fr 80px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--rd-cream)"><span></span><div><div style="font-size:13px">Khaled Al-Mansoori</div><div style="font-size:11px;color:var(--rd-mute)">Aramco Digital</div></div><span style="font-size:11px;color:var(--rd-mute);text-align:right">87</span></div>
+          <div style="display:grid;grid-template-columns:24px 1fr 80px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--rd-cream)"><span></span><div><div style="font-size:13px">Layla Hamadi</div><div style="font-size:11px;color:var(--rd-mute)">Maersk MENA</div></div><span style="font-size:11px;color:var(--rd-mute);text-align:right">72</span></div>
+          <div style="display:grid;grid-template-columns:24px 1fr 80px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--rd-cream)"><span></span><div><div style="font-size:13px">Faisal Al-Otaibi</div><div style="font-size:11px;color:var(--rd-mute)">STC Solutions</div></div><span style="font-size:11px;color:var(--rd-mute);text-align:right">34</span></div>
+          <div style="display:grid;grid-template-columns:24px 1fr 80px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--rd-cream)"><span></span><div><div style="font-size:13px">Mariam Bouazizi</div><div style="font-size:11px;color:var(--rd-mute)">Tabby Africa</div></div><span style="font-size:11px;color:var(--rd-mute);text-align:right">81</span></div>
+          <div style="display:grid;grid-template-columns:24px 1fr 80px;align-items:center;padding:14px 16px"><span></span><div><div style="font-size:13px">Omar Habibi</div><div style="font-size:11px;color:var(--rd-mute)">Careem</div></div><span style="font-size:11px;color:var(--rd-mute);text-align:right">66</span></div>
+        </div>
+      </div>
+    </main>
+
+    <div class="dim"></div>
+
+    <!-- DRAWER -->
+    <aside class="drawer">
+      <div class="drawer-head">
+        <div class="flex items-center justify-between" style="margin-bottom:16px">
+          <div class="flex items-center" style="gap:8px;color:var(--rd-mute);font-size:11px"><svg class="i" width="11" height="11"><use href="#i-corner"/></svg><span>Press</span><span class="rd-mono" style="background:var(--rd-cream);padding:1px 5px;border-radius:4px">Esc</span><span>to close</span></div>
+          <svg class="i" width="14" height="14" style="color:var(--rd-mute);cursor:pointer"><use href="#i-x"/></svg>
+        </div>
+        <div class="flex items-start" style="gap:14px">
+          <div class="av" style="width:44px;height:44px;font-size:14px;background:var(--rd-cream);color:var(--rd-ink-2)">KM</div>
+          <div style="flex:1">
+            <div class="rd-display" style="font-size:26px;line-height:1.1">Khaled Al-Mansoori</div>
+            <div style="font-size:12px;color:var(--rd-mute);margin-top:2px">CTO · <span style="color:var(--rd-ink-2)">Aramco Digital</span> · Riyadh</div>
+            <div class="flex items-center" style="gap:8px;margin-top:10px">
+              <span class="stage stg-neg">Negotiation</span>
+              <span class="rd-pill" style="background:var(--rd-sand-2);border:1px solid var(--rd-cream);color:var(--rd-ink-2)">Enterprise</span>
+              <span class="rd-pill" style="background:var(--rd-sand-2);border:1px solid var(--rd-cream);color:var(--rd-ink-2)">$240k ARR</span>
+            </div>
+            <div style="margin-top:14px">
+              <div style="position:relative;height:5px;background:var(--rd-cream);border-radius:999px;overflow:hidden"><div class="rd-health-track" style="position:absolute;left:0;top:0;height:100%;width:87%;border-radius:999px"></div></div>
+              <div class="flex justify-between" style="font-size:10.5px;color:var(--rd-mute);margin-top:4px"><span class="rd-mono">87 healthy</span><span></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="flex" style="gap:10px;margin-top:18px">
+          <button class="btn-dark" style="flex:1;padding:10px 14px;justify-content:center"><svg class="i" width="14" height="14"><use href="#i-phone"/></svg> Call</button>
+          <button class="btn-line" style="flex:1;padding:10px 14px;justify-content:center"><svg class="i" width="14" height="14"><use href="#i-mail"/></svg> Email</button>
+          <button class="btn-line" style="flex:1;padding:10px 14px;justify-content:center"><svg class="i" width="14" height="14"><use href="#i-cal"/></svg> Schedule</button>
+        </div>
+      </div>
+
+      <div class="drawer-body">
+        <div class="rd-card" style="padding:14px 16px;background:var(--rd-sand-2)">
+          <div class="section-tag" style="margin-bottom:8px"><svg class="i" width="11" height="11"><use href="#i-spark"/></svg>Conductor Brief</div>
+          <div style="font-size:13px;line-height:1.55">Owns enterprise digital transformation. Last call ended on Q2 budget concern. <span style="color:var(--rd-accent);font-weight:500">Next move:</span> send Pilot ROI doc and confirm decision timeline.</div>
+        </div>
+
+        <div class="flex items-center" style="gap:24px;margin:20px 0 12px;border-bottom:1px solid var(--rd-cream);padding-bottom:8px">
+          <div style="font-weight:500;color:var(--rd-ink);font-size:13px;border-bottom:2px solid var(--rd-accent);padding-bottom:8px;margin-bottom:-9px">Timeline</div>
+          <div style="color:var(--rd-mute);font-size:12.5px">Notes</div>
+          <div style="color:var(--rd-mute);font-size:12.5px">Deal</div>
+          <div style="color:var(--rd-mute);font-size:12.5px">Files</div>
+          <div class="ml-auto flex items-center" style="gap:6px;color:var(--rd-mute);font-size:11px"><svg class="i" width="10" height="10"><use href="#i-cdot"/></svg> 7 enriched fields</div>
+        </div>
+
+        <!-- timeline -->
+        <div style="margin-top:8px">
+          <div class="flex items-start" style="gap:10px;padding:10px 0">
+            <span style="width:8px;height:8px;border-radius:999px;background:var(--rd-accent);margin-top:6px"></span>
+            <div style="flex:1">
+              <div class="flex items-center" style="gap:8px;font-size:12px"><svg class="i" width="11" height="11" style="color:var(--rd-accent)"><use href="#i-phone"/></svg><span style="font-weight:500">Sara · 24 min call</span><span style="color:var(--rd-mute)">· yesterday 16:05</span></div>
+              <div style="font-size:12.5px;color:var(--rd-ink-2);margin-top:4px">Discussed Q2 procurement timing. Khaled raised concern about budget cycle alignment with pilot start.</div>
+              <div class="rd-pill" style="background:var(--rd-sand-2);border:1px solid var(--rd-cream);color:var(--rd-mute);margin-top:8px;font-style:italic;padding:6px 10px;font-size:11px">
+                <svg class="i" width="9" height="9" style="color:var(--rd-accent);display:inline;margin-right:4px"><use href="#i-spark"/></svg>
+                Scribe extracted 3 commitments: send ROI doc, confirm pilot scope by Friday, intro to CFO.
+              </div>
+            </div>
+          </div>
+          <div class="flex items-start" style="gap:10px;padding:10px 0">
+            <span style="width:8px;height:8px;border-radius:999px;background:var(--rd-amber);margin-top:6px"></span>
+            <div style="flex:1">
+              <div class="flex items-center" style="gap:8px;font-size:12px"><svg class="i" width="11" height="11" style="color:var(--rd-amber)"><use href="#i-mail"/></svg><span style="font-weight:500">Composer · drafted on Sara's behalf</span><span style="color:var(--rd-mute)">· yesterday 18:22</span></div>
+              <div style="font-size:12.5px;color:var(--rd-ink-2);margin-top:4px">Pilot ROI doc with Aramco-specific savings model. Drafted, awaiting Sara's review.</div>
+              <div class="rd-pill" style="background:var(--rd-sand-2);border:1px solid var(--rd-cream);color:var(--rd-mute);margin-top:8px;font-style:italic;padding:6px 10px;font-size:11px">
+                <svg class="i" width="9" height="9" style="color:var(--rd-accent);display:inline;margin-right:4px"><use href="#i-spark"/></svg>
+                Dispatcher held send (autonomy: ask before sending). Open to review →
+              </div>
+            </div>
+          </div>
+          <div class="flex items-start" style="gap:10px;padding:10px 0">
+            <span style="width:8px;height:8px;border-radius:999px;background:var(--rd-sage);margin-top:6px"></span>
+            <div style="flex:1">
+              <div class="flex items-center" style="gap:8px;font-size:12px"><svg class="i" width="11" height="11" style="color:var(--rd-sage)"><use href="#i-cal"/></svg><span style="font-weight:500">Discovery call</span><span style="color:var(--rd-mute)">· Apr 21</span></div>
+              <div style="font-size:12.5px;color:var(--rd-ink-2);margin-top:4px">60 min with Khaled + 2 architects. Mapped 4 workflows, agreed on success criteria.</div>
+            </div>
+          </div>
+          <div class="flex items-start" style="gap:10px;padding:10px 0">
+            <span style="width:8px;height:8px;border-radius:999px;background:var(--rd-amber);margin-top:6px"></span>
+            <div style="flex:1">
+              <div class="flex items-center" style="gap:8px;font-size:12px"><svg class="i" width="11" height="11" style="color:var(--rd-amber)"><use href="#i-mail"/></svg><span style="font-weight:500">Khaled (inbound)</span><span style="color:var(--rd-mute)">· Apr 18</span></div>
+              <div style="font-size:12.5px;color:var(--rd-ink-2);margin-top:4px">Replied to outreach. 'Interesting timing — we're scoping Q2 initiatives.'</div>
+            </div>
+          </div>
+          <div class="flex items-start" style="gap:10px;padding:10px 0">
+            <span style="width:8px;height:8px;border-radius:999px;background:var(--rd-mute-2);margin-top:6px"></span>
+            <div style="flex:1">
+              <div class="flex items-center" style="gap:8px;font-size:12px"><svg class="i" width="11" height="11" style="color:var(--rd-mute)"><use href="#i-file"/></svg><span style="font-weight:500">Sara</span><span style="color:var(--rd-mute)">· Apr 14</span></div>
+              <div style="font-size:12.5px;color:var(--rd-ink-2);margin-top:4px">Researched org chart. Decision committee: CTO, CFO, Head of Procurement.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active deal pinned at bottom -->
+        <div class="rd-card" style="padding:14px 16px;margin-top:18px;background:var(--rd-sand-2)">
+          <div class="flex items-center justify-between">
+            <div>
+              <div style="font-size:11px;color:var(--rd-mute);text-transform:uppercase;letter-spacing:.05em">Active deal</div>
+              <div style="font-size:13.5px;color:var(--rd-ink);margin-top:3px">Aramco Pilot · 18-month · <span class="rd-mono">$240k ARR</span></div>
+            </div>
+            <button class="btn-dark" style="padding:8px 14px;font-size:12.5px">Build quote <svg class="i" width="13" height="13" style="stroke-width:2"><use href="#i-aright"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- =============================================================
+     5. LIVE CALL + AI INBOX
+============================================================= -->
+<section id="surface-callinbox" class="surface">
+  <div class="app">
+    <aside class="rail" style="opacity:.6">
+      <div>
+        <div class="logo"><span class="nx">nx</span><span class="lbl">NEXFLOW</span></div>
+        <nav>
+          <div class="item"><svg class="i" width="15" height="15"><use href="#i-home"/></svg> Home</div>
+          <div class="item active"><svg class="i" width="15" height="15"><use href="#i-users"/></svg> CRM <span class="dot"></span></div>
+          <div class="item"><svg class="i" width="15" height="15"><use href="#i-msg"/></svg> Comms</div>
+        </nav>
+      </div>
+      <div class="footer"></div>
+    </aside>
+
+    <main class="col" style="position:relative">
+      <!-- center call card -->
+      <div class="call-stage">
+        <div class="call-card">
+          <div class="flex items-start justify-between" style="margin-bottom:14px">
+            <div class="flex items-center" style="gap:12px">
+              <div class="av" style="width:44px;height:44px;font-size:14px;position:relative">KM<span style="position:absolute;bottom:-2px;right:-2px;width:11px;height:11px;border-radius:999px;background:var(--rd-sage);border:2px solid #fff"></span></div>
+              <div>
+                <div class="rd-display" style="font-size:20px">Khaled Al-Mansoori</div>
+                <div class="flex items-center" style="gap:8px;font-size:11.5px;color:var(--rd-mute)"><span style="color:var(--rd-sage)">●</span> Live · <span class="rd-mono">03:42</span> · Aramco Digital · CTO</div>
+              </div>
+            </div>
+            <span class="stage stg-neg">Negotiation</span>
+          </div>
+
+          <div class="section-tag" style="margin-bottom:6px"><svg class="i" width="11" height="11"><use href="#i-spark"/></svg>Scribe · live transcript</div>
+
+          <div class="transcript-row"><span style="font-size:10.5px;color:var(--rd-accent);font-weight:600;letter-spacing:.04em">KHALED</span><span style="font-size:13px;color:var(--rd-ink-2);line-height:1.55">…and the issue we keep running into is that Q2 budget is locked. So even if we love the pilot, the wire can't move until July 1.</span></div>
+          <div class="transcript-row"><span style="font-size:10.5px;color:var(--rd-accent);font-weight:600;letter-spacing:.04em">SARA</span><span style="font-size:13px;color:var(--rd-ink-2);line-height:1.55">That's exactly why I sent the deferred-start option this morning. We can structure the SOW with kickoff July 5, no charge until then. Did that land?</span></div>
+          <div class="transcript-row"><span style="font-size:10.5px;color:var(--rd-accent);font-weight:600;letter-spacing:.04em">KHALED</span><span style="font-size:13px;color:var(--rd-ink-2);line-height:1.55">It did. Honestly that changes things. Let me get my CFO on the next call — when's good for you?<span class="rd-blink" style="display:inline-block;width:8px;height:14px;background:var(--rd-accent);margin-left:4px;vertical-align:middle"></span></span></div>
+
+          <div class="flex items-center justify-between" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--rd-cream)">
+            <div class="flex items-center" style="gap:10px">
+              <button style="width:36px;height:36px;border-radius:999px;background:var(--rd-sand-2);border:1px solid var(--rd-cream);display:flex;align-items:center;justify-content:center;cursor:pointer"><svg class="i" width="14" height="14"><use href="#i-mic"/></svg></button>
+              <button style="width:36px;height:36px;border-radius:999px;background:var(--rd-sand-2);border:1px solid var(--rd-cream);display:flex;align-items:center;justify-content:center;cursor:pointer"><svg class="i" width="14" height="14"><use href="#i-mic-off"/></svg></button>
+              <button style="width:36px;height:36px;border-radius:999px;background:var(--rd-sand-2);border:1px solid var(--rd-cream);display:flex;align-items:center;justify-content:center;cursor:pointer"><svg class="i" width="14" height="14"><use href="#i-vol"/></svg></button>
+            </div>
+            <button style="background:var(--rd-accent);color:#fff;padding:9px 16px;border-radius:8px;border:0;font-size:12.5px;font-weight:500;display:inline-flex;align-items:center;gap:6px;cursor:pointer"><svg class="i" width="13" height="13"><use href="#i-poff"/></svg> End call</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coach panel -->
+      <div class="coach">
+        <div class="section-tag" style="margin-bottom:10px"><svg class="i" width="11" height="11" style="color:var(--rd-amber)"><use href="#i-bulb"/></svg>Coach · live cues</div>
+        <div class="flex items-start" style="gap:8px;padding:8px 0;border-bottom:1px solid var(--rd-cream)">
+          <span style="width:6px;height:6px;border-radius:999px;background:var(--rd-accent);margin-top:7px;flex-shrink:0"></span>
+          <div><div style="font-size:12px;color:var(--rd-ink);font-weight:500">Pivot now</div><div style="font-size:11.5px;color:var(--rd-mute);line-height:1.45;margin-top:3px">He's leaning in. Ask: 'CFO joining Thursday at 3pm?' Lock the calendar before the call ends.</div></div>
+        </div>
+        <div class="flex items-start" style="gap:8px;padding:8px 0;border-bottom:1px solid var(--rd-cream)">
+          <span style="width:6px;height:6px;border-radius:999px;background:var(--rd-amber);margin-top:7px;flex-shrink:0"></span>
+          <div><div style="font-size:12px;color:var(--rd-ink);font-weight:500">Mention</div><div style="font-size:11.5px;color:var(--rd-mute);line-height:1.45;margin-top:3px">Aramco-Saudi case study — 6-month ROI. He cited a similar peer last week.</div></div>
+        </div>
+        <div class="flex items-start" style="gap:8px;padding:8px 0">
+          <span style="width:6px;height:6px;border-radius:999px;background:var(--rd-sage);margin-top:7px;flex-shrink:0"></span>
+          <div><div style="font-size:12px;color:var(--rd-ink);font-weight:500">Don't</div><div style="font-size:11.5px;color:var(--rd-mute);line-height:1.45;margin-top:3px">Don't quote price yet. CFO needs to hear it from you first.</div></div>
+        </div>
+      </div>
+
+      <!-- AI Inbox bubble (expanded) -->
+      <div class="ai-inbox">
+        <div class="flex items-center justify-between" style="margin-bottom:6px">
+          <div class="flex items-center" style="gap:8px"><svg class="i" width="13" height="13" style="color:var(--rd-accent)"><use href="#i-spark"/></svg><div style="font-size:13px;font-weight:500">AI Inbox</div><span class="rd-pill" style="background:var(--rd-accent);color:#fff;padding:1px 7px;font-size:10px;font-weight:600">3</span></div>
+          <div style="font-size:10.5px;color:var(--rd-mute)">Autonomy: <span style="color:var(--rd-ink)">Ask before sending</span> <svg class="i" width="9" height="9" style="display:inline"><use href="#i-cright"/></svg></div>
+        </div>
+
+        <!-- card 1 -->
+        <div style="padding:10px 0;border-bottom:1px solid var(--rd-cream)">
+          <div class="flex items-center justify-between" style="margin-bottom:4px"><div class="flex items-center" style="gap:6px"><svg class="i" width="10" height="10" style="color:var(--rd-amber)"><use href="#i-mail"/></svg><span style="font-size:10px;color:var(--rd-mute);text-transform:uppercase;letter-spacing:.04em;font-weight:600">Composer · email</span></div><div class="flex items-center" style="gap:4px;color:var(--rd-mute);font-size:10px"><svg class="i" width="9" height="9"><use href="#i-clock"/></svg> just now</div></div>
+          <div style="font-size:12.5px;color:var(--rd-ink);font-weight:500">Reply to Khaled — calendar confirm</div>
+          <div style="font-size:11.5px;color:var(--rd-mute);margin-top:4px;line-height:1.5;font-style:italic">Drafted from live call: 'Thursday 3pm works perfectly. I'll send the invite with CFO-prep doc attached…'</div>
+          <div class="flex" style="gap:6px;margin-top:8px">
+            <button class="btn-dark" style="flex:1;padding:6px;font-size:11px;justify-content:center"><svg class="i" width="11" height="11"><use href="#i-check"/></svg> Send</button>
+            <button class="btn-line" style="padding:6px 10px;font-size:11px"><svg class="i" width="11" height="11"><use href="#i-edit"/></svg> Edit</button>
+            <button class="btn-line" style="padding:6px 8px"><svg class="i" width="11" height="11"><use href="#i-x"/></svg></button>
+          </div>
+        </div>
+
+        <!-- card 2 -->
+        <div style="padding:10px 0;border-bottom:1px solid var(--rd-cream)">
+          <div class="flex items-center justify-between" style="margin-bottom:4px"><div class="flex items-center" style="gap:6px"><svg class="i" width="10" height="10" style="color:var(--rd-sage)"><use href="#i-mc"/></svg><span style="font-size:10px;color:var(--rd-mute);text-transform:uppercase;letter-spacing:.04em;font-weight:600">Dispatcher · WhatsApp</span></div><div class="flex items-center" style="gap:4px;color:var(--rd-mute);font-size:10px"><svg class="i" width="9" height="9"><use href="#i-clock"/></svg> 2 min ago</div></div>
+          <div style="font-size:12.5px;color:var(--rd-ink);font-weight:500">Pricing follow-up to Layla Hamadi</div>
+          <div style="font-size:11.5px;color:var(--rd-mute);margin-top:4px;line-height:1.5;font-style:italic">3 alternatives ready (annual, multi-year, departmental). Awaiting your sign-off before queue.</div>
+          <div class="flex" style="gap:6px;margin-top:8px">
+            <button class="btn-dark" style="flex:1;padding:6px;font-size:11px;justify-content:center"><svg class="i" width="11" height="11"><use href="#i-check"/></svg> Queue for 6pm</button>
+            <button class="btn-line" style="padding:6px 10px;font-size:11px"><svg class="i" width="11" height="11"><use href="#i-edit"/></svg> Edit</button>
+            <button class="btn-line" style="padding:6px 8px"><svg class="i" width="11" height="11"><use href="#i-x"/></svg></button>
+          </div>
+        </div>
+
+        <!-- card 3 -->
+        <div style="padding:10px 0">
+          <div class="flex items-center justify-between" style="margin-bottom:4px"><div class="flex items-center" style="gap:6px"><svg class="i" width="10" height="10" style="color:var(--rd-accent)"><use href="#i-bell"/></svg><span style="font-size:10px;color:var(--rd-mute);text-transform:uppercase;letter-spacing:.04em;font-weight:600">Listener · risk flag</span></div><div class="flex items-center" style="gap:4px;color:var(--rd-mute);font-size:10px"><svg class="i" width="9" height="9"><use href="#i-clock"/></svg> 14 min ago</div></div>
+          <div style="font-size:12.5px;color:var(--rd-ink);font-weight:500">Faisal Al-Otaibi — silent 6 days</div>
+          <div style="font-size:11.5px;color:var(--rd-mute);margin-top:4px;line-height:1.5;font-style:italic">Coach suggests a single-line check-in: 'Still good for next week's review?' Nudge or reassign?</div>
+          <div class="flex" style="gap:6px;margin-top:8px">
+            <button class="btn-dark" style="flex:1;padding:6px;font-size:11px;justify-content:center"><svg class="i" width="11" height="11"><use href="#i-check"/></svg> Send nudge</button>
+            <button class="btn-line" style="padding:6px 10px;font-size:11px"><svg class="i" width="11" height="11"><use href="#i-edit"/></svg> Edit</button>
+            <button class="btn-line" style="padding:6px 8px"><svg class="i" width="11" height="11"><use href="#i-x"/></svg></button>
+          </div>
+        </div>
+
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--rd-cream);font-size:10.5px;color:var(--rd-mute);line-height:1.5">Conductor will queue all approved actions for the <span style="color:var(--rd-ink);font-weight:500">6:00pm send window</span>.</div>
+      </div>
+
+      <!-- Conductor bubble (badge) -->
+      <div class="cbubble"><div class="orb rd-pulse"><svg class="i" width="20" height="20" style="stroke-width:1.5"><use href="#i-spark"/></svg><span class="badge">3</span></div></div>
+    </main>
+  </div>
+</section>
+
+<script>
+(function(){
+  const order = ['home','crm','smartflow','drawer','callinbox'];
+  function go(id){
+    document.querySelectorAll('.surface').forEach(s=>s.classList.remove('active'));
+    document.querySelector('#surface-'+id).classList.add('active');
+    document.querySelectorAll('#tour button').forEach(b=>b.classList.remove('on'));
+    const btn = document.querySelector('#tour button[data-go="'+id+'"]');
+    if(btn) btn.classList.add('on');
+    window.scrollTo(0,0);
+    history.replaceState(null,'','#'+id);
+  }
+  document.querySelectorAll('#tour button[data-go]').forEach(b=>{
+    b.addEventListener('click',()=>go(b.dataset.go));
+  });
+  document.addEventListener('keydown',e=>{
+    if(e.target.matches('input,textarea')) return;
+    const n = parseInt(e.key,10);
+    if(n>=1 && n<=order.length) go(order[n-1]);
+  });
+  // initial hash
+  const h = (location.hash||'').replace('#','');
+  if(order.includes(h)) go(h);
+})();
+</script>
+</body>
+</html>
