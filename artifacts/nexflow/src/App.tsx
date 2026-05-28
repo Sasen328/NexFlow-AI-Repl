@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LivingMesh } from "@/components/layout/LivingMesh";
 import { TopBar } from "@/components/layout/TopBar";
 import { SectionSidebar } from "@/components/layout/SectionSidebar";
+import { ThemeDrawer } from "@/components/layout/ThemeDrawer";
 import { AIAssistantBubble } from "@/components/AIAssistantBubble";
 import { CaptchaAlert } from "@/components/CaptchaAlert";
 import { MarketingLayout } from "@/components/marketing/MarketingLayout";
@@ -143,6 +144,7 @@ function AppLayout() {
     <div className="min-h-screen bg-background flex flex-col">
       <LivingMesh />
       <TopBar dark={dark} onDark={setDark} />
+      <ThemeDrawer dark={dark} onDark={setDark} />
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <SectionSidebar />
         <main className="flex-1 min-w-0 px-4 sm:px-6 py-6 overflow-y-auto relative z-10">

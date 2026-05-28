@@ -4,6 +4,9 @@ const KEY   = "nf:theme";
 const EVENT = "nf:theme-change";
 
 function readDark() {
+  // sessionStorage takes priority when ThemeDrawer has persisted a preference
+  const ss = sessionStorage.getItem("nf:dark");
+  if (ss !== null) return ss === "true";
   return localStorage.getItem(KEY) === "dark";
 }
 
