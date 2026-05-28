@@ -481,39 +481,112 @@ kbd, code, .mono, .timestamp {
   border: 1px solid color-mix(in srgb, var(--brand-gold) 25%, transparent);
 }
 
-/* ── T2: Dark-Mode Surface Adaptation ───────────────────────────────────────
- * Overrides legacy hardcoded white/light backgrounds in dark mode.
- * !important is intentional — it beats both Tailwind utilities and inline styles
- * per CSS cascade rules (author !important > author inline).
- * ─────────────────────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════════
+   T2: Dark-Mode Surface Adaptation — v2 (comprehensive)
+   Overrides legacy hardcoded white/light backgrounds & text colours in dark mode.
+   !important beats both Tailwind utilities and inline styles per CSS cascade
+   (author !important > author inline). Grouped by pattern type for maintainability.
+   ══════════════════════════════════════════════════════════════════════════════ */
 
-/* 1. Tailwind bg-white utility (plain and opacity variants) */
+/* ── 1. Tailwind bg-white utility (plain and all /XX opacity variants) ─────── */
 .dark .bg-white { background-color: hsl(var(--card)) !important; }
 .dark [class*="bg-white\/"] { background-color: hsl(var(--card) / 0.88) !important; }
 
-/* 2. Inline light pastel gradient backgrounds (linear-gradient(…#f…)) */
+/* ── 2. Tailwind bg-gray-* utilities ─────────────────────────────────────── */
+.dark .bg-gray-50  { background-color: hsl(var(--muted)) !important; }
+.dark .bg-gray-100 { background-color: hsl(var(--muted)) !important; }
+.dark .bg-gray-200 { background-color: hsl(var(--muted)) !important; }
+
+/* ── 3. Inline light pastel hex gradient backgrounds ─────────────────────── */
+/* Catches: linear-gradient(135deg, #f…), linear-gradient(180deg, #f…), etc.  */
 .dark [style*="linear-gradient(135deg, #f"],
 .dark [style*="linear-gradient(135deg,#f"],
 .dark [style*="linear-gradient(135deg, #F"],
-.dark [style*="linear-gradient(135deg,#F"] {
+.dark [style*="linear-gradient(135deg,#F"],
+.dark [style*="linear-gradient(180deg, #f"],
+.dark [style*="linear-gradient(180deg,#f"],
+.dark [style*="linear-gradient(to bottom, #f"],
+.dark [style*="linear-gradient(to right, #f"] {
   background-color: hsl(var(--card)) !important;
   background-image: none !important;
 }
 
-/* 3. Inline solid white / near-white background-color overrides */
-.dark [style*="background: white"],
-.dark [style*="background: #fff"],
-.dark [style*="background: #FFF"],
-.dark [style*="background-color: white"],
-.dark [style*="background-color: #fff"] {
+/* ── 4. Inline rgba(255,255,255,≥0.5) — solid/semi-solid white surfaces ──── */
+/* Threshold ≥0.5 preserves intentional low-opacity glass tints (≤0.4).       */
+.dark [style*="background: rgba(255,255,255,0.5"],
+.dark [style*="background: rgba(255,255,255,0.6"],
+.dark [style*="background: rgba(255,255,255,0.7"],
+.dark [style*="background: rgba(255,255,255,0.8"],
+.dark [style*="background: rgba(255,255,255,0.9"],
+.dark [style*="background: rgba(255,255,255,1)"],
+.dark [style*="background:rgba(255,255,255,0.5"],
+.dark [style*="background:rgba(255,255,255,0.6"],
+.dark [style*="background:rgba(255,255,255,0.7"],
+.dark [style*="background:rgba(255,255,255,0.8"],
+.dark [style*="background:rgba(255,255,255,0.9"],
+/* shorthand decimal forms (.5, .6 …) */
+.dark [style*="background: rgba(255,255,255,.5"],
+.dark [style*="background: rgba(255,255,255,.6"],
+.dark [style*="background: rgba(255,255,255,.7"],
+.dark [style*="background: rgba(255,255,255,.8"],
+.dark [style*="background: rgba(255,255,255,.9"],
+.dark [style*="background:rgba(255,255,255,.5"],
+.dark [style*="background:rgba(255,255,255,.6"],
+.dark [style*="background:rgba(255,255,255,.7"],
+.dark [style*="background:rgba(255,255,255,.8"],
+.dark [style*="background:rgba(255,255,255,.9"] {
+  background-color: hsl(var(--card)) !important;
+  background-image: none !important;
+}
+
+/* ── 5. Inline rgba(255,255,255,...) as background-color property ─────────── */
+.dark [style*="background-color: rgba(255,255,255,0.5"],
+.dark [style*="background-color: rgba(255,255,255,0.6"],
+.dark [style*="background-color: rgba(255,255,255,0.7"],
+.dark [style*="background-color: rgba(255,255,255,0.8"],
+.dark [style*="background-color: rgba(255,255,255,0.9"],
+.dark [style*="background-color: rgba(255,255,255,.5"],
+.dark [style*="background-color: rgba(255,255,255,.6"],
+.dark [style*="background-color: rgba(255,255,255,.7"],
+.dark [style*="background-color: rgba(255,255,255,.8"],
+.dark [style*="background-color: rgba(255,255,255,.9"] {
   background-color: hsl(var(--card)) !important;
 }
 
-/* ── T2: Dark-Mode Text Adaptation ──────────────────────────────────────────
- * Ensure text sitting inside formerly-white cards is visible.
- * ─────────────────────────────────────────────────────────────────────────── */
+/* ── 6. Inline solid white keywords / hex codes ───────────────────────────── */
+.dark [style*="background: white"],
+.dark [style*="background: #fff"],
+.dark [style*="background: #FFF"],
+.dark [style*="background: #ffffff"],
+.dark [style*="background: #FFFFFF"],
+.dark [style*="background-color: white"],
+.dark [style*="background-color: #fff"],
+.dark [style*="background-color: #ffffff"] {
+  background-color: hsl(var(--card)) !important;
+}
+
+/* ── 7. Tailwind text colour overrides ────────────────────────────────────── */
+.dark .text-gray-900 { color: hsl(var(--foreground)) !important; }
+.dark .text-gray-800 { color: hsl(var(--foreground)) !important; }
+.dark .text-gray-700 { color: hsl(var(--foreground) / 0.9) !important; }
+.dark .text-gray-600 { color: hsl(var(--muted-foreground)) !important; }
 .dark .text-gray-500 { color: hsl(var(--muted-foreground)) !important; }
-.dark .text-gray-400 { color: hsl(var(--muted-foreground)) !important; }
+.dark .text-gray-400 { color: hsl(var(--muted-foreground) / 0.8) !important; }
+
+/* ── 8. Inline dark text colours on dark backgrounds ─────────────────────── */
+/* #1C1A2E is the QPulse dark-mode primary text used as a hardcoded value.    */
+.dark [style*="color: #1C1A2E"],
+.dark [style*="color: #1c1a2e"],
+.dark [style*="color:#1C1A2E"],
+.dark [style*="color:#1c1a2e"],
+.dark [style*="color: rgb(28,26,46)"],
+.dark [style*="color: rgb(28, 26, 46)"] {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* ── 9. Border colour overrides ───────────────────────────────────────────── */
+.dark .border-gray-100,
+.dark .border-gray-200 { border-color: hsl(var(--border)) !important; }
 
 /* ── GlassRail (GSB) responsive visibility ───────────────────────────────
    Desktop rail hides on mobile; mobile sheet hides on desktop.
