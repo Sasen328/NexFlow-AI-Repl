@@ -1,75 +1,47 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useRef, useLayoutEffect, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
-  Bell, Search, Settings, LogOut, ChevronRight, Sparkles, FlaskConical,
+  Bell, Search, Moon, Sun, Settings, Sparkles, FlaskConical,
+  LogOut, ChevronRight, ChevronDown,
 } from "lucide-react";
-import { NexFlowWordmark } from "./NexFlowLogo";
+import { NexFlowLogo } from "./NexFlowLogo";
 import { useNotifications } from "@/hooks/useApi";
 import {
   SECTIONS, getNavForRole, findSectionByRoute, findTopNavBySection,
+  type SectionDef, type TopNavEntry,
 } from "@/lib/sections";
-import { ROLE_LIST, getRole, setRole, setSignedIn, type RoleProfile } from "@/lib/marketing-auth";
+import { ROLE_LIST, getRole, setRole, setSignedIn } from "@/lib/marketing-auth";
 import { useTenantConfig } from "@/hooks/useTenantConfig";
 
-export interface TopBarProps {
+interface TopBarProps {
   dark: boolean;
   onDark: (v: boolean) => void;
 }
 
-/** Map a notification to a top-nav tab key based on type/category metadata. */
-function mapNotifToTabKey(n: { type?: string; category?: string; related_type?: string }): string {
-  const t = ((n.type ?? "") + (n.category ?? "") + (n.related_type ?? "")).toLowerCase();
-  if (t.includes("call") || t.includes("voicemail") || t.includes("transcript") || t.includes("dialer")) return "callcenter";
-  if (t.includes("deal") || t.includes("contact") || t.includes("lead") || t.includes("pipeline")) return "leads";
-  if (t.includes("campaign") || t.includes("marketing") || t.includes("email") || t.includes("whatsapp")) return "marketing";
-  if (t.includes("insight") || t.includes("report") || t.includes("forecast") || t.includes("dashboard")) return "insights";
-  if (t.includes("enrich") || t.includes("signal") || t.includes("data") || t.includes("dedup")) return "datahub";
-  return "home";
-}
-
 /**
- * Slim 2-bar top bar:
- *
- * Bar 1  Brand bar  — wordmark + search + avatar (always visible)
- * Bar 2  Nav tabs   — 6 section tabs with underline active indicator
+ * Two-row hero navigation:
+ *   Row 1 — logo icon (no wordmark) + six top-nav buttons (Home, CRM,
+ *           Contact Center, Enrichment, Marketing, More). Single-section
+ *           buttons reveal their sub-tabs on hover. "More" opens a
+ *           hierarchical two-pane menu where the left column lists
+ *           grouped sections and the right column reveals that section's
+ *           sub-tabs on hover/click.
+ *   Row 2 — search bar + utilities (notifications, dark mode, avatar)
+ *           pushed to the right edge. No logos or icons in this row.
  */
 export function TopBar({ dark, onDark }: TopBarProps) {
-  const barRef = useRef<HTMLDivElement>(null);
-  const [location, navigate] = useLocation();
+  const [location] = useLocation();
   const [avatarOpen, setAvatarOpen] = useState(false);
-  const [currentRole, setCurrentRole] = useState<RoleProfile>(() => getRole());
+  const [openTopKey, setOpenTopKey] = useState<string | null>(null);
+  const [currentRole, setCurrentRole] = useState(() => getRole());
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: notifData } = useNotifications();
-  const unreadCount = (notifData?.notifications ?? []).filter(
-    (n: { read?: boolean }) => !n.read,
-  ).length;
+  const unreadCount = (notifData?.notifications ?? []).filter((n: { read?: boolean }) => !n.read).length;
   const { config: tenantConfig } = useTenantConfig();
 
-  /* ── Per-tab notification badge counts ──────────────────────── */
-  const badgeCounts = useMemo<Record<string, number>>(() => {
-    const counts: Record<string, number> = {};
-    (notifData?.notifications ?? []).forEach((n: { read?: boolean; type?: string; category?: string; related_type?: string }) => {
-      if (!n.read) {
-        const key = mapNotifToTabKey(n);
-        counts[key] = (counts[key] ?? 0) + 1;
-      }
-    });
-    return counts;
-  }, [notifData]);
-
-  /* ── Measure total bar height → --topbar-h ─────────────────── */
-  useLayoutEffect(() => {
-    const el = barRef.current;
-    if (!el) return;
-    const setH = () =>
-      document.documentElement.style.setProperty("--topbar-h", el.offsetHeight + "px");
-    setH();
-    const obs = new ResizeObserver(setH);
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  /* ── Sync role from storage or custom event ─────────────────── */
+  // Listen for role changes triggered anywhere in the app.
   useEffect(() => {
     const refresh = () => setCurrentRole(getRole());
     window.addEventListener("nf:role-change", refresh);
@@ -80,334 +52,553 @@ export function TopBar({ dark, onDark }: TopBarProps) {
     };
   }, []);
 
-  /* ── Close avatar on outside click ────────────────────────── */
+  const activeSection = findSectionByRoute(location);
+  const activeTop = activeSection ? findTopNavBySection(activeSection.key) : null;
+
+  // Close avatar/nav dropdowns on outside click
   useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (barRef.current && !barRef.current.contains(e.target as Node)) {
+    function onClick(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
         setAvatarOpen(false);
+        setOpenTopKey(null);
       }
-    };
+    }
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  /* ── Close avatar on route change or Escape ─────────────────── */
-  useEffect(() => { setAvatarOpen(false); }, [location]);
+  // Close everything on route change / Escape
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setAvatarOpen(false);
-    };
+    setAvatarOpen(false);
+    setOpenTopKey(null);
+  }, [location]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setAvatarOpen(false);
+        setOpenTopKey(null);
+      }
+    }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  /* ── Derived nav state ──────────────────────────────────────── */
-  const activeSection = findSectionByRoute(location);
-  const activeTop     = activeSection ? findTopNavBySection(activeSection.key) : null;
-
-  /* ── Per-section accent colour map ─────────────────────────── */
-  const sectionAccentMap = useMemo<Record<string, string>>(
-    () => Object.fromEntries(SECTIONS.map((s) => [s.key, s.accent ?? "var(--ac)"])),
-    [],
-  );
-
-  const navEntries = getNavForRole(currentRole.key).filter(entry => {
-    if (!tenantConfig?.tabStructure?.length) return true;
-    return (tenantConfig.tabStructure as string[]).includes(entry.key);
-  });
+  // Hover open/close with a short delay so a quick mouse-out doesn't snap shut
+  function openTop(key: string) {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    setOpenTopKey(key);
+  }
+  function scheduleCloseTop() {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => setOpenTopKey(null), 150);
+  }
 
   return (
-    <header ref={barRef} className="sticky top-0 z-40">
-
-      {/* ═══ Bar 1: Brand bar ════════════════════════════════════ */}
-      <div
-        className="bar-cmd"
-        style={{
-          display: "flex", alignItems: "center", gap: "12px",
-          padding: "0 16px", height: "44px",
-        }}
-      >
-        {/* Logo / wordmark */}
-        {tenantConfig?.logoBase64 ? (
-          <img
-            src={tenantConfig.logoBase64}
-            alt={tenantConfig.companyName || "Logo"}
-            style={{ height: "22px", maxWidth: "100px", objectFit: "contain" }}
-          />
-        ) : (
-          <Link href="/home" aria-label="Home">
-            <NexFlowWordmark height={20} />
-          </Link>
-        )}
-
-        <div style={{ flex: 1 }} />
-
-        {/* Search pill */}
-        <div
-          className="cmd-search-pill"
-          role="button"
-          tabIndex={0}
-          onClick={() => alert("Global search — try per-page search inside each section.")}
-          onKeyDown={e => { if (e.key === "Enter") e.currentTarget.click(); }}
-          aria-label="Search"
+    <header
+      ref={wrapRef}
+      className="sticky top-0 z-40 glass-panel border-b border-border/30 backdrop-blur-xl"
+    >
+      {/* ── Row 1 (top): logo icon + 6-button top nav ──────────────
+            Logo sits beside the Home tab. No wordmark. No utilities. */}
+      <div className="flex items-center h-12 px-3 sm:px-4 max-w-[1600px] mx-auto w-full gap-2">
+        <Link href="/home">
+          <div className="flex-shrink-0 cursor-pointer p-1 rounded-lg hover:bg-muted/40 transition-colors flex items-center gap-2" aria-label="QPulse home">
+            {tenantConfig?.logoBase64 ? (
+              <img
+                src={tenantConfig.logoBase64}
+                alt={tenantConfig.companyName || "Company logo"}
+                className="h-7 max-w-[120px] object-contain rounded"
+              />
+            ) : (
+              <NexFlowLogo size={28} />
+            )}
+            {tenantConfig?.companyName && (
+              <span className="hidden sm:block text-xs font-bold text-foreground/70 max-w-[100px] truncate leading-tight">
+                {tenantConfig.companyName}
+              </span>
+            )}
+          </div>
+        </Link>
+        <nav
+          className="flex items-center gap-1 flex-1 flex-wrap"
+          aria-label="Primary"
         >
-          <Search style={{ width: "12px", height: "12px", flexShrink: 0 }} />
-          <span style={{ flex: 1, pointerEvents: "none" }}>Search...</span>
-          <span style={{ opacity: 0.45, fontFamily: "'Geist Mono', monospace", fontSize: "10px", pointerEvents: "none" }}>⌘K</span>
-        </div>
-
-        {/* Bell */}
-        <button
-          style={{
-            position: "relative", padding: "4px", borderRadius: "6px",
-            border: "none", background: "transparent", cursor: "pointer",
-            color: "var(--txq)", display: "flex", alignItems: "center",
-          }}
-          onClick={() => navigate("/notifications")}
-          aria-label="Notifications"
-        >
-          <Bell style={{ width: "15px", height: "15px" }} />
-          {unreadCount > 0 && (
-            <span
-              style={{
-                position: "absolute", top: "1px", right: "1px",
-                minWidth: "13px", height: "13px", borderRadius: "9999px",
-                background: "var(--ac)", color: "#fff",
-                fontSize: "8px", fontWeight: 700,
-                display: "inline-flex", alignItems: "center", justifyContent: "center",
-                padding: "0 2px",
-              }}
-            >
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
-          )}
-        </button>
-
-        {/* Settings */}
-        <button
-          style={{
-            padding: "4px", borderRadius: "6px", border: "none",
-            background: "transparent", cursor: "pointer",
-            color: "var(--txq)", display: "flex", alignItems: "center",
-          }}
-          onClick={() => navigate("/settings")}
-          aria-label="Settings"
-        >
-          <Settings style={{ width: "15px", height: "15px" }} />
-        </button>
-
-        {/* Avatar */}
-        <div style={{ position: "relative" }}>
-          <button
-            onClick={() => setAvatarOpen(v => !v)}
-            style={{
-              width: "28px", height: "28px", borderRadius: "50%",
-              background: `linear-gradient(135deg,${currentRole.accent},var(--brand-purple))`,
-              color: "#fff", fontSize: "10px", fontWeight: 900,
-              border: "none", cursor: "pointer",
-              display: "inline-flex", alignItems: "center", justifyContent: "center",
-            }}
-            aria-label="Account menu"
-            aria-haspopup="menu"
-            aria-expanded={avatarOpen}
-          >
-            {currentRole.initials}
-          </button>
-          {avatarOpen && (
-            <AvatarDropdown
-              role={currentRole}
-              dark={dark}
-              onDark={onDark}
-              onClose={() => setAvatarOpen(false)}
+          {getNavForRole(currentRole.key)
+            .filter((entry) => {
+              if (!tenantConfig?.tabStructure?.length) return true;
+              return tenantConfig.tabStructure.includes(entry.key);
+            })
+            .map((entry) => (
+            <TopNavButton
+              key={entry.key}
+              entry={entry}
+              isActive={activeTop?.key === entry.key}
+              isOpen={openTopKey === entry.key}
+              onOpen={() => openTop(entry.key)}
+              onClose={() => setOpenTopKey(null)}
+              onScheduleClose={scheduleCloseTop}
+              onItemClick={() => setOpenTopKey(null)}
+              currentPath={location}
             />
-          )}
-        </div>
+          ))}
+        </nav>
       </div>
 
-      {/* ═══ Bar 2: Section tabs ══════════════════════════════════ */}
-      <div
-        className="bar-tab"
-        style={{ display: "flex", alignItems: "stretch", height: "40px", paddingLeft: "4px" }}
-      >
-        {navEntries.map(entry => {
-          const isActive = activeTop?.key === entry.key;
-          const badge = badgeCounts[entry.key] ?? 0;
-          const Icon = entry.icon;
-          const ac = sectionAccentMap[entry.sections[0]] ?? "var(--ac)";
-          return (
+      {/* ── Row 2 (below tabs): search + utilities, right-aligned.
+            Nothing on the left — completely clean below the tab row. */}
+      <div className="border-t border-border/20">
+        <div className="flex items-center justify-end h-10 px-3 sm:px-4 max-w-[1600px] mx-auto w-full gap-1">
+          <button
+            className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/40 text-muted-foreground text-xs hover:bg-muted/60 transition-colors w-44 lg:w-64"
+            aria-label="Search"
+            onClick={() => alert("Global search coming soon — try the per-page search inside Contacts, Companies, etc.")}
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span className="flex-1 text-left">Search...</span>
+            <span className="opacity-50 font-mono">⌘K</span>
+          </button>
+          <button
+            className="md:hidden p-2 rounded-lg hover:bg-muted/50 text-foreground/70"
+            aria-label="Search"
+            onClick={() => alert("Global search coming soon.")}
+          >
+            <Search className="w-4 h-4" />
+          </button>
+
+          {/* Always-visible AI assistant entry — opens the floating bubble panel */}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("nf:open-assistant"))}
+            className="relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white text-[11px] font-bold shadow-sm hover:opacity-90 transition-opacity"
+            style={{ background: "linear-gradient(135deg,#88B8B0,#B8A0C8)" }}
+            aria-label="Open AI Assistant"
+            title="Open AI Assistant"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">AI Assistant</span>
+          </button>
+
+          <Link href="/notifications">
             <button
-              key={entry.key}
-              onClick={() => {
-                const sec = SECTIONS.find(s => s.key === entry.sections[0]);
-                navigate(sec?.defaultHref ?? "/home");
-              }}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: "6px",
-                padding: "0 16px", height: "40px", cursor: "pointer",
-                border: "none",
-                borderBottom: isActive ? `3px solid ${ac}` : "3px solid transparent",
-                background: isActive ? `${ac}22` : "transparent",
-                color: isActive ? ac : "var(--txq)",
-                fontWeight: isActive ? 700 : 500,
-                fontSize: "13px", fontFamily: "'Geist', sans-serif",
-                transition: "color .18s, border-color .18s, background .18s",
-                whiteSpace: "nowrap",
-              }}
-              aria-current={isActive ? "page" : undefined}
+              className={cn(
+                "relative p-2 rounded-lg hover:bg-muted/50 transition-colors",
+                location === "/notifications" ? "text-[#B8A0C8]" : "text-foreground/70",
+              )}
+              aria-label="Notifications"
             >
-              <Icon style={{ width: "14px", height: "14px", strokeWidth: 1.6 }} />
-              <span>{entry.label}</span>
-              {badge > 0 && (
-                <span
-                  style={{
-                    minWidth: "15px", height: "15px", borderRadius: "9999px",
-                    background: "var(--ac)", color: "#fff",
-                    fontSize: "8px", fontWeight: 700,
-                    display: "inline-flex", alignItems: "center", justifyContent: "center",
-                    padding: "0 3px", flexShrink: 0,
-                  }}
-                >
-                  {badge > 9 ? "9+" : badge}
+              <Bell className="w-4 h-4" />
+              {unreadCount > 0 && (
+                <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full nf-chameleon-bg text-white text-[9px] font-black flex items-center justify-center">
+                  {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
             </button>
-          );
-        })}
-      </div>
+          </Link>
 
+          <button
+            onClick={() => onDark(!dark)}
+            className="p-2 rounded-lg hover:bg-muted/50 text-foreground/70 transition-colors"
+            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+
+          {/* Avatar dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setAvatarOpen(!avatarOpen)}
+              className="flex items-center gap-2 ml-1 p-1 rounded-lg hover:bg-muted/50"
+              aria-label="Account menu"
+              aria-haspopup="menu"
+              aria-expanded={avatarOpen}
+            >
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-black"
+                style={{ background: `linear-gradient(135deg,${currentRole.accent},#B8A0C8)` }}
+              >
+                {currentRole.initials}
+              </div>
+              <div className="hidden md:flex flex-col items-start leading-tight">
+                <span className="text-[11px] font-bold">{currentRole.label}</span>
+                <span className="text-[9px] text-muted-foreground">{currentRole.name}</span>
+              </div>
+            </button>
+            {avatarOpen && (
+              <div className="absolute right-0 top-full mt-1 w-72 glass-card rounded-xl border border-border/40 shadow-xl py-2 z-50">
+                <div className="px-3 py-2 border-b border-border/30 flex items-center gap-2">
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0"
+                    style={{ background: `linear-gradient(135deg,${currentRole.accent},#B8A0C8)` }}
+                  >
+                    {currentRole.initials}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold truncate">{currentRole.name}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{currentRole.title}</div>
+                    <div className="text-[10px] text-muted-foreground truncate">{currentRole.email}</div>
+                  </div>
+                </div>
+
+                {/* Persona switcher */}
+                <div className="px-3 pt-2 pb-1">
+                  <div className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Switch persona
+                  </div>
+                  <div className="grid grid-cols-1 gap-1">
+                    {ROLE_LIST.map((r) => {
+                      const active = r.key === currentRole.key;
+                      return (
+                        <button
+                          key={r.key}
+                          onClick={() => {
+                            setRole(r.key);
+                            setAvatarOpen(false);
+                          }}
+                          className={cn(
+                            "flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-all",
+                            active ? "bg-muted/60" : "hover:bg-muted/40",
+                          )}
+                        >
+                          <div
+                            className="w-6 h-6 rounded-md flex items-center justify-center text-white text-[10px] font-black flex-shrink-0"
+                            style={{ background: `linear-gradient(135deg,${r.accent},#B8A0C8)` }}
+                          >
+                            {r.initials}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[12px] font-bold truncate leading-tight">{r.label}</div>
+                            <div className="text-[10px] text-muted-foreground truncate leading-tight">{r.name}</div>
+                          </div>
+                          {active && (
+                            <div className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded"
+                              style={{ background: `${r.accent}25`, color: r.accent }}>
+                              Active
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <Link href="/account-settings">
+                  <div className="flex items-center gap-2 mx-1 mt-1 px-2 py-2 text-sm hover:bg-muted/50 cursor-pointer rounded-lg">
+                    <Settings className="w-3.5 h-3.5 text-muted-foreground" /> Account Settings
+                    <ChevronRight className="w-3 h-3 ml-auto text-muted-foreground" />
+                  </div>
+                </Link>
+                <Link href="/capabilities">
+                  <div className="flex items-center gap-2 mx-1 px-2 py-2 text-sm hover:bg-muted/50 cursor-pointer rounded-lg">
+                    <Sparkles className="w-3.5 h-3.5 text-muted-foreground" /> Capabilities
+                  </div>
+                </Link>
+                <div className="border-t border-border/30 mt-1 pt-1">
+                  <button
+                    onClick={() => {
+                      setSignedIn(false);
+                      window.location.href = "/welcome";
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 text-left"
+                  >
+                    <LogOut className="w-3.5 h-3.5" /> Sign out
+                  </button>
+                </div>
+                <div className="px-3 pt-2 mt-1 border-t border-border/30">
+                  <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#C8A880]/10 border border-[#C8A880]/25">
+                    <FlaskConical className="w-3 h-3 text-[#C8A880]" />
+                    <div className="text-[10px] font-bold text-[#C8A880]">DEMO MODE — click any persona above to switch</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </header>
   );
 }
 
-/* ─── Avatar Dropdown ─────────────────────────────────────────────── */
+/* ─── Single top-nav button + hover dropdown ─────────────────────── */
 
-function AvatarDropdown({
-  role, dark, onDark, onClose,
+function TopNavButton({
+  entry, isActive, isOpen, onOpen, onClose, onScheduleClose, onItemClick, currentPath,
 }: {
-  role: RoleProfile;
-  dark: boolean;
-  onDark: (v: boolean) => void;
+  entry: TopNavEntry;
+  isActive: boolean;
+  isOpen: boolean;
+  onOpen: () => void;
   onClose: () => void;
+  onScheduleClose: () => void;
+  onItemClick: () => void;
+  currentPath: string;
 }) {
+  const [, navigate] = useLocation();
+  const Icon = entry.icon;
+  const isMore = entry.key === "more";
+
+  const primarySection: SectionDef | null = isMore
+    ? null
+    : SECTIONS.find((s) => s.key === entry.sections[0]) ?? null;
+  const clickHref = primarySection?.defaultHref ?? "/";
+
+  const accent = primarySection?.accent ?? "#B8A0C8";
+
+  function handleClick(e: React.MouseEvent) {
+    if (isMore) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isOpen) onClose();
+      else onOpen();
+    } else {
+      navigate(clickHref);
+    }
+  }
+
+  const hoverHandlers = isMore
+    ? {}
+    : {
+        onMouseEnter: onOpen,
+        onMouseLeave: onScheduleClose,
+        onFocus: onOpen,
+        onBlur: (e: React.FocusEvent) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) onScheduleClose();
+        },
+      };
+
   return (
     <div
-      className="absolute right-0 top-full mt-1 w-72 glass-card rounded-xl shadow-xl py-2 z-50"
-      style={{ border: "1px solid var(--bd)" }}
+      className="relative"
+      {...hoverHandlers}
     >
-      {/* Profile header */}
-      <div className="px-3 py-2 flex items-center gap-2" style={{ borderBottom: "1px solid var(--bd)" }}>
-        <div
-          className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0"
-          style={{ background: `linear-gradient(135deg,${role.accent},var(--brand-purple))` }}
-        >
-          {role.initials}
-        </div>
-        <div className="min-w-0">
-          <div className="text-sm font-bold truncate">{role.name}</div>
-          <div className="text-[11px] truncate" style={{ color: "var(--txM)" }}>{role.title}</div>
-          <div className="text-[10px] truncate" style={{ color: "var(--txq)" }}>{role.email}</div>
-        </div>
-      </div>
+      <button
+        type="button"
+        className={cn(
+          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold whitespace-nowrap flex-shrink-0 transition-all",
+          isActive
+            ? "text-white shadow-sm"
+            : "text-foreground/70 hover:text-foreground hover:bg-muted/40",
+        )}
+        style={
+          isActive
+            ? {
+                background: `linear-gradient(135deg, ${accent}, #B8A0C8)`,
+                boxShadow: `0 4px 12px ${accent}40`,
+              }
+            : undefined
+        }
+        aria-current={isActive ? "page" : undefined}
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        onClick={handleClick}
+      >
+        <Icon
+          className="w-3.5 h-3.5"
+          style={{ color: isActive ? "#fff" : accent }}
+        />
+        <span>{entry.label}</span>
+        {isMore && (
+          <ChevronDown
+            className={cn(
+              "w-3 h-3 transition-transform",
+              isOpen ? "rotate-180" : "",
+            )}
+          />
+        )}
+      </button>
 
-      {/* Persona switcher */}
-      <div className="px-3 pt-2 pb-1">
-        <div
-          className="text-[9px] font-black uppercase tracking-wider mb-1.5"
-          style={{ color: "var(--txq)" }}
-        >
-          Switch persona
-        </div>
-        <div className="grid grid-cols-1 gap-1">
-          {ROLE_LIST.map(r => {
-            const active = r.key === role.key;
-            return (
-              <button
-                key={r.key}
-                onClick={() => { setRole(r.key); onClose(); }}
-                className={cn(
-                  "flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-all w-full",
-                  active ? "bg-muted/60" : "hover:bg-muted/40",
-                )}
+      {isOpen && (isMore
+        ? <MoreDropdown entry={entry} onItemClick={onItemClick} currentPath={currentPath} />
+        : <SingleSectionDropdown entry={entry} onItemClick={onItemClick} currentPath={currentPath} />
+      )}
+    </div>
+  );
+}
+
+/* ─── Single-section dropdown ───────────────────────────────────── */
+
+function SingleSectionDropdown({
+  entry, onItemClick, currentPath,
+}: {
+  entry: TopNavEntry;
+  onItemClick: () => void;
+  currentPath: string;
+}) {
+  const section = SECTIONS.find((s) => s.key === entry.sections[0]);
+  if (!section) return null;
+  if (
+    section.items.length <= 1 &&
+    section.items[0]?.href.split("#")[0] === section.defaultHref.split("#")[0]
+  ) {
+    return null;
+  }
+
+  return (
+    <div className="absolute top-full left-0 mt-1 z-50 glass-card rounded-xl border border-border/40 shadow-xl py-2 w-72">
+      {section.items.map((item) => {
+        const ItemIcon = item.icon;
+        const active =
+          currentPath === item.href ||
+          (item.href !== "/" && currentPath.startsWith(item.href + "/"));
+        return (
+          <Link key={item.href} href={item.href}>
+            <div
+              className={cn(
+                "flex items-start gap-2.5 px-3 py-2 mx-1 rounded-md cursor-pointer transition-colors",
+                active ? "bg-muted/60" : "hover:bg-muted/40",
+              )}
+              onClick={onItemClick}
+            >
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                style={{ background: `${section.accent}20` }}
               >
-                <div
-                  className="w-6 h-6 rounded-md flex items-center justify-center text-white text-[10px] font-black flex-shrink-0"
-                  style={{ background: `linear-gradient(135deg,${r.accent},var(--brand-purple))` }}
-                >
-                  {r.initials}
+                <ItemIcon className="w-3.5 h-3.5" style={{ color: section.accent }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className={cn(
+                  "text-sm font-semibold truncate",
+                  active ? "text-foreground" : "text-foreground/90",
+                )}>
+                  {item.label}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[12px] font-bold truncate leading-tight">{r.label}</div>
-                  <div className="text-[10px] truncate leading-tight" style={{ color: "var(--txq)" }}>
-                    {r.name}
-                  </div>
+                <div className="text-[11px] text-muted-foreground line-clamp-1">
+                  {item.desc}
                 </div>
-                {active && (
+              </div>
+            </div>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─── Click-driven cascading "More" dropdown ───────────────────── */
+
+function MoreDropdown({
+  entry, onItemClick, currentPath,
+}: {
+  entry: TopNavEntry;
+  onItemClick: () => void;
+  currentPath: string;
+}) {
+  const sections = entry.sections
+    .map((k) => SECTIONS.find((s) => s.key === k))
+    .filter((s): s is SectionDef => Boolean(s));
+
+  const initialKey =
+    sections.find((s) =>
+      currentPath.startsWith(`/section/${s.key}`) ||
+      s.items.some((i) => currentPath === i.href || (i.href !== "/" && currentPath.startsWith(i.href + "/"))),
+    )?.key ?? null;
+
+  const [openSectionKey, setOpenSectionKey] = useState<string | null>(initialKey);
+
+  function toggleSection(key: string) {
+    setOpenSectionKey((curr) => (curr === key ? null : key));
+  }
+
+  return (
+    <div className="absolute top-full right-0 mt-1 z-50 flex items-start gap-2">
+      {openSectionKey && (() => {
+        const section = sections.find((s) => s.key === openSectionKey);
+        if (!section) return null;
+        return (
+          <div className="glass-card rounded-xl border border-border/40 shadow-xl py-2 w-72 max-h-[60vh] overflow-y-auto">
+            <div className="flex items-center gap-2 px-3 pb-2 border-b border-border/30 mb-1">
+              <div
+                className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
+                style={{ background: `${section.accent}25` }}
+              >
+                <section.icon className="w-3.5 h-3.5" style={{ color: section.accent }} />
+              </div>
+              <div
+                className="text-[11px] font-black uppercase tracking-wider"
+                style={{ color: section.accent }}
+              >
+                {section.label}
+              </div>
+            </div>
+            {section.items.map((item) => {
+              const ItemIcon = item.icon;
+              const active =
+                currentPath === item.href ||
+                (item.href !== "/" && currentPath.startsWith(item.href + "/"));
+              return (
+                <Link key={item.href} href={item.href}>
                   <div
-                    className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded"
-                    style={{ background: `${r.accent}25`, color: r.accent }}
+                    onClick={onItemClick}
+                    className={cn(
+                      "flex items-start gap-2.5 mx-1 px-2.5 py-2 rounded-md cursor-pointer transition-colors",
+                      active ? "bg-muted/60" : "hover:bg-muted/40",
+                    )}
                   >
-                    Active
+                    <div
+                      className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                      style={{ background: `${section.accent}20` }}
+                    >
+                      <ItemIcon className="w-3.5 h-3.5" style={{ color: section.accent }} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className={cn(
+                        "text-sm font-semibold truncate",
+                        active ? "text-foreground" : "text-foreground/90",
+                      )}>
+                        {item.label}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground line-clamp-1">
+                        {item.desc}
+                      </div>
+                    </div>
                   </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Dark mode toggle */}
-      <div style={{ borderTop: "1px solid var(--bd)" }} className="mx-1 mt-1 pt-1">
-        <button
-          onClick={() => { onDark(!dark); onClose(); }}
-          className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted/50 rounded-lg text-left"
-          style={{ color: "var(--txM)" }}
-        >
-          <span style={{ fontSize: "13px" }}>{dark ? "☀" : "☾"}</span>
-          {dark ? "Switch to light mode" : "Switch to dark mode"}
-        </button>
-      </div>
-
-      {/* Links */}
-      <Link href="/account-settings">
-        <div
-          className="flex items-center gap-2 mx-1 px-2 py-2 text-sm hover:bg-muted/50 cursor-pointer rounded-lg"
-          onClick={onClose}
-        >
-          <Settings className="w-3.5 h-3.5" style={{ color: "var(--txq)" }} />
-          <span>Account Settings</span>
-          <ChevronRight className="w-3 h-3 ml-auto" style={{ color: "var(--txq)" }} />
-        </div>
-      </Link>
-      <Link href="/capabilities">
-        <div
-          className="flex items-center gap-2 mx-1 px-2 py-2 text-sm hover:bg-muted/50 cursor-pointer rounded-lg"
-          onClick={onClose}
-        >
-          <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--txq)" }} />
-          <span>Capabilities</span>
-        </div>
-      </Link>
-
-      {/* Sign out */}
-      <div style={{ borderTop: "1px solid var(--bd)" }} className="mt-1 pt-1">
-        <button
-          onClick={() => { setSignedIn(false); window.location.href = "/welcome"; }}
-          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 text-left"
-          style={{ color: "var(--txM)" }}
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          Sign out
-        </button>
-      </div>
-
-      {/* Demo badge */}
-      <div className="px-3 pt-2 mt-1" style={{ borderTop: "1px solid var(--bd)" }}>
-        <div className="demo-badge-card flex items-center gap-1.5 px-2 py-1 rounded-lg">
-          <FlaskConical className="w-3 h-3" style={{ color: "var(--brand-gold)" }} />
-          <div className="text-[10px] font-bold" style={{ color: "var(--brand-gold)" }}>
-            DEMO MODE — click any persona above to switch
+                </Link>
+              );
+            })}
           </div>
-        </div>
+        );
+      })()}
+
+      <div className="glass-card rounded-xl border border-border/40 shadow-xl py-2 w-[220px]">
+        {sections.map((section) => {
+          const SectionIcon = section.icon;
+          const isOpen = openSectionKey === section.key;
+          return (
+            <button
+              key={section.key}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleSection(section.key);
+              }}
+              className={cn(
+                "w-full flex items-center gap-2 mx-0 px-2.5 py-2 rounded-md cursor-pointer transition-colors text-left",
+                isOpen ? "bg-muted/70" : "hover:bg-muted/40",
+              )}
+              aria-haspopup="true"
+              aria-expanded={isOpen}
+            >
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: `${section.accent}25` }}
+              >
+                <SectionIcon className="w-3.5 h-3.5" style={{ color: section.accent }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-semibold text-foreground truncate">
+                  {section.label}
+                </div>
+              </div>
+              <ChevronRight
+                className={cn(
+                  "w-3.5 h-3.5 text-muted-foreground flex-shrink-0 transition-transform",
+                  isOpen && "rotate-180",
+                )}
+              />
+            </button>
+          );
+        })}
       </div>
     </div>
   );

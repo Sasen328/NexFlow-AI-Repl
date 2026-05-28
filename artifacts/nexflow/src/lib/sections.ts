@@ -29,8 +29,6 @@ export interface SectionItem {
   /** Optional group header rendered above this item in the sidebar.
    *  Items sharing the same group label are visually clustered. */
   group?: string;
-  /** Sub-items shown in the sidebar when this item is the active page. */
-  subItems?: { icon: LucideIcon; label: string; href: string }[];
 }
 
 export interface SectionDef {
@@ -48,8 +46,6 @@ export interface SectionDef {
 
 export const SECTIONS: SectionDef[] = [
   // ─── 1. Home ──────────────────────────────────────────────────────
-  // No items → SectionSidebar does not render for this section.
-  // The home/briefing page is self-contained with its own internal tabs.
   {
     key: "home",
     label: "Home",
@@ -61,7 +57,6 @@ export const SECTIONS: SectionDef[] = [
   },
 
   // ─── 2. CRM (was "Pipeline") ───────────────────────────────────────
-  // Key remains "leads" to keep ROLE_NAV / legacy deep links working.
   {
     key: "leads",
     label: "CRM",
@@ -70,14 +65,7 @@ export const SECTIONS: SectionDef[] = [
     accent: "#88B8B0",
     defaultHref: "/command-center",
     items: [
-      { icon: Sparkles,   label: "Command Center",  href: "/command-center", desc: "Live scorecards · push actions to any contact · search & jump", group: "Command",
-        subItems: [
-          { icon: BarChart3,    label: "Live Scorecards",  href: "/command-center?tab=scorecards" },
-          { icon: Zap,          label: "Quick Actions",    href: "/command-center?tab=actions" },
-          { icon: BrainCircuit, label: "AI List Builder",  href: "/command-center?tab=list-builder" },
-          { icon: ListIcon,     label: "Priority Queue",   href: "/command-center?tab=queue" },
-        ],
-      },
+      { icon: Sparkles,   label: "Command Center",  href: "/command-center", desc: "Live scorecards · push actions to any contact · search & jump", group: "Command" },
       { icon: Users,      label: "Contacts",        href: "/contacts",       desc: "All contacts · enrich · score · history" },
       { icon: Building2,  label: "Companies",       href: "/companies",      desc: "Accounts · revenue · contacts roster" },
       { icon: GitBranch,  label: "Deals",           href: "/deal-pipeline",  desc: "Kanban pipeline · stages · win/loss" },
@@ -87,25 +75,19 @@ export const SECTIONS: SectionDef[] = [
     ],
   },
 
-  // ─── 3. Call Center (rename of Contact Center) ────────────────────
+  // ─── 3. Call Center ────────────────────────────────────────────────
   {
     key: "callcenter",
     label: "Comms",
     icon: MessageSquare,
     tagline: "Dashboard · Dialer · Calls · AI Text · Command Center.",
     accent: "#C0A0B8",
-    // Landing on the dashboard (KPIs, queues, AI insights), then the channels
-    // ordered as the rep flows through them: Dialer → Calls & Transcripts →
-    // AI Text (was WhatsApp; AI auto-replies + push-to-WhatsApp/Email todos).
     defaultHref: "/callcenter/dashboard",
     items: [
-      // Overview surface — KPIs / queues / AI insights / live status
       { icon: BarChart3,       label: "Dashboard",           href: "/callcenter/dashboard",      desc: "Comms overview — KPIs · queues · AI insights · live status" },
-      // Channels — direct conversation surfaces (call-first ordering)
       { icon: Phone,           label: "Dialer",              href: "/power-dialer",              desc: "Outbound calls — Manual · Auto-dial · AI Agent" },
       { icon: Phone,           label: "Calls & Transcripts", href: "/callcenter/calls",          desc: "History · transcripts · scoring · sentiment — pushed to lead timeline" },
       { icon: MessageSquare,   label: "AI Text",             href: "/callcenter/messages",       desc: "AI-driven WhatsApp + Email — auto-reply, push-to-todo, bilingual" },
-      // Command Center — automation & content infrastructure
       { icon: Bot,             label: "AI Voice Agent",      href: "/callcenter/agent",          desc: "Automated callers · settings & deployments", group: "Command Center" },
       { icon: Layers,          label: "Templates",           href: "/templates",                 desc: "Reusable scripts · email · WhatsApp templates",  group: "Command Center" },
       { icon: BookOpen,        label: "Knowledge Base",      href: "/callcenter/knowledge-base", desc: "Talk tracks · objections · playbooks",           group: "Command Center" },
@@ -113,9 +95,7 @@ export const SECTIONS: SectionDef[] = [
     ],
   },
 
-  // ─── 4. Enrichment (was "Data Hub") ────────────────────────────────
-  // Key remains "datahub" so ROLE_NAV / legacy deep links keep working.
-  // 3-tab sidebar: Lead Generation | CRM Enrichment | Settings
+  // ─── 4. Enrichment ─────────────────────────────────────────────────
   {
     key: "datahub",
     label: "★ Enrichment",
@@ -130,7 +110,7 @@ export const SECTIONS: SectionDef[] = [
     ],
   },
 
-  // ─── 5. Marketing (kept from prior overhaul) ──────────────────────
+  // ─── 5. Marketing ─────────────────────────────────────────────────
   {
     key: "marketing",
     label: "Growth",
@@ -182,10 +162,7 @@ export const SECTIONS: SectionDef[] = [
     ],
   },
 
-  // ─── Single-page tab shells (used by per-role TOP_NAVs) ──────────
-  // These exist so a TopNavEntry can point at one page (no real
-  // dropdown). SingleSectionDropdown hides itself when items.length
-  // === 1 AND the item's href matches defaultHref.
+  // ─── Single-page tab shells ────────────────────────────────────────
   {
     key: "tab-campaign-builder",
     label: "Campaign Builder",
@@ -220,7 +197,7 @@ export const SECTIONS: SectionDef[] = [
     ],
   },
 
-  // ─── Settings (gear icon in avatar menu — NOT in TOP_NAV) ─────────
+  // ─── Settings ─────────────────────────────────────────────────────
   {
     key: "settings",
     label: "Settings",
@@ -236,8 +213,7 @@ export const SECTIONS: SectionDef[] = [
     ],
   },
 
-  // ─── Hidden legacy sections — kept ONLY so legacy deep links still
-  //     resolve via findSectionByRoute. NEVER shown in TOP_NAV. ─────
+  // ─── Hidden legacy sections — kept ONLY so legacy deep links resolve ─
   {
     key: "crm",
     label: "Leads",
@@ -255,8 +231,7 @@ export const SECTIONS: SectionDef[] = [
 ];
 
 /**
- * The SIX visible top-bar buttons. Settings is NOT here — it lives in the
- * avatar dropdown as a gear icon.
+ * The SIX visible top-bar buttons.
  */
 export interface TopNavEntry {
   key: string;
@@ -276,8 +251,6 @@ export const TOP_NAV: TopNavEntry[] = [
 ];
 
 // ─── Legacy path → section key remap ────────────────────────────────
-// Many older deep links still need to highlight the right top-tab. This
-// table maps legacy paths to the *new* section they belong to.
 const LEGACY_PATH_PREFIX_TO_SECTION: Array<[string, string]> = [
   ["/pipeline",          "leads"],
   ["/deal-pipeline",     "leads"],
@@ -350,38 +323,26 @@ const LEGACY_PATH_PREFIX_TO_SECTION: Array<[string, string]> = [
 
 /** Reverse lookup: returns the section the given route belongs to, or null. */
 export function findSectionByRoute(pathname: string): SectionDef | null {
-  // 1. /home special-case (highest priority — never wins by accident)
   if (pathname === "/home" || pathname.startsWith("/home#")) {
     return SECTIONS.find((s) => s.key === "home") ?? null;
   }
-  // 2. /section/<key> hub fallback
   const hubMatch = pathname.match(/^\/section\/([\w-]+)/);
   if (hubMatch) {
     const s = SECTIONS.find((x) => x.key === hubMatch[1]);
     if (s) return s;
   }
-  // 3. /<top-section-key>/* prefix (covers all NEW routes: /leads/*,
-  //    /callcenter/*, /datahub/*, /insights/*). Done before item-scan so
-  //    new IA wins over hidden-legacy item URLs.
   for (const t of TOP_NAV) {
     if (pathname === `/${t.key}` || pathname.startsWith(`/${t.key}/`)) {
       const s = SECTIONS.find((x) => x.key === t.sections[0]);
       if (s) return s;
     }
   }
-  // 4. Legacy path-prefix remap — applied BEFORE the item-scan so legacy
-  //    URLs like /contacts, /calls, /signals resolve to the new section
-  //    they now belong to (Leads / Call Center / Data Hub) instead of the
-  //    hidden legacy "crm" section that still owns those item URLs for
-  //    back-compat.
   for (const [prefix, key] of LEGACY_PATH_PREFIX_TO_SECTION) {
     if (pathname === prefix || pathname.startsWith(prefix + "/")) {
       const s = SECTIONS.find((x) => x.key === key);
       if (s) return s;
     }
   }
-  // 5. Last-resort: exact match on any section's items (covers /section/*
-  //    items and oddball legacy hrefs not in LEGACY_PATH_PREFIX_TO_SECTION).
   for (const s of SECTIONS) {
     for (const item of s.items) {
       const path = item.href.split("#")[0];
@@ -397,47 +358,25 @@ export function findTopNavBySection(sectionKey: string): TopNavEntry | null {
   return TOP_NAV.find((t) => t.sections.includes(sectionKey)) ?? null;
 }
 
-/* ─── Per-persona top nav scopes ────────────────────────────────────
-   Each persona sees ONLY the tabs they need. The role-scoped tabs are
-   built from a mix of the standard six TOP_NAV entries and a handful
-   of role-specific shells (Campaign Builder, Campaign Performance,
-   MarkHub) defined in SECTIONS above. */
+/* ─── Per-persona top nav scopes ──────────────────────────────────── */
 
 const ALL_TOP_NAV_ENTRIES: TopNavEntry[] = [
   ...TOP_NAV,
-  // Marketing-only single-page tabs:
   { key: "tab-campaign-builder",     label: "Campaign Builder",         icon: Sparkles, sections: ["tab-campaign-builder"] },
   { key: "tab-campaign-performance", label: "Campaign Performance",     icon: Eye,      sections: ["tab-campaign-performance"] },
   { key: "tab-email-generator",      label: "Email & Message Generator", icon: Wand2,   sections: ["tab-email-generator"] },
   { key: "markhub",                  label: "MarkHub",                  icon: Layers,   sections: ["markhub"] },
 ];
 
-/** Map of role.key → ordered list of TopNavEntry keys to show.
- *
- *  IMPORTANT: Sales Manager and CRM Admin must see EVERYTHING (full
- *  TOP_NAV including DataHub → Enrichment). They are intentionally
- *  NOT listed here so `getNavForRole` falls back to the full TOP_NAV.
- *  Sales Rep is scoped to remove the full Marketing module — they
- *  instead get a curated Campaign Briefing widget on /home that
- *  surfaces hot leads who clicked / interacted with campaigns.
- *  CEO and Marketing are scoped to their own curated surfaces.
- */
 export const ROLE_NAV: Record<string, string[]> = {
-  // CEO — minimal exec view. ONLY home (executive dashboard) + insights.
-  // High-level data is delivered IN those surfaces, not via more tabs.
   ceo:       ["home", "insights"],
-  // EVERY operational role sees the SAME six tabs in the SAME order.
-  // Common tabs must look identical across users — only CEO and Marketing
-  // get curated narrower views.
   sales:     ["home", "leads", "callcenter", "datahub", "marketing", "insights"],
   manager:   ["home", "leads", "callcenter", "datahub", "marketing", "insights"],
   admin:     ["home", "leads", "callcenter", "datahub", "marketing", "insights"],
-  // Marketing — only marketing-relevant surfaces.
   marketing: ["home", "tab-campaign-builder", "tab-email-generator", "tab-campaign-performance", "markhub"],
 };
 
-/** Returns the TopNavEntry list that should be visible for a given role.
- *  Falls back to the full six-tab nav for unknown roles. */
+/** Returns the TopNavEntry list that should be visible for a given role. */
 export function getNavForRole(roleKey: string): TopNavEntry[] {
   const keys = ROLE_NAV[roleKey];
   if (!keys) return TOP_NAV;
