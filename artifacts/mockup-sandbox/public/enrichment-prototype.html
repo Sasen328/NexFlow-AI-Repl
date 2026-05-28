@@ -1,0 +1,1248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>NexFlow — Enrichment Engine Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ac:#B8A0C8; --tl:#88B8B0; --gd:#C8A880; --re:#C88888;
+  --bg:#0e0f14; --s1:#13141a; --s2:#1a1b22; --s3:#242530;
+  --tx:#e2e2e2; --tm:#aaa; --ts:#666; --bd:rgba(255,255,255,.07);
+  --bda:rgba(184,160,200,.25); --bdt:rgba(136,184,176,.25); --bdg:rgba(200,168,128,.25);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;font-size:13px}
+.mono{font-family:"JetBrains Mono",monospace}
+.display{font-family:"Playfair Display",serif}
+
+/* ── bars ── */
+.cmdbar{display:flex;align-items:center;gap:10px;padding:10px 20px;
+  background:rgba(19,20,26,.9);border-bottom:1px solid var(--bd);
+  position:sticky;top:0;z-index:40;backdrop-filter:blur(16px)}
+.logo{width:30px;height:30px;border-radius:9px;
+  background:linear-gradient(135deg,var(--ac),#7060a0);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff}
+.brand{font-weight:700;font-size:14px;color:var(--tx)}
+.brand span{color:var(--ac)}
+.search{flex:1;max-width:420px;padding:6px 12px;border-radius:9px;
+  border:1px solid var(--bd);background:var(--s2);color:var(--tm);font-size:12px;outline:none}
+.toggles{display:flex;gap:8px;margin-left:auto}
+.tog{display:flex;align-items:center;gap:7px;padding:5px 11px;border-radius:999px;
+  border:1px solid;cursor:pointer;font-size:11px;font-weight:600;transition:all .2s}
+.tog.sig{border-color:var(--bdt);background:rgba(136,184,176,.08);color:var(--tl)}
+.tog.sig.off{border-color:var(--bd);background:transparent;color:var(--ts)}
+.tog.rel{border-color:var(--bdg);background:rgba(200,168,128,.08);color:var(--gd)}
+.tog.rel.off{border-color:var(--bd);background:transparent;color:var(--ts)}
+.togdot{width:26px;height:14px;border-radius:999px;transition:all .2s;position:relative;flex-shrink:0}
+.togdot::after{content:"";position:absolute;top:2px;width:10px;height:10px;border-radius:50%;background:#fff;transition:all .2s}
+.tog.sig .togdot{background:var(--tl)}
+.tog.sig .togdot::after{left:14px}
+.tog.sig.off .togdot{background:var(--s3)}
+.tog.sig.off .togdot::after{left:2px}
+.tog.rel .togdot{background:var(--gd)}
+.tog.rel .togdot::after{left:14px}
+.tog.rel.off .togdot{background:var(--s3)}
+.tog.rel.off .togdot::after{left:2px}
+
+.tabbar{display:flex;gap:3px;padding:8px 14px;background:var(--s1);
+  border-bottom:1px solid var(--bd);overflow-x:auto;position:sticky;top:51px;z-index:30}
+.tab{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:10px;
+  font-size:12.5px;font-weight:500;color:var(--ts);cursor:pointer;white-space:nowrap;
+  border:1px solid transparent;transition:all .15s}
+.tab:hover{color:var(--tm);background:var(--s2)}
+.tab.on{background:rgba(184,160,200,.12);color:var(--ac);border-color:var(--bda)}
+.tab .badge{font-size:9px;padding:2px 6px;border-radius:999px;font-weight:700;
+  background:rgba(136,184,176,.15);color:var(--tl)}
+
+.subbar{display:flex;gap:16px;padding:8px 20px;border-bottom:1px solid var(--bd);
+  background:rgba(19,20,26,.6);overflow-x:auto}
+.sub{font-size:12px;color:var(--ts);cursor:pointer;padding:4px 2px;
+  border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+.sub:hover{color:var(--tm)}
+.sub.on{color:var(--ac);border-color:var(--ac);font-weight:600}
+
+.wrap{max-width:1100px;margin:0 auto;padding:22px 20px 80px}
+
+/* ── components ── */
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:16px}
+.card.ac{border-color:var(--bda);background:rgba(184,160,200,.04)}
+.card.tl{border-color:var(--bdt);background:rgba(136,184,176,.04)}
+.card.gd{border-color:var(--bdg);background:rgba(200,168,128,.04)}
+
+.h1{font-size:22px;font-weight:700;margin-bottom:4px}
+.psub{color:var(--ts);font-size:12px;margin-bottom:18px;line-height:1.5}
+
+.row{display:flex;gap:14px;flex-wrap:wrap}
+.col{flex:1;min-width:240px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+
+.stat{font-size:26px;font-weight:700}
+.stl{font-size:9px;color:var(--ts);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+.badge{display:inline-block;padding:2px 7px;border-radius:6px;
+  font-size:9.5px;font-weight:700;font-family:"JetBrains Mono",monospace}
+
+.pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;
+  border:1px solid var(--bd);color:var(--ts);cursor:pointer;transition:all .15s;margin:0 3px 3px 0}
+.pill.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.pill.tl{background:rgba(136,184,176,.15);color:var(--tl);border-color:var(--bdt)}
+.pill.gd{background:rgba(200,168,128,.15);color:var(--gd);border-color:var(--bdg)}
+
+.verdict{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;
+  font-weight:600;background:rgba(184,160,200,.1);color:var(--ac);
+  border:1px solid var(--bda)}
+
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;
+  border-radius:9px;font-weight:600;font-size:12px;cursor:pointer;
+  border:1px solid var(--bd);background:transparent;color:var(--tx);transition:all .15s}
+.btn:hover{background:var(--s2);border-color:var(--bda);color:var(--ac)}
+.btn.p{background:linear-gradient(135deg,var(--ac),#7060a0);color:#fff;border:none}
+.btn.p:hover{opacity:.9}
+.btn.tl{background:rgba(136,184,176,.12);color:var(--tl);border-color:var(--bdt)}
+.btn.gd{background:rgba(200,168,128,.12);color:var(--gd);border-color:var(--bdg)}
+.btn.sm{padding:5px 10px;font-size:11px}
+
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:9px 12px;background:rgba(184,160,200,.06);
+  font-weight:600;color:var(--tm);font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+td{padding:8px 12px;border-top:1px solid var(--bd)}
+tr:hover td{background:rgba(255,255,255,.02)}
+
+.inp{width:100%;padding:8px 12px;border-radius:9px;border:1px solid var(--bd);
+  background:var(--s2);color:var(--tx);font-size:12px;outline:none}
+.inp:focus{border-color:var(--bda)}
+
+.log{font-family:"JetBrains Mono",monospace;font-size:11px;line-height:1.9;color:var(--tm)}
+.log .ok{color:var(--tl)}
+.log .ac{color:var(--ac)}
+.log .gd{color:var(--gd)}
+.log .re{color:var(--re)}
+
+.step{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:12.5px}
+.sc{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;color:#fff;font-size:11px;font-weight:700;flex-shrink:0;
+  background:linear-gradient(135deg,var(--ac),#7060a0)}
+.sc.off{background:var(--s3);color:var(--ts)}
+
+.chat{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.msg{max-width:78%;padding:10px 14px;border-radius:14px;font-size:12.5px;line-height:1.55}
+.msg.u{background:linear-gradient(135deg,var(--ac),#7060a0);color:#fff;margin-left:auto}
+.msg.a{background:var(--s2);border:1px solid var(--bd)}
+.crumb{font-size:10px;color:var(--ts);margin-bottom:6px}
+
+/* orbit */
+.orbit{position:relative;width:280px;height:280px;margin:8px auto}
+.core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:66px;height:66px;border-radius:50%;
+  background:linear-gradient(135deg,var(--ac),#5040a0);color:#fff;
+  font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;text-align:center}
+.node{position:absolute;transform:translate(-50%,-50%);width:40px;height:40px;
+  border-radius:50%;color:#fff;font-size:7.5px;font-weight:700;
+  font-family:"JetBrains Mono",monospace;display:flex;align-items:center;justify-content:center;
+  text-align:center;border:2px solid rgba(255,255,255,.2);transition:all .2s;cursor:default}
+
+.eng{display:flex;align-items:center;justify-content:center;gap:5px;
+  padding:8px 14px;border-radius:10px;border:1px solid var(--bd);
+  font-size:11px;font-weight:600;color:var(--ts);cursor:pointer;transition:all .15s}
+.eng.on{background:rgba(184,160,200,.08);color:var(--ac);border-color:var(--bda)}
+.eng.tl.on{background:rgba(136,184,176,.08);color:var(--tl);border-color:var(--bdt)}
+.eng.gd.on{background:rgba(200,168,128,.08);color:var(--gd);border-color:var(--bdg)}
+.eng:hover:not(.on){color:var(--tm);background:var(--s2)}
+
+/* signal source row */
+.src{display:flex;align-items:center;gap:10px;padding:8px 12px;
+  border-top:1px solid var(--bd);font-size:12px}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+/* pipeline flow */
+.pipe{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin:10px 0}
+.pa{display:flex;align-items:center;gap:0}
+.pa .lbl{padding:5px 10px;border-radius:8px;font-size:10.5px;font-weight:600;
+  background:rgba(184,160,200,.1);color:var(--ac);border:1px solid var(--bda)}
+.pa .arr{font-size:11px;color:var(--ts);padding:0 4px}
+
+/* tag strip */
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.tag{padding:4px 10px;border-radius:7px;font-size:11px;font-weight:600;
+  background:rgba(184,160,200,.08);color:var(--ac);border:1px solid var(--bda)}
+.tag.tl{background:rgba(136,184,176,.08);color:var(--tl);border-color:var(--bdt)}
+.tag.gd{background:rgba(200,168,128,.08);color:var(--gd);border-color:var(--bdg)}
+
+.divider{height:1px;background:var(--bd);margin:14px 0}
+.seclbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+  color:var(--ts);margin-bottom:8px}
+.hr{color:var(--ts)}
+.note{font-size:11px;color:var(--ts);margin-top:16px;line-height:1.6;
+  padding:10px 14px;border-radius:9px;border:1px solid var(--bdg);background:rgba(200,168,128,.05)}
+
+/* score bar */
+.sbar{height:5px;border-radius:3px;background:var(--s3);overflow:hidden;margin-top:6px}
+.sbar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--tl),var(--ac))}
+
+@media(max-width:780px){.g2,.g3,.g4{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- ══ COMMAND BAR ══ -->
+<div class="cmdbar">
+  <div class="logo">N</div>
+  <div class="brand">Nex<span>Flow</span></div>
+  <input class="search" value="Enrichment Engine · ⌘K" readonly>
+  <div class="toggles">
+    <div class="tog sig" id="togSig" onclick="toggleSig()">
+      <span>📡</span><span id="sigLbl">Signal Intel</span><div class="togdot"></div>
+    </div>
+    <div class="tog rel" id="togRel" onclick="toggleRel()">
+      <span>🕸</span><span id="relLbl">Relationship</span><div class="togdot"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TAB BAR ══ -->
+<div class="tabbar" id="tabbar"></div>
+<div class="subbar" id="subbar"></div>
+<div class="wrap" id="content"></div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let tab = "hub", sub = 0;
+let sigOn = true, relOn = true;
+
+function toggleSig(){
+  sigOn=!sigOn;
+  document.getElementById('togSig').className='tog sig'+(sigOn?'':' off');
+  document.getElementById('sigLbl').textContent='Signal Intel'+(sigOn?'':' OFF');
+}
+function toggleRel(){
+  relOn=!relOn;
+  document.getElementById('togRel').className='tog rel'+(relOn?'':' off');
+  document.getElementById('relLbl').textContent='Relationship'+(relOn?'':' OFF');
+}
+function setTab(t){tab=t;sub=0;render();}
+function setSub(i){sub=i;render();}
+
+// ─── Tab definitions ─────────────────────────────────────────────────────────
+const TABS=[
+  {id:"hub",    label:"Enrich Agentic Hub", badge:"NEW",
+   subs:["AI Chat","SwarmBoard","Lead Genome","Lead Factory"]},
+  {id:"harvest",label:"Harvest AI",
+   subs:["ICP Territory Scanner","Masaar Engine","Masaar Database","AI DB Builder"]},
+  {id:"cards",  label:"Card Scanner"},
+  {id:"pros",   label:"ProsEngine",
+   subs:["Company Intel","Person Intel","Website Intel","Data Seeder"]},
+  {id:"enrich", label:"CRM Enrichment",
+   subs:["Quick Enrich","Bulk Upload","Waterfall Sources"]},
+  {id:"settings",label:"Settings",
+   subs:["Signal Sources","Relationship Engines","API Keys","Dedup"]},
+];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const hl = (s,c='var(--ac)')=>`<span style="color:${c};font-weight:600">${s}</span>`;
+const score=(n,c)=>`<div style="font-size:22px;font-weight:700;color:${c||'var(--ac)'}">${n}</div>`;
+const pill=(l,on=false)=>`<span class="pill${on?' on':''}">${l}</span>`;
+const badge=(l,col)=>`<span class="badge" style="background:${col||'var(--ac)'}20;color:${col||'var(--ac)'};">${l}</span>`;
+const v=(n)=>`<span class="verdict">◆ ${n}</span>`;
+const step=(n,lbl,done=true)=>`<div class="step"><div class="sc${done?'':' off'}">${n}</div><span>${lbl}</span></div>`;
+const pipeStep=(l)=>`<div class="pa"><div class="lbl">${l}</div><div class="arr">→</div></div>`;
+
+// ─── Views ───────────────────────────────────────────────────────────────────
+const V={};
+
+// ══════════════════════════════════════════════════════════
+// HUB — Enrich Agentic Hub
+// ══════════════════════════════════════════════════════════
+V.hub=()=>{
+  // sub 0: AI Chat
+  if(sub===0) return `
+    <h1 class="h1 display">AI Chat Agent</h1>
+    <p class="psub">9-tool composer loop · Nexus-tier model routing · Swarm toggle · Arabic-first · streaming responses</p>
+    <div class="row" style="margin-bottom:14px">
+      <div class="col" style="max-width:260px">
+        <div class="card" style="margin-bottom:12px">
+          <div class="seclbl">Nexus Tier</div>
+          ${[["Planner","Kimi (Moonshot)","var(--gd)"],
+             ["Researcher","Perplexity Pro","var(--tl)"],
+             ["Writer","Claude 3.5","var(--ac)"],
+             ["Arabic","GPT-4o","#88b890"],
+             ["Bulk","DeepSeek v3","#8898c8"],
+             ["Validator","GPT-4o-mini","#c8a0a0"]
+          ].map(([r,m,c])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--bd)">
+            <span style="font-size:11px;color:var(--ts)">${r}</span>
+            <span class="badge" style="background:${c}18;color:${c}">${m}</span>
+          </div>`).join('')}
+        </div>
+        <div class="card">
+          <div class="seclbl">Active Tools (9)</div>
+          <div class="tags">
+            ${["Masaar Search","Person Intel","Company Intel","Website Intel","Lead Factory","Signal Intel","Masar DB","AI Builder","Genome Push"].map(t=>`<div class="tag" style="font-size:10px">${t}</div>`).join('')}
+          </div>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+            ${pill("Swarm: ON",true)}${pill("Arabic-first")}${pill("Show trace")}${pill("Customize")}
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card" style="margin-bottom:12px">
+          <div class="chat">
+            <div class="msg u">Find me 5 SaaS CTOs in Riyadh actively hiring backend engineers, include signals</div>
+            <div class="msg a">
+              <div class="crumb">🧠 Kimi planned → 🔍 Perplexity ×3 searched → 🛰 Harvester crawled → 📊 Extractor structured → ✏️ Writer humanized</div>
+              Found <b>5 high-fit CTOs</b> at Riyadh SaaS firms with active backend hiring.${sigOn?` Signal Intelligence detected <b style="color:var(--tl)">12 LinkedIn job posts</b> and <b style="color:var(--tl)">3 funding events</b> in 90 days.`:''} ${relOn?`Relationship Intel mapped <b style="color:var(--gd)">org charts</b> for all 5.`:''}<br><br>
+              Top match: <b>Lean Technologies</b> — CTO hiring 12 backend roles (LinkedIn + careers page corroborated). ${v(94)}
+              <div style="margin-top:10px;display:flex;gap:6px">
+                <button class="btn tl sm">Push all to Genome</button>
+                <button class="btn sm">Export JSON</button>
+                <button class="btn sm">View trace</button>
+              </div>
+            </div>
+            <div class="msg u">Who's the VP Engineering at Tamara and what did they post this week?</div>
+            <div class="msg a">
+              <div class="crumb">🔍 Person Intel → LinkedIn crawl → ${sigOn?'📡 Signal scan →':''} ✓</div>
+              <b>Omar Al-Farhan</b>, VP Engineering · Tamara (BNPL, Riyadh). ${sigOn?`<b style="color:var(--tl)">Signal:</b> posted about Rust migration last Tuesday — 847 impressions.`:'No signal data (toggle Signal Intel to enable)'} ${v(88)}
+              <div style="margin-top:8px"><button class="btn tl sm">Push to Genome</button></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <input class="inp" placeholder="Ask anything — routes to web search, CR lookup, Person Intel, Signals…">
+            <button class="btn p">Send ▸</button>
+          </div>
+        </div>
+        <div class="note">💡 <b>Plan B active:</b> if primary LLM unavailable, Nexus auto-routes to next available tier. All responses humanized (no markdown artifacts).</div>
+      </div>
+    </div>`;
+
+  // sub 1: SwarmBoard
+  if(sub===1) return `
+    <h1 class="h1 display">SwarmBoard</h1>
+    <p class="psub">Kimi-coordinated multi-agent mission · Mission brief → Agents → Live orbit → Fused report</p>
+    <div class="g4" style="margin-bottom:16px">
+      ${[["🐝","Agents","8 active","var(--ac)"],["📦","Records","1,284","var(--tl)"],["⚡","Avg time","14.2s","var(--gd)"],["◆","Trust","97%","var(--ac)"]].map(([ic,l,v,c])=>`
+        <div class="card"><div style="font-size:20px;margin-bottom:4px">${ic}</div>
+          <div class="stat" style="color:${c}">${v}</div><div class="stl">${l}</div></div>`).join('')}
+    </div>
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <div class="seclbl" style="margin-bottom:12px">Mission Brief</div>
+          <div style="padding:10px 12px;background:var(--s2);border-radius:9px;border:1px solid var(--bda);font-size:12.5px;margin-bottom:12px">
+            "Enrich 50 Saudi fintech companies (50–500 emp) · full profile, buying signals, executive map, credibility verdicts"
+          </div>
+          <div class="seclbl">Phase</div>
+          ${[["1","Brief parsed","Kimi extracted 14 parameters from brief",true],
+             ["2","Agents dispatched","8 agents started in parallel",true],
+             ["3","Harvesting","Masaar + Masar DB + web crawl running",true],
+             ["4","Enriching","Person Intel + Signals per company",true],
+             ["5","Fusing","Claude arbitrating agent outputs","running"],
+             ["6","Report","Humanizer + verdicts","queue"]
+          ].map(([n,l,d,s])=>`<div class="step">
+            <div class="sc${s==='queue'?' off':''}" style="${s==='running'?'background:linear-gradient(135deg,var(--tl),var(--ac))':''}">
+              ${s==='running'?'…':s==='queue'?n:'✓'}</div>
+            <div><div style="font-weight:600">${l}</div><div style="font-size:11px;color:var(--ts)">${d}</div></div>
+          </div>`).join('')}
+        </div>
+      </div>
+      <div class="col">
+        <div class="card" style="margin-bottom:12px">
+          <div class="seclbl" style="margin-bottom:8px">Live Orbit — 5/8 complete</div>
+          <div class="orbit" id="orbit">
+            <div class="core">SWARM<br>CORE</div>
+            ${["NEXUS","MASAAR","MASAR","PROSENGINE","SIGNALS","BUILDER","PERSON","DEDUP"].map((n,i)=>{
+              const cols=["#B8A0C8","#C8A880","#88B8B0","#B8A0C8","#88B8B0","#C8A880","#B8A0C8","#888"];
+              const ang=(i/8)*6.283-1.57,r=110,x=140+r*Math.cos(ang),y=140+r*Math.sin(ang);
+              const done=i<5;
+              return `<div class="node" style="left:${x}px;top:${y}px;background:${cols[i]};opacity:${done?1:.3}">${n.length>6?n.slice(0,5):n}</div>`;
+            }).join('')}
+          </div>
+          <div style="text-align:center;font-size:11px;color:var(--ts)">23/50 companies enriched · ~3m 40s remaining</div>
+          <div class="sbar" style="margin-top:8px"><div class="sbar-fill" style="width:46%"></div></div>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
+            <div class="seclbl">Fused Report Preview</div>${v(94)}
+          </div>
+          <p style="font-size:12.5px;line-height:1.65;color:var(--tm)">
+            <b style="color:var(--tx)">Saudi fintech (50–500 emp).</b> 1,284 companies matched; 312 high-fit (ICP ≥ 0.7). 41 funding and hiring signals detected in 90 days; 7 SAMA-licensed fintechs prioritised. ${sigOn?`268 verified executive contacts from LinkedIn and domain harvest.`:''} ${relOn?`Org charts generated for 23 companies.`:''}
+          </p>
+          <div class="tags" style="margin-top:10px">
+            ${["NEXUS","MASAAR","MASAR DB","PROS ENGINE","SIGNALS","BUILDER"].map(n=>`<div class="tag">${n}</div>`).join('')}
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button class="btn p sm">Push top 50 to Genome</button>
+            <button class="btn sm">Full report</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  // sub 2: Lead Genome
+  if(sub===2){
+    const LISTS=[["Riyadh Fintech CTOs",48,"builder + signals","96"],["SAMA Graduates",7,"masaar","91"],["Manufacturing UAE-exporters",126,"ai builder","88"],["Open Banking Founders",19,"prosengine","85"]];
+    return `
+    <h1 class="h1 display">Lead Genome</h1>
+    <p class="psub">Enriched lead repository · every pushed lead lives here · link to lists, CRM, export</p>
+    <div class="g4" style="margin-bottom:16px">
+      ${[["1,842","Total leads","var(--ac)"],["47","Added today","var(--tl)"],["12","Active lists","var(--gd)"],["268","Verified emails","var(--ac)"]].map(([n,l,c])=>`
+        <div class="card"><div class="stat" style="color:${c}">${n}</div><div class="stl">${l}</div></div>`).join('')}
+    </div>
+    <div class="row">
+      <div class="col">
+        <div class="card" style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div class="seclbl">Saved Leads</div>
+            <div style="display:flex;gap:6px">
+              <button class="btn sm">Filter</button>
+              <button class="btn tl sm">Export CSV</button>
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>Name</th><th>Title</th><th>Company</th><th>Source</th><th>ICP</th><th></th></tr></thead>
+            <tbody>
+              ${[["Sara Al-Otaibi","CTO","Lean Technologies","builder","0.94"],
+                 ["Omar Al-Farhan","VP Engineering","Tamara","prosengine","0.91"],
+                 ["Layla Al-Harbi","Founder","Mod5r","masaar","0.85"],
+                 ["Faisal Al-Noor","Head of Data","Foodics","signals","0.79"],
+                 ["Ahmad Al-Dosari","VP Procurement","STC Group","ai chat","0.75"]
+              ].map(([n,t,c,s,i])=>`<tr>
+                <td style="font-weight:600">${n}</td>
+                <td style="color:var(--ts)">${t}</td>
+                <td>${c}</td>
+                <td>${badge(s,s==='masaar'?'var(--gd)':s==='builder'?'#8B5CF6':s==='signals'?'var(--tl)':'var(--ac)')}</td>
+                <td style="color:var(--ac);font-weight:600">${i}</td>
+                <td><button class="btn sm">CRM →</button></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col" style="max-width:300px">
+        <div class="card">
+          <div class="seclbl" style="margin-bottom:10px">Lead Lists</div>
+          ${LISTS.map(([name,n,src,score])=>`
+            <div style="padding:10px;border-radius:10px;border:1px solid var(--bd);margin-bottom:8px;cursor:pointer" onmouseenter="this.style.borderColor='var(--bda)'" onmouseleave="this.style.borderColor='var(--bd)'">
+              <div style="font-weight:600;margin-bottom:3px">${name}</div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ts)">
+                <span>${n} leads · ${src}</span><span style="color:var(--ac)">ICP ${score}avg</span>
+              </div>
+            </div>`).join('')}
+          <button class="btn p" style="width:100%;margin-top:4px">+ New list</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // sub 3: Lead Factory
+  return `
+    <h1 class="h1 display">Lead Factory</h1>
+    <p class="psub">4-engine factory · Person Hunt · Company Hunt · Signal Intelligence · Relationship Intel</p>
+    <div class="g4" style="margin-bottom:16px">
+      ${[["👤 Person Hunt","16 agents · ~80s","var(--ac)"],["🏢 Company Hunt","10 agents · ~45s","var(--tl)"],["📡 Signal Intel",sigOn?"ON · 8 sources":"OFF","var(--tl)"],["🕸 Relationship",relOn?"ON · Sherlock+TheHarvester":"OFF","var(--gd)"]].map(([l,d,c])=>`
+        <div class="card"><div style="font-weight:700;color:${c};margin-bottom:4px">${l}</div>
+          <div style="font-size:11px;color:var(--ts)">${d}</div>
+          <div style="margin-top:10px;display:flex;gap:6px">
+            <button class="btn sm p" style="flex:1">Run Hunt</button>
+            <button class="btn sm">Config</button>
+          </div></div>`).join('')}
+    </div>
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <div class="seclbl">Person Hunt · Filters</div>
+          <div style="margin:10px 0 6px;font-size:11px;color:var(--ts)">Industries</div>
+          <div>${["Fintech","SaaS","E-Commerce","Manufacturing"].map((x,i)=>pill(x,i<2)).join('')}</div>
+          <div style="margin:10px 0 6px;font-size:11px;color:var(--ts)">Regions</div>
+          <div>${["Riyadh","Jeddah","UAE","Eastern Province"].map((x,i)=>pill(x,i<2)).join('')}</div>
+          <div style="margin:10px 0 6px;font-size:11px;color:var(--ts)">Seniority</div>
+          <div>${["C-Suite","VP","Director","Manager"].map((x,i)=>pill(x,i<3)).join('')}</div>
+          <div style="margin:10px 0 6px;font-size:11px;color:var(--ts)">Target count</div>
+          <input class="inp" style="max-width:120px" value="25">
+          <div style="margin-top:14px;display:flex;gap:8px">
+            <button class="btn p">▶ Run Hunt</button>
+            <button class="btn sm">Save filter</button>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card" style="margin-bottom:12px">
+          <div class="seclbl">Live Pipeline</div>
+          <div class="pipe">
+            ${["ICP Mapper","Perplexity ×4","Gemini ×3","Claude Synth","Validator","Genome Push"].map(pipeStep).join('')}
+          </div>
+          ${[["1","ICP parameters extracted",true],["2","Perplexity search complete · 42 candidates",true],["3","Gemini validation · 28 high-fit",true],["4","Claude synthesis running…","running"],["5","Validator","queue"],["6","Push to Genome","queue"]].map(([n,l,s])=>step(n,l,s!=='queue')).join('')}
+        </div>
+        <div class="card tl" style="display:${sigOn?'block':'none'}">
+          <div class="seclbl" style="color:var(--tl)">📡 Signal Intel Active</div>
+          <div style="font-size:12px;color:var(--tm);margin-top:6px">Results enriched with LinkedIn posts, job signals, and news from last 90 days</div>
+        </div>
+      </div>
+    </div>`;
+};
+
+// ══════════════════════════════════════════════════════════
+// HARVEST AI
+// ══════════════════════════════════════════════════════════
+V.harvest=()=>{
+  // sub 0: ICP Territory Scanner
+  if(sub===0){
+    const ENG=[["masaar","Masaar Engine","Saudi CR · 7-agent SSE","var(--gd)",0],
+               ["masar","Masar Database","25-source harvest","var(--tl)",1],
+               ["builder","AI DB Builder","15-source agentic","var(--ac)",2]];
+    return `
+    <h1 class="h1 display">ICP Territory Scanner <span class="badge" style="font-size:11px;padding:3px 9px;background:rgba(200,168,128,.15);color:var(--gd);vertical-align:middle">Harvest AI</span></h1>
+    <p class="psub">Define your ICP territory · Harvest AI picks the best engine · auto-map every matching company + DMs in KSA/UAE</p>
+    <div class="row" style="margin-bottom:8px">
+      <div class="col card">
+        <div class="seclbl">Select Engine</div>
+        <div style="display:flex;gap:8px;margin:10px 0">
+          ${ENG.map(([id,l,d,c,i])=>`<div class="eng${i===0?' gd on':i===1?' tl':''}" onclick="setSub(${i+1})" style="flex:1;flex-direction:column;align-items:flex-start;gap:3px">
+            <span style="font-weight:700">${l}</span>
+            <span style="font-size:10px;color:var(--ts)">${d}</span>
+          </div>`).join('')}
+        </div>
+        <div class="seclbl" style="margin-top:12px">ICP Definition</div>
+        <div class="g3" style="margin-top:8px;gap:8px">
+          ${[["Industry","SaaS · Fintech · E-Commerce"],["Region","KSA · UAE"],["Size","50–5,000 emp"]].map(([l,v])=>`
+            <div><div style="font-size:10px;color:var(--ts);margin-bottom:4px">${l}</div>
+            <input class="inp" value="${v}"></div>`).join('')}
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+          ${sigOn?`<div class="pill tl">📡 Signals ON</div>`:``}
+          ${relOn?`<div class="pill gd">🕸 Relationship ON</div>`:``}
+          <button class="btn p" style="margin-left:auto">Harvest AI → Scan Territory</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div>
+          <span style="font-weight:600">127 companies matched</span>
+          <span style="color:var(--ts);font-size:11px;margin-left:8px">· 3.2 DMs avg · via Masaar Engine</span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn tl sm">Push all to Genome</button>
+          <button class="btn sm">Export CSV</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Company</th><th>Sector</th><th>Location</th><th>DMs</th><th>ICP</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          ${[["Tamara","BNPL · Fintech","Riyadh","4","0.96","enriched"],
+             ["Foodics","SaaS · POS","Riyadh","3","0.91","enriched"],
+             ["Lean Technologies","Open Banking","Riyadh","2","0.88","enriched"],
+             ["Bupa Arabia","Insurance · Enterprise","Jeddah","6","0.83","pending"],
+             ["stc pay","Fintech · Wallet","Riyadh","5","0.81","pending"]
+          ].map(([n,s,l,dm,icp,st])=>`<tr>
+            <td style="font-weight:600">${n}</td>
+            <td style="color:var(--ts)">${s}</td>
+            <td>${l}</td>
+            <td>${dm} 👤</td>
+            <td style="color:var(--ac);font-weight:600">${icp}</td>
+            <td>${badge(st,st==='enriched'?'var(--tl)':'var(--gd)')}</td>
+            <td><button class="btn tl sm">Genome →</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  }
+
+  // sub 1: Masaar Engine
+  if(sub===1) return `
+    <h1 class="h1 display">Masaar Engine <span class="badge" style="font-size:11px;padding:3px 9px;background:rgba(200,168,128,.15);color:var(--gd)">Harvest AI</span></h1>
+    <p class="psub">Saudi CR intelligence · 7-agent SSE pipeline · CAPTCHA-aware · bilingual EN+AR report · source-credibility verdicts</p>
+    <div class="row">
+      <div class="col">
+        <div class="card" style="margin-bottom:12px">
+          <div class="seclbl">Run Pipeline</div>
+          <div style="display:flex;gap:8px;margin:10px 0">
+            <input class="inp" value="CR 7001234567 — شركة تمارا للدفع الإلكتروني" style="flex:1">
+            <button class="btn p">▶ Run</button>
+          </div>
+          <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+            ${pill("CR number",true)}${pill("Company name",true)}${pill("SAMA license")}${pill("LinkedIn URL")}
+          </div>
+        </div>
+        <div class="card">
+          <div class="seclbl">7-Agent Pipeline</div>
+          <div class="log" style="margin-top:10px">
+            <div class="ok">🥷 STEALTH MODE — AI auto-solves CAPTCHAs</div>
+            <div class="ac">▸ Agent 1 · MC.gov.sa registry + CR parse ✓ ${v(98)}</div>
+            <div class="ac">▸ Agent 2 · Amaaly AOA + OCR + translate ✓ ${v(95)}</div>
+            <div class="ac">▸ Agent 3 · Perplexity ×5 + Gemini ×4 + Nexus ✓ ${v(91)}</div>
+            <div class="ac">▸ Agent 4 · OFAC / UN / EU / CMA / SAMA screen — clear ✓</div>
+            <div class="ac">▸ Agent 5 · LinkedIn + Wamda signal scan ✓ ${sigOn?v(88):badge("Signal OFF","var(--ts)")}</div>
+            <div class="ac">▸ Agent 6 · ${relOn?'Org chart + relationship map ✓ '+v(82):badge("Relationship OFF","var(--ts)")}</div>
+            <div class="ok">▸ Agent 7 · Bilingual report compiled (EN + AR) ✓</div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px">
+            <div>
+              <div class="display" style="font-size:20px;font-weight:700">شركة تمارا</div>
+              <div style="color:var(--ts);font-size:12px">Tamara · BNPL / Fintech · Riyadh · ~600 employees</div>
+            </div>${v(94)}
+          </div>
+          <div class="g3" style="gap:10px;margin-bottom:14px">
+            ${[["CR","7001234567","verified"],["SAMA","Licensed","primary"],["Revenue","SAR 600M–1.2B","estimated"],["Funding","Series C","verified"],["Founded","2020","verified"],["HQ","Riyadh, KSA","primary"]].map(([l,v2,c])=>`
+              <div><div class="stl">${l}</div>
+                <div style="font-weight:600;font-size:12.5px;margin-top:2px">${v2} <span class="verdict" style="font-size:9px;padding:1px 5px">${c}</span></div>
+              </div>`).join('')}
+          </div>
+          <div class="divider"></div>
+          <div class="seclbl">Executives ${relOn?`· Org chart ${v(82)}`:'(enable Relationship for org chart)'}</div>
+          ${[["Abdulmajeed Alsukhan","CEO / Co-founder",96],["Turki Bin Zarah","CTO / Co-founder",90],["VP Engineering","Hiring 12 eng roles",72]].map(([n,t,s])=>`
+            <div class="step"><div class="sc">●</div>
+              <div style="flex:1"><b>${n}</b> <span style="color:var(--ts);font-size:11px">· ${t}</span></div>
+              ${v(s)}
+            </div>`).join('')}
+          <div class="divider"></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn tl sm">Push to Genome</button>
+            <button class="btn sm">Export PDF</button>
+            <button class="btn sm">AR report</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  // sub 2: Masaar Database
+  if(sub===2) return `
+    <h1 class="h1 display">Masaar Database <span class="badge" style="font-size:11px;padding:3px 9px;background:rgba(200,168,128,.15);color:var(--gd)">Harvest AI</span></h1>
+    <p class="psub">Enriched Saudi company pool · dedup · re-enrich · export · all ops via Nexus tier — <b style="color:var(--re)">DB seed data is backend-only, never exposed</b></p>
+    <div class="g4" style="margin-bottom:14px">
+      ${[["14,280","Total companies","var(--ac)"],["9,847","Enriched","var(--tl)"],["312","High-fit (ICP ≥ 0.7)","var(--gd)"],["1,102","Deduped","var(--ts)"]].map(([n,l,c])=>`
+        <div class="card"><div class="stat" style="color:${c}">${n}</div><div class="stl">${l}</div></div>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      ${["Re-enrich selected","Enrich All","Deduplicate","Force-push CR","Auto-clean","Export ▾"].map(b=>`<button class="btn sm">${b}</button>`).join('')}
+    </div>
+    <div class="card" style="overflow:hidden">
+      <table>
+        <thead><tr><th>Company (AR)</th><th>CR</th><th>Owner</th><th>CR Status</th><th>ICP</th><th>Enrichment</th><th></th></tr></thead>
+        <tbody>
+          ${[["شركة تمارا للدفع","7001234567","Alsukhan","verified","0.96","enriched"],
+             ["مدفوعات لين","7009988776","—","registered","0.82","pending"],
+             ["شركة مدير 5","7004455667","Al-Harbi","verified","0.79","enriched"],
+             ["سلة للتجارة الإلكترونية","7006677889","Al-Ghamdi","registered","0.74","partial"],
+             ["تقني للحلول","7003344221","—","registered","0.68","pending"]
+          ].map(([n,cr,o,crs,icp,en])=>`<tr>
+            <td style="font-weight:600;font-family:'JetBrains Mono',monospace">${n}</td>
+            <td class="mono" style="color:var(--ts)">${cr}</td>
+            <td style="color:var(--ts)">${o}</td>
+            <td>${badge(crs,crs==='verified'?'var(--tl)':'var(--gd)')}</td>
+            <td style="color:var(--ac);font-weight:600">${icp}</td>
+            <td>${badge(en,en==='enriched'?'var(--ac)':en==='partial'?'var(--gd)':'var(--ts)')}</td>
+            <td><button class="btn sm">Enrich</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  // sub 3: AI DB Builder
+  return `
+    <h1 class="h1 display">AI Database Builder <span class="badge" style="font-size:11px;padding:3px 9px;background:rgba(200,168,128,.15);color:var(--gd)">Harvest AI</span></h1>
+    <p class="psub">Agentic harvest from 15 sources → unified company + executive pool · custom schema · export — <b style="color:var(--re)">DB pool is backend-internal</b></p>
+    <div class="g4" style="margin-bottom:16px">
+      ${[["8,420","Harvested","var(--ac)"],["1,102","Deduped","var(--tl)"],["6,318","Pushed to pool","var(--gd)"],["15","Active sources","var(--ac)"]].map(([n,l,c])=>`
+        <div class="card"><div class="stat" style="color:${c}">${n}</div><div class="stl">${l}</div></div>`).join('')}
+    </div>
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <div class="seclbl">Harvest Sources (15)</div>
+          ${[["Wamda","MENA startup registry","primary","active","var(--tl)"],
+             ["MoCI","Saudi commercial registry","primary","active","var(--gd)"],
+             ["Crunchbase","Global startup DB","secondary","active","var(--ac)"],
+             ["LinkedIn Companies","Social + firmographic","secondary","active","var(--ac)"],
+             ["OpenCorporates","Global registry","primary","active","var(--tl)"],
+             ["CMA (Saudi)","Capital markets","primary","active","var(--gd)"],
+             ["SAMA","Banking sector","primary","active","var(--gd)"],
+             ["Custom RSS","User-defined sources","secondary","active","var(--ac)"],
+          ].map(([n,d,t,s,c])=>`
+            <div class="src">
+              <div class="dot" style="background:${c}"></div>
+              <div style="flex:1"><span style="font-weight:600">${n}</span>
+                <span style="color:var(--ts);font-size:11px;margin-left:6px">${d}</span></div>
+              ${badge(t,c)}${badge(s,'var(--tl)')}
+            </div>`).join('')}
+        </div>
+      </div>
+      <div class="col">
+        <div class="card" style="margin-bottom:12px">
+          <div class="seclbl">Harvest Configuration</div>
+          <div style="margin:10px 0 6px;font-size:11px;color:var(--ts)">Target schema</div>
+          <div class="tags">
+            ${["name_ar","name_en","cr_number","owner","sector","revenue_est","employee_count","contacts"].map(f=>`<div class="tag">${f}</div>`).join('')}
+          </div>
+          <div style="margin:10px 0 6px;font-size:11px;color:var(--ts)">Industries</div>
+          <div>${["Fintech","SaaS","E-Commerce","Manufacturing","Healthcare"].map((x,i)=>pill(x,i<3)).join('')}</div>
+          <div style="margin-top:14px;display:flex;gap:8px">
+            <button class="btn p">▶ Harvest</button>
+            <button class="btn gd sm">Deduplicate</button>
+            <button class="btn sm">Auto-clean</button>
+            <button class="btn sm">Export ▾</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="seclbl">Last Harvest Log</div>
+          <div class="log" style="margin-top:8px">
+            <div class="ok">✓ Wamda: 842 companies harvested</div>
+            <div class="ok">✓ MoCI: 3,291 CRs parsed</div>
+            <div class="ac">✓ Crunchbase: 514 enriched</div>
+            <div class="gd">✓ Dedup: 1,102 duplicates removed</div>
+            <div class="ok">✓ 6,318 records pushed to pool</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+};
+
+// ══════════════════════════════════════════════════════════
+// CARD SCANNER
+// ══════════════════════════════════════════════════════════
+V.cards=()=>`
+  <h1 class="h1 display">Card Scanner</h1>
+  <p class="psub">5-agent enrichment pipeline · Gemini Vision OCR → Claude validate → Perplexity live search → BS4 scraper → GPT-4o scoring · GCC luxury card support</p>
+  <div class="row">
+    <div class="col">
+      <div class="card" style="margin-bottom:12px">
+        <div class="seclbl">Upload Card</div>
+        <div style="border:2px dashed var(--bda);border-radius:12px;padding:28px;text-align:center;margin:10px 0;cursor:pointer" onmouseenter="this.style.borderColor='var(--ac)'" onmouseleave="this.style.borderColor='var(--bda)'">
+          <div style="font-size:28px;margin-bottom:8px">📇</div>
+          <div style="font-weight:600;margin-bottom:4px">Drop business card here</div>
+          <div style="font-size:11px;color:var(--ts)">PNG · JPG · HEIC · PDF · dark/colored/Arabic cards supported</div>
+          <button class="btn p" style="margin-top:12px">Select file</button>
+        </div>
+        <div style="font-size:11px;color:var(--ts)">✓ GCC luxury cards (dark/red/gold backgrounds) accepted<br>✓ Arabic RTL business cards supported<br>✓ Partial data triggers data-found override</div>
+      </div>
+      <div class="card">
+        <div class="seclbl">5-Agent Pipeline</div>
+        <div class="pipe" style="flex-direction:column;gap:0;margin-top:10px">
+          ${[
+            ["1","Gemini Vision OCR","Extract all text + layout · dark card support","var(--tl)",true],
+            ["2","Claude Validation","Verify is_business_card · data-found override","var(--ac)",true],
+            ["3","Perplexity Live Search","Live web search for person + company","var(--tl)",true],
+            ["4","BS4 Scraper","Company website · email harvest · team page","var(--gd)",true],
+            ["5","GPT-4o Scoring","ICP fit · lead score · approval routing","var(--ac)",false],
+          ].map(([n,l,d,c,done])=>`
+            <div class="step">
+              <div class="sc${done?'':' off'}" style="${done?'background:linear-gradient(135deg,'+c+','+c+'aa)':''}">
+                ${done?'✓':n}</div>
+              <div><div style="font-weight:600;font-size:12.5px">${l}</div>
+                <div style="font-size:11px;color:var(--ts)">${d}</div></div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px">
+          <div class="seclbl">Extracted Result</div>${v(88)}
+        </div>
+        <div class="g2" style="gap:10px;margin-bottom:14px">
+          ${[["Name","Ahmad Al-Dosari","verified"],["Title","VP Procurement Strategy","likely"],["Company","STC Group","verified"],["Email","a.aldosari@stc.com.sa","verified"],["Phone","+966 5X XXX XXXX","likely"],["LinkedIn","linkedin.com/in/ah-dosari","verified"]].map(([l,vl,c])=>`
+            <div><div class="stl">${l}</div>
+              <div style="font-weight:600;font-size:12px;margin-top:2px">${vl} ${badge(c,c==='verified'?'var(--tl)':c==='likely'?'var(--gd)':'var(--ts)')}</div>
+            </div>`).join('')}
+        </div>
+        <div class="divider"></div>
+        <div class="seclbl">Company Intel (live enrichment)</div>
+        <div style="font-size:12.5px;color:var(--tm);margin:8px 0;line-height:1.6">
+          STC Group · Telecom + SaaS · Riyadh · ~70,000 employees. CR verified via MoCI.
+          ${sigOn?`<b style="color:var(--tl)">Signal:</b> 3 recent procurement announcements.`:''}
+          ${relOn?`<b style="color:var(--gd)">Org chart:</b> reports to CPTO.`:''}
+        </div>
+        <div class="seclbl">ICP Check</div>
+        <div style="display:flex;gap:8px;align-items:center;margin:8px 0">
+          <div class="sbar" style="flex:1"><div class="sbar-fill" style="width:82%"></div></div>
+          <span style="font-weight:700;color:var(--ac)">0.82</span>
+        </div>
+        <div style="font-size:11px;color:var(--ts);margin-bottom:14px">Industry match · Role match · Region KSA ✓ · Company size ✓</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn tl sm">Push to Genome</button>
+          <button class="btn sm">Add to CRM</button>
+          <button class="btn sm">Export vCard</button>
+          <button class="btn sm" style="color:var(--gd);border-color:var(--bdg)">Route to approval</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+// ══════════════════════════════════════════════════════════
+// PROSENGINE
+// ══════════════════════════════════════════════════════════
+V.pros=()=>{
+  const labels=["Company Intel","Person Intel","Website Intel","Data Seeder"];
+
+  // Company Intel
+  if(sub===0) return `
+    <h1 class="h1 display">ProsEngine — Company Intel</h1>
+    <p class="psub">50-field deep profile · Web Seeder + Gemini ×5 + Perplexity ×4 + Claude + GPT-4o · Nexus synthesis · humanized + verdicts</p>
+    <div class="row">
+      <div class="col" style="max-width:320px">
+        <div class="card" style="margin-bottom:12px">
+          <div class="seclbl">Run Profile</div>
+          <input class="inp" value="Tamara" style="margin:10px 0">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+            ${pill("Company name",true)}${pill("Domain URL")}${pill("CR number")}
+          </div>
+          <button class="btn p" style="width:100%">▶ Generate Intel</button>
+        </div>
+        <div class="card">
+          <div class="seclbl">Engine Stack</div>
+          <div class="log" style="margin-top:8px">
+            <div class="ac">Web Seeder · multi-page BFS ✓</div>
+            <div class="ac">Gemini ×5 · parallel ✓</div>
+            <div class="ac">Perplexity ×4 · web search ✓</div>
+            <div class="ac">Claude · synthesis ✓</div>
+            <div class="ac">GPT-4o · validation ✓</div>
+            ${sigOn?`<div class="ok">Signal scan · 3 news ✓</div>`:''}
+            ${relOn?`<div class="gd">Relationship map ✓</div>`:''}
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px">
+            <div>
+              <div class="display" style="font-size:21px;font-weight:700">Tamara</div>
+              <div style="color:var(--ts);font-size:12px">BNPL / Fintech · Riyadh · ~600 employees · Series C</div>
+            </div>${v(94)}
+          </div>
+          <div class="g3" style="gap:10px;margin-bottom:14px">
+            ${[["Revenue","SAR 600M–1.2B","estimated"],["Funding","Series C · $340M","verified"],["Employees","~600","likely"],["Founded","2020","verified"],["CR","7001234567","verified"],["SAMA","Licensed","primary"]].map(([l,vl,c])=>`
+              <div><div class="stl">${l}</div>
+                <div style="font-weight:600;font-size:12px;margin-top:2px">${vl} ${badge(c,c==='verified'?'var(--tl)':c==='primary'?'var(--gd)':c==='estimated'?'var(--ac)':'var(--ts)')}</div>
+              </div>`).join('')}
+          </div>
+          <div class="divider"></div>
+          <div class="seclbl">Executive Summary (humanized)</div>
+          <p style="font-size:12.5px;line-height:1.65;color:var(--tm);margin:8px 0">
+            Tamara is a leading Saudi BNPL operator licensed by SAMA, processing over SAR 600 million annually across fashion, electronics, and travel verticals. The company raised a $340 million Series C in 2023 led by SNB Capital. ${sigOn?`Recent signals: Tamara posted 4 engineering roles in February 2025 and announced a UAE expansion.`:''}
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+            <button class="btn tl sm">Push to Genome</button>
+            <button class="btn sm">Export PDF</button>
+            <button class="btn sm">AR report</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  // Person Intel
+  if(sub===1) return `
+    <h1 class="h1 display">ProsEngine — Person Intel</h1>
+    <p class="psub">16-agent executive dossier · Perplexity ×9 + Gemini ×5 + Claude + GPT-4o-mini · +Apollo +Sherlock +TheHarvester · 76–90s · humanized</p>
+    <div class="row">
+      <div class="col" style="max-width:320px">
+        <div class="card" style="margin-bottom:12px">
+          <div class="seclbl">Run Profile</div>
+          <input class="inp" value="Abdulmajeed Alsukhan, CEO Tamara" style="margin:10px 0">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+            ${pill("Name + Company",true)}${pill("LinkedIn URL")}${pill("Email")}
+          </div>
+          <button class="btn p" style="width:100%">▶ Generate Intel</button>
+        </div>
+        <div class="card">
+          <div class="seclbl">16-Agent Stack</div>
+          <div class="log" style="margin-top:8px">
+            <div class="ac">Perplexity ×9 · search ✓</div>
+            <div class="ac">Gemini ×5 · analysis ✓</div>
+            <div class="ac">Claude · synthesis ✓</div>
+            <div class="ac">GPT-4o-mini · validation ✓</div>
+            <div class="ok">Apollo · email + phone ✓</div>
+            ${relOn?`<div class="gd">Sherlock · 300+ social sites ✓</div>
+            <div class="gd">TheHarvester · domain email ✓</div>`:''}
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px">
+            <div>
+              <div class="display" style="font-size:21px;font-weight:700">Abdulmajeed Alsukhan</div>
+              <div style="color:var(--ts);font-size:12px">CEO & Co-founder · Tamara · Riyadh · 2019–present</div>
+            </div>${v(96)}
+          </div>
+          <div class="g3" style="gap:10px;margin-bottom:14px">
+            ${[["Seniority","CEO / C-Suite","verified"],["LinkedIn","✓ verified","primary"],["Tenure","2019–present","verified"],["Education","KSU + MIT","likely"],["Languages","Arabic · English","verified"],["ICP role","✓ Decision maker","primary"]].map(([l,vl,c])=>`
+              <div><div class="stl">${l}</div>
+                <div style="font-weight:600;font-size:12px;margin-top:2px">${vl} ${badge(c,c==='verified'?'var(--tl)':c==='primary'?'var(--gd)':'var(--ac)')}</div>
+              </div>`).join('')}
+          </div>
+          ${sigOn?`<div class="divider"></div>
+          <div class="seclbl" style="color:var(--tl)">📡 Recent Signals</div>
+          <div style="font-size:12px;color:var(--tm);margin:8px 0;line-height:1.6">
+            LinkedIn post (Feb 2025): announced UAE launch. 847 likes. X thread on SAMA open-banking sandbox (Jan 2025). No litigation signals.
+          </div>`:''}
+          ${relOn?`<div class="divider"></div>
+          <div class="seclbl" style="color:var(--gd)">🕸 Relationship Map</div>
+          ${[["Turki Bin Zarah","Co-founder · CTO","direct"],["PIF representative","Board · Investor","board"],["SAMA official","Regulatory contact","institutional"],].map(([n,r,t])=>`
+            <div class="step"><div class="sc" style="background:linear-gradient(135deg,var(--gd),var(--ac))">●</div>
+              <span style="flex:1"><b>${n}</b> <span style="color:var(--ts);font-size:11px">· ${r}</span></span>
+              ${badge(t,'var(--gd)')}</div>`).join('')}`:''}
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+            <button class="btn tl sm">Push to Genome</button>
+            <button class="btn sm">Export PDF</button>
+            <button class="btn sm">CRM →</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  // Website Intel
+  if(sub===2) return `
+    <h1 class="h1 display">ProsEngine — Website Intel</h1>
+    <p class="psub">Multi-page BFS crawl · 5-layer scraper (Cheerio → Playwright → Camoufox → ScrapeGraphAI → BS4) · structured profile extraction</p>
+    <div class="row">
+      <div class="col" style="max-width:320px">
+        <div class="card">
+          <div class="seclbl">Run Crawl</div>
+          <input class="inp" value="https://tamara.co" style="margin:10px 0">
+          <div style="margin-bottom:10px;font-size:11px;color:var(--ts)">Max pages · Depth · Output schema</div>
+          <input class="inp" value="25" style="max-width:80px;display:inline-block;margin-right:8px"> pages max
+          <div style="margin-top:12px"><button class="btn p">▶ Crawl</button></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card" style="margin-bottom:12px">
+          <div class="seclbl">5-Layer Scraper</div>
+          <div class="log" style="margin-top:10px">
+            <div class="ok">L1 Cheerio + axios · fast static · 8 pages ✓</div>
+            <div class="ok">L2 Playwright + stealth · JS-rendered · 6 pages ✓</div>
+            <div class="ok">L3 Camoufox · engine-level stealth · 3 pages ✓ <span class="badge" style="background:rgba(136,184,176,.15);color:var(--tl)">NEW</span></div>
+            <div class="ok">L4 ScrapeGraphAI · LLM schema extraction · 3 pages ✓ <span class="badge" style="background:rgba(136,184,176,.15);color:var(--tl)">NEW</span></div>
+            <div class="ok">L5 BeautifulSoup · RTL/malformed HTML · 1 page ✓</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="seclbl">Extracted</div>
+          <div class="g3" style="gap:10px;margin-top:10px">
+            ${[["18","Pages crawled"],["42","Emails found"],["11","Executives"],["5","Products"],["2","Job pages"],["1","Careers RSS"]].map(([n,l])=>`
+              <div><div class="stat" style="font-size:20px;color:var(--tl)">${n}</div><div class="stl">${l}</div></div>`).join('')}
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button class="btn tl sm">Push to Genome</button>
+            <button class="btn sm">Export JSON</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  // Data Seeder
+  return `
+    <h1 class="h1 display">ProsEngine — Data Seeder</h1>
+    <p class="psub">EVAL → Approve → Harvest → Enrich · GPT-4o Vision maps the URL · Crawl4AI + ScrapeGraphAI harvest · 7-agent enrichment + verdicts</p>
+    <div class="g4" style="margin-bottom:16px">
+      ${[["1","EVAL","GPT-4o Vision maps the URL structure + entities"],["2","Approve","Review seedPlan · tick fields to seed"],["3","Harvest","Crawl4AI + Camoufox crawl follows schema"],["4","Enrich","7-agent pipeline + credibility verdicts"]].map(([n,l,d],i)=>`
+        <div class="card${i<2?' ac':''}">
+          <div class="sc" style="${i>1?'background:var(--s3);color:var(--ts)':'background:linear-gradient(135deg,var(--ac),#7060a0)'}">${i<2?'✓':n}</div>
+          <div style="font-weight:700;font-size:13px;margin:8px 0 4px">${l}</div>
+          <div style="font-size:11px;color:var(--ts)">${d}</div>
+        </div>`).join('')}
+    </div>
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <div class="seclbl">Phase 1 — EVAL</div>
+          <div style="display:flex;gap:8px;margin:10px 0">
+            <input class="inp" value="https://wamda.com/companies" style="flex:1">
+            <button class="btn p">Run EVAL</button>
+          </div>
+          <div class="seclbl" style="margin-top:12px">Seed Plan (GPT-4o Vision output)</div>
+          <div style="background:var(--s2);border-radius:9px;padding:12px;margin-top:8px;font-size:11.5px;border:1px solid var(--bd)">
+            <div style="color:var(--tl);font-weight:600;margin-bottom:6px">Detected entities: 847 companies, 2,100+ executive profiles</div>
+            ${[["name_en","99%","primary"],["name_ar","87%","primary"],["sector","91%","inferred"],["funding_stage","72%","secondary"],["website","95%","primary"],["linkedin_url","68%","secondary"]].map(([f,c,t])=>`
+              <div style="display:flex;justify-content:space-between;padding:3px 0;border-top:1px solid var(--bd)">
+                <span class="mono">${f}</span>
+                <span>${badge(c,c>'90%'?'var(--tl)':c>'80%'?'var(--ac)':'var(--gd)')} ${badge(t,'var(--ts)')}</span>
+              </div>`).join('')}
+          </div>
+          <button class="btn p" style="margin-top:12px;width:100%">Approve selected fields → Start Harvest</button>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <div class="seclbl">Phase 3–4 Progress</div>
+          <div class="log" style="margin:10px 0">
+            <div class="ac">✓ Crawl4AI BFS · 847 company pages visited</div>
+            <div class="ac">✓ ScrapeGraphAI schema extraction · 712 rows structured</div>
+            <div class="gd">→ Enrichment queue: 712 rows → 7-agent pipeline</div>
+            <div class="ok">✓ 423 rows enriched + verdicts applied</div>
+            <div style="color:var(--ts)">⋯ 289 rows pending</div>
+          </div>
+          <div class="sbar"><div class="sbar-fill" style="width:59%"></div></div>
+          <div style="font-size:11px;color:var(--ts);margin-top:6px">423 / 712 enriched</div>
+          <div class="seclbl" style="margin-top:14px">Sample enriched row + verdicts</div>
+          <div style="background:var(--s2);border-radius:9px;padding:10px;margin-top:6px;font-size:11.5px;border:1px solid var(--bda)">
+            <div style="font-weight:600">Lean Technologies ${v(94)}</div>
+            <div style="color:var(--ts)">Open banking · Riyadh · Series B · 180 employees</div>
+            <div style="margin-top:6px">${badge("name_en: verified","var(--tl)")} ${badge("sector: likely","var(--gd)")} ${badge("revenue: estimated","var(--ac)")}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+};
+
+// ══════════════════════════════════════════════════════════
+// CRM ENRICHMENT
+// ══════════════════════════════════════════════════════════
+V.enrich=()=>{
+  if(sub===0) return `
+    <h1 class="h1 display">Quick Enrich</h1>
+    <p class="psub">Paste any lead · instant enrichment via waterfall · result pushed to CRM</p>
+    <div class="g2">
+      <div class="card">
+        <div class="seclbl">Lead Input</div>
+        ${[["First name","Ahmad"],["Last name","Al-Dosari"],["Company","STC Group"],["Email (optional)","a.aldosari@stc.com.sa"],["LinkedIn (optional)","linkedin.com/in/ah-dosari"]].map(([l,v])=>`
+          <div style="margin:10px 0">
+            <div style="font-size:11px;color:var(--ts);margin-bottom:4px">${l}</div>
+            <input class="inp" value="${v}">
+          </div>`).join('')}
+        <div style="margin-top:14px;display:flex;gap:8px">
+          <button class="btn p">▶ Enrich now</button>
+          <button class="btn sm">Waterfall config</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="seclbl">Waterfall Result</div>
+        <div class="pipe" style="flex-direction:column;gap:0;margin:10px 0">
+          ${[["Clearbit","email + firmographic","hit","var(--tl)"],["Apollo","verified phone + LinkedIn","hit","var(--ac)"],["Perplexity","live web search","hit","var(--tl)"],["Hunter.io","email verify","hit","var(--gd)"],["BS4 scraper","company page","skipped","var(--ts)"]].map(([s,d,r,c])=>`
+            <div class="src">
+              <div class="dot" style="background:${r==='hit'?c:'var(--s3)'}"></div>
+              <div style="flex:1"><span style="font-weight:600">${s}</span>
+                <span style="color:var(--ts);font-size:11px;margin-left:6px">${d}</span></div>
+              ${badge(r,r==='hit'?'var(--tl)':'var(--ts)')}
+            </div>`).join('')}
+        </div>
+        <div class="divider"></div>
+        <div class="g2" style="gap:8px">
+          ${[["Title","VP Procurement Strategy"],["Phone","+966 5X XXX"],["Dept","Procurement"],["LinkedIn","✓ verified"]].map(([l,v])=>`
+            <div><div class="stl">${l}</div><div style="font-weight:600;font-size:12px;margin-top:2px">${v}</div></div>`).join('')}
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn tl sm">Push to CRM</button>
+          <button class="btn sm">Genome →</button>
+        </div>
+      </div>
+    </div>`;
+
+  if(sub===1) return `
+    <h1 class="h1 display">Bulk Upload</h1>
+    <p class="psub">Upload CSV → deduplicate → enrichment questionnaire → queue → results</p>
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <div class="seclbl">Upload Phase</div>
+          <div style="border:2px dashed var(--bda);border-radius:12px;padding:24px;text-align:center;margin:10px 0">
+            <div style="font-size:24px;margin-bottom:8px">📋</div>
+            <div style="font-weight:600">Drop CSV / Excel here</div>
+            <div style="font-size:11px;color:var(--ts);margin-top:4px">Name · Company · Email · LinkedIn — any columns</div>
+            <button class="btn p" style="margin-top:10px">Select file</button>
+          </div>
+          <div class="seclbl" style="margin-top:14px">Dedup Running</div>
+          <div class="log" style="margin-top:6px">
+            <div class="ok">✓ 2,400 rows imported</div>
+            <div class="ac">→ Dedup pass: 318 duplicates detected</div>
+            <div class="ok">✓ 2,082 unique leads ready</div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <div class="seclbl">Enrichment Questionnaire</div>
+          ${[["Data fields needed",["Email + phone","Full profile","Signals only"],0],
+             ["Profiling depth",["Light (company name only)","Standard","Deep (exec map)"],2],
+             ["Signal pack",["None","News + LinkedIn","Full (all 8 sources)"],1],
+             ["Dedup survivor",["Keep newest","Keep most enriched"],1],
+          ].map(([l,opts,sel])=>`
+            <div style="margin:12px 0">
+              <div style="font-size:11px;color:var(--ts);margin-bottom:6px">${l}</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                ${(opts as string[]).map((o,i)=>pill(o,i===(sel as number))).join('')}
+              </div>
+            </div>`).join('')}
+          <button class="btn p" style="width:100%;margin-top:14px">Queue 2,082 leads for enrichment →</button>
+        </div>
+      </div>
+    </div>`;
+
+  return `
+    <h1 class="h1 display">Waterfall Sources</h1>
+    <p class="psub">Priority-ordered enrichment waterfall · per-field source assignment · cost control</p>
+    <div class="card" style="overflow:hidden">
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn sm p">Save order</button>
+        <button class="btn sm">Test all</button>
+        <button class="btn sm">Reset to defaults</button>
+      </div>
+      <table>
+        <thead><tr><th>Priority</th><th>Source</th><th>Fields</th><th>Cost / record</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          ${[[1,"Clearbit","email · company · social","$0.05","active","var(--tl)"],
+             [2,"Apollo","phone · email · title","$0.03","active","var(--tl)"],
+             [3,"Perplexity","web search · news","$0.02","active","var(--ac)"],
+             [4,"Hunter.io","email verify","$0.01","active","var(--gd)"],
+             [5,"BS4 Scraper","company page","$0.00","active","var(--ts)"],
+             [6,"Gemini Vision","card / PDF OCR","$0.01","active","var(--ac)"],
+          ].map(([p,s,f,c,st,col])=>`<tr>
+            <td style="color:var(--ts)">${p}</td>
+            <td style="font-weight:600">${s}</td>
+            <td style="color:var(--ts)">${f}</td>
+            <td class="mono">${c}</td>
+            <td>${badge(st as string,col as string)}</td>
+            <td style="display:flex;gap:4px">
+              <button class="btn sm">↑</button>
+              <button class="btn sm">↓</button>
+              <button class="btn sm">Test</button>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+};
+
+// ══════════════════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════════════════
+V.settings=()=>{
+  const SIGS=[["LinkedIn Jobs","MENA","primary","active","var(--tl)"],
+              ["X / Twitter","GCC","primary","active","var(--tl)"],
+              ["Wamda","MENA","secondary","active","var(--ac)"],
+              ["MoCI (Saudi)","KSA","primary","active","var(--gd)"],
+              ["PR Newswire","Global","secondary","active","var(--ac)"],
+              ["Reuters Arabia","MENA","secondary","degraded","var(--re)"],
+              ["Argaam","KSA","primary","active","var(--gd)"],
+              ["Custom RSS","Custom","secondary","active","var(--ts)"]];
+  if(sub===0) return `
+    <h1 class="h1 display">Signal Sources</h1>
+    <p class="psub">Configure the 8 signal sources injected across all enrichment · toggle · add custom · test reachability</p>
+    <div class="card" style="overflow:hidden">
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn sm">+ Add source</button>
+        <button class="btn sm">Test all</button>
+        <button class="btn sm">Import CSV</button>
+      </div>
+      <table>
+        <thead><tr><th>Source</th><th>Region</th><th>Tier</th><th>Status</th><th>Trust weight</th><th></th></tr></thead>
+        <tbody>
+          ${SIGS.map(([n,r,t,s,c])=>`<tr>
+            <td style="font-weight:600">${n}</td>
+            <td style="color:var(--ts)">${r}</td>
+            <td>${badge(t as string,c as string)}</td>
+            <td>${badge(s as string,s==='active'?'var(--tl)':s==='degraded'?'var(--re)':'var(--ts)')}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div class="sbar" style="width:80px"><div class="sbar-fill" style="width:${s==='active'?'80%':'40%'}"></div></div>
+                <span style="font-size:11px;color:var(--tm)">${s==='active'?80:40}</span>
+              </div>
+            </td>
+            <td><button class="btn sm">Test</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  if(sub===1) return `
+    <h1 class="h1 display">Relationship Engines</h1>
+    <p class="psub">Sherlock · TheHarvester · network graph · Apollo — org chart + network mapping across Person/Company reports</p>
+    <div class="g2">
+      ${[["🔍 Sherlock","Username + profile discovery across 300+ social sites","var(--tl)","active","Relationship Intel"],
+         ["🌐 TheHarvester","Email + subdomain + employee name discovery","var(--ac)","active","Relationship Intel"],
+         ["🕸 Network Graph","Visual org chart overlay on Person/Company reports","var(--gd)","active","Display layer"],
+         ["📇 Apollo Contacts","Verified email + phone enrichment layer","#8898c8","active","Contact enrichment"],
+      ].map(([n,d,c,s,r])=>`
+        <div class="card" style="border-color:${c}30;background:${c}04">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+            <div style="font-weight:700;color:${c}">${n}</div>
+            ${badge(s as string,'var(--tl)')}
+          </div>
+          <div style="font-size:12px;color:var(--tm);margin-bottom:8px">${d}</div>
+          <div style="font-size:11px;color:var(--ts);margin-bottom:10px">Role: ${r}</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn sm tl">Configure</button>
+            <button class="btn sm">Test</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+
+  if(sub===2) return `
+    <h1 class="h1 display">API Keys</h1>
+    <p class="psub">LLM providers · scrapers · enrichment sources · all keys stored encrypted · none visible after save</p>
+    <div class="card">
+      <table>
+        <thead><tr><th>Provider</th><th>Role</th><th>Status</th><th>Last used</th><th></th></tr></thead>
+        <tbody>
+          ${[["OpenAI","Validator + Arabic","configured","2m ago"],["Anthropic / Claude","Synthesis","configured","4m ago"],["Gemini","Parallel research","configured","4m ago"],["Perplexity","Web search ×9","configured","2m ago"],["Moonshot Kimi","Planner","configured","5m ago"],["DeepSeek","Bulk classifier","not set","—"],["OpenRouter","Fusion + fallback","configured","1m ago"],["Apollo","Contact enrichment","configured","12m ago"]].map(([n,r,s,l])=>`<tr>
+            <td style="font-weight:600">${n}</td>
+            <td style="color:var(--ts)">${r}</td>
+            <td>${badge(s,s==='configured'?'var(--tl)':s==='not set'?'var(--re)':'var(--gd)')}</td>
+            <td style="color:var(--ts)">${l}</td>
+            <td><button class="btn sm">${s==='configured'?'Rotate':'Set key'}</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  return `
+    <h1 class="h1 display">Deduplication</h1>
+    <p class="psub">Block-key matching · fuzzy name + domain + phone · survivor preference · auto-clean schedule</p>
+    <div class="g2">
+      <div class="card">
+        <div class="seclbl">Dedup Config</div>
+        ${[["Block keys",["Name + Domain","Email hash","Phone","LinkedIn URL"]],
+           ["Fuzzy threshold",["70%","80%","90%","95%"]],
+           ["Survivor preference",["Keep most enriched","Keep newest","Keep highest ICP"]],
+        ].map(([l,opts])=>`
+          <div style="margin:12px 0">
+            <div style="font-size:11px;color:var(--ts);margin-bottom:6px">${l}</div>
+            <div>${(opts as string[]).map((o,i)=>pill(o,i===1)).join('')}</div>
+          </div>`).join('')}
+        <div style="margin-top:14px;display:flex;gap:8px">
+          <button class="btn p">Run dedup now</button>
+          <button class="btn sm">Schedule daily</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="seclbl">Last Dedup Run</div>
+        <div class="log" style="margin-top:10px">
+          <div class="ac">✓ 14,280 records scanned</div>
+          <div class="ok">✓ 1,102 duplicate clusters found</div>
+          <div class="gd">✓ Survivors kept: 13,178</div>
+          <div style="color:var(--ts)">→ Next auto-run: tomorrow 03:00 UTC</div>
+        </div>
+        <div class="g2" style="gap:10px;margin-top:14px">
+          ${[["14,280","Scanned","var(--tm)"],["1,102","Duplicates","var(--re)"],["13,178","Kept","var(--tl)"]].map(([n,l,c])=>`
+            <div><div class="stat" style="font-size:22px;color:${c}">${n}</div><div class="stl">${l}</div></div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+};
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function render(){
+  document.getElementById('tabbar').innerHTML =
+    TABS.map(t=>`<div class="tab ${t.id===tab?'on':''}" onclick="setTab('${t.id}')">
+      ${t.label}${t.badge?`<span class="badge">${t.badge}</span>`:''}
+    </div>`).join('');
+  const def=TABS.find(t=>t.id===tab);
+  const subs=def?.subs;
+  const sb=document.getElementById('subbar');
+  if(subs){
+    sb.innerHTML=subs.map((s,i)=>`<div class="sub ${i===sub?'on':''}" onclick="setSub(${i})">${s}</div>`).join('');
+    sb.style.display='flex';
+  } else {
+    sb.innerHTML=''; sb.style.display='none';
+  }
+  document.getElementById('content').innerHTML=(V[tab]||(()=>'<div style="padding:40px;color:var(--ts)">—</div>'))();
+}
+render();
+</script>
+</body>
+</html>
