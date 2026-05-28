@@ -14,7 +14,7 @@ const CSS = `
   to   { transform: rotate(360deg); }
 }
 @keyframes qp-wave-draw {
-  0%   { stroke-dashoffset: 120; opacity: 0; }
+  0%   { stroke-dashoffset: 200; opacity: 0; }
   20%  { opacity: 1; }
   100% { stroke-dashoffset: 0;   opacity: 1; }
 }
@@ -32,7 +32,7 @@ const CSS = `
 }
 .qp-halo-spin  { transform-origin: 46px 41px; animation: qp-halo-spin 14s linear infinite; }
 .qp-q-breathe  { animation: qp-q-breathe 4s ease-in-out infinite; }
-.qp-wave-draw  { stroke-dasharray: 120; animation: qp-wave-draw 2.2s ease-out forwards; animation-delay: 0.4s; opacity:0; }
+.qp-wave-draw  { stroke-dasharray: 200; animation: qp-wave-draw 2.2s ease-out forwards; animation-delay: 0.4s; opacity:0; }
 .qp-word-arrive{ animation: qp-word-arrive 0.9s ease-out forwards; animation-delay: 0.3s; opacity:0; }
 .qp-glow-pulse { animation: qp-glow-pulse 3s ease-in-out infinite; }
 `;
