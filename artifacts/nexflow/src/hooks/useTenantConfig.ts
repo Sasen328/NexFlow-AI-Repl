@@ -31,13 +31,24 @@ export function readTenantConfig(): TenantConfig | null {
   }
 }
 
-/** Apply the tenant's brand colors to CSS custom properties on the root element. */
+/** NexFlow brand defaults — used when no enterprise tenant config is configured. */
+export const BRAND_DEFAULTS = {
+  primary:   "#B8A0C8", // ACCENT — lavender-purple
+  secondary: "#88B8B0", // TEAL
+  accent:    "#C8A880", // GOLD
+} as const;
+
+/**
+ * Apply the tenant's brand colors to CSS custom properties on the root element.
+ * Falls back to NexFlow brand defaults when no enterprise config is present,
+ * so card/background "font intelligence" coloring works consistently in every
+ * environment — not just in production where localStorage is pre-populated.
+ */
 export function applyTenantBranding(config: TenantConfig | null): void {
-  if (!config) return;
   const root = document.documentElement;
-  if (config.primaryColor)   root.style.setProperty("--nf-tenant-primary",   config.primaryColor);
-  if (config.secondaryColor) root.style.setProperty("--nf-tenant-secondary", config.secondaryColor);
-  if (config.accentColor)    root.style.setProperty("--nf-tenant-accent",    config.accentColor);
+  root.style.setProperty("--nf-tenant-primary",   config?.primaryColor   || BRAND_DEFAULTS.primary);
+  root.style.setProperty("--nf-tenant-secondary", config?.secondaryColor || BRAND_DEFAULTS.secondary);
+  root.style.setProperty("--nf-tenant-accent",    config?.accentColor    || BRAND_DEFAULTS.accent);
 }
 
 export function useTenantConfig() {
