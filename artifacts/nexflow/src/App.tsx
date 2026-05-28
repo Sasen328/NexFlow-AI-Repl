@@ -343,6 +343,11 @@ function RootRoutes() {
       <Route path="/about">      <MarketingRoute><AboutPage /></MarketingRoute></Route>
       <Route path="/pricing">    <MarketingRoute><PricingPage /></MarketingRoute></Route>
       <Route path="/brand">      <MarketingRoute><BrandPage /></MarketingRoute></Route>
+      <Route path="/brand-preview">
+        <Suspense fallback={null}>
+          {(() => { const C = lazy(() => import("@/pages/BrandPreview")); return <C />; })()}
+        </Suspense>
+      </Route>
       <Route path="/signin">     <MarketingRoute><AuthPage mode="signin" /></MarketingRoute></Route>
       <Route path="/signup">     <MarketingRoute><AuthPage mode="signup" /></MarketingRoute></Route>
       <Route component={ProtectedAppLayout} />
