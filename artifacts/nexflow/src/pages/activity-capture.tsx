@@ -30,7 +30,7 @@ export default function ActivityCapturePage() {
 
   useEffect(() => { load(); }, []);
   async function load() {
-    try { const r = await apiFetch("/activity-capture/recent"); setRecent(r.items ?? []); } catch {}
+    try { const r = await apiFetch<any>("/activity-capture/recent"); setRecent(r.items ?? []); } catch {}
   }
 
   async function parse() {
@@ -38,7 +38,7 @@ export default function ActivityCapturePage() {
     setParsing(true);
     setResult(null);
     try {
-      const r = await apiFetch("/activity-capture/parse", { method: "POST", body: JSON.stringify({ raw_text: text, channel })});
+      const r = await apiFetch<any>("/activity-capture/parse", { method: "POST", body: JSON.stringify({ raw_text: text, channel })});
       setResult(r);
       load();
     } catch (err: any) { alert(err?.message ?? "Failed"); } finally { setParsing(false); }

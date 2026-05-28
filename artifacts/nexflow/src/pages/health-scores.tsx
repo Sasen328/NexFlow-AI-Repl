@@ -23,7 +23,7 @@ export default function HealthScoresPage() {
   async function load() {
     setLoading(true);
     try {
-      const r = await apiFetch("/health-scores");
+      const r = await apiFetch<{ items: Item[]; summary: Summary }>("/health-scores");
       setItems(r.items ?? []);
       setSummary(r.summary ?? null);
     } finally { setLoading(false); }

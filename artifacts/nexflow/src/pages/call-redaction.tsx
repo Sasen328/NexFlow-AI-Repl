@@ -18,7 +18,7 @@ export default function CallRedactionPage() {
   async function scan() {
     setScanning(true);
     try {
-      const r = await apiFetch("/redaction/scan", { method: "POST", body: JSON.stringify({ text }) });
+      const r = await apiFetch<any>("/redaction/scan", { method: "POST", body: JSON.stringify({ text }) });
       setResult(r);
     } finally { setScanning(false); }
   }

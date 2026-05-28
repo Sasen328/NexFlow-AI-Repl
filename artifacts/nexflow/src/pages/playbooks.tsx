@@ -18,7 +18,7 @@ export default function PlaybooksPage() {
   async function load() {
     setLoading(true);
     try {
-      const r = await apiFetch("/playbooks");
+      const r = await apiFetch<{ playbooks: any[] }>("/playbooks");
       setPlaybooks(r.playbooks ?? []);
     } finally { setLoading(false); }
   }
@@ -53,10 +53,10 @@ export default function PlaybooksPage() {
       <div className="glass-panel p-4">
         <div className="text-xs font-semibold text-muted-foreground uppercase mb-3">Generate new playbook</div>
         <div className="grid grid-cols-4 gap-2">
-          <Select label="Persona" value={form.persona} onChange={(v: any) => setForm({...form, persona: v})} options={PERSONAS}/>
-          <Select label="Industry" value={form.industry} onChange={(v: any) => setForm({...form, industry: v})} options={INDUSTRIES}/>
-          <Select label="Country" value={form.country} onChange={(v: any) => setForm({...form, country: v})} options={COUNTRIES}/>
-          <Input label="Deal size" value={form.deal_size} onChange={(v: any) => setForm({...form, deal_size: v})}/>
+          <Select label="Persona" value={form.persona} onChange={(v) => setForm({...form, persona: v})} options={PERSONAS}/>
+          <Select label="Industry" value={form.industry} onChange={(v) => setForm({...form, industry: v})} options={INDUSTRIES}/>
+          <Select label="Country" value={form.country} onChange={(v) => setForm({...form, country: v})} options={COUNTRIES}/>
+          <Input label="Deal size" value={form.deal_size} onChange={(v) => setForm({...form, deal_size: v})}/>
           <input value={form.situation} onChange={(e) => setForm({...form, situation: e.target.value})} placeholder="Situation (optional, e.g. 'Renewal at risk')" className="col-span-3 px-2 py-1.5 rounded border border-border/40 bg-transparent text-sm"/>
           <button onClick={generate} disabled={generating} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white nf-chameleon-bg">
             {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Sparkles className="w-3.5 h-3.5"/>}

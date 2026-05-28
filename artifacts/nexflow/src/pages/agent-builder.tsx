@@ -65,7 +65,7 @@ export default function AgentBuilderPage() {
         }
       </div>
 
-      {showNew && <NewAgentModal onClose={() => setShowNew(false)} onCreate={(d: any) => create.mutate(d, { onSuccess: () => setShowNew(false) })} />}
+      {showNew && <NewAgentModal onClose={() => setShowNew(false)} onCreate={(d) => create.mutate(d, { onSuccess: () => setShowNew(false) })} />}
       {active && <RunAgentModal
         agent={active}
         input={input} setInput={setInput}

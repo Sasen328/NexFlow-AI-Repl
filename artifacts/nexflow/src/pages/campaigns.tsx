@@ -39,7 +39,7 @@ function Stat({ label, value, sub, color }: any) {
 
 export default function CampaignsPage() {
   const { data, isLoading, refetch } = useCampaigns();
-  const { data: contactsData } = useContacts({ limit: "100" });
+  const { data: contactsData } = useContacts({ limit: 100 });
   const create = useCreate("/campaigns", ["campaigns"]);
   const generate = useGenerateCampaignContent();
   const send = useSendCampaign();
@@ -614,7 +614,7 @@ export default function CampaignsPage() {
         <CampaignDetail
           campaign={selected}
           onClose={() => setSelected(null)}
-          onGenerate={(opts: any) => generate.mutate({ id: selected.id, ...opts }, { onSuccess: (c) => setSelected(c) })}
+          onGenerate={(opts) => generate.mutate({ id: selected.id, ...opts }, { onSuccess: (c) => setSelected(c) })}
           onSend={() => send.mutate(selected.id, { onSuccess: () => setSelected(null) })}
           generating={generate.isPending}
           sending={send.isPending}

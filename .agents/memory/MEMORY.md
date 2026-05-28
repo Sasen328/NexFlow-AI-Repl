@@ -1,1 +1,0 @@
-- [Sticky offset pattern](sticky-offset-pattern.md) — sticky sidebars/panels must consume var(--topbar-h) not hardcoded rem values; TopBar sets it via ResizeObserver

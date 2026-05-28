@@ -34,7 +34,7 @@ export default function LeadRoutingPage() {
   async function load() {
     setLoading(true);
     try {
-      const r = await apiFetch("/automations");
+      const r = await apiFetch<{ rules: any[] }>("/automations");
       setRules((r.rules ?? []).filter((x: any) => x.trigger?.kind === "lead_routing" || x.name?.toLowerCase().includes("rout")));
     } finally { setLoading(false); }
   }
@@ -121,8 +121,8 @@ export default function LeadRoutingPage() {
           ) : (
             <div className="glass-panel p-4 space-y-3">
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Edit rule</div>
-              <Input label="Name" value={editing.name} onChange={(v: any) => setEditing({ ...editing, name: v })}/>
-              <Input label="Description" value={editing.description ?? ""} onChange={(v: any) => setEditing({ ...editing, description: v })}/>
+              <Input label="Name" value={editing.name} onChange={(v) => setEditing({ ...editing, name: v })}/>
+              <Input label="Description" value={editing.description ?? ""} onChange={(v) => setEditing({ ...editing, description: v })}/>
 
               <div className="space-y-2">
                 <div className="text-[11px] font-semibold text-muted-foreground uppercase">When all conditions match:</div>
