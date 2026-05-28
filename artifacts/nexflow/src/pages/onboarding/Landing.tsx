@@ -15,7 +15,7 @@ const PATHS: {
 }[] = [
   {
     id: "managed",
-    title: "NexFlow sets it up for you",
+    title: "QPulse sets it up for you",
     subtitle: "Our implementation team handles everything — configuration, data migration, integrations, and team training.",
     bullets: [
       "Dedicated implementation manager",
@@ -74,13 +74,13 @@ export default function Landing() {
       <div className="relative z-10 border-b border-border/60 bg-card/80 backdrop-blur-sm px-8 py-4 flex items-center justify-between">
         <img
           src={logoFull}
-          alt="NexFlow"
+          alt="QPulse"
           className="h-7 object-contain"
           onError={(e) => {
             (e.target as HTMLImageElement).style.display = "none";
             const fb = document.createElement("div");
             fb.className = "flex items-center gap-2";
-            fb.innerHTML = `<span class="font-bold text-foreground text-base">NexFlow</span>`;
+            fb.innerHTML = `<span class="font-bold text-foreground text-base">QPulse</span>`;
             (e.target as HTMLImageElement).parentElement?.appendChild(fb);
           }}
         />
@@ -114,7 +114,7 @@ export default function Landing() {
         <div className="text-center max-w-2xl mb-12">
           <h1 className="text-5xl font-extrabold text-foreground leading-tight mb-4">
             Welcome to your
-            <span className="block mt-1 nf-chameleon-text">NexFlow workspace</span>
+            <span className="block mt-1 nf-chameleon-text">QPulse workspace</span>
           </h1>
           <p className="text-lg text-muted-foreground leading-relaxed">
             Answer a few questions and we'll configure your AI-native CRM, generate a tailored proposal, and have your team running in days — not months.

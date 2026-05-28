@@ -155,11 +155,11 @@ export default function WelcomePage() {
         </div>
 
         <div className="flex justify-center mb-8">
-          <div className="relative" style={{ width: 220, height: 56 }}>
-            <div className="absolute inset-0 blur-3xl opacity-35 pointer-events-none"
+          <div className="relative" style={{ width: 340, height: 90 }}>
+            <div className="absolute inset-0 blur-3xl opacity-40 pointer-events-none"
               style={{ background: "radial-gradient(circle, #B8A0C8 0%, #88B8B0 50%, transparent 75%)" }} />
             <div className="absolute inset-0 flex items-center justify-center">
-              <NexFlowWordmark height={56} />
+              <NexFlowWordmark height={90} />
             </div>
           </div>
         </div>
@@ -205,7 +205,7 @@ export default function WelcomePage() {
               Start Free Trial <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
             </button>
           </Link>
-          <Link href="/onboarding">
+          <Link href="/enterprise">
             <button className="group inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-white text-sm font-bold shadow-xl hover:shadow-2xl transition-all hover:scale-105 active:scale-95"
               style={{ background: "linear-gradient(135deg,#C8A880,#B8A0C8)" }}>
               Enterprise Setup <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />

@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Mail, Lock, User, Building2, ArrowRight, Sparkles, Check, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signInAs, ROLES, ROLE_LIST, type RoleKey } from "@/lib/marketing-auth";
-import { NexFlowLogo } from "@/components/layout/NexFlowLogo";
+import { NexFlowWordmark } from "@/components/layout/NexFlowLogo";
 
 interface AuthPageProps {
   mode: "signin" | "signup";
@@ -38,8 +38,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
       <div className="flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-md">
           <div className="flex items-center gap-2 mb-6">
-            <NexFlowLogo size={32} />
-            <span className="text-base font-black tracking-tight">NexFlow</span>
+            <NexFlowWordmark height={28} />
           </div>
 
           {/* Tab switcher */}
@@ -148,7 +147,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
 
           <div className="text-center mt-4 text-xs text-muted-foreground">
             {isSignIn ? (
-              <>New to NexFlow?{" "}
+              <>New to QPulse?{" "}
                 <Link href="/signup" className="font-bold text-foreground hover:underline">Create an account</Link>
               </>
             ) : (
