@@ -318,6 +318,132 @@ kbd, code, .mono, .timestamp {
   border: 1px solid var(--bd);
 }
 
+/* ── T2 App Bar — 6-bar stack surface classes ──────────────────────────────
+   Each bar uses a dedicated CSS class that owns backdrop-filter (incl Safari
+   -webkit- prefix), background token, border, and palette-switch transition.
+   Heights and flex layout are set inline per bar since they vary per bar.
+   ─────────────────────────────────────────────────────────────────────────── */
+.bar-qa {
+  background: var(--qa-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--bd);
+  transition: background 0.6s ease, border-color 0.6s ease;
+}
+.bar-cmd {
+  background: var(--surf);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border-bottom: 1px solid var(--bd);
+  transition: background 0.6s ease, border-color 0.6s ease;
+}
+.bar-tab {
+  background: var(--bar-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--bd);
+  transition: background 0.6s ease, border-color 0.6s ease;
+}
+.bar-sub {
+  background: var(--sub-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--bd);
+  transition: background 0.6s ease, border-color 0.6s ease;
+}
+.bar-kbd {
+  background: var(--surf);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--bd);
+  transition: background 0.6s ease, border-color 0.6s ease;
+}
+
+/* Quick-Action Bar pill variants */
+.qa-ghost-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 18px; padding: 0 8px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--bd);
+  background: transparent;
+  font-size: 10px; font-family: 'Geist', sans-serif;
+  color: var(--txq);
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.qa-ghost-pill:hover { background: rgba(255,255,255,.12); }
+
+.qa-solid-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 25px; padding: 0 10px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: var(--ac);
+  color: #fff;
+  font-size: 10px; font-family: 'Geist', sans-serif; font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+.qa-solid-pill:hover { opacity: 0.9; }
+
+.qa-badge {
+  position: absolute; top: 1px; right: 1px;
+  min-width: 14px; height: 14px;
+  border-radius: 9999px;
+  background: var(--ac); color: #fff;
+  font-size: 8px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 2px;
+  pointer-events: none;
+}
+
+/* Command Bar search pill */
+.cmd-search-pill {
+  display: flex; align-items: center; gap: 6px;
+  width: 280px; height: 28px; padding: 0 10px;
+  border-radius: var(--r-pill);
+  border: 1.5px solid var(--bd);
+  background: transparent;
+  font-size: 12px; font-family: 'Geist', sans-serif;
+  color: var(--txq);
+  cursor: pointer;
+  transition: border-color 0.15s;
+  flex-shrink: 0;
+}
+.cmd-search-pill:hover { border-color: var(--ac); }
+
+/* Filter chips */
+.filter-chips-row {
+  display: flex; align-items: center; gap: 6px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.filter-chips-row::-webkit-scrollbar { display: none; }
+
+.filter-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 22px; padding: 0 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--bd);
+  background: var(--sub-bg);
+  color: var(--txM);
+  font-size: 11px; font-family: 'Geist', sans-serif; font-weight: 500;
+  cursor: pointer; flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.filter-chip--active {
+  background: var(--ac) !important;
+  border-color: var(--ac) !important;
+  color: #fff !important;
+}
+
+/* Keyboard Strip — collapse on mobile */
+@media (max-width: 640px) {
+  .keyboard-strip { max-height: 0 !important; overflow: hidden; }
+}
+
 /* §2.5 Static CSS fallback for mesh gradient (no-JS environments) */
 .mesh-bg {
   background-color: #B8A0C8;
