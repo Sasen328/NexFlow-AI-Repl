@@ -13,7 +13,7 @@ const CSS = `
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
-@keyframes qp-wave-travel {
+@keyframes qp-glow-travel {
   from { stroke-dashoffset: 200; }
   to   { stroke-dashoffset:   0; }
 }
@@ -29,18 +29,26 @@ const CSS = `
   0%,100% { filter: drop-shadow(0 0 5px #B8A0C888); }
   50%      { filter: drop-shadow(0 0 18px #88B8B0cc); }
 }
-.qp-halo-spin   { transform-origin: 46px 41px; animation: qp-halo-spin 14s linear infinite; }
+.qp-halo-spin    { transform-origin: 46px 41px; animation: qp-halo-spin 14s linear infinite; }
 .qp-q-breathe   { animation: qp-q-breathe 4s ease-in-out infinite; }
-.qp-wave-travel { stroke-dasharray: 55 145; animation: qp-wave-travel 1.6s linear infinite; }
+.qp-wave-base   { opacity: 0.28; }
+.qp-wave-glow   { stroke-dasharray: 42 158; animation: qp-glow-travel 1.5s linear infinite; }
 .qp-word-arrive { animation: qp-word-arrive 0.9s ease-out forwards; animation-delay: 0.3s; opacity:0; }
 .qp-glow-pulse  { animation: qp-glow-pulse 3s ease-in-out infinite; }
 `;
+
+const WAVE_D = (cx: number, cy: number, ri: number) =>
+  `M ${cx-ri+2} ${cy} L ${cx-ri+10} ${cy}
+   L ${cx-6} ${cy-13} L ${cx} ${cy+13}
+   L ${cx+7} ${cy-17} L ${cx+14} ${cy+12}
+   L ${cx+20} ${cy} L ${cx+ri-2} ${cy}`;
 
 function QPulseLogo({ size = 1 }: { size?: number }) {
   const uid = useRef(`qp${Math.random().toString(36).slice(2,8)}`).current;
   const id = (s: string) => `${uid}-${s}`;
   const cx = 46, cy = 41, rOuter = 40, rInner = 30;
   const vw = 278, vh = 82;
+  const wavePath = WAVE_D(cx, cy, rInner);
 
   return (
     <svg viewBox={`0 0 ${vw} ${vh}`} width={vw * size} height={vh * size} overflow="visible" style={{ display: "block" }}>
@@ -60,6 +68,10 @@ function QPulseLogo({ size = 1 }: { size?: number }) {
         </linearGradient>
         <filter id={id("glow")} x="-40%" y="-40%" width="180%" height="180%">
           <feGaussianBlur stdDeviation="2.5" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id={id("glow2")} x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="1.8" result="blur"/>
           <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
       </defs>
@@ -82,14 +94,16 @@ function QPulseLogo({ size = 1 }: { size?: number }) {
           stroke={`url(#${id("mg")})`} strokeWidth="2" strokeLinecap="round" />
       </g>
 
-      {/* Pulse waveform — continuously travelling dash */}
-      <path className="qp-wave-travel"
-        d={`M ${cx-rInner+2} ${cy} L ${cx-rInner+10} ${cy}
-            L ${cx-6} ${cy-13} L ${cx} ${cy+13}
-            L ${cx+7} ${cy-17} L ${cx+14} ${cy+12}
-            L ${cx+20} ${cy} L ${cx+rInner-2} ${cy}`}
+      {/* Pulse waveform — full line always visible (dim), bright glow travels over it */}
+      <path className="qp-wave-base"
+        d={wavePath}
         fill="none" stroke={`url(#${id("mg2")})`}
-        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path className="qp-wave-glow"
+        d={wavePath}
+        fill="none" stroke={`url(#${id("mg2")})`}
+        strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+        filter={`url(#${id("glow2")})`} />
 
       {/* "Pulse" wordmark */}
       <text className="qp-word-arrive"
@@ -121,7 +135,7 @@ function TopBarDemo({ dark }: { dark?: boolean }) {
   const bg     = dark ? "#0f0f14" : "#ffffff";
   const border = dark ? "#ffffff12" : "#e2e8f0";
   const nav    = dark ? "#94a3b8"  : "#64748b";
-  const wrap   = dark ? "#111118"  : "#f8fafc";
+  const wrap   = dark ? "#111118"  : "#f1f5f9";
   return (
     <div style={{ background: wrap, borderRadius: 16, padding: "16px 20px", border: `1px solid ${dark ? "#ffffff08" : "#e2e8f0"}` }}>
       <div style={{
@@ -201,7 +215,7 @@ export default function BrandPreview() {
           <QPulseLogo size={1.7} />
         </div>
         <p style={{ fontSize: 10, color: "#475569", fontStyle: "italic" }}>
-          Outer halo rotates continuously · pulse waveform travels through Q in a loop · wordmark fades in once
+          Full waveform always visible · bright pulse segment travels along it in a loop · outer halo rotates · wordmark fades in once
         </p>
       </Section>
 
@@ -264,7 +278,7 @@ export default function BrandPreview() {
       {/* 06 Sign-in */}
       <Section n="06" title="Sign-In Context">
         <div style={{ display: "flex", gap: 32, alignItems: "flex-start" }}>
-          {/* Light sign-in */}
+          {/* Light */}
           <div style={{
             background: "linear-gradient(135deg, #f8f6fc, #eef6f5, #faf7f0)",
             borderRadius: 20, padding: "36px 32px",
@@ -286,7 +300,7 @@ export default function BrandPreview() {
             }}>Continue →</div>
           </div>
 
-          {/* Dark sign-in */}
+          {/* Dark */}
           <div style={{
             background: "linear-gradient(135deg, #13111a, #0e1813, #181310)",
             borderRadius: 20, padding: "36px 32px",

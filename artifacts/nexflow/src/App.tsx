@@ -18,6 +18,7 @@ import AuthPage from "@/pages/marketing/Auth";
 import { useState } from "react";
 import { WizardProvider } from "@/pages/onboarding/context";
 import { useTenantConfig, applyTenantBranding } from "@/hooks/useTenantConfig";
+import { useTheme } from "@/hooks/useTheme";
 
 import Briefing from "@/pages/briefing";
 import SectionHubPage from "@/pages/section-hub";
@@ -125,10 +126,8 @@ const queryClient = new QueryClient({
 });
 
 function AppLayout() {
-  const [dark, setDark] = useState(false);
+  const { dark, setDark } = useTheme();
   const { config } = useTenantConfig();
-
-  useEffect(() => { document.documentElement.classList.toggle("dark", dark); }, [dark]);
 
   useEffect(() => {
     applyTenantBranding(config);
