@@ -1,0 +1,487 @@
+# ProspectSA — Complete Framework Map + Agentic Web Engine Plan
+
+## Context
+
+The user is shipping ProspectSA as an **AI-Native Web Data Engine**. Six things must land before merge:
+
+1. A **ground-truth map** of every tab/sub-tab and what backend powers it.
+2. **AI Chat** orchestrator (composer + tools + Plan B fallback).
+3. **Masaar Engine** (5 agents + Plan B) and the **Masaar Database + AI DB Builder** action surfaces (enrich, dedup, validate, verify, harvest, export, remove, force-push).
+4. **ProsEngine four tools** done properly — especially **Data Seeder** which today is just synthetic generation but must become a real multi-page crawler with OpenAI-EVAL pre-flight + multi-agent enrichment + source credibility verdicts.
+5. The **multi-LLM Nexus router** and **multi-scraper power-scraper** must back every enrich / dedup / validate / verify path (today most call Claude/Perplexity directly — that's the gap).
+6. **Net-new**: agent swarm (Kimi-coordinated), OpenRouter fusion, Camoufox, ScrapeGraphAI, Sherlock, TheHarvester, Crawlee, proxy-pool, **hallucination-free humanizer pass**, **source-credibility verdict layer**, and **theme/UI consistency across every page + a live, interactive Dashboard**.
+
+Nothing in this plan is guessed — it all came from grep + file reads.
+
+---
+
+## 1 · Tab framework
+
+| Top Tab | Sub-tab | Page | API | Engine | Status |
+|---|---|---|---|---|---|
+| Dashboard | — | `pages/Dashboard.tsx` | `/api/stats`, `/api/companies/stats`, `/api/lead-lists/stats/all`, `/api/harvest-ai/stats`, `/api/lead-genome/stats` | aggregator | ✅ stored-DB only (needs live) |
+| AI Chat | — | `pages/ai-chat/index.tsx` | `/api/ai-chat/stream` (SSE), `/api/composer/*` | Claude orchestrator + 9-tool loop (§2) | ✅ no Plan B |
+| Lead Genome | Saved · Lists | `pages/leads/index.tsx` + `LeadGenomePanel.tsx` | `/api/lead-genome/{save,hunt,lists*,enrich,stats}` | storage + LF for enrich | ✅ |
+| Lead Factory | Person · Company · Results · Signals (§3A) · Relationship (§3B) | `pages/lead-factory/*`, `pages/signal-intelligence/*`, `pages/relationship-intel/*` | `/api/lead-factory/*`, `/api/signals/*`, `/api/relationship-intel/*` | 7-agent LF + Signals + 4-agent Relationship | ✅ |
+| ProsEngine | Company · Person · Website · Data Seeder | `pages/prospecting/*` | `/api/{company,person}-intel/*`, `/api/prosengine/*` | see §4 | ⚠️ Data Seeder broken-by-design |
+| Harvest AI | Masaar Engine · Masaar DB · AI DB Builder | `pages/masaar/*`, `pages/database-builder/*` | `/api/masaar/*`, `/api/masar/database/*`, `/api/builder/*`, `/api/harvest-ai/*` | 5-agent Masaar + Builder | ✅ but not on Nexus |
+
+Hidden but live via direct URL: `/meshbase/*`, `/sa-market/*`, `/orcengine`.
+
+---
+
+## 2 · AI Chat orchestrator
+
+Composer wizard 5-stage (`Compose → Enhance → Clarify → Run → Report`). Default `claude-sonnet-4-6`, max 8 tool rounds, 10 turns history.
+
+9 tools in `lib/agents/tools.ts`: `nexus_run` · `web_search` · `url_crawl` · `deep_scrape` · `harvester_run` · `sanctions_screen` · `scout_osint` · `lead_factory_run` · `signal_monitor`.
+
+SSE events: `agent_start` · `agent_done` · `intent` · `token` · `final` · `error`.
+
+**Plan B (fix required):** when `ANTHROPIC_API_KEY` is missing, delegate to `nexusRunRole("planner", prompt, { pin: "kimi" })` → fall back to OpenRouter Claude 3.5 → GPT-4o → Llama 3.3. Emit `degraded_mode: <provider>` in SSE.
+
+### 2A · User Behavior Agent (`<BehaviorAgent />` sidecar)
+File `components/composer/BehaviorAgent.tsx` — fixed bottom-right floating panel, collapsible. Watches a 10-event ring buffer of user actions (`compose`, `nav`, filter changes) + current `ComposerState` (target, reportShape, modes, sources). Emits live suggestion chips + an event log. Today it's a **passive sidecar** — does NOT inject into the prompt.
+
+**Upgrade**:
+- Add a `inject` mode where it appends a 1-line system hint to the prompt (e.g. `"User has 'Arabic-first' chip on — prefer Arabic sources"`).
+- Add **ready-to-plug action chips**: each suggestion gets a button that triggers a workflow without typing — e.g. *"Run Person Hunt for this ICP"* → fires `/api/lead-factory/start` with the inferred brief; *"Push top 5 to Lead Genome"* → fires `/api/lead-genome/save` for each.
+- Backend `POST /api/behavior/suggest` taking `{state, history}` and returning `{suggestion, oneLineHint, plugActions: [{label, endpoint, body}]}` — run via `nexusRunRole("planner", ..., { pin: "kimi" })` so it's cheap.
+- Persist last 100 events to `behavior_events` table per session for long-term learning.
+
+### 2B · Customize drawer — 6 tabs
+File `components/composer/CustomizeDrawer.tsx`, backend `routes/composer.ts`. Today's state:
+
+| Tab | Data source | CRUD? | Backing table |
+|---|---|---|---|
+| **Skills** | DB | ✅ POST/PATCH/DELETE | `composer_skills` (systemPrompt, toolWhitelist[], reportSchema, modelTier) |
+| **Templates** | DB | ✅ POST/PATCH/DELETE | `composer_templates` (defaultQuestion, defaultModes[], defaultSources[]) |
+| **Sources** | 80 built-in + user-added | ✅ for user-added | `composer_user_sources` |
+| **Connectors** | 35 static (Tavily, Playwright, GitHub, Slack, HubSpot, Notion, Salesforce, etc.) | Toggle only | none — `BUILTIN_CONNECTORS` const + auth state |
+| **Plugins** | 9 agent tools (web_search, url_crawl, deep_scrape, harvester_run, sanctions_screen, scout_osint, lead_factory_run, signal_monitor, nexus_run) | Per-session toggle | none (in-memory) |
+| **Modes** | 8 bundled (leadgen, enrich, research, extract, compare, deepdive, signal, tree, custom) | Read-only | static `lib/composer/modes.ts` |
+
+**Upgrade**:
+- Persist plugin toggles to backend: `POST /api/composer/plugins {sessionId, enabled[]}` so the orchestrator only registers the tools the user keeps on.
+- Wire connector OAuth: `GET /api/composer/connectors/:id/auth-url` → start OAuth → callback at `/api/composer/connectors/:id/callback` → store tokens encrypted in `composer_connector_tokens` table.
+- Convert MCP connectors (Playwright, Chrome DevTools, Tavily, omnisearch, etc.) to read live status from `.mcp.json` at boot so the green/yellow/red dot is real, not static.
+
+---
+
+## 3A · Signal Intelligence (Lead Factory · Signals sub-tab)
+
+Files: `routes/signals.ts`, `lib/signal-engine.ts`, `lib/db/schema/company_signals.ts`, `pages/signal-intelligence/*`.
+
+### Endpoints
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/signals/scan` | Full scan (news + sanctions + contracts + regulatory) for one company |
+| `GET  /api/signals/:companyId` | Stored signals, split positive / negative / sanctioned |
+| `GET  /api/signals/by-name/:name` | Same as `:companyId` but lookup by name |
+| `POST /api/signals/news` | News-only, max 20 articles, no DB write |
+| `POST /api/signals/sanctions` | OFAC + UN + EU + OpenSanctions quick screen |
+| `POST /api/signals/individual` | Person-level signals (news + OSINT) |
+| `POST /api/signals/regulatory` | Tadawul disclosures + CMA/SAMA findings |
+| `GET  /api/signals/feed` | SSE stream (3 s tick), broadcasts delta count |
+| `GET  /api/signals/recent` | 50 most recent signals grouped by recommendedAction |
+
+### Sources
+Scout client wraps: Google News RSS, OFAC/UN/EU/OpenSanctions lists, GLEIF + OpenCorporates (contracts), Sherlock OSINT (people). Masaar CR lookup for Tadawul listings.
+
+### Categories
+`positive` (funding round, IPO, contract win, dividend, expansion) · `negative` (lawsuit, bankruptcy, sanctions, layoffs) · `neutral` · `mixed`. Each signal has `primaryEventType` + `eventTypes[]`.
+
+### LLM classification
+Per-signal scores (buying 0-10, risk 0-10, relevance 0-10) → `recommendedAction: prioritize | monitor | hold | disqualify`. **Today this calls Claude directly — rewire to `nexusRunRole("signal", ...)` so the cheap tier handles bulk classification.**
+
+### Lead Genome integration
+Buying signals boost ICP score; sanctioned flags auto-disqualify (the `sanctions_screen` tool used by Lead Factory + AI Chat reuses this). Add `POST /api/signals/:id/push-to-genome` so a high-value signal can convert into a saved-lead row with one click.
+
+---
+
+## 3B · Relationship Tree Intelligence (Lead Factory · Relationship sub-tab)
+
+Files: `routes/lead-factory.ts` (`/relationship-intel/*` endpoints), `lib/relationship-intel-engine.ts`, `pages/relationship-intel/{index,tree}.tsx`.
+
+### Endpoints
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/relationship-intel/start` | Build org chart for `targetCompanyName` (`outputDepth: basic | deep`) |
+| `GET  /api/relationship-intel/stream/:jobId` | SSE of 4-agent pipeline |
+| `GET  /api/relationship-intel/jobs/:jobId` | Job status |
+| `GET  /api/relationship-intel/jobs` | 20 recent jobs |
+| `POST /api/relationship-intel/jobs/:jobId/cancel` | Stop run |
+
+### 4-agent pipeline
+1. **Org Mapper** — reads Masaar AOA + Tadawul + OrcBase → seed nodes
+2. **Stakeholder Enricher** — Scout individual signals + NEXUS deep profile per node
+3. **Network Expander** — finds board overlaps + adjacent companies (shared investors / board members)
+4. **Outreach Sequencer** — ranks contacts 1-N with `icpFitReason`, outreach email/LinkedIn drafts, cultural notes, conversation hooks
+
+### Output shape
+- `OrgNode[]` (`type: executive | board | shareholder | subsidiary | department`, `nameEn/Ar`, `title`, `seniority`, `email`, `phone`, `linkedin`, `ownership%`, `nationality`, `signalData`)
+- `NetworkConnection[]` (company-to-company edges with overlapping people count + relationship strength)
+- `OutreachContact[]` (ranked, with personalised approach)
+
+### Frontend tree
+`pages/relationship-intel/tree.tsx` renders click-to-expand org chart, colour-coded by node type/seniority. **Upgrade**: hook each node to the verdict layer (§7) so trust score appears as a pill on each node. Add Sherlock + TheHarvester to Agent 2's enrichment for hidden contacts.
+
+---
+
+## 3C · Masaar Engine + Database + Builder
+
+### Masaar Engine 5-agent + Plan B
+1. **Agent 1a** — MC.gov.sa stealth browser + CAPTCHA (Claude Vision → manual → session cookie).
+2. **Agent 1b** — CR parse: Claude → **NEXUS extractor tier** → Perplexity.
+3. **Agent 2** — Amaaly AOA stealth + OCR + Claude translate → Perplexity site-search fallback.
+4. **Agent 3** — Deep research: Perplexity × 5 + Gemini × 4 + Claude + GPT-4o + OpenRouter (DeepSeek/Llama/Moonshot) + Groq. Skips down providers.
+5. **Agent 4** — OFAC/UN/EU/CMA/SAMA/ZATCA/Maroof/Najiz + Scout regulatory.
+6. **Agent 5** — Bilingual report: Claude EN + GPT-4o AR → **NEXUS writer tier** if either down.
+
+SSE shape: `agent_start | agent_log | agent_complete | agent_error | captcha_required | captcha_solved | stealth_*  | job_complete | job_error`.
+
+### Masaar Database action surface (`/api/masar/database/*`)
+| Button | Endpoint | Backend |
+|---|---|---|
+| Re-enrich (single) | `POST /companies/:id/re-enrich` | `enrichMasarCompany` → wire to `nexusRunRole` |
+| Masaar CR force-push | `POST /companies/:id/pipeline-enrich` | Runs full 5-agent pipeline |
+| Enrich All | `POST /enrich-all` | semaphore=3 |
+| Deduplicate | `POST /deduplicate?threshold=0.88` | `normaliseName` + `nameSimilarity` |
+| Delete bulk | `DELETE /companies/bulk` | blocklist then remove |
+| Export | `GET /export?format=csv|xlsx|word|pdf|pptx` | 5 formats (3-sheet XLSX) |
+
+### AI Database Builder action surface (`/api/builder/*`)
+| Button | Endpoint | Backend |
+|---|---|---|
+| Re-enrich one / all / bulk | `POST /re-enrich/:id` · `/re-enrich-all` · `/bulk-enrich` | `reEnrichCompany`(s) → wire to `nexusRunRole` |
+| Deduplicate | `POST /deduplicate` | `deduplicateAll()` |
+| Auto-clean | `POST /clean` | `autoClean()` |
+| Push to main DB | `POST /push-to-database` | inserts into `companiesTable` |
+| Export | `GET /export?format=...` | same 5 formats |
+| Harvest | `POST /harvest`, `POST /sources/:id/harvest` | scraping job |
+| Cancel | `POST /jobs/:jobId/cancel` | sets status |
+
+**Critical:** `enrichMasarCompany`, `reEnrichCompany`, `enrichCompanyWithAI` today call Claude/Perplexity directly. Rewire ALL of them to `nexusRunRole(tier)` so the entire multi-LLM fabric (OpenRouter free → Groq → DeepSeek → Kimi → Claude) applies automatically.
+
+---
+
+## 4 · ProsEngine four tools — what they are vs. what they must become
+
+### A. Data Seeder (THIS IS BROKEN BY DESIGN TODAY)
+Today: `routes/prosengine-chat.ts POST /prosengine/seed` is a pure Claude+GPT-4o **synthetic record generator** (no crawl, no OCR, no EVAL). Returns fake Saudi companies.
+
+**Must become** a real 4-phase pipeline:
+1. **Phase EVAL (pre-flight)** — caller pastes a URL. New endpoint `POST /prosengine/seed/eval` opens the URL in `power-scraper` (multi-page crawl mode, max 25 pages), takes screenshots of each page, sends each screenshot+text to **OpenAI GPT-4o-vision** as an OCR + structural map, returns a `seedPlan` listing: every detected entity (companies / people / products / contacts), the field schema OpenAI inferred, and confidence per field.
+2. **Phase APPROVE** — UI shows the `seedPlan` to user, lets them tick which fields to seed.
+3. **Phase HARVEST** — multi-page Crawl4AI + Camoufox crawl follows the approved schema; ScrapeGraphAI extracts structured rows per page via natural-language schema; rows accumulate in a staging table.
+4. **Phase ENRICH** — every staging row passed to the **multi-agent orchestrator** (Lead Factory's 7-agent pipeline reused via `lead_factory_run` tool) for deep enrichment, then through the credibility verdict layer (§7) before persisting.
+
+New files needed: `lib/prosengine/seeder-eval.ts` · `lib/prosengine/seeder-harvest.ts` · `lib/prosengine/seeder-staging.ts` (Drizzle migration for staging table).
+
+### B. Website Intel (already multi-page)
+`pages/prospecting/website.tsx` → `POST /api/company-intel/web-seed` → `lib/web-seeder.ts` already does multi-page BFS crawl + Claude page-analysis. **Upgrade**: insert Camoufox at Layer 3, ScrapeGraphAI at Layer 4, source-credibility verdict at the end.
+
+### C. Company Intel (already multi-source)
+`POST /api/company-intel/profile` already runs **Web Seeder + Gemini × 5 + Perplexity × 4 + Claude + GPT-4o** in parallel, synthesises via Claude → Gemini → OpenAI → NEXUS. Output includes `confidenceScore`, `dataQuality`, `verifiedFacts`, `estimatedFacts`. **Upgrade**: wrap every direct LLM call in `nexusRunRole(tier)`, add humanizer + verdict (§§7-8).
+
+### D. Person Intel (deep + wide)
+`POST /api/person-intel/profile` runs **Perplexity × 4 + optional web-seeder + Gemini × 2 + Claude + GPT-4o** in parallel, synthesises via Gemini → Claude → GPT-4o (each 35s timeout). Auto-pushes finding into `ProsEngine Watchlist` lead list. Has `confidence_level`, `verified_facts`, `estimated_facts`, `caveats`. **Upgrade**: same as Company Intel — Nexus-tier + Apollo + Explorium + Sherlock + TheHarvester chained for deeper coverage.
+
+---
+
+## 5 · Nexus Engine
+
+Native adapters already in `lib/nexus/llm-router.ts`: OpenRouter (primary) · Groq · Claude · GPT-4o · Gemini · DeepSeek · Moonshot/Kimi · Perplexity · Ollama. Roles → tier: planner / researcher / extractor / arabic / writer / validator / bulk / signal / tree.
+
+**Adds:**
+- `nexusFusion(role, prompt, models[])` ensembles two cheap models + Claude arbitrates.
+- Pin Kimi as planner default when key present.
+- Replace direct Claude/Perplexity calls inside every enrichment function with `nexusRunRole(tier)`.
+
+---
+
+## 6 · Native Web Engine (scrapers)
+
+`lib/power-scraper.ts` becomes 5-layer:
+```
+L1 Cheerio + axios            (fast static)
+L2 Playwright + stealth        (full JS)
+L3 Camoufox + Playwright       (engine-level stealth)        ← NEW
+L4 ScrapeGraphAI               (LLM schema extraction)        ← NEW
+L5 BeautifulSoup subprocess    (RTL / malformed HTML)
+```
+
+New files: `lib/scrapers/camoufox-runner.ts` · `scrapegraph-client.ts` · `sherlock-client.ts` · `theharvester-client.ts` · `crawlee-runner.ts` · `proxy-pool.ts`.
+
+---
+
+## 7 · Source-credibility verdict layer (NEW)
+
+Every fact returned by any engine gets tagged with a verdict before display.
+
+`lib/credibility/verdict.ts` exposes:
+```ts
+type Verdict = {
+  field: string;
+  value: any;
+  sources: { provider: string; url?: string; tier: "primary" | "secondary" | "inferred" }[];
+  certainty: "verified" | "likely" | "unverified" | "estimated";
+  trustScore: number; // 0-100
+  rationale: string;
+};
+
+scoreFact(input, sources): Verdict
+```
+Rules:
+- ≥ 2 primary sources agree → `verified` / 90-100.
+- 1 primary or ≥ 2 secondary agree → `likely` / 60-90.
+- Only LLM inference / no source → `estimated` / 0-40.
+- Source disagreement → `unverified` / 20-60 + rationale lists the conflict.
+
+Every report payload includes `verdicts: Verdict[]`. Frontend renders a small lavender pill next to each fact with the trust score.
+
+---
+
+## 8 · Hallucination-free + humanizer pass (NEW)
+
+`lib/report/humanize.ts`:
+```ts
+humanizeReport(rawMarkdown: string, opts: {
+  removeArtifacts?: boolean;     // strips --, //, ```, ``[`, ###, etc. that read as code/machine
+  toneLevel?: "neutral"|"warm";  // sentence rewrites
+  language?: "en"|"ar"|"both";
+}): { humanized: string; removedCount: number }
+```
+Pipeline:
+1. Regex-strip code/markdown artifacts (`-- `, `// `, `<!-- `, stray `#`, bullet bullets, etc.).
+2. Run through `nexusRunRole("writer")` with a system prompt: "Rewrite as a single calm executive-tone paragraph per section, no headings, no lists, no machine-style punctuation. Preserve every fact, citation, and number exactly."
+3. Run a fact-preservation diff: every number/date/proper-noun in `raw` must appear in `humanized`. If anything dropped, retry once with stricter prompt; if still dropped, return raw + warning.
+4. Apply theme tokens for the rendered HTML version: serif `font-display` for proper nouns, lavender accent for verdict pills, mesh-gradient backdrop on report cards.
+
+Every report endpoint (`/api/company-intel/profile`, `/api/person-intel/profile`, `/api/masaar/start`, `/api/lead-factory/results`) pipes its final markdown through `humanizeReport` before returning.
+
+---
+
+## 9 · Theme + UI consistency (NEW)
+
+All pages already wrap in `<Layout>` (which renders `.mesh-gradient-bg`). But many internal cards still use hardcoded `bg-card/65`, `text-blue-400`, etc. Sweep:
+
+- Replace any hardcoded `bg-card/*`, `text-*-400/500`, `border-*` with the brand tokens (`var(--surf)`, `var(--tx-m)`, `var(--bd)`, `.surf`, `.stat`, `.card` classes).
+- Font intelligence: `font-display` for headings, `font-mono` for IDs / timestamps / CR numbers, `font-sans` (Geist) for everything else.
+- Confirm `CommandBar`, `MainTabBar`, `SubTabBar`, `QuickActionBar`, `KeyStrip`, `RailSidebar` render on every route (they do, since Layout wraps everything — verify after the sweep).
+- Quick-action chips should match the active route's primary action (e.g. on `/lead-factory/*` show `Run Hunt`, `Export`, `Push to Genome`).
+
+---
+
+## 10 · Dashboard — live + interactive (NEW)
+
+Today Dashboard pulls stored-DB stats. Convert it into a **live operations cockpit**:
+
+- New endpoint `GET /api/dashboard/live` aggregates: active jobs across LF/Masaar/Builder, last 10 events (latest SSE emits cached server-side via `lib/event-bus.ts`), and live counts per source.
+- Add a WebSocket / EventSource subscription `/api/dashboard/stream` so the page updates without polling.
+- Cards become **interactive widgets**:
+  - "Active Hunts" → click row → opens Lead Factory job detail.
+  - "Recent Activity" → uses the existing `ActivityFeed` component, live-fed.
+  - "Engine Health" → traffic-light per engine (LF / ProsEngine / Masaar / Builder / Nexus) with hover popover listing current LLM provider in use.
+  - "Lead Genome Live" → animated counter that ticks up as new leads are pushed.
+- Charts (industries / enrichment) become **clickable** → filter the underlying lists.
+- Visual: glass cards on mesh-gradient, lavender accents, Playfair headings, motion-fade-in on incoming events.
+
+---
+
+## 11 · Per-API / per-LLM / per-scraper docs
+
+Create `docs/llm-providers/*.md` and `docs/scrapers/*.md`. Each LLM file follows this **extended template** so the operator knows exactly when each model is invoked:
+
+```
+# <Provider>
+
+## Identity
+- Provider name, marketing tier, official site
+- Strength: <e.g. "best Arabic reasoning", "cheapest extractor", "frontier synthesis">
+- Weakness: <e.g. "no streaming", "slow first token", "no JSON mode">
+
+## Env vars
+- Required: <NAME>
+- Optional: <NAME, NAME>
+
+## Role bindings (which Nexus tiers route here)
+- planner | researcher | extractor | arabic | writer | validator | bulk | signal | tree
+- Pin priority (1 = first try, 9 = last resort)
+
+## Reasoning mode
+- Supports extended/CoT thinking? yes/no — flag + max tokens
+- Supports tool use? yes/no
+- Supports vision? yes/no
+- Supports JSON mode / function calling? yes/no
+- Streaming? yes/no
+
+## Model shifting rules (when does Nexus escalate / de-escalate)
+- Escalate UP from this model when: <e.g. "request > 4k output", "factual disagreement detected", "user toggles 'Show trace'">
+- De-escalate DOWN to this model when: <e.g. "task tagged 'bulk classify'", "budget mode on">
+
+## Fusion behaviour (OpenRouter only)
+- Models we ensemble through this provider: <list>
+- Voting strategy: <e.g. "pick whichever returns first valid JSON", "Claude arbitrates conflicts">
+- Latency budget: <ms>
+
+## Costs (per 1M tokens, May 2026)
+- Input / Output
+
+## Routes that touch it
+- Direct: <list files>
+- Indirect (via Nexus): <yes if it's in the tier table>
+
+## Fallback chain
+- If this provider 4xx/5xx/timeouts: → <next provider>
+
+## Arabic / multilingual capability
+- Native Arabic? yes/no — rating 1-5
+- RTL rendering correctly? yes/no
+- Code-switching tolerance? yes/no
+
+## Notes / gotchas
+- <rate limits, regional restrictions, deprecation notices>
+```
+
+Files to create: `anthropic.md`, `openrouter.md` (longest — includes fusion config), `moonshot-kimi.md`, `deepseek.md`, `groq.md`, `perplexity.md`, `gemini.md`, `openai.md`, `ollama.md`. Each scraper file follows a shorter analogous template (role bindings, env vars, target tiers, cost, fallback).
+
+Index file `docs/ARCHITECTURE.md` glues §§2-10 together with diagrams + the model-shifting decision tree.
+
+---
+
+## 11A · Source control (harvest source registry — NEW)
+
+Today's source surfaces:
+- `lib/composer/sources.ts` — 80 built-in sources (Tadawul, CMA, Argaam, Maaal, LinkedIn, OpenCorporates, OFAC, GLEIF, Wikidata, etc.) used by AI Chat composer.
+- `composer_user_sources` table — user-added URLs via Customize → Sources tab.
+- `masar_custom_sources` table — custom harvest URLs for Masaar Database.
+- `builder_custom_sources` table — custom sources for AI Database Builder.
+
+These are scattered. Unify into ONE source registry with consistent enforcement:
+
+### New table `harvest_sources`
+```
+id, label, url, type (rss|sitemap|api|web|pdf|gov-registry),
+category (tadawul|cma|news|registry|social|sanctions|custom|...),
+language (ar|en|both), countries[], industries[],
+credibility ("primary"|"secondary"|"inferred"),  ← feeds verdict layer §7
+trust_weight (0-100),
+enabled (bool), visibility ("system"|"user"|"team"),
+required_for_engines[] (lead-factory|prosengine|masaar|builder|signals|relationship),
+last_synced, status (ok|degraded|down)
+```
+
+### Endpoints (`routes/sources.ts` — NEW)
+| Endpoint | Purpose |
+|---|---|
+| `GET  /api/sources` | List with filters (category, country, engine) |
+| `POST /api/sources` | Add custom source |
+| `PATCH /api/sources/:id` | Edit (toggle enabled, raise trust_weight, pin to engine) |
+| `DELETE /api/sources/:id` | Remove (only user-added) |
+| `POST /api/sources/:id/test` | Live-probe the URL, return reachability + sample row |
+| `POST /api/sources/enforce` | Body `{engineName, requiredIds[], excludedIds[]}` — sets a whitelist/blacklist for that engine |
+| `GET  /api/sources/health` | Dashboard widget feed — last-synced + status |
+
+### Enforcement model
+- Every engine (Lead Factory, ProsEngine, Masaar, Builder, Signals, Relationship) reads the source registry at job start.
+- If `requiredIds` is set for that engine → the harvester ONLY queries those sources.
+- If `excludedIds` is set → those are skipped even if normally used.
+- `trust_weight` is multiplied into the credibility verdict (§7) so user-promoted sources upgrade the trust score on facts they corroborate.
+
+### UI
+- Customize drawer **Sources tab** becomes the single source-of-truth editor (replaces the existing `composer_user_sources`-only view).
+- New columns: credibility tier, trust weight slider, "Pin to engine" multi-select, health dot.
+- Bulk actions: import from CSV, export, mark all-trusted-as-primary, reset to defaults.
+- Per-engine **Source pinning** button on each engine page (Lead Factory Person Hunt, ProsEngine Company Intel, etc.) — opens a quick modal listing sources with checkboxes pre-filtered to that engine.
+
+### Migration
+- `0005_harvest_sources.sql` creates the new table, seeds with 80 built-ins + copies in any rows from `composer_user_sources` / `masar_custom_sources` / `builder_custom_sources`.
+- The legacy tables stay for one release with a `view` pointing to the new table; remove next release.
+
+---
+
+## 12 · Deploy hardening
+
+- `requireEnv(name)` helper replaces every `|| "dummy"` (~17 sites) → returns 503 with actionable message.
+- Block startup when `NODE_ENV=production` AND (`API_TOKEN` unset OR `FRONTEND_ORIGIN` unset).
+- Migration `lib/db/drizzle/0004_fix_builder_fk.sql` for `builder_companies.job_id` type mismatch.
+
+---
+
+## 13 · Commit order on `claude/lead-genome-engine` (PR #74)
+
+1. **Docs** — `/docs/llm-providers/*` (extended template w/ reasoning mode + model-shifting + fusion §11), `/docs/scrapers/*`, `docs/ARCHITECTURE.md`. Zero code risk.
+2. **Deploy hardening** (§12).
+3. **Source registry** (§11A) — new `harvest_sources` table, migration, `/api/sources/*` routes, UI in Customize drawer.
+4. **Nexus** — `nexusFusion`, pin Kimi to planner, OpenRouter fusion config in env, swap enrichment funcs to `nexusRunRole`.
+5. **Scraper expansion** — Camoufox L3 + ScrapeGraphAI L4 + Sherlock + TheHarvester + proxy-pool + Crawlee.
+6. **Source-credibility verdict layer** (§7) — wrap every fact-returning endpoint, reads `trust_weight` from source registry.
+7. **Humanizer** (§8) — pipe every report through `humanizeReport`.
+8. **Data Seeder rebuild** (§4A) — EVAL pre-flight → APPROVE → HARVEST → ENRICH pipeline.
+9. **Signal + Relationship upgrades** (§§3A/3B) — Nexus classification, Sherlock/TheHarvester for Relationship Agent 2, signal-push-to-genome button.
+10. **AI Chat Plan B + Masaar Plan B** — `requireSynthesisModel` helper.
+11. **Behavior Agent upgrade** (§2A) — `inject` mode + plug-action chips + `/api/behavior/suggest` + `behavior_events` table.
+12. **Customize drawer** (§2B) — persist plugin toggles, connector OAuth, MCP live-status dots.
+13. **Action endpoints** — surface `?threshold=` / `X-Nexus-Tier` / `degraded_mode` / `source_attribution` / `?sources=id,id` on every enrich/dedup/export.
+14. **Swarm** — `lib/agents/swarm.ts` + `/api/swarm/start` + UI toggle in AI Chat.
+15. **Theme sweep** (§9) — remove hardcoded colours / fonts, confirm every page reads tokens.
+16. **Dashboard upgrade** (§10) — `/api/dashboard/live` + `/api/dashboard/stream` + interactive widgets + source-health tile from `/api/sources/health`.
+
+Each step is one commit on the same branch — PR #74 keeps updating.
+
+---
+
+## 14 · Verification
+
+```bash
+docker compose up --build app db scout
+curl /api/healthz && curl /api/readyz
+
+# Source registry (§11A)
+curl /api/sources?engine=lead-factory | jq '.[] | {label,credibility,trust_weight,enabled}'
+curl -X POST /api/sources -d '{"label":"My Custom RSS","url":"https://...","category":"news","credibility":"secondary"}'
+curl -X POST /api/sources/enforce \
+  -d '{"engineName":"lead-factory","requiredIds":[12,18,33],"excludedIds":[]}'
+# → next /api/lead-factory/start ONLY harvests from sources 12/18/33
+curl /api/sources/health   # → array of {id,label,status:"ok|degraded|down",last_synced}
+
+# Model shifting + fusion (§5 / §11)
+curl -X POST /api/nexus/fusion \
+  -d '{"role":"extractor","prompt":"...","models":["deepseek-v3","llama-3.3-70b"],"arbitrator":"claude"}'
+# → returns merged result + which model arbitrated
+curl -X POST /api/nexus/run \
+  -H "X-Nexus-Tier: bulk" -H "X-Reasoning-Mode: extended" \
+  -d '{"role":"writer","prompt":"..."}'
+# → response headers include X-Provider-Used and X-Shifted-From if escalated
+
+# Data Seeder real pipeline
+curl -X POST /api/prosengine/seed/eval -d '{"url":"https://example.sa"}'
+# → { seedPlan: { entities: [...], fields: [...], confidences: {...} } }
+curl -X POST /api/prosengine/seed/harvest -d '{"planId":"<id>","approvedFields":[...]}'
+curl -X POST /api/prosengine/seed/enrich -d '{"stagingIds":[...]}'
+
+# Verdict layer
+curl -X POST /api/company-intel/profile -d '{"name":"STC"}' | jq '.verdicts[0]'
+# → { field:"revenue", value:71B, sources:[{tier:"primary",...}], certainty:"verified", trustScore:94, rationale:"..." }
+
+# Humanizer
+curl -X POST /api/company-intel/profile -d '{"name":"Aramco"}' | jq '.report.humanized'
+# → prose, no -- // ### code-style artifacts
+
+# Plan B works
+ANTHROPIC_API_KEY= docker compose up app
+curl -X POST /api/ai-chat/stream -d '{"prompt":"..."}'
+# → degraded_mode: "kimi"
+
+# Live dashboard
+curl -N /api/dashboard/stream
+# → SSE events on every job state change
+
+# Swarm + multi-LLM enrichment
+curl -X POST /api/swarm/start -d '{"brief":"...","useKimi":true}'
+curl -X POST /api/masar/database/enrich-all -H "X-Nexus-Tier: bulk"
+# → each row's enrichmentSource = "deepseek-v3:free" or similar
+```
+
+Every command returns documented JSON or 503 with the missing env var named — never 500 or hung.
