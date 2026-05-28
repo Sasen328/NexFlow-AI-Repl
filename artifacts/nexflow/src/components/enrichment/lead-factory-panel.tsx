@@ -310,20 +310,3 @@ export function LeadFactoryPanel({ signalIntel, relationship }: { signalIntel?: 
   );
 }
 
-function AgentRow({ name, state }: { name: string; state: "idle" | "running" | "done" }) {
-  return (
-    <div className={cn("flex items-center gap-3 px-3 py-2 rounded-lg border text-[12px] transition-all",
-      state === "running" ? "border-[#B8A0C8]/40 bg-[#B8A0C8]/05" :
-      state === "done"    ? "border-emerald-400/25 bg-emerald-500/03" :
-      "border-border/20 bg-card/30")}>
-      <div className={cn("w-5 h-5 rounded-md flex items-center justify-center text-white flex-shrink-0",
-        state === "running" ? "bg-[#B8A0C8]" : state === "done" ? "bg-emerald-500" : "bg-muted")}>
-        {state === "running" ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> :
-         state === "done"    ? <CheckCircle2 className="w-2.5 h-2.5" /> : <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />}
-      </div>
-      <span className={cn("flex-1 truncate", state === "idle" ? "text-muted-foreground/50" : "")}>{name}</span>
-      {state === "running" && <span className="text-[10px] text-muted-foreground animate-pulse">searching…</span>}
-      {state === "done"    && <span className="text-[10px] text-emerald-600">done</span>}
-    </div>
-  );
-}
