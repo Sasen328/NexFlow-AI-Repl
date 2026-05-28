@@ -8,6 +8,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { SECTIONS, type SectionDef } from "@/lib/sections";
+import { useTheme } from "@/hooks/useTheme";
 
 interface KPI {
   label: string;
@@ -168,6 +169,7 @@ export default function SectionHubPage() {
   const sectionKey = params?.key ?? "home";
   const [refreshing, setRefreshing] = useState(false);
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
+  const { dark } = useTheme();
 
   // /section/home would duplicate the Command Center — redirect to /.
   // Legacy /section/sales bookmarks should now land on the CRM hub (/funnel).
@@ -202,7 +204,9 @@ export default function SectionHubPage() {
       <div
         className="relative rounded-3xl overflow-hidden p-8"
         style={{
-          background: `linear-gradient(135deg, ${section.accent}18 0%, #f0f9f8 40%, #fff8f0 80%, ${section.accent}10 100%)`,
+          background: dark
+            ? "var(--surf)"
+            : `linear-gradient(135deg, ${section.accent}18 0%, #f0f9f8 40%, #fff8f0 80%, ${section.accent}10 100%)`,
         }}
       >
         <div className="absolute inset-0 pointer-events-none">
@@ -250,7 +254,7 @@ export default function SectionHubPage() {
           <div
             className="mt-4 p-5 rounded-2xl backdrop-blur-sm border"
             style={{
-              background: "rgba(255,255,255,0.6)",
+              background: dark ? "var(--sub-bg)" : "rgba(255,255,255,0.6)",
               borderColor: `${section.accent}40`,
             }}
           >

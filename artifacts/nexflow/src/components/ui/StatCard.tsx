@@ -21,7 +21,7 @@ export function StatCard({ value, label, badge, icon, className = "" }: StatCard
     <div
       className={className}
       style={{
-        background: "rgba(255,255,255,.65)",
+        background: "var(--surf)",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         border: "1px solid var(--bd)",
