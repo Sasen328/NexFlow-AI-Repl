@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useLayoutEffect, useMemo } from "react";
 import {
   Bell, Search, Settings, LogOut, ChevronRight, Sparkles, FlaskConical,
 } from "lucide-react";
-import { NexFlowWordmark } from "./NexFlowLogo";
+import { NexFlowWordmark, NexFlowLogo } from "./NexFlowLogo";
 import { useNotifications } from "@/hooks/useApi";
 import {
   SECTIONS, getNavForRole, findSectionByRoute, findTopNavBySection,
@@ -135,28 +135,23 @@ export function TopBar({ dark, onDark }: TopBarProps) {
 
       {/* ═══ Bar 1: Quick Action Bar (~26px) ════════════════════════ */}
       <div className="bar-qa" style={{ height: "26px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px" }}>
-        {/* Left: QPulse label + 3 ghost-pill shortcuts */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "9px", fontFamily: "'Geist', sans-serif", letterSpacing: "0.2em", color: "var(--txq)", textTransform: "uppercase" }}>
-            QPulse
-          </span>
-          <Link href="/home">
-            <button className="qa-ghost-pill">Home</button>
+        {/* Left: Logo + AI Action Intelligence */}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <Link href="/home" aria-label="Home">
+            <NexFlowLogo size={20} />
           </Link>
-          <Link href="/section/crm">
-            <button className="qa-ghost-pill">CRM</button>
-          </Link>
-          <Link href="/section/callcenter">
-            <button className="qa-ghost-pill">Comms</button>
-          </Link>
+          <button
+            className="qa-ai-pill"
+            onClick={() => window.dispatchEvent(new CustomEvent("nf:assistant-open"))}
+            aria-label="AI Action Intelligence"
+          >
+            <Sparkles style={{ width: "11px", height: "11px" }} />
+            AI Action
+          </button>
         </div>
 
-        {/* Right: New · Share · Bell · ⊙ Theme · Avatar */}
+        {/* Right: Bell · ⊙ Theme · Avatar */}
         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-          <Link href="/contacts?new=1">
-            <button className="qa-solid-pill">New</button>
-          </Link>
-          <button className="qa-ghost-pill">Share</button>
           <button
             className="qa-ghost-pill"
             style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
@@ -276,14 +271,14 @@ export function TopBar({ dark, onDark }: TopBarProps) {
                 borderBottom: isActive ? "2px solid var(--ac)" : "2px solid transparent",
                 background: "transparent",
                 color: isActive ? "var(--btx)" : "var(--txq)",
-                fontWeight: isActive ? 600 : 400,
-                fontSize: "11px", fontFamily: "'Geist', sans-serif",
+                fontWeight: isActive ? 700 : 500,
+                fontSize: "13px", fontFamily: "'Geist', sans-serif",
                 transition: "color .2s, border-color .2s",
                 whiteSpace: "nowrap",
               }}
               aria-current={isActive ? "page" : undefined}
             >
-              <Icon style={{ width: "12px", height: "12px", strokeWidth: 1.6 }} />
+              <Icon style={{ width: "14px", height: "14px", strokeWidth: 1.6 }} />
               <span>{entry.label}</span>
               {badge > 0 && (
                 <span
@@ -336,13 +331,13 @@ export function TopBar({ dark, onDark }: TopBarProps) {
                 }
               }}
               style={{
-                height: "28px", padding: "0 10px",
+                height: "28px", padding: "0 12px",
                 borderRadius: "var(--r-pill)",
-                fontSize: "11px", fontFamily: "'Geist', sans-serif",
+                fontSize: "12px", fontFamily: "'Geist', sans-serif",
                 cursor: "pointer", border: "none",
-                background: isActiveItem ? "rgba(255,255,255,.62)" : "transparent",
+                background: isActiveItem ? "var(--sub-bg)" : "transparent",
                 fontWeight: isActiveItem ? 600 : 400,
-                color: isActiveItem ? "var(--btx)" : "var(--txq)",
+                color: isActiveItem ? "var(--btx)" : "var(--txM)",
                 transition: "background .15s, color .15s",
                 whiteSpace: "nowrap",
               }}
