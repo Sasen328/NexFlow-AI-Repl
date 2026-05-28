@@ -468,6 +468,46 @@ tr:hover td{background:rgba(184,160,200,.06)}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:white;padding:10px 18px;border-radius:99px;font-size:12px;box-shadow:var(--shadow-lg);display:none;z-index:300;white-space:nowrap}
 .toast.on{display:block}
 
+/* ── PROSENGINE HUB ── */
+.pros-hub-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:4px}
+.pros-tool-card{background:var(--surf);border:1px solid var(--card-bd);border-radius:var(--radius);padding:22px;display:flex;flex-direction:column;box-shadow:var(--shadow);transition:all 180ms}
+.pros-tool-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.pros-tool-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.pros-tool-ico{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;flex-shrink:0}
+.pros-tool-ico svg{width:20px;height:20px}
+.pros-badge{font-size:10px;font-weight:700;padding:3px 10px;border-radius:99px;letter-spacing:.02em}
+.pros-tool-name{font-size:15px;font-weight:700;font-family:'Playfair Display',serif;margin-bottom:8px}
+.pros-tool-desc{font-size:12px;color:var(--ink-soft);line-height:1.65;margin-bottom:14px;flex:1}
+.pros-bullets{display:flex;flex-direction:column;gap:5px;margin-bottom:18px}
+.pros-bullet{font-size:11.5px;color:var(--ink-soft);display:flex;align-items:flex-start;gap:8px;line-height:1.4}
+.pros-bullet::before{content:'';width:5px;height:5px;border-radius:99px;flex-shrink:0;margin-top:5px;background:currentColor}
+.pros-cta{width:100%;padding:10px 16px;border-radius:var(--r-sm);color:white;font-size:13px;font-weight:700;border:none;cursor:pointer;font-family:'Inter',sans-serif;transition:all 150ms;margin-top:auto}
+.pros-cta:hover{opacity:.88;transform:translateY(-1px)}
+/* ── PROSENGINE WIZARD ── */
+.pros-wiz-hdr{display:flex;align-items:center;gap:14px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.pros-wiz-title{font-size:17px;font-weight:700;font-family:'Playfair Display',serif}
+.pros-wiz-sub{font-size:12px;color:var(--ink-soft);margin-top:2px}
+.pros-steps-bar{display:flex;align-items:center;gap:2px;margin-bottom:18px;flex-wrap:wrap}
+.pros-step{font-size:11px;font-weight:700;padding:5px 13px;border-radius:99px;color:var(--ink-soft);transition:all 140ms;white-space:nowrap}
+.pros-step.active{background:linear-gradient(135deg,var(--primary),var(--teal));color:white}
+.pros-step.done{color:var(--ok)}
+.pros-sep{font-size:12px;color:var(--muted);padding:0 2px}
+/* ── MASAAR AGENT PIPELINE ── */
+.masaar-pipeline-wrap{background:var(--surf);border:1px solid var(--card-bd);border-radius:var(--radius);padding:20px;margin-bottom:20px}
+.masaar-pipeline-title{font-size:15px;font-weight:700;font-family:'Playfair Display',serif;margin-bottom:6px}
+.masaar-pipeline-desc{font-size:12px;color:var(--ink-soft);line-height:1.55;margin-bottom:16px}
+.masaar-agents-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.masaar-agent{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:white;border:1px solid var(--line-2);border-radius:var(--r-sm);transition:all 150ms}
+.masaar-agent:hover{border-color:var(--teal)}
+.masaar-agent-num{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--primary),var(--teal));color:white;display:grid;place-items:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}
+.masaar-agent-name{font-size:12.5px;font-weight:700;line-height:1.25;margin-bottom:3px}
+.masaar-agent-desc{font-size:11px;color:var(--ink-soft);line-height:1.4}
+.masaar-stealth-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:99px;background:rgba(200,168,128,.18);color:#8a5d20;margin-left:8px;vertical-align:middle}
+.masaar-info-bar{padding:12px 16px;background:rgba(136,184,176,.07);border:1px solid rgba(136,184,176,.22);border-radius:var(--r-sm);margin-bottom:18px;font-size:12px;color:var(--ink-soft);line-height:1.55}
+.masaar-cr-wrap{margin-bottom:20px}
+.masaar-cr-row{display:flex;gap:8px;align-items:flex-end}
+.masaar-cr-hint{font-size:10px;color:var(--ink-soft);margin-top:5px}
+
 /* ── UTILS ── */
 .small{font-size:11px;color:var(--ink-soft)}
 .hide{display:none!important}
@@ -532,30 +572,15 @@ tr:hover td{background:rgba(184,160,200,.06)}
     <!-- AI CHAT TOOLBAR -->
     <div class="ai-toolbar">
       <span class="small" style="color:var(--ink-soft);font-weight:600">Orchestrator controls:</span>
-      <div class="ai-tool-btn" id="btn-customize" onclick="toggleAITool('customize')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-        Customize
-      </div>
-      <div class="ai-tool-btn" id="btn-observer" onclick="toggleAITool('observer')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-        AI Observer
-      </div>
-      <div class="ai-tool-btn" id="btn-constraints" onclick="toggleAITool('constraints')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2l8 4v6c0 5-4 9-8 10C8 21 4 17 4 12V6l8-4z"/></svg>
-        Constraints
-      </div>
-      <div class="ai-tool-btn" id="btn-memory" onclick="toast('Agent memory panel opened')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg>
-        Memory
-      </div>
+      <div class="ai-tool-btn" id="btn-customize" onclick="toggleAITool('customize')">Customize</div>
+      <div class="ai-tool-btn" id="btn-observer" onclick="toggleAITool('observer')">AI Observer</div>
+      <div class="ai-tool-btn" id="btn-constraints" onclick="toggleAITool('constraints')">Constraints</div>
+      <div class="ai-tool-btn" id="btn-memory" onclick="toast('Agent memory panel opened')">Memory</div>
     </div>
 
     <!-- AI Observer panel (toggleable) -->
     <div class="ai-observer-panel" id="ai-observer-panel">
-      <div style="font-size:11.5px;font-weight:700;margin-bottom:8px;color:var(--teal)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:12px;height:12px;stroke-width:2;vertical-align:middle"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-        AI Observer — real-time agent monitoring
-      </div>
+      <div style="font-size:11.5px;font-weight:700;margin-bottom:8px;color:var(--teal)">AI Observer — real-time agent monitoring</div>
       <div class="obs-row"><div class="obs-dot" style="background:var(--ok)"></div><span style="font-weight:600">Planner</span><span style="color:var(--ink-soft);flex:1;margin-left:4px">— routing fintech CTOs · KSA · 40+ sources</span><span style="font-size:10px;color:var(--ok)">Active</span></div>
       <div class="obs-row"><div class="obs-dot" style="background:var(--primary)"></div><span style="font-weight:600">Researcher</span><span style="color:var(--ink-soft);flex:1;margin-left:4px">— 3 parallel web searches in progress</span><span style="font-size:10px;color:var(--primary)">Running</span></div>
       <div class="obs-row"><div class="obs-dot" style="background:var(--muted)"></div><span style="font-weight:600">Validator</span><span style="color:var(--ink-soft);flex:1;margin-left:4px">— waiting for Researcher output</span><span style="font-size:10px;color:var(--muted)">Queued</span></div>
@@ -857,9 +882,9 @@ tr:hover td{background:rgba(184,160,200,.06)}
           </div>
           <div class="field-label" style="margin-top:14px">Report shape <span style="color:var(--muted);font-weight:400">— controls the rendered output</span></div>
           <div class="target-seg">
-            <div class="target-opt" data-r="exec" onclick="setReport('exec')"><div style="font-size:22px;margin-bottom:6px">📋</div><div class="lbl">Executive Summary</div><div class="desc">2-page · KPIs + 3 insights · NO table</div></div>
-            <div class="target-opt on" data-r="detail" onclick="setReport('detail')"><div style="font-size:22px;margin-bottom:6px">📑</div><div class="lbl">Detailed Report</div><div class="desc">Full · table · citations · all blocks</div></div>
-            <div class="target-opt" data-r="custom" onclick="setReport('custom')"><div style="font-size:22px;margin-bottom:6px">🎛️</div><div class="lbl">Custom</div><div class="desc">Pick blocks</div></div>
+            <div class="target-opt" data-r="exec" onclick="setReport('exec')"><div class="lbl">Executive Summary</div><div class="desc">2-page · KPIs + 3 insights · NO table</div></div>
+            <div class="target-opt on" data-r="detail" onclick="setReport('detail')"><div class="lbl">Detailed Report</div><div class="desc">Full · table · citations · all blocks</div></div>
+            <div class="target-opt" data-r="custom" onclick="setReport('custom')"><div class="lbl">Custom</div><div class="desc">Pick blocks</div></div>
           </div>
           <div id="rpt-custom" class="hide" style="margin-top:12px">
             <div class="field-label">Pick blocks</div>
@@ -979,7 +1004,7 @@ tr:hover td{background:rgba(184,160,200,.06)}
 
   <!-- ══ AGENTIC HUB — LEAD GENOME ══ -->
   <div class="panel" id="panel-agentic-leadgenome">
-    <div class="page-h"><h1>🧬 Lead Genome</h1><p class="sub">All enriched leads pushed from every engine · link to lists, CRM, export</p></div>
+    <div class="page-h"><h1>Lead Genome</h1><p class="sub">All enriched leads pushed from every engine · link to lists, CRM, export</p></div>
     <div class="stats s4">
       <div class="stat"><div class="v lav">1,842</div><div class="l">Total leads</div></div>
       <div class="stat"><div class="v sea">47</div><div class="l">Added today</div></div>
@@ -1026,10 +1051,10 @@ tr:hover td{background:rgba(184,160,200,.06)}
 
   <!-- ══ AGENTIC HUB — SWARMBOARD ══ -->
   <div class="panel" id="panel-agentic-agentswarm">
-    <div class="page-h"><h1>🌀 SwarmBoard</h1><p class="sub">Kimi-coordinated multi-agent mission · live orbit · fused report · push to Genome</p></div>
+    <div class="page-h"><h1>SwarmBoard</h1><p class="sub">Kimi-coordinated multi-agent mission · live orbit · fused report · push to Genome</p></div>
     <div class="columns col-wide">
       <div class="panel-box">
-        <div class="panel-head">📋 Mission Brief</div>
+        <div class="panel-head">Mission Brief</div>
         <div class="section-body">
           <div class="field-label">Paste or type your brief</div>
           <textarea class="input" rows="3" style="resize:none">"Enrich 50 Saudi fintech companies (50–500 emp) · full profile, buying signals, executive map, credibility verdicts"</textarea>
@@ -1037,7 +1062,7 @@ tr:hover td{background:rgba(184,160,200,.06)}
           <div class="chips">
             <span class="chip on">Masaar</span><span class="chip on">Person Intel</span><span class="chip on">Signal Intel</span><span class="chip on">Relationship</span><span class="chip">AI DB Builder</span><span class="chip on">ProsEngine</span>
           </div>
-          <button class="btn btn-primary" id="runSwarmBtn" style="margin-top:12px;width:100%">🌀 Launch Swarm →</button>
+          <button class="btn btn-primary" id="runSwarmBtn" style="margin-top:12px;width:100%">Launch Swarm</button>
         </div>
         <div style="padding:14px;border-top:1px solid var(--line)">
           <div class="field-label" style="margin-bottom:10px">Mission Phases</div>
@@ -1088,7 +1113,6 @@ tr:hover td{background:rgba(184,160,200,.06)}
       <!-- LEFT: Filters -->
       <div class="hunt-left">
         <div class="hunt-filter-hdr">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
           Filters — Person mode
         </div>
         <div class="filter-section open">
@@ -1131,7 +1155,6 @@ tr:hover td{background:rgba(184,160,200,.06)}
       <!-- RIGHT: Pipeline Preview -->
       <div class="hunt-right">
         <div class="hunt-run-hdr">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           Run · job 1f-42
           <span class="hunt-run-badge">preview</span>
           <span class="small" style="margin-left:auto;color:var(--ink-soft)">est. ~45 s</span>
@@ -1142,13 +1165,13 @@ tr:hover td{background:rgba(184,160,200,.06)}
           <div class="hunt-kpi"><div class="hk-val">$0</div><div class="hk-lbl">Marginal Cost</div></div>
         </div>
         <div class="pipeline-steps">
-          <div class="pipeline-step" onclick="toast('ICP Mapper: building sourcing brief…')"><div class="ps-num">1</div><div><div class="ps-name">ICP Mapper &amp; Source Orchestrator</div><div class="ps-desc">Brief → prioritised sourcing plan</div></div><span class="ps-arr">›</span></div>
-          <div class="pipeline-step" onclick="toast('Lead Harvester: scanning 40+ sources…')"><div class="ps-num">2</div><div><div class="ps-name">Lead Harvester</div><div class="ps-desc">40+ free sources · Tavily · SearXNG · Google News · Saudi RSS</div></div><span class="ps-arr">›</span></div>
-          <div class="pipeline-step" onclick="toast('Deep Enrichment: Scout · GLEIF · OpenCorporates…')"><div class="ps-num">3</div><div><div class="ps-name">Deep Enrichment</div><div class="ps-desc">Scout · GLEIF · OpenCorporates · Wikidata · Gemini</div></div><span class="ps-arr">›</span></div>
-          <div class="pipeline-step" onclick="toast('Signal Intelligence: news · sanctions · regulatory…')"><div class="ps-num">4</div><div><div class="ps-name">Signal Intelligence</div><div class="ps-desc">News · sanctions · regulatory · hiring · contracts</div></div><span class="ps-arr">›</span></div>
-          <div class="pipeline-step" onclick="toast('Validate: MX · domain liveness · dedup…')"><div class="ps-num">5</div><div><div class="ps-name">Validate, Verify &amp; Deduplicate</div><div class="ps-desc">MX · domain liveness · dummy detection · fingerprint dedup</div></div><span class="ps-arr">›</span></div>
-          <div class="pipeline-step" onclick="toast('Scoring: composite ICP · email · LinkedIn · WhatsApp…')"><div class="ps-num">6</div><div><div class="ps-name">ICP Scoring &amp; AI Copywriter</div><div class="ps-desc">Composite score · email · LinkedIn · WhatsApp</div></div><span class="ps-arr">›</span></div>
-          <div class="pipeline-step" onclick="toast('Publishing to CRM · leads · companies…')"><div class="ps-num">7</div><div><div class="ps-name">Publish &amp; Seed</div><div class="ps-desc">Bridges into companies / leads / executives</div></div><span class="ps-arr">›</span></div>
+          <div class="pipeline-step" onclick="toast('ICP Mapper: building sourcing brief…')"><div class="ps-num">1</div><div><div class="ps-name">ICP Mapper &amp; Source Orchestrator</div><div class="ps-desc">Brief → prioritised sourcing plan</div></div></div>
+          <div class="pipeline-step" onclick="toast('Lead Harvester: scanning 40+ sources…')"><div class="ps-num">2</div><div><div class="ps-name">Lead Harvester</div><div class="ps-desc">40+ free sources · Tavily · SearXNG · Google News · Saudi RSS</div></div></div>
+          <div class="pipeline-step" onclick="toast('Deep Enrichment: Scout · GLEIF · OpenCorporates…')"><div class="ps-num">3</div><div><div class="ps-name">Deep Enrichment</div><div class="ps-desc">Scout · GLEIF · OpenCorporates · Wikidata · Gemini</div></div></div>
+          <div class="pipeline-step" onclick="toast('Signal Intelligence: news · sanctions · regulatory…')"><div class="ps-num">4</div><div><div class="ps-name">Signal Intelligence</div><div class="ps-desc">News · sanctions · regulatory · hiring · contracts</div></div></div>
+          <div class="pipeline-step" onclick="toast('Validate: MX · domain liveness · dedup…')"><div class="ps-num">5</div><div><div class="ps-name">Validate, Verify &amp; Deduplicate</div><div class="ps-desc">MX · domain liveness · dummy detection · fingerprint dedup</div></div></div>
+          <div class="pipeline-step" onclick="toast('Scoring: composite ICP · email · LinkedIn · WhatsApp…')"><div class="ps-num">6</div><div><div class="ps-name">ICP Scoring &amp; AI Copywriter</div><div class="ps-desc">Composite score · email · LinkedIn · WhatsApp</div></div></div>
+          <div class="pipeline-step" onclick="toast('Publishing to CRM · leads · companies…')"><div class="ps-num">7</div><div><div class="ps-name">Publish &amp; Seed</div><div class="ps-desc">Bridges into companies / leads / executives</div></div></div>
         </div>
       </div>
     </div>
@@ -1161,7 +1184,6 @@ tr:hover td{background:rgba(184,160,200,.06)}
       <!-- LEFT: Filters -->
       <div class="hunt-left">
         <div class="hunt-filter-hdr">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
           Filters — Company mode
         </div>
         <div class="filter-section open">
@@ -1204,7 +1226,6 @@ tr:hover td{background:rgba(184,160,200,.06)}
       <!-- RIGHT: Pipeline Preview -->
       <div class="hunt-right">
         <div class="hunt-run-hdr">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           Run · job 2c-18
           <span class="hunt-run-badge">preview</span>
           <span class="small" style="margin-left:auto;color:var(--ink-soft)">est. ~50 s</span>
@@ -1215,13 +1236,13 @@ tr:hover td{background:rgba(184,160,200,.06)}
           <div class="hunt-kpi"><div class="hk-val">$0</div><div class="hk-lbl">Marginal Cost</div></div>
         </div>
         <div class="pipeline-steps">
-          <div class="pipeline-step" onclick="toast('ICP Mapper: prioritised company sourcing brief…')"><div class="ps-num">1</div><div><div class="ps-name">ICP Mapper &amp; Source Orchestrator</div><div class="ps-desc">Company profile → prioritised sourcing plan</div></div><span class="ps-arr">›</span></div>
-          <div class="pipeline-step" onclick="toast('Company Harvester: MCI CR · GLEIF · Tadawul…')"><div class="ps-num">2</div><div><div class="ps-name">Company Harvester</div><div class="ps-desc">MCI CR · GLEIF · Tadawul · Argaam · OpenCorporates · Saudi RSS</div></div><span class="ps-arr">›</span></div>
-          <div class="pipeline-step" onclick="toast('Deep Enrichment: Scout · SAMA · MISA · Wikidata…')"><div class="ps-num">3</div><div><div class="ps-name">Deep Enrichment</div><div class="ps-desc">Scout · SAMA · MISA · Wikidata · Gemini · website crawl</div></div><span class="ps-arr">›</span></div>
-          <div class="pipeline-step" onclick="toast('Signal Intelligence scanning…')"><div class="ps-num">4</div><div><div class="ps-name">Signal Intelligence</div><div class="ps-desc">News · sanctions · regulatory · hiring · contracts · funding</div></div><span class="ps-arr">›</span></div>
-          <div class="pipeline-step" onclick="toast('Validate: CR number · domain · liveness…')"><div class="ps-num">5</div><div><div class="ps-name">Validate, Verify &amp; Deduplicate</div><div class="ps-desc">CR number · domain liveness · dummy detection · fingerprint dedup</div></div><span class="ps-arr">›</span></div>
-          <div class="pipeline-step" onclick="toast('Scoring: ICP fit · key contacts · outreach…')"><div class="ps-num">6</div><div><div class="ps-name">ICP Scoring &amp; Contact Finder</div><div class="ps-desc">Composite ICP score · key contacts · email · LinkedIn</div></div><span class="ps-arr">›</span></div>
-          <div class="pipeline-step" onclick="toast('Publishing to CRM · account hub…')"><div class="ps-num">7</div><div><div class="ps-name">Publish &amp; Seed</div><div class="ps-desc">Bridges into accounts / companies / key contacts</div></div><span class="ps-arr">›</span></div>
+          <div class="pipeline-step" onclick="toast('ICP Mapper: prioritised company sourcing brief…')"><div class="ps-num">1</div><div><div class="ps-name">ICP Mapper &amp; Source Orchestrator</div><div class="ps-desc">Company profile → prioritised sourcing plan</div></div></div>
+          <div class="pipeline-step" onclick="toast('Company Harvester: MCI CR · GLEIF · Tadawul…')"><div class="ps-num">2</div><div><div class="ps-name">Company Harvester</div><div class="ps-desc">MCI CR · GLEIF · Tadawul · Argaam · OpenCorporates · Saudi RSS</div></div></div>
+          <div class="pipeline-step" onclick="toast('Deep Enrichment: Scout · SAMA · MISA · Wikidata…')"><div class="ps-num">3</div><div><div class="ps-name">Deep Enrichment</div><div class="ps-desc">Scout · SAMA · MISA · Wikidata · Gemini · website crawl</div></div></div>
+          <div class="pipeline-step" onclick="toast('Signal Intelligence scanning…')"><div class="ps-num">4</div><div><div class="ps-name">Signal Intelligence</div><div class="ps-desc">News · sanctions · regulatory · hiring · contracts · funding</div></div></div>
+          <div class="pipeline-step" onclick="toast('Validate: CR number · domain · liveness…')"><div class="ps-num">5</div><div><div class="ps-name">Validate, Verify &amp; Deduplicate</div><div class="ps-desc">CR number · domain liveness · dummy detection · fingerprint dedup</div></div></div>
+          <div class="pipeline-step" onclick="toast('Scoring: ICP fit · key contacts · outreach…')"><div class="ps-num">6</div><div><div class="ps-name">ICP Scoring &amp; Contact Finder</div><div class="ps-desc">Composite ICP score · key contacts · email · LinkedIn</div></div></div>
+          <div class="pipeline-step" onclick="toast('Publishing to CRM · account hub…')"><div class="ps-num">7</div><div><div class="ps-name">Publish &amp; Seed</div><div class="ps-desc">Bridges into accounts / companies / key contacts</div></div></div>
         </div>
       </div>
     </div>
@@ -1335,7 +1356,78 @@ tr:hover td{background:rgba(184,160,200,.06)}
       <div class="kpi-s"><div class="val">6 gov</div><div class="lbl">Data sources</div></div>
       <div class="kpi-s"><div class="val">~10s</div><div class="lbl">Avg run time</div></div>
     </div>
-    <div class="masaar-search"><input class="input" placeholder="Company name, CR number, or keyword..." style="flex:1"/><select class="select" style="width:180px"><option>All sectors</option><option>Fintech</option><option>Construction</option><option>Real Estate</option></select><button class="btn btn-primary" onclick="toast('Masaar query running...')">Run Masaar</button></div>
+    <!-- Stealth info bar -->
+    <div class="masaar-info-bar">
+      <strong style="color:var(--teal)">Stealth Agent Active</strong> — Agent 1 uses a fingerprint-spoofed browser with human-like mouse movements and typing delays. When a CAPTCHA appears, Claude Vision reads and auto-fills it (up to 3 retries). Session cookies are cached so verified domains skip re-solving. Manual input is only requested if AI fails all 3 attempts.
+    </div>
+
+    <!-- CR number input -->
+    <div class="masaar-cr-wrap">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-soft);text-transform:uppercase;margin-bottom:6px">Saudi Commercial Registration Number</div>
+      <div class="masaar-cr-row">
+        <input class="input masaar-cr-input" placeholder="e.g. 1010123456  (7–12 digits)" style="font-family:'JetBrains Mono',monospace;font-size:14px;letter-spacing:.03em"/>
+        <button class="btn btn-primary" style="padding:9px 22px;font-size:13px" onclick="toast('Masaar running — stealth browser opening mc.gov.sa…')">Run Masaar</button>
+      </div>
+      <div class="masaar-cr-hint">Stealth browser navigates mc.gov.sa — Claude Vision auto-solves the CAPTCHA</div>
+    </div>
+
+    <!-- 7-agent pipeline visualization -->
+    <div class="masaar-pipeline-wrap">
+      <div class="masaar-pipeline-title">Saudi CR Intelligence Pipeline</div>
+      <div class="masaar-pipeline-desc">Enter any Saudi CR number. The stealth agent opens mc.gov.sa with a fingerprint-spoofed browser, Claude Vision reads and auto-fills the CAPTCHA, then all 7 agents run fully automatically.</div>
+      <div class="masaar-agents-grid">
+        <div class="masaar-agent">
+          <div class="masaar-agent-num">1</div>
+          <div>
+            <div class="masaar-agent-name">MC.gov.sa Browser</div>
+            <div class="masaar-agent-desc">Stealth browser navigates mc.gov.sa — AI auto-solves CAPTCHA</div>
+          </div>
+        </div>
+        <div class="masaar-agent">
+          <div class="masaar-agent-num">2</div>
+          <div>
+            <div class="masaar-agent-name">Claude CR Parser</div>
+            <div class="masaar-agent-desc">Extracts all CR fields bilingually from the page text</div>
+          </div>
+        </div>
+        <div class="masaar-agent">
+          <div class="masaar-agent-num">3</div>
+          <div>
+            <div class="masaar-agent-name">Emagazine Search</div>
+            <div class="masaar-agent-desc">Searches emagazine.aamaly.sa for articles and AOA PDFs</div>
+          </div>
+        </div>
+        <div class="masaar-agent">
+          <div class="masaar-agent-num">4</div>
+          <div>
+            <div class="masaar-agent-name">AOA PDF Parser</div>
+            <div class="masaar-agent-desc">Downloads Arabic AOA PDF and extracts all 15+ legal fields</div>
+          </div>
+        </div>
+        <div class="masaar-agent">
+          <div class="masaar-agent-num">5</div>
+          <div>
+            <div class="masaar-agent-name">Najiz Legal Agencies</div>
+            <div class="masaar-agent-desc">Fetches legal agency records from najiz.sa Ministry of Justice</div>
+          </div>
+        </div>
+        <div class="masaar-agent">
+          <div class="masaar-agent-num">6</div>
+          <div>
+            <div class="masaar-agent-name">Cross-Validator</div>
+            <div class="masaar-agent-desc">Compares all sources and flags any data conflicts</div>
+          </div>
+        </div>
+        <div class="masaar-agent" style="grid-column:1/-1;max-width:calc(50% - 5px)">
+          <div class="masaar-agent-num">7</div>
+          <div>
+            <div class="masaar-agent-name">Report Compiler</div>
+            <div class="masaar-agent-desc">Compiles full bilingual EN + AR intelligence report</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="masaar-results">
       <div class="masaar-card"><div class="mc-head"><div class="mc-logo">T</div><div><div class="mc-name">Tabby Digital Finance Co.</div><div class="mc-meta">CR: 1010***543 · Riyadh · 2019</div></div><span class="pill pill-a" style="margin-left:auto">Active</span></div><div class="mc-tags"><span class="mc-tag">Fintech</span><span class="mc-tag">SAR 50M cap</span><span class="mc-tag">SAMA licensed</span><span class="mc-tag">250-500 emp</span></div><div class="mc-stats"><div class="mc-stat"><div class="sv">1010***543</div><div class="sl">CR Number</div></div><div class="mc-stat"><div class="sv">2019</div><div class="sl">Founded</div></div><div class="mc-stat"><div class="sv">Active</div><div class="sl">CR Status</div></div><div class="mc-stat"><div class="sv">SAR 50M</div><div class="sl">Capital</div></div></div></div>
       <div class="masaar-card"><div class="mc-head"><div class="mc-logo">L</div><div><div class="mc-name">Lean Technologies Ltd.</div><div class="mc-meta">CR: 1010***221 · Riyadh · 2019</div></div><span class="pill pill-a" style="margin-left:auto">Active</span></div><div class="mc-tags"><span class="mc-tag">Fintech</span><span class="mc-tag">SAR 20M cap</span><span class="mc-tag">SAMA licensed</span><span class="mc-tag">80-150 emp</span></div><div class="mc-stats"><div class="mc-stat"><div class="sv">1010***221</div><div class="sl">CR Number</div></div><div class="mc-stat"><div class="sv">2019</div><div class="sl">Founded</div></div><div class="mc-stat"><div class="sv">Active</div><div class="sl">CR Status</div></div><div class="mc-stat"><div class="sv">SAR 20M</div><div class="sl">Capital</div></div></div></div>
@@ -1419,39 +1511,21 @@ tr:hover td{background:rgba(184,160,200,.06)}
     <div class="page-h"><h1>AI DB Builder</h1><p class="sub">AI-generated custom databases — define schema, sources, and refresh rules in plain English</p></div>
     <div class="placeholder-grid">
       <div class="ph-card" onclick="toast('New DB builder started')">
-        <div class="ph-ico" style="display:flex;align-items:center;justify-content:center">
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8" style="width:32px;height:32px"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v8M8 12h8"/></svg>
-        </div>
         <div class="ph-t">Build New Database</div><div class="ph-d">Define schema, sources, enrichment rules, and schedule</div>
       </div>
       <div class="ph-card" onclick="toast('Saudi Fintech CTOs DB opened')">
-        <div class="ph-ico" style="display:flex;align-items:center;justify-content:center">
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="1.8" style="width:32px;height:32px"><circle cx="12" cy="8" r="4"/><path d="M4 20v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"/><path d="M17 8l2 2 4-4"/></svg>
-        </div>
         <div class="ph-t">Saudi Fintech CTOs</div><div class="ph-d">847 records · Last refreshed 2h ago · A+ ICP</div>
       </div>
       <div class="ph-card" onclick="toast('GCC Real Estate DB opened')">
-        <div class="ph-ico" style="display:flex;align-items:center;justify-content:center">
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8" style="width:32px;height:32px"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21V13h6v8"/><rect x="10" y="8" width="4" height="4" rx="1"/></svg>
-        </div>
         <div class="ph-t">GCC Real Estate Developers</div><div class="ph-d">1,240 companies · Daily refresh · Tadawul-listed</div>
       </div>
       <div class="ph-card" onclick="toast('NEOM Contractors DB opened')">
-        <div class="ph-ico" style="display:flex;align-items:center;justify-content:center">
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8" style="width:32px;height:32px"><path d="M14 5l-5 5 2 2-5 5"/><circle cx="17" cy="4" r="3"/><circle cx="5" cy="19" r="3"/></svg>
-        </div>
         <div class="ph-t">NEOM Contractors</div><div class="ph-d">312 vendors · Signal watch active</div>
       </div>
       <div class="ph-card" onclick="toast('AI DB building...')">
-        <div class="ph-ico" style="display:flex;align-items:center;justify-content:center">
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="1.8" style="width:32px;height:32px"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18M3 12h18"/><circle cx="12" cy="12" r="3"/></svg>
-        </div>
         <div class="ph-t">AI-Defined Database</div><div class="ph-d">Describe what you want in plain language</div>
       </div>
       <div class="ph-card" onclick="toast('Scheduled DBs opened')">
-        <div class="ph-ico" style="display:flex;align-items:center;justify-content:center">
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8" style="width:32px;height:32px"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="1" fill="var(--gold)"/></svg>
-        </div>
         <div class="ph-t">Scheduled Refreshes</div><div class="ph-d">8 databases on auto-refresh</div>
       </div>
     </div>
@@ -1527,7 +1601,7 @@ tr:hover td{background:rgba(184,160,200,.06)}
   <!-- ══ CRM ENRICHMENT — BULK UPLOAD ══ -->
   <div class="panel" id="panel-crm-bulkupload">
     <div class="page-h"><h1>Bulk Upload</h1><p class="sub">Upload lists for deduplication, enrichment, and CRM sync — up to 50,000 rows</p></div>
-    <div class="upload-zone" onclick="toast('File picker opened')"><div class="uz-ico">📂</div><div class="uz-t">Drop your file here or click to browse</div><div class="uz-d">CSV, XLSX, JSON — up to 50,000 rows per upload</div></div>
+    <div class="upload-zone" onclick="toast('File picker opened')"><div class="uz-t">Drop your file here or click to browse</div><div class="uz-d">CSV, XLSX, JSON — up to 50,000 rows per upload</div></div>
     <div class="card">
       <div class="card-h"><div class="card-num">D</div><div class="card-t">Deduplication &amp; Matching</div></div>
       <div class="card-body">
@@ -1570,7 +1644,7 @@ tr:hover td{background:rgba(184,160,200,.06)}
       <div class="kpi-s"><div class="val">12s</div><div class="lbl">Avg processing</div></div>
       <div class="kpi-s"><div class="val">8</div><div class="lbl">Pending approval</div></div>
     </div>
-    <div class="upload-zone" onclick="toast('Camera or file picker opened')"><div class="uz-ico">📇</div><div class="uz-t">Scan or upload a business card</div><div class="uz-d">Photo, PDF, or camera capture · Dark/colored/luxury GCC cards supported</div></div>
+    <div class="upload-zone" onclick="toast('Camera or file picker opened')"><div class="uz-t">Scan or upload a business card</div><div class="uz-d">Photo, PDF, or camera capture · Dark/colored/luxury GCC cards supported</div></div>
     <div class="card">
       <div class="card-h"><div class="card-num">P</div><div class="card-t">5-Agent Pipeline</div></div>
       <div class="card-body">
@@ -1587,26 +1661,350 @@ tr:hover td{background:rgba(184,160,200,.06)}
 
   <!-- ══ CRM ENRICHMENT — PROSENGINE ══ -->
   <div class="panel" id="panel-crm-prosengine">
-    <div class="page-h"><h1>ProsEngine</h1><p class="sub">Deep intelligence engines · multi-agent · 16 parallel AI runs</p></div>
-    <div class="enr-sub" id="pros-tabs">
-      <button class="on" onclick="setProsTab('company',this)">Company Intel</button>
-      <button onclick="setProsTab('person',this)">Person Intel</button>
-      <button onclick="setProsTab('website',this)">Website Intel</button>
-      <button onclick="setProsTab('seeder',this)">Data Seeder</button>
+    <div class="page-h"><h1>ProsEngine</h1><p class="sub">Saudi Arabia Intelligence Platform — multi-agent · 16 parallel AI runs · choose your mode</p></div>
+
+    <!-- ── HUB: 4 tool cards ── -->
+    <div id="pros-hub">
+      <div class="pros-hub-grid">
+
+        <!-- Company Intelligence -->
+        <div class="pros-tool-card" style="border-top:3px solid var(--teal)">
+          <div class="pros-tool-hdr">
+            <div class="pros-tool-ico" style="background:rgba(136,184,176,.14)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="1.8"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/><rect x="10" y="8" width="4" height="3" rx=".5"/></svg>
+            </div>
+            <span class="pros-badge" style="background:rgba(136,184,176,.14);color:#3d8a80">AI Company Dossier</span>
+          </div>
+          <div class="pros-tool-name">Company Intelligence</div>
+          <div class="pros-tool-desc">Enter any Saudi company name — no website needed. Get a full dossier: ownership and shareholders, leadership (EN+AR), financials, market intelligence, competitors, and a tailored B2B approach strategy.</div>
+          <div class="pros-bullets" style="color:var(--teal)">
+            <div class="pros-bullet">Shareholders and ownership % (bilingual)</div>
+            <div class="pros-bullet">CEO, board, executives (EN+AR)</div>
+            <div class="pros-bullet">Revenue, competitors, B2B approach</div>
+          </div>
+          <button class="pros-cta" style="background:linear-gradient(135deg,var(--teal),#5aa8a0)" onclick="showProsEngine('company')">Research a Company</button>
+        </div>
+
+        <!-- Person Intelligence -->
+        <div class="pros-tool-card" style="border-top:3px solid var(--primary)">
+          <div class="pros-tool-hdr">
+            <div class="pros-tool-ico" style="background:rgba(184,160,200,.14)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
+            </div>
+            <span class="pros-badge" style="background:rgba(184,160,200,.14);color:#8a60b0">AI Deep Profile</span>
+          </div>
+          <div class="pros-tool-name">Person Intelligence</div>
+          <div class="pros-tool-desc">Generate a full intelligence dossier on any Saudi executive, owner, or shareholder. Enter a name (and optional company or LinkedIn) to get wealth estimates, career history, education, and a tailored approach strategy.</div>
+          <div class="pros-bullets" style="color:var(--primary)">
+            <div class="pros-bullet">Wealth and income estimation</div>
+            <div class="pros-bullet">Career timeline and education</div>
+            <div class="pros-bullet">B2B approach strategy and cultural notes</div>
+          </div>
+          <button class="pros-cta" style="background:linear-gradient(135deg,var(--primary),#a878c8)" onclick="showProsEngine('person')">Profile a Person</button>
+        </div>
+
+        <!-- Website Intelligence -->
+        <div class="pros-tool-card" style="border-top:3px solid #4e9e96">
+          <div class="pros-tool-hdr">
+            <div class="pros-tool-ico" style="background:rgba(78,158,150,.12)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#4e9e96" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18M3 12h18"/><path d="M8.5 3.5S7 7 7 12s1.5 8.5 1.5 8.5M15.5 3.5S17 7 17 12s-1.5 8.5-1.5 8.5"/></svg>
+            </div>
+            <span class="pros-badge" style="background:rgba(78,158,150,.12);color:#3a7e76">URL Scanner</span>
+          </div>
+          <div class="pros-tool-name">Website Intelligence</div>
+          <div class="pros-tool-desc">Enter any Saudi business website, directory, or government registry. The engine deep-scans the site, detects data type, extracts companies and executives, then enriches each record with AI.</div>
+          <div class="pros-bullets" style="color:#4e9e96">
+            <div class="pros-bullet">Auto-detects directories, portals, catalogs</div>
+            <div class="pros-bullet">Extracts companies and executives</div>
+            <div class="pros-bullet">AI enrichment with contact and revenue data</div>
+          </div>
+          <button class="pros-cta" style="background:linear-gradient(135deg,#4e9e96,var(--teal))" onclick="showProsEngine('website')">Scan a Website</button>
+        </div>
+
+        <!-- Data Seeder -->
+        <div class="pros-tool-card" style="border-top:3px solid var(--gold)">
+          <div class="pros-tool-hdr">
+            <div class="pros-tool-ico" style="background:rgba(200,168,128,.14)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v5c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 10v5c0 1.66 4.03 3 9 3s9-1.34 9-3v-5"/><path d="M3 15v4c0 1.66 4.03 3 9 3s9-1.34 9-3v-4"/></svg>
+            </div>
+            <span class="pros-badge" style="background:rgba(200,168,128,.14);color:#8a5d20">AI Generator</span>
+          </div>
+          <div class="pros-tool-name">Data Seeder</div>
+          <div class="pros-tool-desc">Describe what data you need in plain text — industries, cities, executives, counts — and AI generates structured Saudi company and executive records instantly. No URL or CR number required.</div>
+          <div class="pros-bullets" style="color:var(--gold)">
+            <div class="pros-bullet">Text description or website URL input</div>
+            <div class="pros-bullet">AI-generated realistic Saudi records</div>
+            <div class="pros-bullet">Export to CSV · AI chat assistant included</div>
+          </div>
+          <button class="pros-cta" style="background:linear-gradient(135deg,var(--gold),#c89040)" onclick="showProsEngine('seeder')">Seed Data</button>
+        </div>
+      </div>
     </div>
-    <div id="pros-company" class="enr-pane on">
-      <div class="kpi-strip"><div class="kpi-s"><div class="val">~45s</div><div class="lbl">Avg run time</div></div><div class="kpi-s"><div class="val">16</div><div class="lbl">Agents</div></div><div class="kpi-s"><div class="val">38+</div><div class="lbl">Data fields</div></div><div class="kpi-s"><div class="val">12</div><div class="lbl">Source types</div></div><div class="kpi-s"><div class="val">92%</div><div class="lbl">Accuracy</div></div></div>
-      <div class="card"><div class="card-h"><div class="card-num">C</div><div class="card-t">Company Intelligence Run</div></div><div class="card-body"><div class="grid-2"><div><div class="field-label">Company name</div><input class="input" placeholder="Tabby, Lean Tech, NEOM..."/></div><div><div class="field-label">Country</div><select class="select"><option>Saudi Arabia</option><option>UAE</option><option>Kuwait</option><option>GCC (all)</option></select></div></div><div style="margin-top:12px"><div class="field-label">Report depth</div><div class="chips"><span class="chip">Standard (24 fields)</span><span class="chip on">Full (38 fields)</span><span class="chip">Compliance (+ PEP/sanctions)</span></div></div><div class="next-row"><div></div><button class="btn btn-primary" onclick="toast('Company Intel running ~45s...')">Run Company Intel</button></div></div></div>
+
+    <!-- ── COMPANY INTEL WIZARD ── -->
+    <div id="pros-company" style="display:none">
+      <div class="pros-wiz-hdr">
+        <button class="btn btn-ghost btn-sm" onclick="showProsHub()">← Hub</button>
+        <div>
+          <div class="pros-wiz-title">Company Intelligence</div>
+          <div class="pros-wiz-sub">AI-powered dossier · ownership and shareholders · leadership · B2B strategy</div>
+        </div>
+      </div>
+      <div class="pros-steps-bar">
+        <span class="pros-step active" id="pwc-tab-1">1 Company</span><span class="pros-sep">›</span>
+        <span class="pros-step" id="pwc-tab-2">2 Your Context</span><span class="pros-sep">›</span>
+        <span class="pros-step" id="pwc-tab-3">3 Goals</span><span class="pros-sep">›</span>
+        <span class="pros-step" id="pwc-tab-4">4 Known Facts</span><span class="pros-sep">›</span>
+        <span class="pros-step" id="pwc-tab-5">5 Generate</span>
+      </div>
+      <div id="pwc-1">
+        <div class="card"><div class="card-body">
+          <div class="field-label">Company Name *</div>
+          <input class="input" placeholder="e.g. Saudi Aramco, Tabby, Al Rajhi Bank..." style="margin-bottom:14px"/>
+          <div class="field-label">Website URL <span style="color:var(--muted);font-weight:400">(optional)</span></div>
+          <input class="input" placeholder="https://www.example.com.sa" style="margin-bottom:14px"/>
+          <div class="grid-2" style="gap:10px">
+            <div><div class="field-label">CR Number <span style="color:var(--muted);font-weight:400">(optional)</span></div><input class="input" placeholder="10-digit CR number"/></div>
+            <div><div class="field-label">City <span style="color:var(--muted);font-weight:400">(optional)</span></div><input class="input" placeholder="Riyadh, Jeddah, Dammam..."/></div>
+          </div>
+          <div class="next-row"><div></div><button class="btn btn-primary" onclick="prosWizStep('pwc',2)">Next: Your Context</button></div>
+        </div></div>
+      </div>
+      <div id="pwc-2" class="hide">
+        <div class="card"><div class="card-body">
+          <div class="field-label">Your company</div>
+          <input class="input" placeholder="Your company name" style="margin-bottom:14px"/>
+          <div class="grid-2" style="gap:10px;margin-bottom:14px">
+            <div><div class="field-label">Your role</div><input class="input" placeholder="e.g. Sales Director"/></div>
+            <div><div class="field-label">Use case</div>
+              <select class="select">
+                <option>B2B sales outreach</option>
+                <option>Investment due diligence</option>
+                <option>Partnership scouting</option>
+                <option>Competitive research</option>
+                <option>Compliance and KYC</option>
+              </select>
+            </div>
+          </div>
+          <div class="next-row"><button class="btn btn-ghost btn-sm" onclick="prosWizStep('pwc',1)">← Back</button><button class="btn btn-primary" onclick="prosWizStep('pwc',3)">Next: Goals</button></div>
+        </div></div>
+      </div>
+      <div id="pwc-3" class="hide">
+        <div class="card"><div class="card-body">
+          <div class="field-label">What do you want to achieve?</div>
+          <div class="chips" style="margin-bottom:14px">
+            <span class="chip on" onclick="toggleC(this)">Identify decision makers</span>
+            <span class="chip on" onclick="toggleC(this)">Understand ownership structure</span>
+            <span class="chip" onclick="toggleC(this)">Map competitors</span>
+            <span class="chip" onclick="toggleC(this)">Build B2B approach strategy</span>
+            <span class="chip" onclick="toggleC(this)">PEP and sanctions check</span>
+            <span class="chip" onclick="toggleC(this)">Board and advisor network</span>
+          </div>
+          <div class="field-label">Report language</div>
+          <div class="chips">
+            <span class="chip on" onclick="toggleC(this,true)">English</span>
+            <span class="chip" onclick="toggleC(this,true)">Arabic</span>
+            <span class="chip" onclick="toggleC(this,true)">Both (bilingual)</span>
+          </div>
+          <div class="next-row"><button class="btn btn-ghost btn-sm" onclick="prosWizStep('pwc',2)">← Back</button><button class="btn btn-primary" onclick="prosWizStep('pwc',4)">Next: Known Facts</button></div>
+        </div></div>
+      </div>
+      <div id="pwc-4" class="hide">
+        <div class="card"><div class="card-body">
+          <div class="field-label">Known facts <span style="color:var(--muted);font-weight:400">(optional — helps AI focus)</span></div>
+          <textarea class="input" style="min-height:90px" placeholder="e.g. The CEO was previously at Saudi Aramco · They recently closed Series B · Strong interest in fintech infrastructure · Known associate of Al Rajhi family..."></textarea>
+          <div class="next-row"><button class="btn btn-ghost btn-sm" onclick="prosWizStep('pwc',3)">← Back</button><button class="btn btn-primary" onclick="prosWizStep('pwc',5)">Next: Review</button></div>
+        </div></div>
+      </div>
+      <div id="pwc-5" class="hide">
+        <div class="card"><div class="card-body">
+          <div style="padding:14px 16px;background:rgba(136,184,176,.08);border:1px solid rgba(136,184,176,.22);border-radius:var(--r-sm);margin-bottom:16px">
+            <div style="font-size:12px;font-weight:700;margin-bottom:6px;color:var(--teal)">Ready to generate — 16 agents standing by</div>
+            <div style="font-size:12px;color:var(--ink-soft);line-height:1.6">Perplexity x9 · Gemini x5 · Claude · GPT-4o-mini · ~45 second run · 38+ data fields · full bilingual report</div>
+          </div>
+          <div class="field-label">Report depth</div>
+          <div class="chips" style="margin-bottom:14px">
+            <span class="chip" onclick="toggleC(this,true)">Standard (24 fields)</span>
+            <span class="chip on" onclick="toggleC(this,true)">Full (38 fields)</span>
+            <span class="chip" onclick="toggleC(this,true)">Compliance (+ PEP/sanctions)</span>
+          </div>
+          <div class="next-row"><button class="btn btn-ghost btn-sm" onclick="prosWizStep('pwc',4)">← Back</button><button class="btn btn-primary" onclick="toast('Company Intel running — est. 45 s…')">Generate Report</button></div>
+        </div></div>
+      </div>
     </div>
-    <div id="pros-person" class="enr-pane">
-      <div class="kpi-strip"><div class="kpi-s"><div class="val">76-90s</div><div class="lbl">Avg run time</div></div><div class="kpi-s"><div class="val">16</div><div class="lbl">Agents</div></div><div class="kpi-s"><div class="val">42+</div><div class="lbl">Data fields</div></div><div class="kpi-s"><div class="val">9 Perplexity</div><div class="lbl">Research agents</div></div><div class="kpi-s"><div class="val">91%</div><div class="lbl">Accuracy</div></div></div>
-      <div class="card"><div class="card-h"><div class="card-num">P</div><div class="card-t">Person Intelligence Run</div></div><div class="card-body"><div class="grid-2"><div><div class="field-label">Person name</div><input class="input" placeholder="Mohammed AlQasem"/></div><div><div class="field-label">Company (optional)</div><input class="input" placeholder="Tabby"/></div></div><div style="margin-top:12px"><div class="field-label">Include</div><div class="chips"><span class="chip on">LinkedIn</span><span class="chip on">Email</span><span class="chip on">Background</span><span class="chip on">ICP Score</span><span class="chip">Relationship tree</span><span class="chip">Outreach draft</span></div></div><div class="next-row"><div></div><button class="btn btn-primary" onclick="toast('Person Intel running ~76s...')">Run Person Intel</button></div></div></div>
+
+    <!-- ── PERSON INTEL WIZARD ── -->
+    <div id="pros-person" style="display:none">
+      <div class="pros-wiz-hdr">
+        <button class="btn btn-ghost btn-sm" onclick="showProsHub()">← Hub</button>
+        <div>
+          <div class="pros-wiz-title">Person Intelligence</div>
+          <div class="pros-wiz-sub">AI deep profile · wealth · career · education · B2B approach</div>
+        </div>
+      </div>
+      <div class="pros-steps-bar">
+        <span class="pros-step active" id="pwp-tab-1">1 Identity</span><span class="pros-sep">›</span>
+        <span class="pros-step" id="pwp-tab-2">2 Your Context</span><span class="pros-sep">›</span>
+        <span class="pros-step" id="pwp-tab-3">3 Goals</span><span class="pros-sep">›</span>
+        <span class="pros-step" id="pwp-tab-4">4 Known Facts</span><span class="pros-sep">›</span>
+        <span class="pros-step" id="pwp-tab-5">5 Generate</span>
+      </div>
+      <div id="pwp-1">
+        <div class="card"><div class="card-body">
+          <div class="grid-2" style="gap:10px;margin-bottom:14px">
+            <div><div class="field-label">Full name *</div><input class="input" placeholder="e.g. Mohammed Al-Rashid"/></div>
+            <div><div class="field-label">Title / Role <span style="color:var(--muted);font-weight:400">(optional)</span></div><input class="input" placeholder="e.g. CEO, CTO, Chairman"/></div>
+          </div>
+          <div class="grid-2" style="gap:10px">
+            <div><div class="field-label">Company <span style="color:var(--muted);font-weight:400">(optional)</span></div><input class="input" placeholder="e.g. Tabby, Saudi Aramco"/></div>
+            <div><div class="field-label">LinkedIn URL <span style="color:var(--muted);font-weight:400">(optional)</span></div><input class="input" placeholder="https://linkedin.com/in/..."/></div>
+          </div>
+          <div class="next-row"><div></div><button class="btn btn-primary" onclick="prosWizStep('pwp',2)">Next: Your Context</button></div>
+        </div></div>
+      </div>
+      <div id="pwp-2" class="hide">
+        <div class="card"><div class="card-body">
+          <div class="field-label">Your company</div>
+          <input class="input" placeholder="Your company name" style="margin-bottom:14px"/>
+          <div class="grid-2" style="gap:10px;margin-bottom:14px">
+            <div><div class="field-label">Your role</div><input class="input" placeholder="e.g. Business Development"/></div>
+            <div><div class="field-label">Use case</div>
+              <select class="select">
+                <option>Executive outreach</option>
+                <option>Investment targeting</option>
+                <option>Partnership building</option>
+                <option>Competitive intel</option>
+                <option>Compliance / KYC</option>
+              </select>
+            </div>
+          </div>
+          <div class="next-row"><button class="btn btn-ghost btn-sm" onclick="prosWizStep('pwp',1)">← Back</button><button class="btn btn-primary" onclick="prosWizStep('pwp',3)">Next: Goals</button></div>
+        </div></div>
+      </div>
+      <div id="pwp-3" class="hide">
+        <div class="card"><div class="card-body">
+          <div class="field-label">What do you need?</div>
+          <div class="chips" style="margin-bottom:14px">
+            <span class="chip on" onclick="toggleC(this)">Wealth and income estimate</span>
+            <span class="chip on" onclick="toggleC(this)">Career and education timeline</span>
+            <span class="chip on" onclick="toggleC(this)">Current responsibilities</span>
+            <span class="chip" onclick="toggleC(this)">Board and advisor roles</span>
+            <span class="chip" onclick="toggleC(this)">Personal interests and causes</span>
+            <span class="chip" onclick="toggleC(this)">B2B icebreaker strategy</span>
+          </div>
+          <div class="field-label">Report language</div>
+          <div class="chips">
+            <span class="chip on" onclick="toggleC(this,true)">English</span>
+            <span class="chip" onclick="toggleC(this,true)">Arabic</span>
+            <span class="chip" onclick="toggleC(this,true)">Both (bilingual)</span>
+          </div>
+          <div class="next-row"><button class="btn btn-ghost btn-sm" onclick="prosWizStep('pwp',2)">← Back</button><button class="btn btn-primary" onclick="prosWizStep('pwp',4)">Next: Known Facts</button></div>
+        </div></div>
+      </div>
+      <div id="pwp-4" class="hide">
+        <div class="card"><div class="card-body">
+          <div class="field-label">Known facts <span style="color:var(--muted);font-weight:400">(optional — helps AI focus)</span></div>
+          <textarea class="input" style="min-height:90px" placeholder="e.g. Studied at KFUPM · Previously at McKinsey · Known interest in renewable energy · Attended GITEX 2024 · Sits on Al Rajhi Capital board..."></textarea>
+          <div class="next-row"><button class="btn btn-ghost btn-sm" onclick="prosWizStep('pwp',3)">← Back</button><button class="btn btn-primary" onclick="prosWizStep('pwp',5)">Next: Review</button></div>
+        </div></div>
+      </div>
+      <div id="pwp-5" class="hide">
+        <div class="card"><div class="card-body">
+          <div style="padding:14px 16px;background:rgba(184,160,200,.08);border:1px solid rgba(184,160,200,.22);border-radius:var(--r-sm);margin-bottom:16px">
+            <div style="font-size:12px;font-weight:700;margin-bottom:6px;color:var(--primary)">Ready to generate — 16 agents standing by</div>
+            <div style="font-size:12px;color:var(--ink-soft);line-height:1.6">Perplexity x9 · Gemini x5 · Claude · GPT-4o-mini · 76–90 second run · 42+ data fields · wealth, career, approach strategy</div>
+          </div>
+          <div class="field-label">Profile depth</div>
+          <div class="chips" style="margin-bottom:14px">
+            <span class="chip" onclick="toggleC(this,true)">Standard</span>
+            <span class="chip on" onclick="toggleC(this,true)">Full (42 fields)</span>
+            <span class="chip" onclick="toggleC(this,true)">Compliance (+ PEP/AML)</span>
+          </div>
+          <div class="next-row"><button class="btn btn-ghost btn-sm" onclick="prosWizStep('pwp',4)">← Back</button><button class="btn btn-primary" onclick="toast('Person Intel running — est. 76 s…')">Generate Profile</button></div>
+        </div></div>
+      </div>
     </div>
-    <div id="pros-website" class="enr-pane">
-      <div class="card"><div class="card-h"><div class="card-num">W</div><div class="card-t">Website Intelligence</div></div><div class="card-body"><div><div class="field-label">Website URL</div><input class="input" placeholder="https://tabby.ai"/></div><div style="margin-top:12px"><div class="field-label">Extract</div><div class="chips"><span class="chip on">Tech stack</span><span class="chip on">Team / leadership</span><span class="chip on">Products &amp; pricing</span><span class="chip">Job postings</span><span class="chip on">Contact emails</span></div></div><div class="next-row"><div></div><button class="btn btn-primary" onclick="toast('Website Intel running...')">Run Website Intel</button></div></div></div>
+
+    <!-- ── WEBSITE INTELLIGENCE ── -->
+    <div id="pros-website" style="display:none">
+      <div class="pros-wiz-hdr">
+        <button class="btn btn-ghost btn-sm" onclick="showProsHub()">← Hub</button>
+        <div>
+          <div class="pros-wiz-title">Website Intelligence</div>
+          <div class="pros-wiz-sub">3-phase automated pipeline: Scan · Extract · Enrich</div>
+        </div>
+      </div>
+      <div class="pros-steps-bar">
+        <span class="pros-step active">Target URL</span><span class="pros-sep">›</span>
+        <span class="pros-step">Scanning</span><span class="pros-sep">›</span>
+        <span class="pros-step">Configure</span><span class="pros-sep">›</span>
+        <span class="pros-step">Extraction</span><span class="pros-sep">›</span>
+        <span class="pros-step">Results</span>
+      </div>
+      <div class="card"><div class="card-body">
+        <div style="display:flex;gap:10px;margin-bottom:14px">
+          <div class="seg" style="font-size:11px">
+            <button class="on" data-seg="url">Website URL</button>
+            <button data-seg="text">Describe in text</button>
+          </div>
+          <div class="seg" style="font-size:11px">
+            <button class="on" data-seg="directory">Directory Scan</button>
+            <button data-seg="single">Single Company</button>
+          </div>
+        </div>
+        <div class="field-label">Website or directory URL *</div>
+        <input class="input" placeholder="https://www.monshaat.gov.sa/en/service-providers" style="margin-bottom:14px"/>
+        <div class="field-label">Extract</div>
+        <div class="chips" style="margin-bottom:14px">
+          <span class="chip on" onclick="toggleC(this)">Companies</span>
+          <span class="chip on" onclick="toggleC(this)">Executives</span>
+          <span class="chip on" onclick="toggleC(this)">Contact emails</span>
+          <span class="chip on" onclick="toggleC(this)">Tech stack</span>
+          <span class="chip" onclick="toggleC(this)">Job postings</span>
+          <span class="chip" onclick="toggleC(this)">Products and pricing</span>
+        </div>
+        <div style="padding:12px 14px;background:rgba(78,158,150,.06);border:1px solid rgba(78,158,150,.18);border-radius:var(--r-sm);font-size:12px;color:var(--ink-soft);margin-bottom:16px;line-height:1.55">
+          The engine auto-detects whether the target is a company directory, registry, or single company website and adjusts the extraction strategy accordingly.
+        </div>
+        <div class="next-row"><div></div><button class="btn btn-primary" onclick="toast('Website scan started — crawling and extracting…')">Deep Scan</button></div>
+      </div></div>
     </div>
-    <div id="pros-seeder" class="enr-pane">
-      <div class="card"><div class="card-h"><div class="card-num">S</div><div class="card-t">Data Seeder<span class="card-sub">— AI-generated seed lists for enrichment</span></div></div><div class="card-body"><textarea class="input" style="min-height:80px" placeholder="Describe the seed list: e.g. Top 50 Saudi fintech companies by funding, with all C-suite contacts..."></textarea><div style="margin-top:12px"><div class="field-label">Output format</div><div class="chips"><span class="chip on">CSV ready</span><span class="chip">JSON</span><span class="chip">Push to CRM</span></div></div><div class="next-row"><div></div><button class="btn btn-primary" onclick="toast('Seeder running...')">Generate Seed List</button></div></div></div>
+
+    <!-- ── DATA SEEDER ── -->
+    <div id="pros-seeder" style="display:none">
+      <div class="pros-wiz-hdr">
+        <button class="btn btn-ghost btn-sm" onclick="showProsHub()">← Hub</button>
+        <div>
+          <div class="pros-wiz-title">Data Seeder</div>
+          <div class="pros-wiz-sub">AI-generated Saudi company and executive records from plain text</div>
+        </div>
+      </div>
+      <div class="card"><div class="card-body">
+        <div class="field-label">Describe your dataset *</div>
+        <textarea class="input" style="min-height:100px" placeholder="e.g. Top 50 Saudi fintech companies by funding, with CEO and CTO names, emails, and LinkedIn URLs. Series A and above. Riyadh and Jeddah only. SAMA-licensed preferred..."></textarea>
+        <div style="margin-top:14px">
+          <div class="field-label">Schema</div>
+          <div class="chips" style="margin-bottom:12px">
+            <span class="chip on" onclick="toggleC(this,true)">Person (contacts)</span>
+            <span class="chip" onclick="toggleC(this,true)">Company (accounts)</span>
+            <span class="chip" onclick="toggleC(this,true)">Both</span>
+          </div>
+          <div class="field-label">Output format</div>
+          <div class="chips" style="margin-bottom:12px">
+            <span class="chip on" onclick="toggleC(this,true)">CSV</span>
+            <span class="chip" onclick="toggleC(this,true)">JSON</span>
+            <span class="chip" onclick="toggleC(this,true)">Push to Lead Hunt</span>
+            <span class="chip" onclick="toggleC(this,true)">Push to Genome</span>
+          </div>
+          <div class="field-label">Refresh schedule</div>
+          <div class="chips">
+            <span class="chip on" onclick="toggleC(this,true)">One-time</span>
+            <span class="chip" onclick="toggleC(this,true)">Daily</span>
+            <span class="chip" onclick="toggleC(this,true)">Weekly</span>
+          </div>
+        </div>
+        <div class="next-row" style="margin-top:16px"><div></div><button class="btn btn-primary" onclick="toast('Seeder running — AI generating records…')">Generate Seed Data</button></div>
+      </div></div>
     </div>
   </div>
 
@@ -2210,6 +2608,34 @@ async function miniChatSend(){
     typing.textContent=text||'Done.';
     _miniHistory.push({role:'assistant',content:text});
   }catch(e){typing.textContent='Error: '+e.message;typing.style.color='var(--bad)';}
+}
+
+// ─── PROSENGINE HUB / WIZARD ─────────────────────────────────────────────────
+function showProsEngine(tool){
+  document.getElementById('pros-hub').style.display='none';
+  ['company','person','website','seeder'].forEach(t=>{
+    const el=document.getElementById('pros-'+t);
+    if(el) el.style.display=t===tool?'block':'none';
+  });
+}
+function showProsHub(){
+  document.getElementById('pros-hub').style.display='block';
+  ['company','person','website','seeder'].forEach(t=>{
+    const el=document.getElementById('pros-'+t);
+    if(el) el.style.display='none';
+  });
+}
+function prosWizStep(prefix,step){
+  const maxStep=5;
+  for(let i=1;i<=maxStep;i++){
+    const form=document.getElementById(prefix+'-'+i);
+    if(form){form.classList.toggle('hide',i!==step);}
+    const tab=document.getElementById(prefix+'-tab-'+i);
+    if(tab){
+      tab.classList.toggle('active',i===step);
+      tab.classList.toggle('done',i<step);
+    }
+  }
 }
 
 // ─── TOAST ───────────────────────────────────────────────────────────────────
