@@ -12,6 +12,7 @@ import {
   type SectionDef, type TopNavEntry,
 } from "@/lib/sections";
 import { ROLE_LIST, getRole, setRole, setSignedIn } from "@/lib/marketing-auth";
+import { useTenantConfig } from "@/hooks/useTenantConfig";
 
 interface TopBarProps {
   dark: boolean;
@@ -38,6 +39,7 @@ export function TopBar({ dark, onDark }: TopBarProps) {
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: notifData } = useNotifications();
   const unreadCount = (notifData?.notifications ?? []).filter((n: { read?: boolean }) => !n.read).length;
+  const { config: tenantConfig } = useTenantConfig();
 
   // Listen for role changes triggered anywhere in the app.
   useEffect(() => {
@@ -101,15 +103,33 @@ export function TopBar({ dark, onDark }: TopBarProps) {
             Logo sits beside the Home tab. No wordmark. No utilities. */}
       <div className="flex items-center h-12 px-3 sm:px-4 max-w-[1600px] mx-auto w-full gap-2">
         <Link href="/home">
-          <div className="flex-shrink-0 cursor-pointer p-1 rounded-lg hover:bg-muted/40 transition-colors" aria-label="NexFlow home">
-            <NexFlowLogo size={28} />
+          <div className="flex-shrink-0 cursor-pointer p-1 rounded-lg hover:bg-muted/40 transition-colors flex items-center gap-2" aria-label="NexFlow home">
+            {tenantConfig?.logoBase64 ? (
+              <img
+                src={tenantConfig.logoBase64}
+                alt={tenantConfig.companyName || "Company logo"}
+                className="h-7 max-w-[120px] object-contain rounded"
+              />
+            ) : (
+              <NexFlowLogo size={28} />
+            )}
+            {tenantConfig?.companyName && (
+              <span className="hidden sm:block text-xs font-bold text-foreground/70 max-w-[100px] truncate leading-tight">
+                {tenantConfig.companyName}
+              </span>
+            )}
           </div>
         </Link>
         <nav
           className="flex items-center gap-1 flex-1 flex-wrap"
           aria-label="Primary"
         >
-          {getNavForRole(currentRole.key).map((entry) => (
+          {getNavForRole(currentRole.key)
+            .filter((entry) => {
+              if (!tenantConfig?.tabStructure?.length) return true;
+              return tenantConfig.tabStructure.includes(entry.key);
+            })
+            .map((entry) => (
             <TopNavButton
               key={entry.key}
               entry={entry}

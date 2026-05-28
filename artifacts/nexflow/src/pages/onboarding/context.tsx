@@ -4,6 +4,7 @@ import { apiFetch } from "@/hooks/useApi";
 import type { SetupAnswers, SetupSession, ProposalData, SetupPath } from "./types";
 import { defaultAnswers } from "./types";
 import { calculatePricing } from "./pricing";
+import { TENANT_CONFIG_KEY, TENANT_CONFIG_EVENT } from "@/hooks/useTenantConfig";
 
 interface WizardCtx {
   sessionId: string | null;
@@ -156,23 +157,27 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ proposalId: proposal.id }),
       });
       // Persist the full wizard choices so SetupComplete and the main app can read them
-      localStorage.setItem("nf:tenant_config", JSON.stringify({
+      const tenantPayload = {
         companyName:    answers.companyName,
-        companyNameAr:  answers.companyNameAr ?? "",
+        companyNameAr:  answers.companyNameAr  ?? "",
         primaryColor:   answers.primaryColor,
         secondaryColor: answers.secondaryColor ?? "#88B8B0",
         accentColor:    answers.accentColor    ?? "#C8A880",
         logoBase64:     answers.logoBase64     ?? null,
         enabledModules: answers.enabledModules,
+        tabStructure:   answers.tabStructure   ?? ["home","leads","callcenter","datahub","marketing","insights"],
         countries:      answers.countries,
         industry:       answers.industry,
         crNumber:       answers.crNumber       ?? "",
         companyWebsite: answers.companyWebsite ?? "",
         linkedinPage:   answers.linkedinPage   ?? "",
+        integrations:   answers.integrations   ?? [],
         setupPath,
         slug:           data.slug ?? sessionId,
         approvedAt:     new Date().toISOString(),
-      }));
+      };
+      localStorage.setItem(TENANT_CONFIG_KEY, JSON.stringify(tenantPayload));
+      window.dispatchEvent(new CustomEvent(TENANT_CONFIG_EVENT));
       navigate(`/onboarding/complete?s=${sessionId}`);
       return data.slug as string;
     } catch (e: any) {

@@ -69,7 +69,16 @@ export default function ProposalView() {
           <button
             onClick={generateProposal}
             disabled={proposalLoading}
-            className="px-4 py-2 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:border-[#B8A0C8]/50 hover:text-[#B8A0C8] transition-all"
+            className="px-4 py-2 rounded-xl border border-border text-sm font-medium text-muted-foreground transition-all"
+            onMouseEnter={(e) => {
+              const c = answers.primaryColor || "#B8A0C8";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = `${c}80`;
+              (e.currentTarget as HTMLButtonElement).style.color = c;
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "";
+              (e.currentTarget as HTMLButtonElement).style.color = "";
+            }}
           >
             ↺ Regenerate
           </button>
