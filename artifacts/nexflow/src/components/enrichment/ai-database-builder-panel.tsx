@@ -1,7 +1,7 @@
 /**
  * AI Database Builder Panel
  * ==========================
- * 15-source AI-powered database construction.
+ * 80-source AI-powered database construction.
  * Dedicated file — extracted from enrichment-engine.tsx.
  *
  * Layout: builder workspace
@@ -209,7 +209,7 @@ export function AiDatabaseBuilderPanel() {
   return (
     <div className="flex flex-col gap-5">
 
-      {/* ── Prompt bar (NexFlow light theme) ───────────────────────────────── */}
+      {/* ── Prompt bar — NexFlow light theme ──────────────────────────────── */}
       <div className="rounded-2xl border border-border/30 bg-card/50 overflow-hidden"
         style={{ borderTop: `3px solid ${ACCENT}` }}>
         <div className="px-5 pt-4 pb-3">
@@ -230,8 +230,7 @@ export function AiDatabaseBuilderPanel() {
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void startBuild(); } }}
               placeholder="e.g., Fintech companies in Riyadh with 50+ employees, Series A or later…"
-              className="w-full pl-11 pr-4 py-3.5 rounded-xl text-[14px] border border-border/40 bg-background outline-none focus:ring-2 transition-all"
-              style={{ focusRingColor: `${ACCENT}40` } as React.CSSProperties}
+              className="w-full pl-11 pr-4 py-3.5 rounded-xl text-[14px] border border-border/40 bg-background outline-none focus:ring-2 transition-all placeholder:text-muted-foreground/50"
             />
           </div>
 
@@ -277,9 +276,7 @@ export function AiDatabaseBuilderPanel() {
             <button onClick={startBuild} disabled={!!isRunning}
               className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-[13px] text-white disabled:opacity-50 transition-all hover:scale-105 active:scale-100"
               style={{
-                background: isRunning
-                  ? "#9CA3AF"
-                  : `linear-gradient(135deg, ${ACCENT}, #7C3AED)`,
+                background: isRunning ? "#9CA3AF" : `linear-gradient(135deg, ${ACCENT}, #7C3AED)`,
                 boxShadow: isRunning ? "none" : `0 4px 20px ${ACCENT}50`,
               }}>
               {isRunning
