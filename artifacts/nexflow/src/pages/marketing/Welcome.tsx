@@ -6,7 +6,7 @@ import {
   Users, Building2, LineChart, ShieldCheck, PhoneCall,
   MessageSquare, Megaphone, CheckCircle2, ChevronRight,
 } from "lucide-react";
-import { NexFlowLogo } from "@/components/layout/NexFlowLogo";
+import { NexFlowWordmark } from "@/components/layout/NexFlowLogo";
 import { useInView, useCountUp, useTilt } from "@/lib/use-marketing-anim";
 import { cn } from "@/lib/utils";
 
@@ -155,11 +155,11 @@ export default function WelcomePage() {
         </div>
 
         <div className="flex justify-center mb-8">
-          <div className="relative" style={{ width: 176, height: 176 }}>
-            <div className="absolute inset-0 blur-3xl opacity-40 animate-pulse pointer-events-none"
-              style={{ background: "radial-gradient(circle, #B8A0C8 0%, #88B8B0 50%, transparent 75%)", animationDuration: "4s" }} />
-            <div className="absolute inset-0 flex items-center justify-center animate-[bounce_3.5s_ease-in-out_infinite]">
-              <NexFlowLogo size={176} />
+          <div className="relative" style={{ width: 220, height: 56 }}>
+            <div className="absolute inset-0 blur-3xl opacity-35 pointer-events-none"
+              style={{ background: "radial-gradient(circle, #B8A0C8 0%, #88B8B0 50%, transparent 75%)" }} />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <NexFlowWordmark height={56} />
             </div>
           </div>
         </div>
@@ -206,8 +206,9 @@ export default function WelcomePage() {
             </button>
           </Link>
           <Link href="/onboarding">
-            <button className="group inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-sm font-bold border-2 border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all hover:scale-105 active:scale-95">
-              🏗️ Enterprise Setup
+            <button className="group inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-white text-sm font-bold shadow-xl hover:shadow-2xl transition-all hover:scale-105 active:scale-95"
+              style={{ background: "linear-gradient(135deg,#C8A880,#B8A0C8)" }}>
+              Enterprise Setup <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
             </button>
           </Link>
           <Link href="/about">
@@ -274,7 +275,7 @@ export default function WelcomePage() {
           A CRM the GCC was always going to build for itself
         </h2>
         <p className="text-base text-muted-foreground max-w-3xl mx-auto leading-relaxed text-center">
-          NexFlow is a Riyadh-headquartered, KSA-incorporated company building the first AI-native CRM
+          QPulse is a Riyadh-headquartered, KSA-incorporated company building the first AI-native CRM
           designed from the ground up for Gulf enterprises — bilingual reps, regulated data, voice-heavy
           outreach, and AI baked into every workflow rather than bolted on as an upsell SKU.
         </p>
@@ -345,7 +346,7 @@ export default function WelcomePage() {
           Everyone on the revenue team wins
         </h2>
         <p className="text-base text-muted-foreground max-w-2xl mx-auto text-center mb-8">
-          NexFlow ships with five demo personas — click any tab to see the app re-tune itself for that role.
+          QPulse ships with five demo personas — click any tab to see the app re-tune itself for that role.
         </p>
 
         <div className="flex flex-wrap justify-center gap-2 mb-6">
