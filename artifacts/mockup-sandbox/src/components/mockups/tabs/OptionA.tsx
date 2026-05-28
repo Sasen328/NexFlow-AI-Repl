@@ -1,165 +1,202 @@
 import { useState } from "react";
-import { Home, Users, Phone, Database, Megaphone, BarChart3 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, Bell, User as UserIcon } from "lucide-react";
+import { NAV, type NavSection, type SubItem } from "./navData";
 
-const NAV = [
-  {
-    key: "home", label: "Home", icon: Home, color: "#B8A0C8",
-    subs: [
-      { key: "briefing", label: "Daily Briefing", subs: [] },
-      { key: "command",  label: "Command Center", subs: [] },
-    ],
-  },
-  {
-    key: "crm", label: "CRM", icon: Users, color: "#88B8B0",
-    subs: [
-      { key: "dashboard",  label: "Dashboard",     subs: [] },
-      { key: "pipeline",   label: "Pipeline",      subs: ["Pre-SAL", "Active", "Stalled", "Won", "Lost"] },
-      { key: "deals",      label: "Deal Pipeline", subs: [] },
-      { key: "contacts",   label: "Contacts",      subs: [] },
-      { key: "engagement", label: "Engagement",    subs: ["All", "Calls", "Meetings"] },
-      { key: "companies",  label: "Companies",     subs: ["Companies", "Account Hub"] },
-      { key: "forecast",   label: "Forecasting",   subs: [] },
-    ],
-  },
-  {
-    key: "callcenter", label: "Call Center", icon: Phone, color: "#C8A880",
-    subs: [
-      { key: "dialer",     label: "Power Dialer",      subs: ["Manual", "Auto-Dial", "AI Agent"] },
-      { key: "calls",      label: "Calls & Transcripts",subs: ["Call Scoring", "Conversation Intel"] },
-      { key: "postcall",   label: "Post-Call Auto",    subs: ["Approval Queue", "Cadence Rules", "Inbox"] },
-      { key: "calldash",   label: "Call Dashboard",    subs: [] },
-      { key: "setup",      label: "Setup",             subs: ["Overview", "AI Voice Agent", "Knowledge Base", "Guardrails"] },
-    ],
-  },
-  {
-    key: "datahub", label: "Data Hub", icon: Database, color: "#A0B8C8",
-    subs: [
-      { key: "enrich-home",   label: "Enrichment Workspace", subs: [] },
-      { key: "enrich-engine", label: "Enrichment Engine",    subs: ["Prospecting", "Buying Signals", "Quick Enrich", "Card Scanner", "List Upload", "Dedup", "History"] },
-    ],
-  },
-  {
-    key: "marketing", label: "Marketing", icon: Megaphone, color: "#C8A0A0",
-    subs: [
-      { key: "mkt-ws",   label: "Workspace",         subs: [] },
-      { key: "mkt-dash", label: "Dashboard",          subs: [] },
-      { key: "mkt-camp", label: "Campaign Builder",   subs: ["Sales Funnel", "AI Builder", "Manual Builder", "Publishing"] },
-      { key: "mkt-seq",  label: "Sequences",          subs: ["Sequences", "Templates", "Audiences"] },
-      { key: "mkt-form", label: "Web Forms",          subs: [] },
-      { key: "mkt-perf", label: "Performance",        subs: [] },
-    ],
-  },
-  {
-    key: "insights", label: "Insights", icon: BarChart3, color: "#A0C8A8",
-    subs: [
-      { key: "ins-dash",  label: "Dashboards",  subs: [] },
-      { key: "ins-rpt",   label: "Reports",     subs: [] },
-      { key: "ins-team",  label: "Team",        subs: ["YTD", "Inception", "Custom Range"] },
-      { key: "ins-pred",  label: "Predictive",  subs: [] },
-    ],
-  },
-];
+function pickMain(key: string) {
+  return NAV.find((n) => n.key === key)!;
+}
 
 export default function OptionA() {
-  const [main, setMain] = useState("crm");
-  const [sub, setSub]   = useState("pipeline");
-  const [page, setPage] = useState(0);
+  const [mainKey, setMainKey]   = useState("crm");
+  const [subKey, setSubKey]     = useState("pipeline");
+  const [pageKey, setPageKey]   = useState("presal");
+  const [sidebarOpen, setSidebar] = useState(true);
 
-  const section = NAV.find((n) => n.key === main)!;
-  const subItem  = section.subs.find((s) => s.key === sub) ?? section.subs[0];
+  const section: NavSection = pickMain(mainKey);
+  const subItem: SubItem    = section.subs.find((s) => s.key === subKey) ?? section.subs[0];
+  const hasSubs             = subItem.items.length > 0;
+  const color               = section.color;
 
-  function pickMain(key: string) {
-    setMain(key);
-    const s = NAV.find((n) => n.key === key)!;
-    setSub(s.subs[0]?.key ?? "");
-    setPage(0);
+  function selectMain(key: string) {
+    const s = pickMain(key);
+    setMainKey(key);
+    setSubKey(s.subs[0]?.key ?? "");
+    setPageKey(s.subs[0]?.items[0]?.key ?? "");
   }
-  function pickSub(key: string) {
-    setSub(key);
-    setPage(0);
+  function selectSub(key: string) {
+    const sub = section.subs.find((s) => s.key === key)!;
+    setSubKey(key);
+    setPageKey(sub.items[0]?.key ?? "");
   }
-
-  const c = section.color;
 
   return (
-    <div className="min-h-screen bg-[#F5F3FA] flex flex-col font-sans">
-      {/* ── Label ── */}
-      <div className="text-center pt-6 pb-3">
-        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#B8A0C8]/15 text-[#7C5E9E] text-[11px] font-semibold tracking-wide uppercase">
-          Option A — Floating Pill Tabs
-        </span>
-        <p className="text-[11px] text-[#8A849A] mt-1">Filled gradient pill · active tab gets color shadow · 3-level nav</p>
+    <div className="h-screen flex flex-col overflow-hidden font-sans select-none" style={{
+      background: "linear-gradient(135deg, #0D0B1E 0%, #130F2A 40%, #0B1A24 100%)",
+    }}>
+      {/* Decorative blobs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-20 blur-3xl"
+          style={{ background: color }} />
+        <div className="absolute top-20 right-0 w-80 h-80 rounded-full opacity-10 blur-3xl"
+          style={{ background: "#38BDF8" }} />
+        <div className="absolute bottom-0 left-1/3 w-72 h-72 rounded-full opacity-10 blur-3xl"
+          style={{ background: "#F472B6" }} />
       </div>
 
-      {/* ── Level 1: Main tab bar ── */}
-      <div className="mx-5 bg-white/70 backdrop-blur-md rounded-2xl shadow-md shadow-black/5 border border-white/80 p-1.5 flex items-center gap-1">
-        {NAV.map((t) => {
-          const active = t.key === main;
-          const Icon = t.icon;
-          return (
-            <button key={t.key} onClick={() => pickMain(t.key)}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-semibold transition-all duration-200"
-              style={active
-                ? { background: `linear-gradient(135deg, ${t.color}E8, ${t.color}AA)`, color: "#fff", boxShadow: `0 3px 10px ${t.color}55` }
-                : { color: "#9A94AD" }}>
-              <Icon size={13} />
-              <span>{t.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Level 2: Section sub-tabs ── */}
-      <div className="mx-5 mt-2 flex items-center gap-1 flex-wrap">
-        {section.subs.map((s) => {
-          const active = s.key === subItem.key;
-          return (
-            <button key={s.key} onClick={() => pickSub(s.key)}
-              className="px-3 py-1.5 rounded-full text-[11.5px] font-semibold transition-all"
-              style={active
-                ? { background: `${c}22`, color: c, fontWeight: 700 }
-                : { color: "#9A94AD" }}>
-              {s.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Level 3: Page sub-tabs (only when the sub has children) ── */}
-      {subItem.subs.length > 0 && (
-        <div className="mx-5 mt-1.5 p-1 rounded-xl flex items-center gap-0.5 w-fit"
-          style={{ background: `${c}10` }}>
-          {subItem.subs.map((label, i) => (
-            <button key={label} onClick={() => setPage(i)}
-              className="px-3 py-1 rounded-lg text-[11px] font-medium transition-all"
-              style={page === i
-                ? { background: "white", color: c, fontWeight: 700, boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }
-                : { color: "#9A94AD" }}>
-              {label}
-            </button>
-          ))}
+      {/* ── LEVEL 1: Top bar ── */}
+      <header className="relative z-20 flex items-center h-14 px-4 gap-3 shrink-0"
+        style={{ background: "rgba(255,255,255,0.06)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        {/* Logo */}
+        <div className="flex items-center gap-2 mr-4 shrink-0">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center font-black text-white text-xs"
+            style={{ background: `linear-gradient(135deg, ${color}, ${color}88)` }}>N</div>
+          <span className="text-white/80 font-bold text-sm tracking-tight hidden sm:block">NexFlow</span>
         </div>
-      )}
 
-      {/* ── Content preview ── */}
-      <div className="mx-5 mt-4 grid grid-cols-3 gap-3">
-        {["Pipeline Health", "Hot Leads", "Team Output"].map((title, i) => (
-          <div key={title} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">{title}</div>
-            <div className="text-xl font-black" style={{ color: c }}>{["84%","23","147"][i]}</div>
-            <div className="text-[10px] text-gray-400">{["deals progressing","scored ≥70","activities today"][i]}</div>
-          </div>
-        ))}
+        {/* Section tabs */}
+        <nav className="flex-1 flex items-center gap-0.5">
+          {NAV.map((n) => {
+            const Icon  = n.icon;
+            const active = n.key === mainKey;
+            return (
+              <button key={n.key} onClick={() => selectMain(n.key)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 whitespace-nowrap"
+                style={active ? {
+                  background: `${n.color}25`,
+                  color: n.color,
+                  boxShadow: `0 0 12px ${n.color}40, inset 0 1px 0 ${n.color}30`,
+                  border: `1px solid ${n.color}35`,
+                } : {
+                  color: "rgba(255,255,255,0.4)",
+                  border: "1px solid transparent",
+                }}>
+                <Icon size={13} />
+                <span>{n.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Utilities */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button className="w-8 h-8 rounded-lg flex items-center justify-center text-white/40 hover:text-white/70 transition-colors"
+            style={{ background: "rgba(255,255,255,0.06)" }}>
+            <Search size={14} />
+          </button>
+          <button className="w-8 h-8 rounded-lg flex items-center justify-center text-white/40 hover:text-white/70 transition-colors"
+            style={{ background: "rgba(255,255,255,0.06)" }}>
+            <Bell size={14} />
+          </button>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
+            style={{ background: `linear-gradient(135deg, ${color}, ${color}88)` }}>K</div>
+        </div>
+      </header>
+
+      {/* ── LEVEL 2: Sub-tab strip ── */}
+      <div className="relative z-10 flex items-center h-10 px-5 gap-1 shrink-0"
+        style={{ background: "rgba(255,255,255,0.04)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        {section.subs.map((s) => {
+          const active = s.key === subKey;
+          return (
+            <button key={s.key} onClick={() => selectSub(s.key)}
+              className="relative px-3 py-1 text-xs font-semibold rounded-lg transition-all duration-200 whitespace-nowrap"
+              style={active ? { color, background: `${color}18` } : { color: "rgba(255,255,255,0.38)" }}>
+              {s.label}
+              {active && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"
+                  style={{ background: color }} />
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Design notes */}
-      <div className="mx-5 mt-4 rounded-xl p-4 border text-[11px]"
-        style={{ background: `${c}08`, borderColor: `${c}25` }}>
-        <span className="font-bold" style={{ color: c }}>Design notes: </span>
-        <span className="text-[#6B6480]">
-          Level 1 = gradient pill + shadow · Level 2 = accent chip strip · Level 3 = mini capsule switcher inside a tinted track.
-          Three distinct visual weights so the eye reads depth instantly.
-        </span>
+      {/* ── Body ── */}
+      <div className="relative flex-1 flex overflow-hidden">
+
+        {/* ── LEVEL 3: Glassmorphic sidebar ── */}
+        {hasSubs && (
+          <aside className="relative z-10 shrink-0 flex flex-col transition-all duration-300"
+            style={{
+              width: sidebarOpen ? 200 : 52,
+              background: "rgba(255,255,255,0.07)",
+              backdropFilter: "blur(24px)",
+              borderRight: "1px solid rgba(255,255,255,0.10)",
+            }}>
+            {/* Toggle */}
+            <button onClick={() => setSidebar(!sidebarOpen)}
+              className="absolute -right-3 top-4 w-6 h-6 rounded-full flex items-center justify-center z-20 text-white/60 hover:text-white transition-colors"
+              style={{ background: "rgba(30,25,50,0.9)", border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(8px)" }}>
+              {sidebarOpen ? <ChevronLeft size={11} /> : <ChevronRight size={11} />}
+            </button>
+
+            <div className="pt-3 pb-2 px-1.5 space-y-0.5 overflow-y-auto">
+              {subItem.items.map((item) => {
+                const Icon   = item.icon;
+                const active = item.key === pageKey;
+                return (
+                  <button key={item.key} onClick={() => setPageKey(item.key)}
+                    className="w-full flex items-center gap-2.5 rounded-xl transition-all duration-200 text-left"
+                    style={{
+                      padding: sidebarOpen ? "8px 10px" : "8px",
+                      justifyContent: sidebarOpen ? "flex-start" : "center",
+                      background: active ? `${color}22` : "transparent",
+                      borderLeft: active ? `2px solid ${color}` : "2px solid transparent",
+                      color: active ? color : "rgba(255,255,255,0.5)",
+                    }}>
+                    <Icon size={15} />
+                    {sidebarOpen && (
+                      <span className="text-xs font-semibold whitespace-nowrap overflow-hidden text-ellipsis">{item.label}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+        )}
+
+        {/* ── Main content ── */}
+        <main className="flex-1 overflow-auto p-5 space-y-4">
+          {/* KPI row */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: "Pipeline Health", val: "84%", sub: "deals progressing" },
+              { label: "Hot Leads",       val: "23",  sub: "scored ≥ 70"       },
+              { label: "Today's Actions", val: "147", sub: "activities logged"  },
+            ].map((k) => (
+              <div key={k.label} className="rounded-2xl p-4"
+                style={{ background: "rgba(255,255,255,0.07)", backdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.10)" }}>
+                <div className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "rgba(255,255,255,0.35)" }}>{k.label}</div>
+                <div className="text-2xl font-black" style={{ color }}>{k.val}</div>
+                <div className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{k.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Activity list */}
+          <div className="rounded-2xl overflow-hidden"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <div className="px-4 py-3 flex items-center justify-between"
+              style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <span className="text-xs font-bold text-white/70">Recent Activity</span>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: `${color}22`, color }}>Live</span>
+            </div>
+            {["Khalid called Al-Ittihad Group — 14 min", "AI drafted follow-up for Aramco deal", "Sara moved Riyadh Tech → Active", "Layla scheduled demo: Al-Rajhi Capital"].map((row, i) => (
+              <div key={i} className="px-4 py-2.5 flex items-center gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
+                <span className="text-[11px] text-white/50">{row}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Design label */}
+          <div className="rounded-xl px-4 py-3 text-xs"
+            style={{ background: `${color}12`, border: `1px solid ${color}25`, color: `${color}CC` }}>
+            <span className="font-bold">Option A — Dark Glass Rail · </span>
+            Deep dark canvas · glowing section pills · frosted sidebar collapses to icon-only rail
+          </div>
+        </main>
       </div>
     </div>
   );
