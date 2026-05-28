@@ -170,37 +170,74 @@ function ResultsPanel() {
 }
 
 function WaterfallPanel() {
+  const WATERFALL_SOURCES = [
+    /* ── Tier 1: Internal + Identity ─────────────────────────────── */
+    { p:1,  tier:"Tier 1 · Internal",   name:"NexFlow CRM",               type:"Internal",       fields:"Email · Phone · Title · All known fields",        confidence:"100%", cost:"Free",         icon:"🔒" },
+    { p:2,  tier:"Tier 1 · Identity",   name:"GLEIF (Legal Entity IDs)",  type:"Open Registry",  fields:"Legal name · LEI · Entity status · Registration", confidence:"99%",  cost:"Free",         icon:"🔏" },
+    { p:3,  tier:"Tier 1 · Identity",   name:"OpenCorporates (SA)",       type:"Open Registry",  fields:"CR number · Company type · Registered address",   confidence:"97%",  cost:"Free",         icon:"🌍" },
+    { p:4,  tier:"Tier 1 · Identity",   name:"Wikidata SPARQL",           type:"Open Registry",  fields:"Founded · HQ city · ISIN · CEO · Exchange",       confidence:"95%",  cost:"Free",         icon:"📡" },
+    /* ── Tier 2: Saudi Government ─────────────────────────────────── */
+    { p:5,  tier:"Tier 2 · Gov",        name:"Saudi Open Data (data.gov.sa)", type:"Government", fields:"CR data · Business registry datasets",            confidence:"99%",  cost:"Free",         icon:"🏛️" },
+    { p:6,  tier:"Tier 2 · Gov",        name:"SAMA Registry",             type:"Government",     fields:"License · IBAN · Capital · Banking status",       confidence:"100%", cost:"Free",         icon:"🏦" },
+    { p:7,  tier:"Tier 2 · Gov",        name:"REGA (Real Estate)",        type:"Government",     fields:"Developer license · Broker CR · Project status",  confidence:"100%", cost:"Free",         icon:"🏠" },
+    { p:8,  tier:"Tier 2 · Gov",        name:"MODON (Industrial)",        type:"Government",     fields:"Factory license · Industrial zone · GOSI size",   confidence:"100%", cost:"Free",         icon:"🏭" },
+    { p:9,  tier:"Tier 2 · Gov",        name:"Etimad Suppliers",          type:"Government",     fields:"Gov. supplier status · Tender history",           confidence:"98%",  cost:"Free",         icon:"📋" },
+    { p:10, tier:"Tier 2 · Gov",        name:"muqawil.gov.sa (Contractors)", type:"Government",  fields:"Contractor grade · License type",                 confidence:"98%",  cost:"Free",         icon:"🏗️" },
+    /* ── Tier 3: Professional Registries ─────────────────────────── */
+    { p:11, tier:"Tier 3 · Professional", name:"SOCPA (Auditors)",        type:"Professional",   fields:"Firm name · License · Partner names",             confidence:"100%", cost:"Free",         icon:"📊" },
+    { p:12, tier:"Tier 3 · Professional", name:"Saudi Bar (Lawyers)",     type:"Professional",   fields:"Firm name · License · Practice areas",            confidence:"100%", cost:"Free",         icon:"⚖️" },
+    { p:13, tier:"Tier 3 · Professional", name:"MOH (Healthcare)",        type:"Professional",   fields:"License · Specialty · Facility type",             confidence:"100%", cost:"Free",         icon:"🏥" },
+    /* ── Tier 4: Directories + Chambers ──────────────────────────── */
+    { p:14, tier:"Tier 4 · Directory",  name:"Blue Pages SA",             type:"Directory",      fields:"Phone · Address · CR · Category",                 confidence:"92%",  cost:"Free",         icon:"📘" },
+    { p:15, tier:"Tier 4 · Directory",  name:"Wikipedia + Gemini Search", type:"AI-Grounded",    fields:"Overview · Revenue · Employees · History",        confidence:"85%",  cost:"Free",         icon:"🌐" },
+    { p:16, tier:"Tier 4 · Directory",  name:"Amaaly AOA Documents",      type:"Documents",      fields:"Shareholders · Capital · Board · Governance",     confidence:"96%",  cost:"Free",         icon:"🗞️" },
+    { p:17, tier:"Tier 4 · Directory",  name:"Jeddah Chamber (JCC)",      type:"Chamber",        fields:"Member status · Category · Contact",              confidence:"90%",  cost:"Free",         icon:"🏛️" },
+    { p:18, tier:"Tier 4 · Directory",  name:"GCC Chambers",              type:"Chamber",        fields:"GCC member status · Trade category",              confidence:"88%",  cost:"Free",         icon:"🌙" },
+    { p:19, tier:"Tier 4 · Directory",  name:"AmCham Saudi Arabia",       type:"Chamber",        fields:"US-Saudi member status · Industry sector",        confidence:"88%",  cost:"Free",         icon:"🇺🇸" },
+    { p:20, tier:"Tier 4 · Directory",  name:"Arab British Chamber",      type:"Chamber",        fields:"UK-Arab member status · Trade activity",          confidence:"88%",  cost:"Free",         icon:"🇬🇧" },
+    { p:21, tier:"Tier 4 · Directory",  name:"Moores Rowland Members",    type:"Directory",      fields:"Partner names · Services · Office locations",     confidence:"87%",  cost:"Free",         icon:"🏢" },
+    { p:22, tier:"Tier 4 · Directory",  name:"ICAEW Members (KSA)",       type:"Directory",      fields:"Chartered accountant firms · License",            confidence:"87%",  cost:"Free",         icon:"📐" },
+    /* ── Tier 5: AI Search ───────────────────────────────────────── */
+    { p:23, tier:"Tier 5 · AI Search",  name:"Argaam",                    type:"Press",          fields:"Financials · News · Leadership announcements",    confidence:"91%",  cost:"Free RSS",     icon:"📰" },
+    { p:24, tier:"Tier 5 · AI Search",  name:"Tavily Search",             type:"AI Search",      fields:"Email · Bio · Social media · News",               confidence:"82%",  cost:"$0.001/req",   icon:"🔍" },
+    { p:25, tier:"Tier 5 · AI Search",  name:"Perplexity Web Search",     type:"AI Search",      fields:"Email · Phone · Executive bio · Activity",        confidence:"78%",  cost:"$0.002/req",   icon:"✨" },
+  ];
+
+  const tiers = [...new Set(WATERFALL_SOURCES.map(s => s.tier))];
+
   return (
     <div className="flex flex-col gap-4 pb-6">
       <div className="rounded-xl border border-[#E8E2F0] bg-white p-4">
-        <div className="mb-3 text-[13px] font-bold text-[#4A3B5C]">Enrichment Waterfall</div>
-        <div className="mb-4 text-[12px] text-[#7B6E8D]">Sources are tried in order. If a source returns data at the required confidence threshold, subsequent sources are skipped for that field.</div>
-        <div className="flex flex-col gap-2">
-          {[
-            {p:1,name:"NexFlow CRM",      type:"Internal",  fields:"Email · Phone · Title",                confidence:"100%", cost:"Free"},
-            {p:2,name:"LinkedIn Scout",   type:"Social",    fields:"Title · Company · LinkedIn URL",        confidence:"95%",  cost:"Free"},
-            {p:3,name:"MCI / GLEIF",      type:"Gov · Open",fields:"Company name · CR · Legal entity",    confidence:"98%",  cost:"Free"},
-            {p:4,name:"Tavily Search",    type:"AI Search", fields:"Email · News · Bio",                   confidence:"82%",  cost:"$0.001/req"},
-            {p:5,name:"Perplexity",       type:"AI Search", fields:"Email · Phone · Activity",             confidence:"78%",  cost:"$0.002/req"},
-            {p:6,name:"Argaam",           type:"Press",     fields:"Financials · News · Appointments",     confidence:"91%",  cost:"Free RSS"},
-            {p:7,name:"SAMA Registry",    type:"Gov",       fields:"License · IBAN · Capital",             confidence:"100%", cost:"Free"},
-          ].map(s => (
-            <div key={s.p} className="flex items-center gap-3 rounded-xl border border-[#E8E2F0] bg-[#FAFAF9] p-3">
-              <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: GOLD }}>{s.p}</span>
-              <div className="flex-1">
-                <div className="text-[12px] font-bold text-[#4A3B5C]">{s.name} <span className="ml-1 text-[10px] font-medium text-[#9B8EAC]">{s.type}</span></div>
-                <div className="text-[10px] text-[#9B8EAC]">{s.fields}</div>
-              </div>
-              <div className="text-right">
-                <div className="text-[11px] font-bold" style={{ color: TEAL }}>{s.confidence}</div>
-                <div className="text-[10px] text-[#9B8EAC]">{s.cost}</div>
+        <div className="mb-1 text-[13px] font-bold text-[#4A3B5C]">Enrichment Waterfall — 25 Sources</div>
+        <div className="mb-4 text-[12px] text-[#7B6E8D]">Sources are tried in priority order. When a source returns data above the confidence threshold, later sources are skipped for that field. All Tier 1–4 sources are 100% free.</div>
+
+        <div className="flex flex-col gap-5">
+          {tiers.map(tier => (
+            <div key={tier}>
+              <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[#7B6E8D] border-b border-[#E8E2F0] pb-1">{tier}</div>
+              <div className="flex flex-col gap-1.5">
+                {WATERFALL_SOURCES.filter(s => s.tier === tier).map(s => (
+                  <div key={s.p} className="flex items-center gap-3 rounded-xl border border-[#E8E2F0] bg-[#FAFAF9] p-3">
+                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: GOLD }}>{s.p}</span>
+                    <span className="text-base shrink-0">{s.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[12px] font-bold text-[#4A3B5C]">{s.name} <span className="ml-1 text-[10px] font-medium text-[#9B8EAC]">{s.type}</span></div>
+                      <div className="text-[10px] text-[#9B8EAC] truncate">{s.fields}</div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-[11px] font-bold" style={{ color: TEAL }}>{s.confidence}</div>
+                      <div className="text-[10px]" style={{ color: s.cost.startsWith("Free") ? "#4CAA84" : "#9B8EAC" }}>{s.cost}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
         </div>
+
         <div className="mt-4 flex gap-2">
           <button className="rounded-lg border border-[#E2D8EA] px-4 py-2 text-[12px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">Edit order</button>
-          <button className="rounded-lg border border-[#E2D8EA] px-4 py-2 text-[12px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">Add source</button>
+          <button className="rounded-lg border border-[#E2D8EA] px-4 py-2 text-[12px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">+ Add source</button>
         </div>
       </div>
     </div>

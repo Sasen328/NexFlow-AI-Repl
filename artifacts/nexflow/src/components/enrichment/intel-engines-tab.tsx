@@ -31,7 +31,7 @@ import { apiFetch } from "@/hooks/useApi";
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-type EngineKind = "masaar" | "person_intel" | "company_intel" | "ai_database";
+type EngineKind = "website_intel" | "person_intel" | "company_intel" | "data_seeder";
 
 type AgentStatus = "waiting" | "running" | "done" | "error" | "skipped";
 
@@ -49,15 +49,20 @@ interface RunAgent { status: AgentStatus; startedAt?: number; doneAt?: number; l
 // Engine metadata
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ENGINE_META: Record<EngineKind, {
-  label: string; icon: typeof BadgeCheck;
-  color: string; bg: string; border: string;
-  badge: string; tagline: string;
-}> = {
-  masaar:       { label: "Masaar",       icon: BadgeCheck,  color: "text-[#88B8B0]", bg: "bg-[#88B8B0]/10", border: "border-[#88B8B0]/30", badge: "🇸🇦 Saudi Gov", tagline: "5-agent Saudi CR intelligence pipeline" },
-  person_intel: { label: "Person Intel", icon: Users,        color: "text-[#B8A0C8]", bg: "bg-[#B8A0C8]/10", border: "border-[#B8A0C8]/30", badge: "20 sources", tagline: "Deep executive dossier with approach strategy" },
-  company_intel:{ label: "Company Intel",icon: Building2,    color: "text-[#C8A880]", bg: "bg-[#C8A880]/10", border: "border-[#C8A880]/30", badge: "11 sources", tagline: "Full Saudi company intelligence report" },
-  ai_database:  { label: "AI Database",  icon: Database,     color: "text-[#7aab9a]", bg: "bg-[#7aab9a]/10", border: "border-[#7aab9a]/30", badge: "Masar", tagline: "Saudi B2B company database builder" },
+type EngineMeta = { label: string; icon: typeof BadgeCheck; color: string; bg: string; border: string; badge: string; tagline: string };
+
+const ENGINE_META: Record<EngineKind, EngineMeta> = {
+  website_intel: { label: "Website Intel", icon: Globe,     color: "text-[#5B9BD5]", bg: "bg-[#5B9BD5]/10", border: "border-[#5B9BD5]/30", badge: "Web Seeder",  tagline: "8-page stealth crawl · Claude per-page extraction · structured report" },
+  person_intel:  { label: "Person Intel",  icon: Users,     color: "text-[#B8A0C8]", bg: "bg-[#B8A0C8]/10", border: "border-[#B8A0C8]/30", badge: "20 sources",  tagline: "Deep executive dossier with approach strategy" },
+  company_intel: { label: "Company Intel", icon: Building2, color: "text-[#C8A880]", bg: "bg-[#C8A880]/10", border: "border-[#C8A880]/30", badge: "11 sources",  tagline: "Full Saudi company intelligence report" },
+  data_seeder:   { label: "Data Seeder",   icon: Database,  color: "text-[#7aab9a]", bg: "bg-[#7aab9a]/10", border: "border-[#7aab9a]/30", badge: "25 sources",  tagline: "AI-powered Saudi B2B company database builder · 25 free harvest sources" },
+};
+
+type AnyEngineKind = EngineKind | "masaar";
+
+const ALL_META: Record<AnyEngineKind, EngineMeta> = {
+  ...ENGINE_META,
+  masaar: { label: "Masaar", icon: BadgeCheck, color: "text-[#88B8B0]", bg: "bg-[#88B8B0]/10", border: "border-[#88B8B0]/30", badge: "🇸🇦 Saudi Gov", tagline: "5-agent Saudi CR intelligence pipeline" },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,6 +93,15 @@ const PERSON_AGENTS: AgentDef[] = [
     durationHint: 10, logs: ["Claude Sonnet: extracting from training knowledge…", "GPT-4o: cross-reference and gap fill…", "✓ Knowledge base agents complete"] },
   { num: 5, name: "AI Synthesis", desc: "Gemini → Claude → GPT-4o waterfall · JSON extraction",
     durationHint: 15, logs: ["Compiling all 20 agent outputs…", "Synthesis pass 1: Gemini Flash (preferred)…", "Synthesis pass 2: Claude (fallback)…", "Extracting structured JSON…", "Injecting sources, confidence scoring…", "✓ Person intelligence report ready"] },
+];
+
+const WEBSITE_AGENTS: AgentDef[] = [
+  { num: 1, name: "Web Crawler — Playwright Stealth", desc: "Up to 8 pages · Saudi UA · link discovery + full content capture",
+    durationHint: 18, logs: ["Launching Playwright (stealth plugin · Saudi UA)…", "Navigating to homepage…", "Extracting internal links from first page…", "Queue: /about, /team, /products, /services, /clients, /news, /contact…", "Crawling page 2/8: /about…", "Crawling page 3/8: /team…", "Crawling page 4/8: /products…", "Crawling page 5/8: /services…", "Crawling page 6/8: /clients…", "Crawling page 7/8: /news…", "Crawling page 8/8: /contact…", "✓ 8 pages crawled · 52 KB content extracted"] },
+  { num: 2, name: "Claude Content Extractor", desc: "Per-page Claude Haiku agent · structured extraction · aggregation pass",
+    durationHint: 20, logs: ["Spawning Claude Haiku agent — page 1/8…", "Spawning Claude Haiku agent — page 2/8…", "Spawning Claude Haiku agent — page 3/8…", "Spawning Claude Haiku agent — page 4/8…", "Spawning Claude Haiku agent — page 5/8…", "Spawning Claude Haiku agent — page 6/8…", "Spawning Claude Haiku agent — page 7/8…", "Spawning Claude Haiku agent — page 8/8…", "Aggregation agent compiling all extractions (3,000 tok)…", "✓ Structured content ready: team · products · clients · tech stack"] },
+  { num: 3, name: "Intelligence Synthesizer", desc: "Claude Sonnet · structured JSON report · ICP signals",
+    durationHint: 12, logs: ["Synthesizing website intelligence (Claude Sonnet)…", "Extracting: overview · team · products & services…", "Extracting: key clients · technology stack · contact info…", "Identifying: growth signals · company type · ICP indicators…", "Structuring JSON output…", "✓ Website intelligence report ready"] },
 ];
 
 const COMPANY_AGENTS: AgentDef[] = [
@@ -176,12 +190,12 @@ function useAgentProgress(agents: AgentDef[], busy: boolean) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function IntelEnginesTab() {
-  const [active, setActive] = useState<EngineKind | "history">("masaar");
+  const [active, setActive] = useState<EngineKind | "history">("website_intel");
 
   return (
     <div className="space-y-5">
       {/* Engine picker */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {(Object.keys(ENGINE_META) as EngineKind[]).map((k) => {
           const m = ENGINE_META[k];
           const Icon = m.icon;
@@ -223,10 +237,10 @@ export function IntelEnginesTab() {
         </button>
       </div>
 
-      {active === "masaar"        && <MasaarPanel />}
+      {active === "website_intel" && <WebsiteIntelPanel />}
       {active === "person_intel"  && <PersonIntelPanel />}
       {active === "company_intel" && <CompanyIntelPanel />}
-      {active === "ai_database"   && <AIDatabasePanel />}
+      {active === "data_seeder"   && <DataSeederPanel />}
       {active === "history"       && <HistoryPanel />}
     </div>
   );
@@ -237,7 +251,7 @@ export function IntelEnginesTab() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function EngineShell({ engine, form, result }: {
-  engine: EngineKind;
+  engine: AnyEngineKind;
   form: React.ReactNode;
   result: React.ReactNode;
 }) {
@@ -252,8 +266,8 @@ function EngineShell({ engine, form, result }: {
   );
 }
 
-function EngineFormHeader({ engine }: { engine: EngineKind }) {
-  const m = ENGINE_META[engine];
+function EngineFormHeader({ engine }: { engine: AnyEngineKind }) {
+  const m = ALL_META[engine];
   const Icon = m.icon;
   return (
     <div className={cn("px-5 py-4 border-b border-border flex items-center gap-3", m.bg)}>
@@ -453,8 +467,8 @@ function AgentStatusBadge({ status }: { status: AgentStatus }) {
 // Error + Empty states
 // ─────────────────────────────────────────────────────────────────────────────
 
-function EngineEmpty({ engine }: { engine: EngineKind }) {
-  const m = ENGINE_META[engine];
+function EngineEmpty({ engine }: { engine: AnyEngineKind }) {
+  const m = ALL_META[engine];
   const Icon = m.icon;
   return (
     <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-8 rounded-2xl border border-dashed border-border bg-muted/10">
@@ -1261,39 +1275,365 @@ function CompanyReport({ result }: { result: any }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AI DATABASE PANEL (Masar Company Database)
+// WEBSITE INTEL PANEL (Web Seeder)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function AIDatabasePanel() {
+function WebsiteIntelPanel() {
+  const [url,         setUrl]         = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [industry,    setIndustry]    = useState("");
+  const [knownFacts,  setKnownFacts]  = useState("");
+  const [busy,        setBusy]        = useState(false);
+  const [result,      setResult]      = useState<any>(null);
+  const [err,         setErr]         = useState<string | null>(null);
+
+  const { agentStates, logs } = useAgentProgress(WEBSITE_AGENTS, busy);
+
+  async function run() {
+    if (!url.trim()) return;
+    setBusy(true); setResult(null); setErr(null);
+    try {
+      const data: any = await apiFetch("/engines/company-intel/run", {
+        method: "POST",
+        body: JSON.stringify({
+          name: companyName.trim() || undefined,
+          website: url.trim(),
+          industry: industry.trim() || undefined,
+          knownFacts: knownFacts.trim() || undefined,
+          mode: "website_intel",
+        }),
+      });
+      setResult(data);
+    } catch (e: any) {
+      setErr(e?.message ?? "Run failed");
+    } finally { setBusy(false); }
+  }
+
   return (
-    <div className="rounded-2xl border border-[#7aab9a]/40 bg-gradient-to-br from-[#7aab9a]/5 to-transparent p-8 text-center space-y-4">
-      <div className="w-16 h-16 rounded-2xl bg-[#7aab9a]/20 flex items-center justify-center mx-auto">
-        <Database className="w-8 h-8 text-[#7aab9a]" />
+    <EngineShell engine="website_intel" form={
+      <>
+        <Field label="Website URL" required hint="The company website to crawl — up to 8 pages">
+          <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" type="url" />
+        </Field>
+        <Field label="Company Name" hint="Optional — helps Claude identify the right company">
+          <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Saudi Aramco" />
+        </Field>
+        <Field label="Industry / Sector" hint="Optional — improves extraction accuracy">
+          <Input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="Oil & Gas · Technology · FMCG…" />
+        </Field>
+        <Field label="Known Facts" hint="Anything you already know about this company">
+          <Textarea value={knownFacts} onChange={(e) => setKnownFacts(e.target.value)} placeholder="e.g. HQ in Riyadh. 200 employees. Sells SaaS to SMEs." />
+        </Field>
+        <SectionNote>
+          Crawler uses Playwright stealth (Saudi UA). Claude Haiku agent runs on each page. Claude Sonnet synthesizes the final structured report.
+        </SectionNote>
+        <RunButton busy={busy} onClick={run} label="Run Website Intel (3 agents)" />
+      </>
+    } result={
+      busy   ? <AgentPipeline agents={WEBSITE_AGENTS} states={agentStates} logs={logs} color="text-[#5B9BD5]" /> :
+      err    ? <EngineError msg={err} /> :
+      !result ? <WebsiteIntelEmpty /> :
+      <WebsiteIntelReport result={result} />
+    } />
+  );
+}
+
+function WebsiteIntelEmpty() {
+  return (
+    <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-8 rounded-2xl border border-dashed border-border bg-muted/10">
+      <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-[#5B9BD5]/10">
+        <Globe className="w-7 h-7 text-[#5B9BD5]" />
       </div>
-      <div>
-        <div className="font-bold text-xl">Masar Company Database</div>
-        <div className="text-muted-foreground text-sm mt-1">Saudi B2B company repository — harvest, enrich, deduplicate, export</div>
+      <div className="font-semibold text-foreground/70">Website Intel ready</div>
+      <div className="text-xs text-muted-foreground mt-1 max-w-[240px] leading-relaxed">
+        Enter a website URL and run the engine. The crawler will extract team, products, clients, and tech stack.
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left max-w-xl mx-auto">
+      <div className="mt-6 grid grid-cols-3 gap-3 max-w-xs w-full">
         {[
-          { icon: Sparkles, label: "25+ harvest sources", desc: "Wikipedia, GLEIF, OpenCorporates, Amaaly AOA, Bluepages, Wikidata, MoCI, directories…" },
-          { icon: Zap, label: "14 enrichment sources", desc: "Perplexity, 3× Gemini, Claude, GPT-4o, Apollo, Aamaly, Maroof, free sources, Web Seeder…" },
-          { icon: Shield, label: "Dedup + export", desc: "3-tier identity matching, CSV / Excel / Word / PDF export, compliance flags" },
-        ].map((f) => (
-          <div key={f.label} className="rounded-xl border border-border bg-card/60 p-3">
-            <f.icon className="w-4 h-4 text-[#7aab9a] mb-1.5" />
-            <div className="text-xs font-semibold">{f.label}</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{f.desc}</div>
+          { icon: Users,     label: "Team & people" },
+          { icon: Briefcase, label: "Products & services" },
+          { icon: Star,      label: "Key clients" },
+        ].map(({ icon: Icon, label }) => (
+          <div key={label} className="rounded-xl border border-border bg-card p-3 text-center">
+            <Icon className="w-4 h-4 text-[#5B9BD5] mx-auto mb-1.5" />
+            <div className="text-[10px] text-muted-foreground">{label}</div>
           </div>
         ))}
       </div>
-      <div className="pt-2">
-        <a href="/enrichment-engine?tab=waterfall" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#7aab9a] text-white font-semibold text-sm hover:opacity-90 transition-opacity">
+    </div>
+  );
+}
+
+function WebsiteIntelReport({ result }: { result: any }) {
+  const r   = result.report ?? {};
+  const p   = r.profile ?? r.companyProfile ?? {};
+  const fin = r.financials ?? {};
+  const own = r.ownership ?? {};
+  const lead = r.leadership ?? {};
+  const mkt  = r.market ?? r.marketIntelligence ?? {};
+
+  const products: string[]  = r.products ?? r.productsServices ?? [];
+  const clients: string[]   = r.clients ?? r.keyClients ?? mkt.keyClients ?? [];
+  const techStack: string[] = r.techStack ?? r.technology ?? [];
+  const team: any[]         = r.team ?? (lead.ceo ? [{ name: lead.ceo.nameEn, title: lead.ceo.title }, ...(lead.executives ?? []).slice(0, 4).map((e: any) => ({ name: e.nameEn, title: e.title }))] : []);
+
+  return (
+    <div className="space-y-4">
+      {/* Hero */}
+      <div className="rounded-2xl border border-[#5B9BD5]/40 bg-gradient-to-br from-[#5B9BD5]/8 to-transparent p-5">
+        <div className="flex items-start gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-[#5B9BD5]/15 flex items-center justify-center shrink-0">
+            <Globe className="w-7 h-7 text-[#5B9BD5]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <div className="font-bold text-xl leading-tight">{p.nameEn || p.name || companyFromResult(result)}</div>
+                {p.nameAr && <div className="text-base text-muted-foreground" dir="rtl">{p.nameAr}</div>}
+                <div className="text-sm text-muted-foreground mt-0.5">{p.industry || p.sector} {p.city && `· ${p.city}`}</div>
+              </div>
+              <div className="text-right text-[10px] text-muted-foreground">
+                {Math.round(result.durationMs / 1000)}s · {result.sourcesUsed?.length ?? 0} sources
+              </div>
+            </div>
+            {p.website && (
+              <a href={p.website} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs text-[#5B9BD5] hover:underline">
+                <ExternalLink className="w-3 h-3" /> {p.website}
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <KpiTile label="Employees"  value={p.employeeCount || fin.employeeCount} />
+        <KpiTile label="Founded"    value={p.founded} />
+        <KpiTile label="HQ"         value={p.city || p.hq} />
+        <KpiTile label="Revenue est" value={fin.revenueEstimate} />
+      </div>
+
+      {/* Executive summary */}
+      {r.executiveSummary && (
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Website Overview</div>
+          <p className="text-sm leading-relaxed">{r.executiveSummary}</p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Products & Services */}
+        {products.length > 0 && (
+          <ReportSection title="Products & Services" icon={Briefcase}>
+            <div className="flex flex-wrap gap-1.5">
+              {products.slice(0, 10).map((pr: string, i: number) => (
+                <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-[#5B9BD5]/10 text-[#5B9BD5]">{pr}</span>
+              ))}
+            </div>
+          </ReportSection>
+        )}
+
+        {/* Key Clients */}
+        {clients.length > 0 && (
+          <ReportSection title="Key Clients / Partners" icon={Star}>
+            <div className="flex flex-wrap gap-1.5">
+              {clients.slice(0, 10).map((cl: string, i: number) => (
+                <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">{cl}</span>
+              ))}
+            </div>
+          </ReportSection>
+        )}
+
+        {/* Team */}
+        {team.length > 0 && (
+          <ReportSection title="People Found" icon={Users}>
+            <ul className="space-y-1.5">
+              {team.slice(0, 6).map((m: any, i: number) => (
+                <li key={i} className="flex items-baseline justify-between text-xs">
+                  <span className="font-medium">{m.name || m.nameEn || "—"}</span>
+                  <span className="text-muted-foreground ml-2 truncate">{m.title || m.role}</span>
+                </li>
+              ))}
+            </ul>
+          </ReportSection>
+        )}
+
+        {/* Tech Stack */}
+        {techStack.length > 0 && (
+          <ReportSection title="Technology Stack" icon={Globe}>
+            <div className="flex flex-wrap gap-1.5">
+              {techStack.slice(0, 12).map((t: string, i: number) => (
+                <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400">{t}</span>
+              ))}
+            </div>
+          </ReportSection>
+        )}
+      </div>
+
+      {/* Market / Approach */}
+      {mkt.marketPosition && (
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Market Position</div>
+          <p className="text-sm">{mkt.marketPosition}</p>
+          {(mkt.competitors ?? []).length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {(mkt.competitors as string[]).slice(0, 5).map((c: string, i: number) => (
+                <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-700 dark:text-rose-400">{c}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Push to CRM */}
+      <div className="flex gap-2 justify-end pt-1">
+        <button className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border border-border hover:bg-muted transition-colors">
+          <Copy className="w-3.5 h-3.5" /> Copy JSON
+        </button>
+        <button className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl bg-foreground text-background hover:opacity-90 transition-opacity">
+          <UserPlus className="w-3.5 h-3.5" /> Push to CRM
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function companyFromResult(result: any): string {
+  return result?.report?.profile?.nameEn
+    ?? result?.report?.companyProfile?.nameEn
+    ?? result?.title
+    ?? "—";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DATA SEEDER PANEL (Masar Company Database — 25 free sources)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function DataSeederPanel() {
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="rounded-2xl border border-[#7aab9a]/40 bg-gradient-to-br from-[#7aab9a]/5 to-transparent p-6">
+        <div className="flex items-start gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-[#7aab9a]/20 flex items-center justify-center shrink-0">
+            <Database className="w-7 h-7 text-[#7aab9a]" />
+          </div>
+          <div className="flex-1">
+            <div className="font-bold text-xl">Masar Company Database</div>
+            <div className="text-muted-foreground text-sm mt-1">Saudi B2B company repository — harvest, enrich, deduplicate, export</div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {([
+                { icon: Sparkles, label: "25 free harvest sources" },
+                { icon: Zap,      label: "14 enrichment agents" },
+                { icon: Shield,   label: "3-tier dedup" },
+                { icon: Globe,    label: "CSV · Excel · PDF export" },
+              ] as const).map(({ icon: Icon, label }) => (
+                <span key={label} className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full bg-[#7aab9a]/15 text-[#7aab9a]">
+                  <Icon className="w-3 h-3" />{label}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 25 Free sources */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-[#7aab9a]" />
+          <span className="font-semibold text-sm">25 Free Harvest Sources</span>
+          <span className="ml-auto text-[10px] text-muted-foreground">All 100% free · no API key required</span>
+        </div>
+        <div className="p-4 space-y-4">
+          {([
+            {
+              cat: "General", color: "text-blue-500", bg: "bg-blue-500/8", border: "border-blue-500/20",
+              sources: [
+                { icon: "🌐", name: "Wikipedia + Gemini Search",     desc: "Saudi company Wikipedia articles enriched with Google Gemini grounded web intelligence" },
+                { icon: "📘", name: "Blue Pages SA",                  desc: "bluepages.com.sa — official Saudi Chamber business directory (JSON API)" },
+                { icon: "🏛️", name: "Saudi Open Data (data.gov.sa)", desc: "data.gov.sa — government-published commercial registry & business datasets" },
+              ],
+            },
+            {
+              cat: "Government Registries", color: "text-emerald-600", bg: "bg-emerald-500/8", border: "border-emerald-500/20",
+              sources: [
+                { icon: "🏗️", name: "Saudi Contractors (muqawil.gov.sa)", desc: "Licensed contractors from the Saudi Contractors Authority registry" },
+                { icon: "📋", name: "Etimad Gov. Suppliers",              desc: "Government procurement suppliers on the Etimad tendering portal" },
+                { icon: "🏭", name: "Industrial Companies (MODON)",       desc: "MODON industrial estates — manufacturers, factories & industrial companies" },
+                { icon: "🏠", name: "Real Estate Cos. (REGA)",            desc: "REGA licensed real estate developers, brokers & property companies" },
+              ],
+            },
+            {
+              cat: "Professional Sectors", color: "text-violet-600", bg: "bg-violet-500/8", border: "border-violet-500/20",
+              sources: [
+                { icon: "⚖️", name: "Law Firms & Lawyers (Saudi Bar)", desc: "Saudi Bar Association registered law firms & legal offices" },
+                { icon: "📊", name: "Auditors & Accountants (SOCPA)", desc: "SOCPA licensed audit firms & certified accountants" },
+                { icon: "🏥", name: "Healthcare & Medical (MOH)",      desc: "MOH licensed hospitals, clinics & pharmaceutical companies" },
+                { icon: "🏦", name: "Banks & Finance (SAMA)",          desc: "SAMA licensed banks, finance & insurance companies" },
+                { icon: "🚛", name: "Logistics & Freight",             desc: "Licensed freight, shipping, warehousing & supply chain operators" },
+              ],
+            },
+            {
+              cat: "Documents & AOA", color: "text-amber-600", bg: "bg-amber-500/8", border: "border-amber-500/20",
+              sources: [
+                { icon: "🗞️", name: "Amaaly AOA Documents", desc: "emagazine.aamaly.sa — Articles of Association with shareholders, capital & board governance data" },
+              ],
+            },
+            {
+              cat: "Open Registries", color: "text-cyan-600", bg: "bg-cyan-500/8", border: "border-cyan-500/20",
+              sources: [
+                { icon: "🌍", name: "OpenCorporates (SA)",      desc: "opencorporates.com — 200M+ global companies. Saudi Arabia jurisdiction filter via free REST API" },
+                { icon: "🔏", name: "GLEIF (Legal Entity IDs)", desc: "gleif.org — Global LEI Foundation. Legal names, entity status & registration authority for Saudi corps" },
+                { icon: "📡", name: "Wikidata SPARQL",           desc: "Structured knowledge graph — Saudi companies with founding year, HQ, CEO, ISIN, exchange listing" },
+              ],
+            },
+            {
+              cat: "Professional Directories", color: "text-rose-600", bg: "bg-rose-500/8", border: "border-rose-500/20",
+              sources: [
+                { icon: "🏢", name: "Moores Rowland Members",         desc: "mooresrowland.net/en/members — accounting & advisory network, Saudi Arabia filter + full profile scrape" },
+                { icon: "🇬🇧", name: "Arab British Chamber",          desc: "arabbritishchamber.com — Arab-British Chamber of Commerce member directory" },
+                { icon: "🇺🇸", name: "AmCham Saudi Arabia",          desc: "amcham.org.sa — American Chamber of Commerce Saudi Arabia member companies" },
+                { icon: "🤝", name: "Saudi British Business Council", desc: "saudibbc.org — SBBC member companies and UK-Saudi bilateral business firms" },
+                { icon: "🏛️", name: "Jeddah Chamber of Commerce",    desc: "jcc.org.sa — Jeddah Chamber registered member businesses" },
+                { icon: "🇫🇷", name: "French Chamber KSA",           desc: "fcc.org.sa — French Chamber of Commerce Saudi Arabia member firms" },
+                { icon: "🇩🇪", name: "German-Arab Chamber (AHK)",    desc: "gdksa.org / AHK Riyadh — German-Arab Chamber of Commerce Saudi members" },
+                { icon: "🌙", name: "GCC Chambers",                   desc: "gcc-chambers.com — GCC-wide chambers of commerce directory, Saudi Arabia filter" },
+                { icon: "📐", name: "ICAEW Chartered Accountants",    desc: "icaew.com — Institute of Chartered Accountants member firms in Saudi Arabia" },
+              ],
+            },
+          ] as const).map(({ cat, color, bg, border, sources }) => (
+            <div key={cat}>
+              <div className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${color}`}>{cat}</div>
+              <div className={`rounded-xl border ${border} ${bg} divide-y divide-border/40`}>
+                {(sources as ReadonlyArray<{ icon: string; name: string; desc: string }>).map(({ icon, name, desc }) => (
+                  <div key={name} className="flex items-start gap-3 px-4 py-2.5">
+                    <span className="text-base mt-0.5 shrink-0">{icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold">{name}</div>
+                      <div className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">{desc}</div>
+                    </div>
+                    <span className="ml-2 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 shrink-0 self-start mt-0.5">Free</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-wrap gap-3 justify-center pb-2">
+        <a href="/enrichment-engine?tab=masaardb"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#7aab9a] text-white font-semibold text-sm hover:opacity-90 transition-opacity">
           <Database className="w-4 h-4" /> Open Masar Database
         </a>
+        <a href="/enrichment-engine?tab=aidbbuilder"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[#7aab9a]/50 text-[#7aab9a] font-semibold text-sm hover:bg-[#7aab9a]/10 transition-colors">
+          <Sparkles className="w-4 h-4" /> AI DB Builder
+        </a>
       </div>
-      <p className="text-[10px] text-muted-foreground max-w-sm mx-auto">
-        Full Masar Database UI (harvest jobs, company grid, SSE progress, dedup, export) is accessible via the Data Hub section.
+      <p className="text-[10px] text-muted-foreground text-center max-w-sm mx-auto">
+        Full Masar Database (harvest jobs, SSE progress, company grid, dedup, export) is in the Lead Generation section.
       </p>
     </div>
   );
@@ -1327,9 +1667,11 @@ function HistoryPanel() {
   }
 
   const ENGINE_COLORS: Record<string, string> = {
-    masaar: "bg-[#88B8B0]/15 text-[#88B8B0]",
-    person_intel: "bg-[#B8A0C8]/15 text-[#B8A0C8]",
+    masaar:        "bg-[#88B8B0]/15 text-[#88B8B0]",
+    website_intel: "bg-[#5B9BD5]/15 text-[#5B9BD5]",
+    person_intel:  "bg-[#B8A0C8]/15 text-[#B8A0C8]",
     company_intel: "bg-[#C8A880]/15 text-[#C8A880]",
+    data_seeder:   "bg-[#7aab9a]/15 text-[#7aab9a]",
   };
 
   return (
