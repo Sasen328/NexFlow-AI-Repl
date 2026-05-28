@@ -774,7 +774,7 @@ export default function BusinessCardsPage() {
                         {badge.l} {conf}%
                       </span>
                       {key === "linkedin" && liVerified && (
-                        <BadgeCheck className="w-3.5 h-3.5 text-[#0A66C2] flex-shrink-0" title="LinkedIn verified by AI agent" />
+                        <BadgeCheck className="w-3.5 h-3.5 text-[#0A66C2] flex-shrink-0" aria-label="LinkedIn verified by AI agent" />
                       )}
                     </div>
                   );

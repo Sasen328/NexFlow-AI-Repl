@@ -68,7 +68,7 @@ export default function MigrationPage() {
         });
         if (!obj.email && !obj.first_name) { skipped++; continue; }
         try {
-          const r = await apiFetch<any>("/contacts", { method: "POST", body: JSON.stringify({
+          const r = await apiFetch("/contacts", { method: "POST", body: JSON.stringify({
             first_name: obj.first_name ?? "Unknown",
             last_name: obj.last_name ?? "",
             email: obj.email ?? null,

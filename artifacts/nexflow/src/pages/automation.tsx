@@ -190,7 +190,7 @@ export default function AutomationPage() {
 
       {showNew && <NewRuleModal
         onClose={() => setShowNew(false)}
-        onCreate={(d) => create.mutate(d, { onSuccess: () => setShowNew(false) })}
+        onCreate={(d: any) => create.mutate(d, { onSuccess: () => setShowNew(false) })}
       />}
     </div>
   );

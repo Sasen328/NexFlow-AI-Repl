@@ -13,7 +13,7 @@ export default function AttributionPage() {
   async function load() {
     setLoading(true);
     try {
-      const r = await apiFetch<any>("/attribution");
+      const r = await apiFetch("/attribution");
       setData(r);
     } finally { setLoading(false); }
   }

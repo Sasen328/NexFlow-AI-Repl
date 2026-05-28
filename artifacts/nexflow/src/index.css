@@ -202,11 +202,14 @@
 .glass-card {
   background: rgba(255,253,255,0.78);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(184,160,200,0.22);
   box-shadow: 0 1px 3px rgba(184,160,200,0.08);
 }
 .dark .glass-card {
   background: rgba(30,22,36,0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(184,160,200,0.12);
   box-shadow: none;
 }
@@ -214,11 +217,14 @@
 .glass-panel {
   background: rgba(255,253,255,0.88);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-right: 1px solid rgba(184,160,200,0.22);
   box-shadow: 2px 0 12px rgba(184,160,200,0.08);
 }
 .dark .glass-panel {
   background: rgba(30,22,36,0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-right: 1px solid rgba(184,160,200,0.12);
   box-shadow: none;
 }

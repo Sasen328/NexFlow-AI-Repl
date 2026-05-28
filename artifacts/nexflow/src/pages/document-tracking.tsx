@@ -11,8 +11,8 @@ export default function DocumentTrackingPage() {
   async function load() {
     setLoading(true);
     try {
-      const o = await apiFetch<{ activities: any[] }>("/activities?type=email_open&limit=30");
-      const c = await apiFetch<{ activities: any[] }>("/activities?type=email_click&limit=30");
+      const o = await apiFetch("/activities?type=email_open&limit=30");
+      const c = await apiFetch("/activities?type=email_click&limit=30");
       setOpens(o.activities ?? []);
       setClicks(c.activities ?? []);
     } finally { setLoading(false); }

@@ -6,13 +6,16 @@
  * variants whenever the dark mode state changes. This prevents text from
  * becoming invisible against the mesh gradient background.
  *
+ * Uses useLayoutEffect (fires synchronously before paint) so the FIRST render
+ * already has the correct tokens applied — no flash of wrong colours.
+ *
  * Usage: call this hook in App.tsx passing the `dark` state from useTheme().
  */
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import { applyVars } from "@/lib/palette";
 
 export function useTypographyAdapt(dark: boolean): void {
-  useEffect(() => {
+  useLayoutEffect(() => {
     applyVars(dark);
   }, [dark]);
 }

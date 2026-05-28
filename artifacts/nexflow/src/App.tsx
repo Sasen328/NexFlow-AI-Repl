@@ -21,6 +21,7 @@ import { WizardProvider } from "@/pages/onboarding/context";
 import { useTenantConfig, applyTenantBranding } from "@/hooks/useTenantConfig";
 import { useTheme } from "@/hooks/useTheme";
 import { useTypographyAdapt } from "@/hooks/useTypographyAdapt";
+import { applyVars } from "@/lib/palette";
 
 import Briefing from "@/pages/briefing";
 import SectionHubPage from "@/pages/section-hub";
@@ -131,6 +132,7 @@ function AppLayout() {
   const { dark, setDark } = useTheme();
   const { config } = useTenantConfig();
 
+  applyVars(dark);
   useTypographyAdapt(dark);
 
   useEffect(() => {
