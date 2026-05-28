@@ -15,6 +15,7 @@ import AboutPage from "@/pages/marketing/About";
 import PricingPage from "@/pages/marketing/Pricing";
 import BrandPage from "@/pages/marketing/Brand";
 import AuthPage from "@/pages/marketing/Auth";
+import EnterprisePage from "@/pages/marketing/Enterprise";
 import { useState } from "react";
 import { WizardProvider } from "@/pages/onboarding/context";
 import { useTenantConfig, applyTenantBranding } from "@/hooks/useTenantConfig";
@@ -347,6 +348,7 @@ function RootRoutes() {
           {(() => { const C = lazy(() => import("@/pages/BrandPreview")); return <C />; })()}
         </Suspense>
       </Route>
+      <Route path="/enterprise">  <MarketingRoute><EnterprisePage /></MarketingRoute></Route>
       <Route path="/signin">     <MarketingRoute><AuthPage mode="signin" /></MarketingRoute></Route>
       <Route path="/signup">     <MarketingRoute><AuthPage mode="signup" /></MarketingRoute></Route>
       <Route component={ProtectedAppLayout} />
