@@ -270,24 +270,23 @@ export function TopBar({ dark, onDark }: TopBarProps) {
                 const sec = SECTIONS.find(s => s.key === entry.sections[0]);
                 navigate(sec?.defaultHref ?? "/home");
               }}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: "5px",
-                padding: "0 14px", height: "38px", cursor: "pointer",
-                border: "none",
-                borderBottom: isActive
-                  ? `2px solid ${sectionAccentMap[entry.sections[0]] ?? "var(--ac)"}`
-                  : "2px solid transparent",
-                background: isActive
-                  ? `${sectionAccentMap[entry.sections[0]] ?? "var(--ac)"}12`
-                  : "transparent",
-                color: isActive
-                  ? (sectionAccentMap[entry.sections[0]] ?? "var(--btx)")
-                  : "var(--txq)",
-                fontWeight: isActive ? 700 : 500,
-                fontSize: "13px", fontFamily: "'Geist', sans-serif",
-                transition: "color .2s, border-color .2s, background .2s",
-                whiteSpace: "nowrap",
-              }}
+              style={(() => {
+                const ac = sectionAccentMap[entry.sections[0]] ?? "var(--ac)";
+                return {
+                  display: "inline-flex", alignItems: "center", gap: "5px",
+                  padding: "0 14px", height: "38px", cursor: "pointer",
+                  border: "none",
+                  /* 3-px coloured underline sits at the very bottom of the button */
+                  borderBottom: isActive ? `3px solid ${ac}` : "3px solid transparent",
+                  /* Visible accent tint — hex suffix 28 ≈ 16 % opacity */
+                  background: isActive ? `${ac}28` : "transparent",
+                  color: isActive ? ac : "var(--txq)",
+                  fontWeight: isActive ? 700 : 500,
+                  fontSize: "13px", fontFamily: "'Geist', sans-serif",
+                  transition: "color .2s, border-color .2s, background .2s",
+                  whiteSpace: "nowrap",
+                };
+              })()}
               aria-current={isActive ? "page" : undefined}
             >
               <Icon style={{ width: "14px", height: "14px", strokeWidth: 1.6 }} />
@@ -315,10 +314,10 @@ export function TopBar({ dark, onDark }: TopBarProps) {
         className="bar-sub"
         style={{
           overflow: "hidden",
-          maxHeight: subItems.length > 0 ? "40px" : "0",
+          maxHeight: subItems.length > 0 ? "36px" : "0",
           transition: "max-height .22s ease",
-          display: "flex", alignItems: "center",
-          padding: "0 8px", gap: "2px",
+          display: "flex", alignItems: "stretch",
+          padding: "0 8px", gap: "0",
         }}
       >
         {subItems.map(item => {
@@ -327,30 +326,33 @@ export function TopBar({ dark, onDark }: TopBarProps) {
             (item.href !== "/" && location.startsWith(item.href + "/"));
           const isDeep = !isHome;
           const displayLabel = isDeep ? item.label + " ›" : item.label;
+          /* Use the active section's accent for the sub-tab indicator */
+          const subAc = activeSection?.accent ?? "var(--ac)";
           return (
             <button
               key={item.href}
               onClick={() => {
                 if (isDeep) {
-                  // Deep items open the Global Side Bar — navigation is GSB's responsibility
                   window.dispatchEvent(
                     new CustomEvent("nf:gsb-open", { detail: { label: item.label, href: item.href } }),
                   );
                 } else {
-                  // Home section items navigate directly and close any open GSB
                   navigate(item.href);
                   window.dispatchEvent(new CustomEvent("nf:gsb-close"));
                 }
               }}
               style={{
-                height: "28px", padding: "0 12px",
-                borderRadius: "var(--r-pill)",
+                display: "inline-flex", alignItems: "center",
+                padding: "0 12px",
                 fontSize: "12px", fontFamily: "'Geist', sans-serif",
                 cursor: "pointer", border: "none",
-                background: isActiveItem ? "var(--sub-bg)" : "transparent",
+                /* 2-px bottom underline — accent when active, transparent when not */
+                borderBottom: isActiveItem ? `2px solid ${subAc}` : "2px solid transparent",
+                /* Subtle accent tint on active — hex 20 ≈ 12 % opacity */
+                background: isActiveItem ? `${subAc}20` : "transparent",
                 fontWeight: isActiveItem ? 600 : 400,
-                color: isActiveItem ? "var(--btx)" : "var(--txM)",
-                transition: "background .15s, color .15s",
+                color: isActiveItem ? subAc : "var(--txM)",
+                transition: "background .15s, color .15s, border-color .15s",
                 whiteSpace: "nowrap",
               }}
             >
