@@ -103,7 +103,7 @@ export function TopBar({ dark, onDark }: TopBarProps) {
             Logo sits beside the Home tab. No wordmark. No utilities. */}
       <div className="flex items-center h-12 px-3 sm:px-4 max-w-[1600px] mx-auto w-full gap-2">
         <Link href="/home">
-          <div className="flex-shrink-0 cursor-pointer p-1 rounded-lg hover:bg-muted/40 transition-colors flex items-center gap-2" aria-label="NexFlow home">
+          <div className="flex-shrink-0 cursor-pointer p-1 rounded-lg hover:bg-muted/40 transition-colors flex items-center gap-2" aria-label="QPulse home">
             {tenantConfig?.logoBase64 ? (
               <img
                 src={tenantConfig.logoBase64}

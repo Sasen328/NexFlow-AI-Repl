@@ -2,12 +2,12 @@ import { Link, useLocation } from "wouter";
 import { useState, useEffect, useRef } from "react";
 import { ChevronDown, LogIn, UserPlus, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NexFlowLogo } from "@/components/layout/NexFlowLogo";
+import { NexFlowWordmark } from "@/components/layout/NexFlowLogo";
 import { useTheme } from "@/hooks/useTheme";
 
 const TABS = [
   { key: "home",    label: "Home",            href: "/welcome" },
-  { key: "about",   label: "What is NexFlow", href: "/about" },
+  { key: "about",   label: "What is QPulse",  href: "/about" },
   { key: "pricing", label: "Pricing Plan",    href: "/pricing" },
   { key: "brand",   label: "Brand Kit",       href: "/brand" },
 ];
@@ -46,8 +46,7 @@ export function MarketingTopBar() {
       <div className="flex items-center h-14 px-4 sm:px-6 max-w-[1600px] mx-auto w-full gap-3">
         <Link href="/welcome">
           <div className="flex items-center gap-2 cursor-pointer p-1 rounded-lg hover:bg-muted/40 transition-colors">
-            <NexFlowLogo size={32} />
-            <span className="text-base font-black tracking-tight">NexFlow</span>
+            <NexFlowWordmark height={28} />
           </div>
         </Link>
 
