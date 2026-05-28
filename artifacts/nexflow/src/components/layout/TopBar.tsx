@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useRef, useLayoutEffect } from "react";
+import { useState, useEffect, useRef, useLayoutEffect, useMemo } from "react";
 import {
   Bell, Search, Settings, LogOut, ChevronRight, Sparkles, FlaskConical,
 } from "lucide-react";
@@ -20,6 +20,17 @@ export interface TopBarProps {
 const FILTER_CHIPS = [
   "All", "Pinned", "High Value", "KSA", "UAE", "New This Week", "Needs Follow-up",
 ] as const;
+
+/** Map a notification to a top-nav tab key based on type/category metadata. */
+function mapNotifToTabKey(n: { type?: string; category?: string; related_type?: string }): string {
+  const t = ((n.type ?? "") + (n.category ?? "") + (n.related_type ?? "")).toLowerCase();
+  if (t.includes("call") || t.includes("voicemail") || t.includes("transcript") || t.includes("dialer")) return "callcenter";
+  if (t.includes("deal") || t.includes("contact") || t.includes("lead") || t.includes("pipeline")) return "leads";
+  if (t.includes("campaign") || t.includes("marketing") || t.includes("email") || t.includes("whatsapp")) return "marketing";
+  if (t.includes("insight") || t.includes("report") || t.includes("forecast") || t.includes("dashboard")) return "insights";
+  if (t.includes("enrich") || t.includes("signal") || t.includes("data") || t.includes("dedup")) return "datahub";
+  return "home";
+}
 
 /**
  * 6-bar App Bar stack
@@ -46,6 +57,18 @@ export function TopBar({ dark, onDark }: TopBarProps) {
     (n: { read?: boolean }) => !n.read,
   ).length;
   const { config: tenantConfig } = useTenantConfig();
+
+  /* ── Per-tab notification badge counts ──────────────────────── */
+  const badgeCounts = useMemo<Record<string, number>>(() => {
+    const counts: Record<string, number> = {};
+    (notifData?.notifications ?? []).forEach((n: { read?: boolean; type?: string; category?: string; related_type?: string }) => {
+      if (!n.read) {
+        const key = mapNotifToTabKey(n);
+        counts[key] = (counts[key] ?? 0) + 1;
+      }
+    });
+    return counts;
+  }, [notifData]);
 
   /* ── Measure total bar height → --topbar-h ─────────────────── */
   useLayoutEffect(() => {
@@ -159,7 +182,7 @@ export function TopBar({ dark, onDark }: TopBarProps) {
               onClick={() => setAvatarOpen(v => !v)}
               style={{
                 width: "22px", height: "22px", borderRadius: "50%",
-                background: `linear-gradient(135deg,${currentRole.accent},#B8A0C8)`,
+                background: `linear-gradient(135deg,${currentRole.accent},var(--brand-purple))`,
                 color: "#fff", fontSize: "9px", fontWeight: 900,
                 border: "none", cursor: "pointer",
                 display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -237,7 +260,7 @@ export function TopBar({ dark, onDark }: TopBarProps) {
       >
         {navEntries.map(entry => {
           const isActive = activeTop?.key === entry.key;
-          const badge = (entry.key === "home" && unreadCount > 0) ? unreadCount : 0;
+          const badge = badgeCounts[entry.key] ?? 0;
           const Icon = entry.icon;
           return (
             <button
@@ -301,12 +324,14 @@ export function TopBar({ dark, onDark }: TopBarProps) {
             <button
               key={item.href}
               onClick={() => {
-                navigate(item.href);
                 if (isDeep) {
+                  // Deep items open the Global Side Bar — navigation is GSB's responsibility
                   window.dispatchEvent(
-                    new CustomEvent("nf:gsb-open", { detail: { label: item.label } }),
+                    new CustomEvent("nf:gsb-open", { detail: { label: item.label, href: item.href } }),
                   );
                 } else {
+                  // Home section items navigate directly and close any open GSB
+                  navigate(item.href);
                   window.dispatchEvent(new CustomEvent("nf:gsb-close"));
                 }
               }}
@@ -367,7 +392,7 @@ function AvatarDropdown({
       <div className="px-3 py-2 flex items-center gap-2" style={{ borderBottom: "1px solid var(--bd)" }}>
         <div
           className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0"
-          style={{ background: `linear-gradient(135deg,${role.accent},#B8A0C8)` }}
+          style={{ background: `linear-gradient(135deg,${role.accent},var(--brand-purple))` }}
         >
           {role.initials}
         </div>
@@ -400,7 +425,7 @@ function AvatarDropdown({
               >
                 <div
                   className="w-6 h-6 rounded-md flex items-center justify-center text-white text-[10px] font-black flex-shrink-0"
-                  style={{ background: `linear-gradient(135deg,${r.accent},#B8A0C8)` }}
+                  style={{ background: `linear-gradient(135deg,${r.accent},var(--brand-purple))` }}
                 >
                   {r.initials}
                 </div>
@@ -471,12 +496,9 @@ function AvatarDropdown({
 
       {/* Demo badge */}
       <div className="px-3 pt-2 mt-1" style={{ borderTop: "1px solid var(--bd)" }}>
-        <div
-          className="flex items-center gap-1.5 px-2 py-1 rounded-lg"
-          style={{ background: "rgba(200,168,128,0.10)", border: "1px solid rgba(200,168,128,0.25)" }}
-        >
-          <FlaskConical className="w-3 h-3" style={{ color: "#C8A880" }} />
-          <div className="text-[10px] font-bold" style={{ color: "#C8A880" }}>
+        <div className="demo-badge-card flex items-center gap-1.5 px-2 py-1 rounded-lg">
+          <FlaskConical className="w-3 h-3" style={{ color: "var(--brand-gold)" }} />
+          <div className="text-[10px] font-bold" style={{ color: "var(--brand-gold)" }}>
             DEMO MODE — click any persona above to switch
           </div>
         </div>
