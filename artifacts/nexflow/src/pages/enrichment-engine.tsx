@@ -102,7 +102,7 @@ function LeadGenerationTab() {
     { id: "masaar",    label: "Masaar Engine",          icon: BrainCircuit, badge: "Doc 1",   desc: "Saudi CR intelligence — 7-agent SSE pipeline" },
     { id: "masar",     label: "Masar Database",         icon: Database,     badge: "25 src",  desc: "25-source agentic company harvest" },
     { id: "prosengine",label: "ProsEngine",             icon: Cpu,          badge: "Doc 3",   desc: "Company · Person · Website · Data Seeder" },
-    { id: "builder",   label: "AI DB Builder",          icon: Bot,          badge: "15 src",  desc: "15-source AI database builder" },
+    { id: "builder",   label: "AI DB Builder",          icon: Bot,          badge: "80 src",  desc: "80-source AI database builder" },
     { id: "cards",     label: "Card Scanner",           icon: ScanLine,     badge: "5-agent", desc: "Scan business cards → enriched leads" },
   ];
 
