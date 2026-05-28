@@ -778,7 +778,7 @@ tr:hover td{background:rgba(184,160,200,.06)}
           <div id="mini-chat-box" class="mini-chat hide">
             <div class="mini-chat-head">AI Assistant</div>
             <div class="turn ai">I see you ran Lead Gen + Enrich on 5 fintechs. Want me to: add outreach drafts, expand to Series B+, or compare CTO tenures?</div>
-            <div class="mini-chat-input"><input class="input" placeholder="ask me to adjust the report or enrichment..."/><button class="btn btn-primary btn-sm" onclick="toast('AI applied your adjustment')">Send</button></div>
+            <div class="mini-chat-input"><input class="input" id="mini-chat-inp" placeholder="ask me to adjust the report or enrichment…" onkeydown="if(event.key==='Enter')miniChatSend()"/><button class="btn btn-primary btn-sm" onclick="miniChatSend()">Send</button></div>
           </div>
           <div class="blk-h" style="margin-top:18px">What next?</div>
           <div class="regen-row">
@@ -1505,28 +1505,86 @@ function gotoLayer(n){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function kickoff(){if(document.getElementById('enhance-tgl').classList.contains('on'))gotoStageById('enhance');else startAgents();}
-function startAgents(){
+// ─── REAL SSE BACKEND — AI Chat Run Stage ─────────────────────────────────────
+let _agentWorking=false;
+function _buildResearchQuery(){
+  const tpl=document.getElementById('tpl-sel');
+  const tplText=tpl?tpl.options[tpl.selectedIndex].text:'GCC B2B research';
+  const modes=Array.from(document.querySelectorAll('#mode-pop .ms-opt.on')).map(el=>el.dataset.v||'').filter(Boolean);
+  const countries=Array.from(document.querySelectorAll('#country-pop .ms-opt.on')).map(el=>el.dataset.v||'').filter(Boolean);
+  const target=document.querySelector('.target-opt[data-tgt].on')?.dataset.tgt||'both';
+  const custom=document.getElementById('ask-query')?.value||'';
+  return `Research: "${tplText}"\nModes: ${modes.join(', ')||'lead gen'}\nMarkets: ${countries.join(', ')||'GCC'}\nTarget: ${target}${custom?'\nQuery: '+custom:''}`;
+}
+async function startAgents(){
+  if(_agentWorking)return;
+  _agentWorking=true;
   gotoStageById('run');
   const log=document.getElementById('agent-log');log.innerHTML='';
-  const agents=[
-    {n:'Planner',d:'Decompose · enforce contract',t:700},
-    {n:'Researcher',d:'Live-web search · 80+ sources',t:1100},
-    {n:'Crawler',d:'6 pages parallel · LinkedIn + web',t:1300},
-    {n:'Arabic NLP',d:'Argaam + Maal · press scan',t:700},
-    {n:'Validator',d:'Validate · verify · dedup',t:1000},
-    {n:'Signal Scout',d:'Detect buying signals',t:700},
-    {n:'Tree Builder',d:'Relationships · 3rd degree',t:800},
-    {n:'Writer',d:'Render '+state.reportShape+' report (strict)',t:1000},
-  ];
-  let i=0;
-  (function next(){
-    if(i>=agents.length){setTimeout(()=>gotoStageById('report'),300);return;}
-    const a=agents[i];
+  const rowMap={};let finalText='';
+
+  function addRow(agent,desc){
+    if(rowMap[agent])return;
     const row=document.createElement('div');row.className='agent-row running';
-    row.innerHTML=`<div class="agent-mark"><div class="spinner"></div></div><div style="font-size:13px;font-weight:600">${a.n}</div><div style="font-size:12px;color:var(--ink-soft);flex:1">${a.d}</div>`;
+    row.innerHTML=`<div class="agent-mark"><div class="spinner"></div></div>`+
+      `<div style="font-size:13px;font-weight:600">${agent}</div>`+
+      `<div style="font-size:12px;color:var(--ink-soft);flex:1">${desc||''}</div>`;
+    log.appendChild(row);rowMap[agent]=row;
+    row.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }
+  function doneRow(agent,summary){
+    if(!rowMap[agent])addRow(agent,'');
+    const r=rowMap[agent];
+    r.classList.remove('running');r.classList.add('done');
+    const mark=r.querySelector('.agent-mark');if(mark)mark.innerHTML='✓';
+    if(summary){const d=r.querySelector('div:last-child');if(d)d.textContent=summary;}
+  }
+  function addErr(msg){
+    const row=document.createElement('div');row.className='agent-row';
+    row.style.color='var(--bad)';
+    row.innerHTML=`<div class="agent-mark">⚠</div><div style="font-size:13px">${msg}</div>`;
     log.appendChild(row);
-    setTimeout(()=>{row.classList.remove('running');row.classList.add('done');row.querySelector('.agent-mark').innerHTML='✓';i++;next();},a.t);
-  })();
+  }
+
+  try{
+    const q=_buildResearchQuery();
+    document.getElementById('mega-live').textContent='streaming live from /api/ai-chat/stream…';
+    const resp=await fetch('/api/ai-chat/stream',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        message:q,
+        system:'You are a GCC B2B research expert. Find leads matching the request. Output a short structured report: highlights, person table (name, title, company), key signals. Be concise.'
+      })
+    });
+    if(!resp.ok||!resp.body){throw new Error('API error '+resp.status);}
+    const reader=resp.body.getReader();const dec=new TextDecoder();
+    let buf='';
+    for(;;){
+      const {value,done}=await reader.read();if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      const lines=buf.split('\n');buf=lines.pop()||'';
+      for(const line of lines){
+        if(!line.startsWith('data: '))continue;
+        let ev;try{ev=JSON.parse(line.slice(6));}catch{continue;}
+        if(ev.event==='agent_start')addRow(ev.data.agent,ev.data.description||'');
+        else if(ev.event==='agent_done')doneRow(ev.data.agent,ev.data.summary||'');
+        else if(ev.event==='token'&&typeof ev.data==='string')finalText+=ev.data;
+        else if(ev.event==='final'&&ev.data?.text)finalText=ev.data.text||finalText;
+        else if(ev.event==='error')addErr(ev.data?.message||'Unknown error');
+      }
+    }
+    document.getElementById('mega-live').textContent='complete ✓';
+  }catch(err){
+    addErr('Connection error: '+err.message);
+    const retry=document.createElement('div');retry.style.marginTop='12px';
+    retry.innerHTML=`<button class="btn btn-primary btn-sm" onclick="_agentWorking=false;startAgents()">Retry</button>`;
+    log.appendChild(retry);
+    _agentWorking=false;return;
+  }
+  _agentWorking=false;
+  state._aiText=finalText;
+  setTimeout(()=>{renderReport();gotoStageById('report');},300);
 }
 function resetAll(){reached=['compose'];gotoStageById('compose');gotoLayer(1);}
 function setReport(r){
@@ -1549,6 +1607,21 @@ function renderReport(){
   const r=document.getElementById('rpt-render');if(!r)return;
   document.getElementById('rpt-title').textContent=state.industry==='fintech'?'Saudi Fintech Leads — 5 results':'Research Report';
   document.getElementById('rpt-meta').textContent='Shape: '+state.reportShape+' · generated now · 6 cited sources';
+
+  // ── Inject live AI response when available ─────────────────────────────────
+  if(state._aiText){
+    const safe=state._aiText.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    // Convert markdown-ish to minimal HTML
+    const html=safe
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+      .replace(/^#{1,3}\s(.+)$/gm,'<div style="font-family:\'Playfair Display\',serif;font-weight:700;font-size:14px;margin:12px 0 4px">$1</div>')
+      .replace(/\n\n/g,'<br><br>')
+      .replace(/\n/g,'<br>');
+    r.innerHTML=`<div class="blk"><div class="blk-h"><span class="live-dot" style="display:inline-block;margin-right:6px"></span>Live AI Response — <span style="font-weight:400;text-transform:none;letter-spacing:0">/api/ai-chat/stream</span></div><div style="font-size:13px;line-height:1.65;background:white;border:1px solid var(--line-2);border-radius:10px;padding:14px;max-height:420px;overflow-y:auto">${html}</div></div>`;
+    r.innerHTML+=`<div class="exports"><button class="exp-btn" onclick="toast('Exported to XLSX')">XLSX</button><button class="exp-btn" onclick="toast('Exported to PDF')">PDF</button><button class="exp-btn" onclick="toast('Exported to HTML')">HTML</button><button class="exp-btn" onclick="toast('Exported to CSV')">CSV</button></div>`;
+    return;
+  }
+
   if(state.reportShape==='exec'){
     r.innerHTML=`<div class="blk"><div class="blk-h">Executive Summary</div><div style="font-size:13px;line-height:1.6;background:white;border:1px solid var(--line-2);border-radius:10px;padding:14px"><strong>Findings:</strong> 5 Saudi fintechs (Series-A+) closed 2024 funding. Aggregate raised <strong>$87M</strong>. All actively hiring.<br/><br/><strong>Top Insight:</strong> Tabby (Series D · $50M) shows highest engineering hiring velocity (9 open roles).<br/><br/><strong>Recommendation:</strong> Prioritize Tabby + Lean Tech for outreach.</div></div><div class="blk"><div class="blk-h">Highlights</div><div class="kpi-row"><div class="kpi"><div class="kpi-val">5</div><div class="kpi-label">Leads</div></div><div class="kpi"><div class="kpi-val">$87M</div><div class="kpi-label">2024 funding</div></div><div class="kpi"><div class="kpi-val">A+</div><div class="kpi-label">Avg quality</div></div><div class="kpi"><div class="kpi-val">28</div><div class="kpi-label">Open roles</div></div></div></div>`;
   }else if(state.reportShape==='detail'){
@@ -1635,6 +1708,46 @@ if(runSwarmBtn)runSwarmBtn.addEventListener('click',()=>{
     if(swarmDone>=8){clearInterval(swarmTick);stat.className='status-pill done';stat.textContent='✓ complete';}
   },1200);
 });
+
+// ─── MINI-CHAT (real backend) ─────────────────────────────────────────────────
+let _miniHistory=[];
+async function miniChatSend(){
+  const inp=document.getElementById('mini-chat-inp');if(!inp)return;
+  const msg=inp.value.trim();if(!msg)return;
+  inp.value='';
+  const box=document.getElementById('mini-chat-box');if(!box)return;
+  // Append user turn
+  const uTurn=document.createElement('div');uTurn.className='turn user';uTurn.textContent=msg;box.insertBefore(uTurn,box.querySelector('.mini-chat-input'));
+  // Typing indicator
+  const typing=document.createElement('div');typing.className='turn ai';typing.textContent='…';box.insertBefore(typing,box.querySelector('.mini-chat-input'));
+  typing.scrollIntoView({block:'nearest',behavior:'smooth'});
+  _miniHistory.push({role:'user',content:msg});
+  try{
+    const resp=await fetch('/api/ai-chat/stream',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        message:msg,history:_miniHistory.slice(-6),
+        system:'You are an AI research assistant inside NexFlow CRM. Help the user refine or extend their enrichment report. Be concise (2-4 sentences max).'
+      })
+    });
+    if(!resp.ok||!resp.body)throw new Error('API '+resp.status);
+    const reader=resp.body.getReader();const dec=new TextDecoder();
+    let buf='',text='';
+    for(;;){
+      const {value,done}=await reader.read();if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      const lines=buf.split('\n');buf=lines.pop()||'';
+      for(const line of lines){
+        if(!line.startsWith('data: '))continue;
+        let ev;try{ev=JSON.parse(line.slice(6));}catch{continue;}
+        if(ev.event==='token'&&typeof ev.data==='string'){text+=ev.data;typing.textContent=text||'…';}
+        else if(ev.event==='final'&&ev.data?.text){text=ev.data.text||text;typing.textContent=text;}
+      }
+    }
+    typing.textContent=text||'Done.';
+    _miniHistory.push({role:'assistant',content:text});
+  }catch(e){typing.textContent='Error: '+e.message;typing.style.color='var(--bad)';}
+}
 
 // ─── TOAST ───────────────────────────────────────────────────────────────────
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200);}
