@@ -156,123 +156,37 @@ function MasaarEnginePanel() {
   );
 }
 
-// ── ProsEngine Panel — hub cards matching ProspectSA reference (NexFlow theme) ──
+// ── ProsEngine Panel (Doc 3 — 4 tools: Company Intel · Person Intel · Website Intel · Data Seeder) ──
 function ProsEnginePanel() {
-  const [active, setActive] = useState<ProsSubTab | null>(null);
-
-  const TOOLS: {
-    id: ProsSubTab; label: string; badge: string; color: string;
-    desc: string; bullets: string[]; cta: string;
-  }[] = [
-    {
-      id: "company", label: "Company Intelligence", badge: "AI Company Dossier", color: TEAL,
-      desc: "Enter any Saudi company name — no website needed. Get a full dossier: ownership & shareholders, leadership (EN+AR), financials, market intelligence, competitors, and a tailored B2B approach strategy.",
-      bullets: ["Shareholders & ownership % (bilingual)", "CEO, board, executives (EN+AR)", "Revenue, competitors, B2B approach"],
-      cta: "Research a Company",
-    },
-    {
-      id: "person", label: "Person Intelligence", badge: "AI Deep Profile", color: ACCENT,
-      desc: "Generate a full intelligence dossier on any Saudi executive, owner, or shareholder. Enter a name (and optional company/LinkedIn) and get wealth estimates, career history, education, and a tailored approach strategy.",
-      bullets: ["Wealth & income estimation", "Career timeline & education", "B2B approach strategy & cultural notes"],
-      cta: "Profile a Person",
-    },
-    {
-      id: "website", label: "Website Intelligence", badge: "URL Scanner", color: "#6BA8A0",
-      desc: "Enter any Saudi business website, directory, or government registry. The engine deep-scans the site, detects data type, extracts companies & executives, then enriches each with AI.",
-      bullets: ["Auto-detects directories, portals, catalogs", "Extracts companies & executives", "AI enrichment with contact & revenue data"],
-      cta: "Scan a Website",
-    },
-    {
-      id: "seeder", label: "Data Seeder", badge: "AI Generator", color: GOLD,
-      desc: "Describe what data you need in plain text — industries, cities, executives, counts — and AI generates structured Saudi company and executive records instantly. No URL required.",
-      bullets: ["Text description OR website URL input", "AI-generated realistic Saudi records", "Export to CSV · AI chat assistant included"],
-      cta: "Seed Data",
-    },
+  const [pros, setPros] = useState<ProsSubTab>("company");
+  const pills: { id: ProsSubTab; label: string; icon: React.ElementType; desc: string }[] = [
+    { id: "company", label: "Company Intel",  icon: Building2,  desc: "Full B2B intelligence report" },
+    { id: "person",  label: "Person Intel",   icon: Users,      desc: "Executive deep profile" },
+    { id: "website", label: "Website Intel",  icon: Globe,      desc: "Scan & extract company data" },
+    { id: "seeder",  label: "Data Seeder",    icon: Database,   desc: "Generate or scrape company/executive records" },
   ];
-
-  if (active !== null) {
-    return (
-      <div className="space-y-4">
-        <button
-          onClick={() => setActive(null)}
-          className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ChevronRight className="w-3.5 h-3.5 rotate-180" />
-          Back to ProsEngine Hub
-        </button>
-        <Suspense fallback={<Spinner />}>
-          {active === "company" && <CompanyIntelPanel />}
-          {active === "person"  && <PersonIntelPanel />}
-          {active === "website" && <WebsiteIntelPanel />}
-          {active === "seeder"  && <DataSeederPanel />}
-        </Suspense>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-5">
-      {/* Hub header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ background: `${ACCENT}15` }}>
-          <Cpu className="w-5 h-5" style={{ color: ACCENT }} />
-        </div>
-        <div>
-          <div className="font-bold text-[16px]">ProsEngine</div>
-          <div className="text-[12px] text-muted-foreground">Saudi Arabia Intelligence Platform — choose your mode</div>
-        </div>
+    <div>
+      <div className="flex gap-2 mb-6 flex-wrap">
+        {pills.map((p) => {
+          const Icon = p.icon;
+          const active = pros === p.id;
+          return (
+            <button key={p.id} onClick={() => setPros(p.id)}
+              className={cn("flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-semibold transition-all border", active ? "border-transparent text-white shadow-md" : "border-border/40 text-foreground/60 hover:bg-muted/40 hover:text-foreground")}
+              style={active ? { background: `linear-gradient(135deg, ${TEAL}E0, ${ACCENT}CC)`, boxShadow: `0 4px 14px ${TEAL}40` } : undefined}>
+              <Icon className="w-3.5 h-3.5" />
+              <span>{p.label}</span>
+            </button>
+          );
+        })}
       </div>
-
-      {/* 2×2 tool card grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 gap-4">
-        {TOOLS.map((t) => (
-          <div key={t.id}
-            className="rounded-xl border border-border/30 bg-card/50 flex flex-col overflow-hidden hover:shadow-md hover:border-border/50 transition-all"
-            style={{ borderTop: `3px solid ${t.color}` }}>
-            <div className="p-5 flex-1">
-              {/* Icon + badge */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ background: `${t.color}18` }}>
-                  {t.id === "company" && <Building2 className="w-5 h-5" style={{ color: t.color }} />}
-                  {t.id === "person"  && <Users     className="w-5 h-5" style={{ color: t.color }} />}
-                  {t.id === "website" && <Globe     className="w-5 h-5" style={{ color: t.color }} />}
-                  {t.id === "seeder"  && <Database  className="w-5 h-5" style={{ color: t.color }} />}
-                </div>
-                <span className="text-[10px] px-2.5 py-1 rounded-full font-bold border"
-                  style={{ color: t.color, borderColor: `${t.color}40`, background: `${t.color}10` }}>
-                  {t.badge}
-                </span>
-              </div>
-              {/* Title */}
-              <div className="font-bold text-[15px] mb-2" style={{ color: t.color }}>{t.label}</div>
-              {/* Description */}
-              <div className="text-[12px] text-muted-foreground leading-relaxed mb-4">{t.desc}</div>
-              {/* Bullet points */}
-              <ul className="space-y-1.5">
-                {t.bullets.map((b) => (
-                  <li key={b} className="flex items-start gap-2 text-[11px] text-foreground/70">
-                    <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
-                      style={{ background: t.color }} />
-                    {b}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            {/* CTA button */}
-            <div className="px-5 pb-5">
-              <button
-                onClick={() => setActive(t.id)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98]"
-                style={{ background: `linear-gradient(135deg, ${t.color}EE, ${t.color}99)` }}>
-                {t.cta}
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+      <Suspense fallback={<Spinner />}>
+        {pros === "company" && <CompanyIntelPanel />}
+        {pros === "person"  && <PersonIntelPanel />}
+        {pros === "website" && <WebsiteIntelPanel />}
+        {pros === "seeder"  && <DataSeederPanel />}
+      </Suspense>
     </div>
   );
 }
