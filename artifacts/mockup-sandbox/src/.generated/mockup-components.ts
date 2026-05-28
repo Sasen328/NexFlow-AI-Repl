@@ -10,11 +10,11 @@ export const modules: ModuleMap = {
   "./components/mockups/crm-redesign/PersonDrawer.tsx": () => import("../components/mockups/crm-redesign/PersonDrawer.tsx"),
   "./components/mockups/crm-redesign/SmartFlow.tsx": () => import("../components/mockups/crm-redesign/SmartFlow.tsx"),
   "./components/mockups/crm-redesign/Studio.tsx": () => import("../components/mockups/crm-redesign/Studio.tsx"),
+  "./components/mockups/qpulse/QPulseBrandPreview.tsx": () => import("../components/mockups/qpulse/QPulseBrandPreview.tsx"),
   "./components/mockups/sales-rep-home/Cockpit.tsx": () => import("../components/mockups/sales-rep-home/Cockpit.tsx"),
   "./components/mockups/sales-rep-home/DailyBriefing.tsx": () => import("../components/mockups/sales-rep-home/DailyBriefing.tsx"),
   "./components/mockups/sales-rep-home/FeedRail.tsx": () => import("../components/mockups/sales-rep-home/FeedRail.tsx"),
   "./components/mockups/sales-rep-home/PerformanceTrends.tsx": () => import("../components/mockups/sales-rep-home/PerformanceTrends.tsx"),
   "./components/mockups/sales-rep-home/SplitView.tsx": () => import("../components/mockups/sales-rep-home/SplitView.tsx"),
-  "./components/mockups/sales-rep-home/TodoAlerts.tsx": () => import("../components/mockups/sales-rep-home/TodoAlerts.tsx"),
-  "./components/mockups/qpulse/QPulseBrandPreview.tsx": () => import("../components/mockups/qpulse/QPulseBrandPreview.tsx")
+  "./components/mockups/sales-rep-home/TodoAlerts.tsx": () => import("../components/mockups/sales-rep-home/TodoAlerts.tsx")
 };
