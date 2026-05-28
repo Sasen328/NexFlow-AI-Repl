@@ -120,6 +120,12 @@ export function TopBar({ dark, onDark }: TopBarProps) {
   const subItems      = activeSection?.items ?? [];
   const isHome        = activeSection?.key === "home";
 
+  /* Per-entry accent: first section's accent colour */
+  const sectionAccentMap = useMemo<Record<string, string>>(
+    () => Object.fromEntries(SECTIONS.map((s) => [s.key, (s as { accent?: string }).accent ?? "var(--ac)"])),
+    [],
+  );
+
   const navEntries = getNavForRole(currentRole.key).filter(entry => {
     if (!tenantConfig?.tabStructure?.length) return true;
     return (tenantConfig.tabStructure as string[]).includes(entry.key);
@@ -268,12 +274,18 @@ export function TopBar({ dark, onDark }: TopBarProps) {
                 display: "inline-flex", alignItems: "center", gap: "5px",
                 padding: "0 14px", height: "38px", cursor: "pointer",
                 border: "none",
-                borderBottom: isActive ? "2px solid var(--ac)" : "2px solid transparent",
-                background: "transparent",
-                color: isActive ? "var(--btx)" : "var(--txq)",
+                borderBottom: isActive
+                  ? `2px solid ${sectionAccentMap[entry.sections[0]] ?? "var(--ac)"}`
+                  : "2px solid transparent",
+                background: isActive
+                  ? `${sectionAccentMap[entry.sections[0]] ?? "var(--ac)"}12`
+                  : "transparent",
+                color: isActive
+                  ? (sectionAccentMap[entry.sections[0]] ?? "var(--btx)")
+                  : "var(--txq)",
                 fontWeight: isActive ? 700 : 500,
                 fontSize: "13px", fontFamily: "'Geist', sans-serif",
-                transition: "color .2s, border-color .2s",
+                transition: "color .2s, border-color .2s, background .2s",
                 whiteSpace: "nowrap",
               }}
               aria-current={isActive ? "page" : undefined}

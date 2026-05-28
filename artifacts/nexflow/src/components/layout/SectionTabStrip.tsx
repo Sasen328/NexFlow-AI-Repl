@@ -74,16 +74,16 @@ function SectionTabStripInner({ section, location }: { section: SectionDef; loca
       className="bar-tab sticky top-[5.5rem] z-30"
     >
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6">
-        <div className="flex items-center gap-3 h-12 overflow-x-auto no-scrollbar">
-          {/* Section identity chip */}
-          <div className="flex items-center gap-2 pr-3 border-r border-border/40 flex-shrink-0">
+        <div className="flex items-stretch gap-0 h-11 overflow-x-auto no-scrollbar">
+          {/* Section identity chip — breadcrumb prefix */}
+          <div className="flex items-center gap-2 pr-4 mr-2 border-r border-border/30 flex-shrink-0">
             <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: `${section.accent}25` }}
+              className="w-6 h-6 rounded-md flex items-center justify-center"
+              style={{ background: `${section.accent}20` }}
             >
-              <Icon className="w-3.5 h-3.5" style={{ color: section.accent }} />
+              <Icon className="w-3 h-3" style={{ color: section.accent }} />
             </div>
-            <span className="text-[13px] font-bold text-foreground">{section.label}</span>
+            <span className="text-[12px] font-bold" style={{ color: section.accent }}>{section.label}</span>
           </div>
 
           {/* Dashboard tab — only for sections that don't already have one as
@@ -92,22 +92,22 @@ function SectionTabStripInner({ section, location }: { section: SectionDef; loca
             <Link href={dashboardHref}>
               <button
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap flex-shrink-0 transition-all",
+                  "relative flex items-center gap-1.5 px-3 h-full text-[13px] font-medium whitespace-nowrap flex-shrink-0 transition-all",
                   dashboardActive
-                    ? "text-white shadow-sm"
-                    : "text-foreground/65 hover:text-foreground hover:bg-muted/50",
+                    ? "font-semibold"
+                    : "text-foreground/55 hover:text-foreground",
                 )}
-                style={
-                  dashboardActive
-                    ? {
-                        background: `linear-gradient(135deg, ${section.accent}, #B8A0C8)`,
-                        boxShadow: `0 4px 12px ${section.accent}40`,
-                      }
-                    : undefined
-                }
+                style={dashboardActive ? {
+                  color: section.accent,
+                  background: `${section.accent}10`,
+                } : undefined}
               >
                 <LayoutDashboard className="w-3.5 h-3.5" />
                 Dashboard
+                {dashboardActive && (
+                  <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-sm"
+                    style={{ background: section.accent }} />
+                )}
               </button>
             </Link>
           )}
@@ -123,22 +123,22 @@ function SectionTabStripInner({ section, location }: { section: SectionDef; loca
               <Link key={item.href} href={item.href}>
                 <button
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap flex-shrink-0 transition-all",
+                    "relative flex items-center gap-1.5 px-3 h-full text-[13px] font-medium whitespace-nowrap flex-shrink-0 transition-all",
                     active
-                      ? "text-white shadow-sm"
-                      : "text-foreground/65 hover:text-foreground hover:bg-muted/50",
+                      ? "font-semibold"
+                      : "text-foreground/55 hover:text-foreground",
                   )}
-                  style={
-                    active
-                      ? {
-                          background: `linear-gradient(135deg, ${section.accent}, #B8A0C8)`,
-                          boxShadow: `0 4px 12px ${section.accent}40`,
-                        }
-                      : undefined
-                  }
+                  style={active ? {
+                    color: section.accent,
+                    background: `${section.accent}10`,
+                  } : undefined}
                 >
                   <ItemIcon className="w-3.5 h-3.5" />
                   {item.label}
+                  {active && (
+                    <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-sm"
+                      style={{ background: section.accent }} />
+                  )}
                 </button>
               </Link>
             );
