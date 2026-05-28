@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useLayoutEffect, useMemo } from "react";
 import {
   Bell, Search, Settings, LogOut, ChevronRight, Sparkles, FlaskConical,
 } from "lucide-react";
-import { NexFlowWordmark, NexFlowLogo } from "./NexFlowLogo";
+import { NexFlowWordmark } from "./NexFlowLogo";
 import { useNotifications } from "@/hooks/useApi";
 import {
   SECTIONS, getNavForRole, findSectionByRoute, findTopNavBySection,
@@ -16,10 +16,6 @@ export interface TopBarProps {
   dark: boolean;
   onDark: (v: boolean) => void;
 }
-
-const FILTER_CHIPS = [
-  "All", "Pinned", "High Value", "KSA", "UAE", "New This Week", "Needs Follow-up",
-] as const;
 
 /** Map a notification to a top-nav tab key based on type/category metadata. */
 function mapNotifToTabKey(n: { type?: string; category?: string; related_type?: string }): string {
@@ -33,25 +29,16 @@ function mapNotifToTabKey(n: { type?: string; category?: string; related_type?: 
 }
 
 /**
- * 6-bar App Bar stack
+ * Slim 2-bar top bar:
  *
- * Bar 1  Quick Action Bar  — label + shortcuts + CTAs + theme + avatar
- * Bar 2  Command Bar       — wordmark + search pill + settings
- * Bar 3  Filter Chips      — horizontal-scroll chip strip
- * Bar 4  Smart Tab Bar     — 6 role-scoped tabs with icons + badges
- * Bar 5  Sub-Tab Bar       — section sub-items, collapsible, deep items fire GSB events
- * Bar 6  Keyboard Strip    — shortcut hints + breadcrumb
- *
- * All bar surfaces consume CSS tokens — no hardcoded QPulse hex values.
- * Sets --topbar-h on :root via ResizeObserver so downstream components
- * (GSB rail, SectionSidebar) can read the exact stacked height.
+ * Bar 1  Brand bar  — wordmark + search + avatar (always visible)
+ * Bar 2  Nav tabs   — 6 section tabs with underline active indicator
  */
 export function TopBar({ dark, onDark }: TopBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
   const [location, navigate] = useLocation();
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [currentRole, setCurrentRole] = useState<RoleProfile>(() => getRole());
-  const [activeChip, setActiveChip] = useState<string>("All");
   const { data: notifData } = useNotifications();
   const unreadCount = (notifData?.notifications ?? []).filter(
     (n: { read?: boolean }) => !n.read,
@@ -117,12 +104,10 @@ export function TopBar({ dark, onDark }: TopBarProps) {
   /* ── Derived nav state ──────────────────────────────────────── */
   const activeSection = findSectionByRoute(location);
   const activeTop     = activeSection ? findTopNavBySection(activeSection.key) : null;
-  const subItems      = activeSection?.items ?? [];
-  const isHome        = activeSection?.key === "home";
 
-  /* Per-entry accent: first section's accent colour */
+  /* ── Per-section accent colour map ─────────────────────────── */
   const sectionAccentMap = useMemo<Record<string, string>>(
-    () => Object.fromEntries(SECTIONS.map((s) => [s.key, (s as { accent?: string }).accent ?? "var(--ac)"])),
+    () => Object.fromEntries(SECTIONS.map((s) => [s.key, s.accent ?? "var(--ac)"])),
     [],
   );
 
@@ -131,138 +116,124 @@ export function TopBar({ dark, onDark }: TopBarProps) {
     return (tenantConfig.tabStructure as string[]).includes(entry.key);
   });
 
-  /* ── Active sub-item ────────────────────────────────────────── */
-  const activeSubItem = subItems.find(
-    i => location === i.href || (i.href !== "/" && location.startsWith(i.href + "/")),
-  );
-
   return (
     <header ref={barRef} className="sticky top-0 z-40">
 
-      {/* ═══ Bar 1: Quick Action Bar (~26px) ════════════════════════ */}
-      <div className="bar-qa" style={{ height: "26px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px" }}>
-        {/* Left: Logo + AI Action Intelligence */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      {/* ═══ Bar 1: Brand bar ════════════════════════════════════ */}
+      <div
+        className="bar-cmd"
+        style={{
+          display: "flex", alignItems: "center", gap: "12px",
+          padding: "0 16px", height: "44px",
+        }}
+      >
+        {/* Logo / wordmark */}
+        {tenantConfig?.logoBase64 ? (
+          <img
+            src={tenantConfig.logoBase64}
+            alt={tenantConfig.companyName || "Logo"}
+            style={{ height: "22px", maxWidth: "100px", objectFit: "contain" }}
+          />
+        ) : (
           <Link href="/home" aria-label="Home">
-            <NexFlowLogo size={20} />
+            <NexFlowWordmark height={20} />
           </Link>
-          <button
-            className="qa-ai-pill"
-            onClick={() => window.dispatchEvent(new CustomEvent("nf:assistant-open"))}
-            aria-label="AI Action Intelligence"
-          >
-            <Sparkles style={{ width: "11px", height: "11px" }} />
-            AI Action
-          </button>
+        )}
+
+        <div style={{ flex: 1 }} />
+
+        {/* Search pill */}
+        <div
+          className="cmd-search-pill"
+          role="button"
+          tabIndex={0}
+          onClick={() => alert("Global search — try per-page search inside each section.")}
+          onKeyDown={e => { if (e.key === "Enter") e.currentTarget.click(); }}
+          aria-label="Search"
+        >
+          <Search style={{ width: "12px", height: "12px", flexShrink: 0 }} />
+          <span style={{ flex: 1, pointerEvents: "none" }}>Search...</span>
+          <span style={{ opacity: 0.45, fontFamily: "'Geist Mono', monospace", fontSize: "10px", pointerEvents: "none" }}>⌘K</span>
         </div>
 
-        {/* Right: Bell · ⊙ Theme · Avatar */}
-        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-          <button
-            className="qa-ghost-pill"
-            style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-            onClick={() => navigate("/notifications")}
-            aria-label="Notifications"
-          >
-            <Bell style={{ width: "12px", height: "12px" }} />
-            {unreadCount > 0 && (
-              <span className="qa-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>
-            )}
-          </button>
-          <button
-            className="qa-solid-pill"
-            style={{ width: "25px", padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "13px", lineHeight: 1 }}
-            onClick={() => window.dispatchEvent(new CustomEvent("nf:theme-drawer-open"))}
-            aria-label="Open theme settings"
-          >
-            ⊙
-          </button>
-          {/* Avatar */}
-          <div style={{ position: "relative" }}>
-            <button
-              onClick={() => setAvatarOpen(v => !v)}
+        {/* Bell */}
+        <button
+          style={{
+            position: "relative", padding: "4px", borderRadius: "6px",
+            border: "none", background: "transparent", cursor: "pointer",
+            color: "var(--txq)", display: "flex", alignItems: "center",
+          }}
+          onClick={() => navigate("/notifications")}
+          aria-label="Notifications"
+        >
+          <Bell style={{ width: "15px", height: "15px" }} />
+          {unreadCount > 0 && (
+            <span
               style={{
-                width: "22px", height: "22px", borderRadius: "50%",
-                background: `linear-gradient(135deg,${currentRole.accent},var(--brand-purple))`,
-                color: "#fff", fontSize: "9px", fontWeight: 900,
-                border: "none", cursor: "pointer",
+                position: "absolute", top: "1px", right: "1px",
+                minWidth: "13px", height: "13px", borderRadius: "9999px",
+                background: "var(--ac)", color: "#fff",
+                fontSize: "8px", fontWeight: 700,
                 display: "inline-flex", alignItems: "center", justifyContent: "center",
+                padding: "0 2px",
               }}
-              aria-label="Account menu"
-              aria-haspopup="menu"
-              aria-expanded={avatarOpen}
             >
-              {currentRole.initials}
-            </button>
-            {avatarOpen && (
-              <AvatarDropdown
-                role={currentRole}
-                dark={dark}
-                onDark={onDark}
-                onClose={() => setAvatarOpen(false)}
-              />
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ═══ Bar 2+3: Command Bar + Filter Chips ════════════════════ */}
-      <div className="bar-cmd">
-        {/* Row 1: wordmark + search + settings */}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "0 16px", height: "40px" }}>
-          {tenantConfig?.logoBase64 ? (
-            <img
-              src={tenantConfig.logoBase64}
-              alt={tenantConfig.companyName || "Logo"}
-              style={{ height: "22px", maxWidth: "100px", objectFit: "contain" }}
-            />
-          ) : (
-            <NexFlowWordmark height={22} />
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
           )}
-          <div style={{ flex: 1 }} />
-          <div
-            className="cmd-search-pill"
-            role="button"
-            tabIndex={0}
-            onClick={() => alert("Global search — try per-page search inside each section.")}
-            onKeyDown={e => { if (e.key === "Enter") e.currentTarget.click(); }}
-            aria-label="Search"
-          >
-            <Search style={{ width: "12px", height: "12px", flexShrink: 0 }} />
-            <span style={{ flex: 1, pointerEvents: "none" }}>Search...</span>
-            <span style={{ opacity: 0.45, fontFamily: "'Geist Mono', monospace", fontSize: "10px", pointerEvents: "none" }}>⌘K</span>
-          </div>
+        </button>
+
+        {/* Settings */}
+        <button
+          style={{
+            padding: "4px", borderRadius: "6px", border: "none",
+            background: "transparent", cursor: "pointer",
+            color: "var(--txq)", display: "flex", alignItems: "center",
+          }}
+          onClick={() => navigate("/settings")}
+          aria-label="Settings"
+        >
+          <Settings style={{ width: "15px", height: "15px" }} />
+        </button>
+
+        {/* Avatar */}
+        <div style={{ position: "relative" }}>
           <button
-            style={{ padding: "4px", borderRadius: "6px", border: "none", background: "transparent", cursor: "pointer", color: "var(--txq)", display: "flex", alignItems: "center" }}
-            onClick={() => navigate("/settings")}
-            aria-label="Settings"
+            onClick={() => setAvatarOpen(v => !v)}
+            style={{
+              width: "28px", height: "28px", borderRadius: "50%",
+              background: `linear-gradient(135deg,${currentRole.accent},var(--brand-purple))`,
+              color: "#fff", fontSize: "10px", fontWeight: 900,
+              border: "none", cursor: "pointer",
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+            }}
+            aria-label="Account menu"
+            aria-haspopup="menu"
+            aria-expanded={avatarOpen}
           >
-            <Settings style={{ width: "14px", height: "14px" }} />
+            {currentRole.initials}
           </button>
-        </div>
-        {/* Row 2: Filter Chips */}
-        <div className="filter-chips-row" style={{ paddingBottom: "6px", paddingLeft: "16px", paddingRight: "16px" }}>
-          {FILTER_CHIPS.map(chip => (
-            <button
-              key={chip}
-              onClick={() => setActiveChip(chip)}
-              className={cn("filter-chip", activeChip === chip && "filter-chip--active")}
-            >
-              {chip}
-            </button>
-          ))}
+          {avatarOpen && (
+            <AvatarDropdown
+              role={currentRole}
+              dark={dark}
+              onDark={onDark}
+              onClose={() => setAvatarOpen(false)}
+            />
+          )}
         </div>
       </div>
 
-      {/* ═══ Bar 4: Smart Tab Bar (38px) ════════════════════════════ */}
+      {/* ═══ Bar 2: Section tabs ══════════════════════════════════ */}
       <div
         className="bar-tab"
-        style={{ display: "flex", alignItems: "stretch", height: "38px" }}
+        style={{ display: "flex", alignItems: "stretch", height: "40px", paddingLeft: "4px" }}
       >
         {navEntries.map(entry => {
           const isActive = activeTop?.key === entry.key;
           const badge = badgeCounts[entry.key] ?? 0;
           const Icon = entry.icon;
+          const ac = sectionAccentMap[entry.sections[0]] ?? "var(--ac)";
           return (
             <button
               key={entry.key}
@@ -270,23 +241,18 @@ export function TopBar({ dark, onDark }: TopBarProps) {
                 const sec = SECTIONS.find(s => s.key === entry.sections[0]);
                 navigate(sec?.defaultHref ?? "/home");
               }}
-              style={(() => {
-                const ac = sectionAccentMap[entry.sections[0]] ?? "var(--ac)";
-                return {
-                  display: "inline-flex", alignItems: "center", gap: "5px",
-                  padding: "0 14px", height: "38px", cursor: "pointer",
-                  border: "none",
-                  /* 3-px coloured underline sits at the very bottom of the button */
-                  borderBottom: isActive ? `3px solid ${ac}` : "3px solid transparent",
-                  /* Visible accent tint — hex suffix 28 ≈ 16 % opacity */
-                  background: isActive ? `${ac}28` : "transparent",
-                  color: isActive ? ac : "var(--txq)",
-                  fontWeight: isActive ? 700 : 500,
-                  fontSize: "13px", fontFamily: "'Geist', sans-serif",
-                  transition: "color .2s, border-color .2s, background .2s",
-                  whiteSpace: "nowrap",
-                };
-              })()}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: "6px",
+                padding: "0 16px", height: "40px", cursor: "pointer",
+                border: "none",
+                borderBottom: isActive ? `3px solid ${ac}` : "3px solid transparent",
+                background: isActive ? `${ac}22` : "transparent",
+                color: isActive ? ac : "var(--txq)",
+                fontWeight: isActive ? 700 : 500,
+                fontSize: "13px", fontFamily: "'Geist', sans-serif",
+                transition: "color .18s, border-color .18s, background .18s",
+                whiteSpace: "nowrap",
+              }}
               aria-current={isActive ? "page" : undefined}
             >
               <Icon style={{ width: "14px", height: "14px", strokeWidth: 1.6 }} />
@@ -307,75 +273,6 @@ export function TopBar({ dark, onDark }: TopBarProps) {
             </button>
           );
         })}
-      </div>
-
-      {/* ═══ Bar 5: Sub-Tab Bar (31px, collapsible) ═════════════════ */}
-      <div
-        className="bar-sub"
-        style={{
-          overflow: "hidden",
-          maxHeight: subItems.length > 0 ? "36px" : "0",
-          transition: "max-height .22s ease",
-          display: "flex", alignItems: "stretch",
-          padding: "0 8px", gap: "0",
-        }}
-      >
-        {subItems.map(item => {
-          const isActiveItem =
-            location === item.href ||
-            (item.href !== "/" && location.startsWith(item.href + "/"));
-          const isDeep = !isHome;
-          const displayLabel = isDeep ? item.label + " ›" : item.label;
-          /* Use the active section's accent for the sub-tab indicator */
-          const subAc = activeSection?.accent ?? "var(--ac)";
-          return (
-            <button
-              key={item.href}
-              onClick={() => {
-                if (isDeep) {
-                  window.dispatchEvent(
-                    new CustomEvent("nf:gsb-open", { detail: { label: item.label, href: item.href } }),
-                  );
-                } else {
-                  navigate(item.href);
-                  window.dispatchEvent(new CustomEvent("nf:gsb-close"));
-                }
-              }}
-              style={{
-                display: "inline-flex", alignItems: "center",
-                padding: "0 12px",
-                fontSize: "12px", fontFamily: "'Geist', sans-serif",
-                cursor: "pointer", border: "none",
-                /* 2-px bottom underline — accent when active, transparent when not */
-                borderBottom: isActiveItem ? `2px solid ${subAc}` : "2px solid transparent",
-                /* Subtle accent tint on active — hex 20 ≈ 12 % opacity */
-                background: isActiveItem ? `${subAc}20` : "transparent",
-                fontWeight: isActiveItem ? 600 : 400,
-                color: isActiveItem ? subAc : "var(--txM)",
-                transition: "background .15s, color .15s, border-color .15s",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {displayLabel}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ═══ Bar 6: Keyboard Strip (~20px) ══════════════════════════ */}
-      <div
-        className="bar-kbd keyboard-strip"
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "0 16px", height: "20px",
-        }}
-      >
-        <span style={{ fontSize: "9px", fontFamily: "'Geist Mono', monospace", color: "var(--txq)" }}>
-          ← → tabs · Space search · T theme
-        </span>
-        <span style={{ fontSize: "9px", fontFamily: "'Geist Mono', monospace", color: "var(--txq)" }}>
-          {[activeTop?.label, activeSubItem?.label].filter(Boolean).join(" · ")}
-        </span>
       </div>
 
     </header>

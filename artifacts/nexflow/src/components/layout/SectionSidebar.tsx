@@ -31,9 +31,36 @@ function writeGsbState(v: GsbState) {
 type NavNode =
   | { kind: "group"; label: string }
   | { kind: "divider" }
-  | { kind: "item"; item: SectionDef["items"][number] };
+  | { kind: "item"; item: SectionDef["items"][number] }
+  | { kind: "subitem"; item: NonNullable<SectionDef["items"][number]["subItems"]>[number]; parentLabel: string };
 
-function buildNavNodes(section: SectionDef): NavNode[] {
+function buildNavNodes(section: SectionDef, location: string): NavNode[] {
+  // Check if we're inside a specific page that has sub-items
+  const activeItem = section.items.find(item => {
+    const basePath = item.href.split("?")[0];
+    return location === basePath || (basePath !== "/" && location.startsWith(basePath + "/"));
+  });
+
+  // If the active item has sub-items, show a back-nav + sub-items
+  if (activeItem?.subItems?.length) {
+    const out: NavNode[] = [];
+    // Parent section items as context — just the top-level list collapsed
+    out.push({ kind: "group", label: activeItem.label });
+    for (const sub of activeItem.subItems) {
+      out.push({ kind: "subitem", item: sub, parentLabel: activeItem.label });
+    }
+    out.push({ kind: "divider" });
+    // Remaining section items as secondary nav
+    out.push({ kind: "group", label: section.label });
+    for (const item of section.items) {
+      if (item.href !== activeItem.href) {
+        out.push({ kind: "item", item });
+      }
+    }
+    return out;
+  }
+
+  // Default: show full section items
   const out: NavNode[] = [];
   let lastGroup: string | undefined;
   for (const item of section.items) {
@@ -283,7 +310,7 @@ function DesktopRail({
       ? (notifData as any).notifications.filter((n: any) => !n.is_read).length
       : 0;
 
-  const navNodes = useMemo(() => buildNavNodes(section), [section]);
+  const navNodes = useMemo(() => buildNavNodes(section, location), [section, location]);
 
   return (
     <div
@@ -448,6 +475,50 @@ function DesktopRail({
                 </div>
               );
             }
+            if (node.kind === "subitem") {
+              const SubIcon = node.item.icon;
+              const subPath = node.item.href.split("?")[0];
+              const subActive = location === subPath || location.startsWith(subPath + "/");
+              return (
+                <div
+                  key={node.item.href}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate(node.item.href)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(node.item.href); } }}
+                  aria-current={subActive ? "page" : undefined}
+                  style={{
+                    display: "flex", alignItems: "center", gap: "8px",
+                    padding: "0 1px", height: "34px",
+                    borderRadius: "var(--r-item)", cursor: "pointer",
+                    background: subActive ? "rgba(255,255,255,.68)" : "transparent",
+                    border: subActive ? "1px solid var(--bd)" : "1px solid transparent",
+                    transition: "background .15s",
+                    userSelect: "none", overflow: "hidden",
+                  }}
+                >
+                  <div style={{
+                    width: "26px", height: "26px", minWidth: "26px",
+                    borderRadius: "var(--r-icon)",
+                    background: subActive ? `${section.accent}28` : "var(--tint)",
+                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                  }}>
+                    <SubIcon style={{ width: "12px", height: "12px", color: subActive ? section.accent : "var(--txM)" }} />
+                  </div>
+                  <span style={{
+                    fontSize: "12px",
+                    color: subActive ? section.accent : "var(--txM)",
+                    fontWeight: subActive ? 600 : 400,
+                    flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    opacity: isIcons ? 0 : 1,
+                    maxWidth: isIcons ? "0px" : "180px",
+                    transition: "opacity .2s, max-width .26s",
+                  }}>
+                    {node.item.label}
+                  </span>
+                </div>
+              );
+            }
             return (
               <NavItem
                 key={node.item.href}
@@ -486,7 +557,7 @@ function MobileSheet({
       ? (notifData as any).notifications.filter((n: any) => !n.is_read).length
       : 0;
 
-  const navNodes = useMemo(() => buildNavNodes(section), [section]);
+  const navNodes = useMemo(() => buildNavNodes(section, location), [section, location]);
 
   if (!open) return null;
 
@@ -583,6 +654,45 @@ function MobileSheet({
                   }}
                 >
                   {node.label}
+                </div>
+              );
+            }
+            if (node.kind === "subitem") {
+              const SubIcon = node.item.icon;
+              const subPath = node.item.href.split("?")[0];
+              const subActive = location === subPath || location.startsWith(subPath + "/");
+              return (
+                <div
+                  key={node.item.href}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => { sheetNavigate(node.item.href); }}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sheetNavigate(node.item.href); } }}
+                  aria-current={subActive ? "page" : undefined}
+                  style={{
+                    display: "flex", alignItems: "center", gap: "8px",
+                    padding: "0 1px", height: "36px",
+                    borderRadius: "var(--r-item)", cursor: "pointer",
+                    background: subActive ? "rgba(255,255,255,.68)" : "transparent",
+                    border: subActive ? "1px solid var(--bd)" : "1px solid transparent",
+                    transition: "background .15s", userSelect: "none",
+                  }}
+                >
+                  <div style={{
+                    width: "26px", height: "26px", minWidth: "26px",
+                    borderRadius: "var(--r-icon)",
+                    background: subActive ? `${section.accent}28` : "var(--tint)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <SubIcon style={{ width: "12px", height: "12px", color: subActive ? section.accent : "var(--txM)" }} />
+                  </div>
+                  <span style={{
+                    fontSize: "12px",
+                    color: subActive ? section.accent : "var(--txM)",
+                    fontWeight: subActive ? 600 : 400,
+                  }}>
+                    {node.item.label}
+                  </span>
                 </div>
               );
             }
