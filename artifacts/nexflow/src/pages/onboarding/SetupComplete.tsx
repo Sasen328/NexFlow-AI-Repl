@@ -166,13 +166,13 @@ export default function SetupComplete() {
           )}
 
           {/* Modules activated */}
-          {config?.enabledModules?.length > 0 && (
+          {(config?.enabledModules?.length ?? 0) > 0 && (
             <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3">
-                {config.enabledModules.length} Modules Activated
+                {config!.enabledModules.length} Modules Activated
               </p>
               <div className="flex flex-wrap gap-2">
-                {config.enabledModules.map((id) => (
+                {config!.enabledModules.map((id) => (
                   <span key={id}
                     className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border"
                     style={{ color: primary, background: `${primary}12`, borderColor: `${primary}30` }}>

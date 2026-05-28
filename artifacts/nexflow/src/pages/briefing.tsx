@@ -404,9 +404,9 @@ function SalesAndExecHome() {
   const personaTasks   = persona.tasks   ?? AUTO_TASKS;
   const personaAgenda  = persona.agenda  ?? TODAY_AGENDA;
   const personaInsights = persona.insights ?? AI_INSIGHTS;
-  const [tasks, setTasks] = useState(personaTasks);
+  const [tasks, setTasks] = useState<PersonaTask[]>(personaTasks as PersonaTask[]);
   // When the persona changes (avatar menu switch), swap in their task list.
-  useEffect(() => { setTasks(personaTasks); }, [role.key]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setTasks(personaTasks as PersonaTask[]); }, [role.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const [refreshingBriefing, setRefreshingBriefing] = useState(false);
   const [briefingRefreshedAt, setBriefingRefreshedAt] = useState<Date | null>(null);
   // Collapsible secondary sections in Overview (start collapsed for scannability)
@@ -1693,7 +1693,7 @@ function MarketingHomePage() {
 
   const [tasks, setTasks] = useState<PersonaTask[]>(personaTasks);
   // If persona changes underneath us (avatar switch), reset tasks.
-  useEffect(() => { setTasks(personaTasks); }, [role.key]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setTasks(personaTasks as PersonaTask[]); }, [role.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [refreshingBriefing, setRefreshingBriefing] = useState(false);
   const [briefingRefreshedAt, setBriefingRefreshedAt] = useState<Date | null>(null);

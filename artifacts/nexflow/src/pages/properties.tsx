@@ -217,8 +217,8 @@ export default function PropertiesPage() {
         </table>
       </div>
 
-      {showNew && <NewPropertyModal objectType={tab} onClose={() => setShowNew(false)} onCreate={(d) => { create.mutate(d, { onSuccess: () => setShowNew(false) }); }} />}
-      {showAi && <AiSuggestModal objectType={tab} onClose={() => setShowAi(false)} onAdd={(p) => create.mutate(p)} />}
+      {showNew && <NewPropertyModal objectType={tab} onClose={() => setShowNew(false)} onCreate={(d: any) => { create.mutate(d, { onSuccess: () => setShowNew(false) }); }} />}
+      {showAi && <AiSuggestModal objectType={tab} onClose={() => setShowAi(false)} onAdd={(p: any) => create.mutate(p)} />}
       {showLibrary && <PropertyLibraryModal objectType={tab} onClose={() => setShowLibrary(false)} onAdd={(p) => create.mutate({ ...p, object_type: tab })} existingNames={props.map((p: any) => p.name)} />}
     </div>
   );

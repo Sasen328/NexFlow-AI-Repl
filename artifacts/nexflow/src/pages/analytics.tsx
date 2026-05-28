@@ -26,10 +26,10 @@ function MiniBar({ label, value, max, color }: { label: string; value: number; m
 
 export default function AnalyticsPage() {
   const { data, isLoading } = useAnalytics();
-  const overview = data?.overview ?? {};
+  const overview: any = data?.overview ?? {};
   const dealsByStage = data?.dealsByStage ?? [];
-  const callMetrics = data?.callMetrics ?? {};
-  const signalMetrics = data?.signalMetrics ?? {};
+  const callMetrics: any = data?.callMetrics ?? {};
+  const signalMetrics: any = data?.signalMetrics ?? {};
 
   const stageMax = Math.max(...dealsByStage.map((s: any) => s.totalValue ?? 0), 1);
   const stageColors = ["#B8A0C8", "#88B8B0", "#C8A880", "#90B8B8", "#B8B880", "#C0A0B8"];
