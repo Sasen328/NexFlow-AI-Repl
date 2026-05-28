@@ -52,7 +52,7 @@ async function robustChat(opts: { system: string; user: string; maxTokens?: numb
 
   // 2. Direct Gemini (reliable in this env)
   try {
-    const t = await aiGeminiChat({ system: opts.system, messages: [{ role: "user", text: opts.user }], maxTokens: opts.maxTokens ?? 3500 });
+    const t = await aiChat({ provider: "gemini", system: opts.system, user: opts.user, maxTokens: opts.maxTokens ?? 3500 });
     if (t?.trim()) return t.trim();
   } catch (e: any) { errs.push(`gemini:${e?.message}`); }
 

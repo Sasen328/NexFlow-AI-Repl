@@ -89,7 +89,7 @@ async function readCache(url: string, mode: string): Promise<ScrapeResult | null
     .where(and(eq(scraper_cache.cache_key, key), gt(scraper_cache.fetched_at, cutoff)))
     .limit(1);
   if (!row || !row.payload) return null;
-  return { ...(row.payload as ScrapeResult), from_cache: true };
+  return { ...(row.payload as unknown as ScrapeResult), from_cache: true };
 }
 
 async function writeCache(url: string, mode: string, result: ScrapeResult): Promise<void> {

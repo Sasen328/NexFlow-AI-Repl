@@ -50,6 +50,17 @@ import masarDatabaseRouter from "./masar-database.js";
 import databaseBuilderRouter from "./database-builder.js";
 import websiteIntelRouter from "./website-intel.js";
 import prosengineRouter from "./prosengine.js";
+// ── Nexus Engine Routes (P1–P9) ──────────────────────────────────────────────
+import nexusRouter from "./nexus.js";
+import aiChatRouter from "./ai-chat.js";
+import swarmRouter from "./swarm.js";
+import behaviorRouter from "./behavior.js";
+import composerRouter from "./composer.js";
+import leadFactoryRouter from "./lead-factory.js";
+import leadGenomeRouter from "./lead-genome.js";
+import leadListsNewRouter from "./lead-lists-new.js";
+import sourcesRouter from "./sources.js";
+import harvestAiRouter from "./harvest-ai.js";
 
 const router: IRouter = Router();
 
@@ -104,5 +115,16 @@ router.use("/masar", masarDatabaseRouter);
 router.use("/builder", databaseBuilderRouter);
 router.use(websiteIntelRouter);
 router.use("/prosengine", prosengineRouter);
+// ── Nexus Engine Routes ───────────────────────────────────────────────────────
+router.use(nexusRouter);
+router.use(aiChatRouter);
+router.use(swarmRouter);
+router.use(behaviorRouter);
+router.use(composerRouter);
+router.use(leadFactoryRouter);
+router.use(leadGenomeRouter);
+router.use(leadListsNewRouter);
+router.use(sourcesRouter);
+router.use(harvestAiRouter);
 
 export default router;

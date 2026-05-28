@@ -1067,3 +1067,334 @@ export const export_history = pgTable("export_history", {
 export type ProspectingJob    = typeof prospecting_jobs.$inferSelect;
 export type ProspectingResult = typeof prospecting_results.$inferSelect;
 export type ExportHistory     = typeof export_history.$inferSelect;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEXUS ENGINE TABLES — Lead Factory, Signals, Genome, Composer, Behavior, Sources
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Leads (Genome bucket — from Lead Factory, ProsEngine, AI Chat) ────────────
+export const leadsTable = pgTable("leads", {
+  id:           integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  firstName:    text("first_name"),
+  lastName:     text("last_name"),
+  firstNameAr:  text("first_name_ar"),
+  lastNameAr:   text("last_name_ar"),
+  title:        text("title"),
+  titleAr:      text("title_ar"),
+  email:        text("email"),
+  phone:        text("phone"),
+  linkedinUrl:  text("linkedin_url"),
+  twitterUrl:   text("twitter_url"),
+  department:   text("department"),
+  seniority:    text("seniority"),
+  companyId:    integer("company_id"),
+  notes:        text("notes"),
+  status:       text("status").default("new"),
+  createdAt:    timestamp("created_at").defaultNow(),
+  updatedAt:    timestamp("updated_at").defaultNow(),
+});
+export type Lead = typeof leadsTable.$inferSelect;
+
+// ── Executives (bridged from Lead Factory Agent 7, company officers) ──────────
+export const executivesTable = pgTable("executives", {
+  id:               integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  companyId:        integer("company_id"),
+  companyName:      text("company_name"),
+  name:             text("name"),
+  nameAr:           text("name_ar"),
+  position:         text("position"),
+  email:            text("email"),
+  phone:            text("phone"),
+  linkedin:         text("linkedin"),
+  linkedinUrl:      text("linkedin_url"),
+  seniorityLevel:   text("seniority_level"),
+  department:       text("department"),
+  estimatedSalary:  text("estimated_salary"),
+  biography:        text("biography"),
+  location:         text("location"),
+  enrichmentStatus: text("enrichment_status").default("pending"),
+  dataSource:       text("data_source"),
+  createdAt:        timestamp("created_at").defaultNow(),
+});
+export type Executive = typeof executivesTable.$inferSelect;
+
+// ── Lead Factory Jobs ─────────────────────────────────────────────────────────
+export const leadFactoryJobsTable = pgTable("lead_factory_jobs", {
+  id:               integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  status:           text("status").default("running"),
+  inputMode:        text("input_mode"),
+  brief:            jsonb("brief").default({}),
+  targetCount:      integer("target_count").default(50),
+  totalDiscovered:  integer("total_discovered").default(0),
+  totalEnriched:    integer("total_enriched").default(0),
+  totalValidated:   integer("total_validated").default(0),
+  totalRejected:    integer("total_rejected").default(0),
+  totalPublished:   integer("total_published").default(0),
+  agentProgress:    jsonb("agent_progress").default({}),
+  errorMessage:     text("error_message"),
+  completedAt:      timestamp("completed_at"),
+  createdAt:        timestamp("created_at").defaultNow(),
+});
+export type LeadFactoryJob = typeof leadFactoryJobsTable.$inferSelect;
+
+// ── Lead Factory Results ──────────────────────────────────────────────────────
+export const leadFactoryResultsTable = pgTable("lead_factory_results", {
+  id:                integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  jobId:             integer("job_id"),
+  companyName:       text("company_name"),
+  companyNameAr:     text("company_name_ar"),
+  domain:            text("domain"),
+  phone:             text("phone"),
+  email:             text("email"),
+  city:              text("city"),
+  region:            text("region"),
+  industry:          text("industry"),
+  employeeCount:     integer("employee_count"),
+  revenue:           text("revenue"),
+  crNumber:          text("cr_number"),
+  entityType:        text("entity_type"),
+  foundingYear:      text("founding_year"),
+  description:       text("description"),
+  logoUrl:           text("logo_url"),
+  linkedinUrl:       text("linkedin_url"),
+  sourceUsed:        text("source_used"),
+  rawData:           jsonb("raw_data"),
+  enrichedData:      jsonb("enriched_data"),
+  signalData:        jsonb("signal_data"),
+  icpScore:          integer("icp_score"),
+  priorityTier:      text("priority_tier"),
+  buyingScore:       integer("buying_score"),
+  riskScore:         integer("risk_score"),
+  qualityScore:      integer("quality_score"),
+  validationStatus:  text("validation_status"),
+  validationReasons: jsonb("validation_reasons"),
+  isDuplicate:       boolean("is_duplicate").default(false),
+  duplicateOf:       text("duplicate_of"),
+  publishedLeadId:   integer("published_lead_id"),
+  publishedCompanyId: text("published_company_id"),
+  outreachEmail:     text("outreach_email"),
+  outreachLinkedin:  text("outreach_linkedin"),
+  outreachWhatsapp:  text("outreach_whatsapp"),
+  openingAngle:      text("opening_angle"),
+  culturalNote:      text("cultural_note"),
+  conversationHook:  text("conversation_hook"),
+  subIndustry:       text("sub_industry"),
+  createdAt:         timestamp("created_at").defaultNow(),
+});
+export type LeadFactoryResult = typeof leadFactoryResultsTable.$inferSelect;
+
+// ── Lead Fingerprints (dedup index) ──────────────────────────────────────────
+export const leadFingerprintsTable = pgTable("lead_fingerprints", {
+  id:               integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  normalizedName:   text("normalized_name"),
+  domain:           text("domain"),
+  phoneNormalized:  text("phone_normalized"),
+  emailNormalized:  text("email_normalized"),
+  crNumber:         text("cr_number"),
+  sourceTable:      text("source_table"),
+  sourceId:         integer("source_id"),
+  createdAt:        timestamp("created_at").defaultNow(),
+});
+export type LeadFingerprint = typeof leadFingerprintsTable.$inferSelect;
+
+// ── Company Signals (buying signals, news, sanctions) ────────────────────────
+export const companySignalsTable = pgTable("company_signals", {
+  id:                  integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  companyId:           integer("company_id"),
+  companyName:         text("company_name"),
+  companyNameAr:       text("company_name_ar"),
+  domain:              text("domain"),
+  category:            text("category"),
+  eventTypes:          jsonb("event_types").default([]),
+  primaryEventType:    text("primary_event_type"),
+  title:               text("title"),
+  summary:             text("summary"),
+  sourceUrl:           text("source_url"),
+  sourceName:          text("source_name"),
+  publishedAt:         timestamp("published_at"),
+  llmSummary:          text("llm_summary"),
+  buyingSignalScore:   integer("buying_signal_score").default(0),
+  riskScore:           integer("risk_score").default(0),
+  relevanceScore:      integer("relevance_score").default(0),
+  recommendedAction:   text("recommended_action"),
+  isSanctioned:        integer("is_sanctioned").default(0),
+  createdAt:           timestamp("created_at").defaultNow(),
+});
+export type CompanySignal = typeof companySignalsTable.$inferSelect;
+
+// ── Relationship Intel Jobs ───────────────────────────────────────────────────
+export const relationshipIntelJobsTable = pgTable("relationship_intel_jobs", {
+  id:                   integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  targetCompanyName:    text("target_company_name"),
+  targetCompanyNameAr:  text("target_company_name_ar"),
+  targetCrNumber:       text("target_cr_number"),
+  targetWebsite:        text("target_website"),
+  status:               text("status").default("running"),
+  orgChartData:         jsonb("org_chart_data"),
+  networkData:          jsonb("network_data"),
+  outreachPlan:         jsonb("outreach_plan"),
+  totalContacts:        integer("total_contacts").default(0),
+  totalConnections:     integer("total_connections").default(0),
+  adjacentCompanies:    integer("adjacent_companies").default(0),
+  errorMessage:         text("error_message"),
+  completedAt:          timestamp("completed_at"),
+  createdAt:            timestamp("created_at").defaultNow(),
+});
+export type RelationshipIntelJob = typeof relationshipIntelJobsTable.$inferSelect;
+
+// ── Behavior Events (Composer behavior agent) ─────────────────────────────────
+export const behaviorEventsTable = pgTable("behavior_events", {
+  id:        integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  sessionId: text("session_id"),
+  kind:      text("kind"),
+  payload:   jsonb("payload").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export type BehaviorEvent = typeof behaviorEventsTable.$inferSelect;
+
+// ── Harvest Sources (unified source registry) ─────────────────────────────────
+export const harvestSourcesTable = pgTable("harvest_sources", {
+  id:          integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  label:       text("label").notNull(),
+  url:         text("url"),
+  type:        text("type").default("web"),
+  category:    text("category").default("custom"),
+  language:    text("language").default("both"),
+  credibility: text("credibility").default("secondary"),
+  trustWeight: integer("trust_weight").default(65),
+  countries:   jsonb("countries").default([]),
+  industries:  jsonb("industries").default([]),
+  status:      text("status").default("ok"),
+  enabled:     boolean("enabled").default(true),
+  visibility:  text("visibility").default("system"),
+  lastSynced:  timestamp("last_synced"),
+  createdAt:   timestamp("created_at").defaultNow(),
+});
+export type HarvestSource = typeof harvestSourcesTable.$inferSelect;
+
+// ── Source Enforcement (per-engine whitelist/blacklist) ───────────────────────
+export const sourceEnforcementTable = pgTable("source_enforcement", {
+  id:          integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  engineName:  text("engine_name").notNull().unique(),
+  requiredIds: jsonb("required_ids").default([]),
+  excludedIds: jsonb("excluded_ids").default([]),
+  updatedAt:   timestamp("updated_at").defaultNow(),
+});
+export type SourceEnforcement = typeof sourceEnforcementTable.$inferSelect;
+
+// ── Seeder Plans + Rows (ProsEngine Data Seeder staging) ──────────────────────
+export const seederPlansTable = pgTable("seeder_plans", {
+  id:        integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  name:      text("name"),
+  status:    text("status").default("pending"),
+  config:    jsonb("config").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export type SeederPlan = typeof seederPlansTable.$inferSelect;
+
+export const seederRowsTable = pgTable("seeder_rows", {
+  id:        integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  planId:    integer("plan_id"),
+  data:      jsonb("data").default({}),
+  status:    text("status").default("pending"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export type SeederRow = typeof seederRowsTable.$inferSelect;
+
+// ── Composer Tables ───────────────────────────────────────────────────────────
+export const composerSkillsTable = pgTable("composer_skills", {
+  id:            integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  builtinId:     text("builtin_id"),
+  name:          text("name").notNull(),
+  description:   text("description"),
+  prompt:        text("prompt"),
+  systemPrompt:  text("system_prompt"),
+  toolWhitelist: jsonb("tool_whitelist").default([]),
+  reportSchema:  text("report_schema"),
+  modelTier:     text("model_tier"),
+  visibility:    text("visibility").default("private"),
+  enabled:       boolean("enabled").default(true),
+  isBuiltin:     boolean("is_builtin").default(false),
+  createdAt:     timestamp("created_at").defaultNow(),
+  updatedAt:     timestamp("updated_at").defaultNow(),
+});
+export type ComposerSkill = typeof composerSkillsTable.$inferSelect;
+
+export const composerTemplatesTable = pgTable("composer_templates", {
+  id:              integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  builtinId:       text("builtin_id"),
+  name:            text("name").notNull(),
+  description:     text("description"),
+  defaultQuestion: text("default_question"),
+  defaultModes:    jsonb("default_modes").default([]),
+  defaultTarget:   text("default_target").default("company"),
+  defaultCountries: jsonb("default_countries").default([]),
+  defaultIndustry: text("default_industry"),
+  defaultSources:  jsonb("default_sources").default([]),
+  defaultSkills:   jsonb("default_skills").default([]),
+  requiredSchema:  text("required_schema"),
+  visibility:      text("visibility").default("private"),
+  createdAt:       timestamp("created_at").defaultNow(),
+  updatedAt:       timestamp("updated_at").defaultNow(),
+});
+export type ComposerTemplate = typeof composerTemplatesTable.$inferSelect;
+
+export const composerUserSourcesTable = pgTable("composer_user_sources", {
+  id:         integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  sourceId:   text("source_id"),
+  label:      text("label").notNull(),
+  url:        text("url"),
+  category:   text("category"),
+  language:   text("language").default("both"),
+  countries:  jsonb("countries"),
+  industries: jsonb("industries"),
+  enabled:    boolean("enabled").default(true),
+  createdAt:  timestamp("created_at").defaultNow(),
+});
+export type ComposerUserSource = typeof composerUserSourcesTable.$inferSelect;
+
+export const composerRunsTable = pgTable("composer_runs", {
+  id:              integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  sessionId:       text("session_id"),
+  question:        text("question"),
+  enhancedPrompt:  text("enhanced_prompt"),
+  modes:           jsonb("modes").default([]),
+  sources:         jsonb("sources").default([]),
+  result:          text("result"),
+  rawText:         text("raw_text"),
+  blocks:          jsonb("blocks"),
+  reportShape:     text("report_shape"),
+  state:           jsonb("state").default({}),
+  status:          text("status").default("completed"),
+  tokensUsed:      integer("tokens_used"),
+  costUSD:         doublePrecision("cost_usd"),
+  createdAt:       timestamp("created_at").defaultNow(),
+});
+export type ComposerRun = typeof composerRunsTable.$inferSelect;
+
+// ── Aliases for cross-engine compatibility (Nexus engines use camelCase "Table" suffix) ──
+export const companiesTable = companies;
+export const builderCompaniesTable = builder_companies;
+export const masarCompaniesTable = masar_companies;
+
+// ── Deleted Companies (blocklist guard) ───────────────────────────────────────
+export const deletedCompaniesTable = pgTable("deleted_companies", {
+  id:          integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  companyName: text("company_name"),
+  nameEn:      text("name_en"),
+  nameAr:      text("name_ar"),
+  domain:      text("domain"),
+  website:     text("website"),
+  crNumber:    text("cr_number"),
+  reason:      text("reason"),
+  deletedAt:   timestamp("deleted_at").defaultNow(),
+});
+export type DeletedCompany = typeof deletedCompaniesTable.$inferSelect;
+
+// ── Additional aliases needed by nexus engine routes ──────────────────────────
+export const masarHarvestJobsTable   = masar_harvest_jobs;
+export const masarCustomSourcesTable = masar_custom_sources;
+export const leadListsTable          = lead_lists;
+export const leadListItemsTable      = lead_list_items;
+export const prospectingResultsTable = prospecting_results;
+export const prosengineResearchTable = prosengine_research;
