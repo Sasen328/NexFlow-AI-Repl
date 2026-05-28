@@ -515,6 +515,23 @@ kbd, code, .mono, .timestamp {
 .dark .text-gray-500 { color: hsl(var(--muted-foreground)) !important; }
 .dark .text-gray-400 { color: hsl(var(--muted-foreground)) !important; }
 
+/* ── GlassRail (GSB) responsive visibility ───────────────────────────────
+   Desktop rail hides on mobile; mobile sheet hides on desktop.
+   Both are rendered in the React tree but toggled here via media queries.
+   ─────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1023px) {
+  .glass-rail-desktop { display: none !important; }
+}
+@media (min-width: 1024px) {
+  .glass-rail-mobile-overlay { display: none !important; }
+}
+
+/* ── GlassRail nav item hover (for keyboard / touch users) ──────────────── */
+.glass-rail-item:focus-visible {
+  outline: 2px solid var(--ac);
+  outline-offset: 1px;
+}
+
 /* §2.5 Static CSS fallback for mesh gradient (no-JS environments) */
 .mesh-bg {
   background-color: #B8A0C8;
