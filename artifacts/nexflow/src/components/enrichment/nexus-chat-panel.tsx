@@ -174,6 +174,235 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   return <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">{children}</div>;
 }
 
+// ── Customize panel sub-component ────────────────────────────────────────
+type CustTab = "models" | "behavior" | "output";
+
+const STAGE_DEFS = [
+  { id:"planner",     l:"Planner",     d:"Decomposes query into parallel sub-tasks" },
+  { id:"researcher",  l:"Researcher",  d:"Web search + Saudi source fetching" },
+  { id:"validator",   l:"Validator",   d:"Email / phone / title cross-verification" },
+  { id:"synthesizer", l:"Synthesizer", d:"Merges all agent outputs into one record" },
+  { id:"writer",      l:"Writer",      d:"Final report + Arabic/English outreach" },
+];
+
+const MODEL_OPTS = [
+  { id:"gemini-2.5-pro",   l:"Gemini 2.5 Pro",    badge:"Best",    color:TEAL  },
+  { id:"perplexity",        l:"Perplexity",         badge:"Web",     color:"#7B6E8D" },
+  { id:"claude-3-5-sonnet", l:"Claude 3.5 Sonnet",  badge:"Precise", color:PRI   },
+  { id:"claude-3-5-haiku",  l:"Claude 3.5 Haiku",   badge:"Fast",    color:PRI   },
+  { id:"gpt-4o-mini",       l:"GPT-4o mini",         badge:"Economy", color:"#4CAA84" },
+];
+
+const DEFAULT_STAGE_MODELS: Record<string, string> = {
+  planner:     "gemini-2.5-pro",
+  researcher:  "perplexity",
+  validator:   "claude-3-5-sonnet",
+  synthesizer: "gemini-2.5-pro",
+  writer:      "claude-3-5-haiku",
+};
+
+function CustomizePanel() {
+  const [tab,          setTab]          = useState<CustTab>("models");
+  const [stageModels,  setStageModels]  = useState<Record<string, string>>(DEFAULT_STAGE_MODELS);
+  const [concurrency,  setConcurrency]  = useState(8);
+  const [temperature,  setTemperature]  = useState(3);   // × 0.1 → 0.3
+  const [tokenBudget,  setTokenBudget]  = useState("48K");
+  const [agentTimeout, setAgentTimeout] = useState("55s");
+  const [deepCrawl,    setDeepCrawl]    = useState(true);
+  const [arabicSrc,    setArabicSrc]    = useState(true);
+  const [stealth,      setStealth]      = useState(false);
+  const [parallelFan,  setParallelFan]  = useState(true);
+  const [autoRetry,    setAutoRetry]    = useState(true);
+  const [language,     setLanguage]     = useState("Bilingual");
+  const [citation,     setCitation]     = useState("Inline");
+  const [currency,     setCurrency]     = useState("SAR");
+  const [outputFields, setOutputFields] = useState(new Set(["LinkedIn URL","Email","ICP Score","Funding"]));
+
+  const ALL_FIELDS = ["LinkedIn URL","Email","Phone","Title","ICP Score","Funding","Headcount","Tech Stack","90d News","Arabic Outreach","Board Members","Ownership"];
+  const toggleField = (f: string) => setOutputFields(p => { const n = new Set(p); n.has(f) ? n.delete(f) : n.add(f); return n; });
+
+  const TABS: { id: CustTab; l: string }[] = [
+    { id:"models",   l:"Models" },
+    { id:"behavior", l:"Behavior" },
+    { id:"output",   l:"Output" },
+  ];
+
+  return (
+    <div className="rounded-xl border border-[#D5C8E0] bg-white shadow-sm overflow-hidden">
+      {/* header + tab strip */}
+      <div className="flex items-center gap-2 border-b border-[#E8E2F0] bg-[#FAFAF9] px-4 py-2.5">
+        <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: PRI }}>Orchestrator Config</span>
+        <div className="ml-auto flex gap-1">
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className="rounded-lg px-3 py-1 text-[11px] font-semibold transition-all"
+              style={tab === t.id ? { background: PRI, color: "#fff" } : { color: "#7B6E8D" }}>
+              {t.l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Models tab */}
+      {tab === "models" && (
+        <div className="p-4 space-y-3.5">
+          {STAGE_DEFS.map(s => (
+            <div key={s.id}>
+              <div className="mb-1 flex items-center gap-2">
+                <span className="text-[11px] font-bold text-[#4A3B5C]">{s.l}</span>
+                <span className="text-[10px] text-[#9B8EAC]">— {s.d}</span>
+                <span className="ml-auto rounded-full px-2 py-0.5 text-[9px] font-bold text-white"
+                  style={{ background: MODEL_OPTS.find(m => m.id === stageModels[s.id])?.color ?? PRI }}>
+                  {MODEL_OPTS.find(m => m.id === stageModels[s.id])?.badge}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {MODEL_OPTS.map(m => {
+                  const active = stageModels[s.id] === m.id;
+                  return (
+                    <button key={m.id}
+                      onClick={() => setStageModels(prev => ({ ...prev, [s.id]: m.id }))}
+                      className="inline-flex items-center rounded-full px-2.5 py-[3px] text-[11px] font-semibold transition-all"
+                      style={active
+                        ? { background: m.color, color: "#fff" }
+                        : { border: "1px solid #E2D8EA", color: "#7B6E8D" }}>
+                      {m.l}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <div className="border-t border-[#F0EBF8] pt-3 flex flex-wrap gap-3">
+            {[
+              { l:"Parallel fan-out", on:parallelFan, set:setParallelFan },
+              { l:"Auto-retry 429",   on:autoRetry,   set:setAutoRetry   },
+              { l:"Deep web crawl",   on:deepCrawl,   set:setDeepCrawl   },
+              { l:"Stealth browser",  on:stealth,     set:setStealth      },
+            ].map(t => (
+              <div key={t.l} className="flex items-center gap-1.5 text-[11px] font-medium text-[#4A3B5C]">
+                <Toggle on={t.on} onClick={() => t.set((p: boolean) => !p)} /> {t.l}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Behavior tab */}
+      {tab === "behavior" && (
+        <div className="p-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <FieldLabel>Concurrency — {concurrency} agents</FieldLabel>
+            <input type="range" min={1} max={20} value={concurrency}
+              onChange={e => setConcurrency(+e.target.value)}
+              className="w-full accent-[#B8A0C8]" />
+            <div className="mt-0.5 flex justify-between text-[9px] text-[#9B8EAC]"><span>1</span><span>10</span><span>20</span></div>
+          </div>
+          <div>
+            <FieldLabel>Temperature — {(temperature / 10).toFixed(1)}</FieldLabel>
+            <input type="range" min={0} max={10} value={temperature}
+              onChange={e => setTemperature(+e.target.value)}
+              className="w-full accent-[#B8A0C8]" />
+            <div className="mt-0.5 flex justify-between text-[9px] text-[#9B8EAC]"><span>0 Strict</span><span>0.5</span><span>1.0 Creative</span></div>
+          </div>
+          <div>
+            <FieldLabel>Token Budget</FieldLabel>
+            <div className="flex flex-wrap gap-1">
+              {["16K","32K","48K","64K","128K"].map(v => (
+                <span key={v} onClick={() => setTokenBudget(v)}
+                  className="cursor-pointer rounded-full px-2.5 py-[3px] text-[11px] font-semibold transition-all"
+                  style={tokenBudget === v
+                    ? { background: PRI, color: "#fff" }
+                    : { border: "1px solid #E2D8EA", color: "#7B6E8D" }}>
+                  {v}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Agent Timeout</FieldLabel>
+            <div className="flex flex-wrap gap-1">
+              {["30s","55s","90s","3min"].map(v => (
+                <span key={v} onClick={() => setAgentTimeout(v)}
+                  className="cursor-pointer rounded-full px-2.5 py-[3px] text-[11px] font-semibold transition-all"
+                  style={agentTimeout === v
+                    ? { background: TEAL, color: "#fff" }
+                    : { border: "1px solid #E2D8EA", color: "#7B6E8D" }}>
+                  {v}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Arabic Sources</FieldLabel>
+            <Toggle on={arabicSrc} onClick={() => setArabicSrc(p => !p)} />
+          </div>
+          <div>
+            <FieldLabel>Stealth Browser</FieldLabel>
+            <Toggle on={stealth} onClick={() => setStealth(p => !p)} />
+          </div>
+        </div>
+      )}
+
+      {/* Output tab */}
+      {tab === "output" && (
+        <div className="p-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <FieldLabel>Language</FieldLabel>
+            <div className="flex flex-wrap gap-1">
+              {["English","Arabic","Bilingual"].map(v => (
+                <span key={v} onClick={() => setLanguage(v)}
+                  className="cursor-pointer rounded-full px-2.5 py-[3px] text-[11px] font-semibold transition-all"
+                  style={language === v ? { background: PRI, color: "#fff" } : { border: "1px solid #E2D8EA", color: "#7B6E8D" }}>
+                  {v}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Citation Style</FieldLabel>
+            <div className="flex flex-wrap gap-1">
+              {["Inline","Footnotes","Appendix","None"].map(v => (
+                <span key={v} onClick={() => setCitation(v)}
+                  className="cursor-pointer rounded-full px-2.5 py-[3px] text-[11px] font-semibold transition-all"
+                  style={citation === v ? { background: TEAL, color: "#fff" } : { border: "1px solid #E2D8EA", color: "#7B6E8D" }}>
+                  {v}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Currency Normalisation</FieldLabel>
+            <div className="flex flex-wrap gap-1">
+              {["SAR","USD","Both"].map(v => (
+                <span key={v} onClick={() => setCurrency(v)}
+                  className="cursor-pointer rounded-full px-2.5 py-[3px] text-[11px] font-semibold transition-all"
+                  style={currency === v ? { background: GOLD, color: "#fff" } : { border: "1px solid #E2D8EA", color: "#7B6E8D" }}>
+                  {v}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="sm:col-span-2">
+            <FieldLabel>Output Fields ({outputFields.size} selected)</FieldLabel>
+            <div className="flex flex-wrap gap-1.5">
+              {ALL_FIELDS.map(f => (
+                <span key={f} onClick={() => toggleField(f)}
+                  className="cursor-pointer rounded-full px-2.5 py-[3px] text-[11px] font-semibold transition-all"
+                  style={outputFields.has(f)
+                    ? { background: PRI + "22", color: PRI, border: `1px solid ${PRI}55` }
+                    : { border: "1px solid #E2D8EA", color: "#7B6E8D" }}>
+                  {f}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────
 export function NexusChatPanel() {
   const [stage, setStage] = useState<Stage>("compose");
@@ -408,31 +637,7 @@ export function NexusChatPanel() {
       )}
 
       {/* ── Customize panel ── */}
-      {showCustomize && (
-        <Card>
-          <div className="mb-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: PRI }}>Orchestrator Config</div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
-              { l:"Primary model",  v:"Gemini 2.5 Pro" },
-              { l:"Fallback chain", v:"Claude → GPT-4o" },
-              { l:"Max agents",     v:"12" },
-              { l:"Token budget",   v:"48K" },
-            ].map(f => (
-              <div key={f.l}>
-                <FieldLabel>{f.l}</FieldLabel>
-                <input defaultValue={f.v} className="w-full rounded-lg border border-[#E2D8EA] bg-[#FAFAF9] px-3 py-1.5 text-[12px] font-medium text-[#4A3B5C] focus:outline-none focus:ring-1" style={{ "--tw-ring-color": PRI } as React.CSSProperties} />
-              </div>
-            ))}
-          </div>
-          <div className="mt-3 flex flex-wrap gap-4">
-            {[{ l:"Deep web crawl", on:true },{ l:"Arabic sources", on:true },{ l:"Stealth browser", on:false }].map(t => (
-              <div key={t.l} className="flex items-center gap-2 text-[12px] font-medium text-[#4A3B5C]">
-                <Toggle on={t.on} onClick={() => toast("Toggle " + t.l)} /> {t.l}
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
+      {showCustomize && <CustomizePanel />}
 
       {/* ── Constraints panel ── */}
       {showConstraints && (

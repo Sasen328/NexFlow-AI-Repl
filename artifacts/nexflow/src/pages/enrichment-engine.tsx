@@ -252,34 +252,137 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   );
 }
 
+type SettingsTab = "apikeys" | "signals" | "tiers" | "relationship" | "dedup" | "automation";
+
 function SettingsPanel() {
-  const [subTab, setSubTab] = useState<"signals" | "relationship" | "dedup">("signals");
+  const [subTab,    setSubTab]    = useState<SettingsTab>("apikeys");
   const [srcStates, setSrcStates] = useState([true,true,true,true,false,true,false]);
   const [engStates, setEngStates] = useState([true,true,true,true,false]);
+  const [toast,     setToast]     = useState("");
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 2400); };
   const toggleSrc = (i: number) => setSrcStates(p => p.map((v,idx) => idx === i ? !v : v));
   const toggleEng = (i: number) => setEngStates(p => p.map((v,idx) => idx === i ? !v : v));
 
+  const TABS: { id: SettingsTab; label: string }[] = [
+    { id:"apikeys",     label:"API Keys" },
+    { id:"signals",     label:"Signal Sources" },
+    { id:"tiers",       label:"Enrichment Tiers" },
+    { id:"relationship",label:"Relationship Engines" },
+    { id:"dedup",       label:"Deduplication" },
+    { id:"automation",  label:"Automation" },
+  ];
+
   return (
     <div className="flex flex-col gap-4 pb-6">
-      <div className="flex gap-0 overflow-hidden rounded-xl border border-[#E8E2F0] bg-white">
-        {([["signals","Signal Sources"],["relationship","Relationship Engines"],["dedup","Deduplication"]] as const).map(([id,label]) => (
-          <button key={id} onClick={() => setSubTab(id)}
-            className="flex-1 py-3 text-[12px] font-bold transition-all"
-            style={subTab === id ? { background: PRI, color: "#fff" } : { color: "#7B6E8D" }}
-          >{label}</button>
+      {/* ── Sub-tab strip ── */}
+      <div className="flex flex-wrap gap-1 overflow-hidden rounded-xl border border-[#E8E2F0] bg-[#FAFAF9] p-1">
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setSubTab(t.id)}
+            className="flex-1 min-w-max rounded-lg py-2 text-[11px] font-bold transition-all"
+            style={subTab === t.id ? { background: PRI, color: "#fff" } : { color: "#7B6E8D" }}>
+            {t.label}
+          </button>
         ))}
       </div>
 
+      {/* ── API Keys ── */}
+      {subTab === "apikeys" && (
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              {v:"7",   l:"API keys configured", c:PRI},
+              {v:"3",   l:"Data providers live",  c:"#4CAA84"},
+              {v:"4",   l:"AI models active",     c:TEAL},
+              {v:"1",   l:"Key expiring soon",    c:GOLD},
+            ].map(k => (
+              <div key={k.l} className="rounded-xl border border-[#E8E2F0] bg-white p-3 text-center">
+                <div className="text-[20px] font-bold" style={{ color: k.c }}>{k.v}</div>
+                <div className="text-[10px] font-medium text-[#9B8EAC]">{k.l}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* AI model keys */}
+          <div className="rounded-xl border border-[#E8E2F0] bg-white overflow-hidden">
+            <div className="border-b border-[#E8E2F0] bg-[#FAFAF9] px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">AI Model Providers</div>
+            {[
+              { name:"Google Gemini",    key:"AIza••••••••••••XkL2",   model:"gemini-2.5-pro",      status:"Active",  quota:"80K / 100K tokens" },
+              { name:"Anthropic Claude", key:"sk-ant-••••••••••••9zQ", model:"claude-3-5-sonnet",   status:"Active",  quota:"32K / 50K tokens" },
+              { name:"OpenAI GPT",       key:"sk-••••••••••••aR7",     model:"gpt-4o-mini",         status:"Active",  quota:"18K / 40K tokens" },
+              { name:"Perplexity AI",    key:"pplx-••••••••••••kM3",   model:"sonar-pro",           status:"Expiring",quota:"12K / 20K tokens" },
+            ].map(p => (
+              <div key={p.name} className="flex items-center gap-3 border-b border-[#F0EBF8] px-4 py-3 last:border-0">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <div className="text-[12px] font-bold text-[#4A3B5C]">{p.name}</div>
+                    <code className="rounded bg-[#F0EBF8] px-1.5 py-0.5 text-[10px] font-mono text-[#9B8EAC]">{p.model}</code>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <code className="text-[10px] font-mono text-[#9B8EAC]">{p.key}</code>
+                    <span className="text-[10px] text-[#C8A880]">{p.quota}</span>
+                  </div>
+                </div>
+                <span className="flex-shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+                  style={{ background: p.status === "Active" ? "#4CAA8420" : GOLD+"20", color: p.status === "Active" ? "#4CAA84" : GOLD }}>
+                  {p.status}
+                </span>
+                <button onClick={() => showToast("Rotating key for " + p.name)}
+                  className="flex-shrink-0 rounded-lg border border-[#E2D8EA] px-2.5 py-1 text-[11px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">
+                  Rotate
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Data source keys */}
+          <div className="rounded-xl border border-[#E8E2F0] bg-white overflow-hidden">
+            <div className="border-b border-[#E8E2F0] bg-[#FAFAF9] px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">Data Source APIs</div>
+            {[
+              { name:"Tavily Search",        key:"tvly-••••••••••••Wr9",  cost:"$0.001/req",  status:"Active" },
+              { name:"LinkedIn Scout",        key:"Not configured",         cost:"OAuth",       status:"Missing" },
+              { name:"Crawl4AI / BrightData", key:"bd-••••••••••••7Kz",   cost:"$0.005/page", status:"Active" },
+              { name:"SAMA Data API",         key:"Free · Open",            cost:"Free",        status:"Active" },
+              { name:"GLEIF LEI Registry",    key:"Free · Open",            cost:"Free",        status:"Active" },
+            ].map(p => (
+              <div key={p.name} className="flex items-center gap-3 border-b border-[#F0EBF8] px-4 py-3 last:border-0">
+                <div className="flex-1">
+                  <div className="text-[12px] font-bold text-[#4A3B5C]">{p.name}</div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <code className="text-[10px] font-mono text-[#9B8EAC]">{p.key}</code>
+                    <span className="text-[10px] font-semibold" style={{ color: p.cost === "Free" ? "#4CAA84" : GOLD }}>{p.cost}</span>
+                  </div>
+                </div>
+                <span className="rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+                  style={{ background: p.status === "Active" ? "#4CAA8420" : p.status === "Missing" ? "#D56B7A20" : GOLD+"20",
+                           color: p.status === "Active" ? "#4CAA84" : p.status === "Missing" ? "#D56B7A" : GOLD }}>
+                  {p.status}
+                </span>
+                {p.status === "Missing"
+                  ? <button onClick={() => showToast("Opening OAuth for " + p.name)} className="rounded-lg px-2.5 py-1 text-[11px] font-bold text-white" style={{ background: PRI }}>Connect</button>
+                  : <button onClick={() => showToast("Key updated")} className="rounded-lg border border-[#E2D8EA] px-2.5 py-1 text-[11px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">Edit</button>
+                }
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => showToast("Running key health check…")} className="rounded-lg border border-[#E2D8EA] px-4 py-2 text-[12px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">Test all keys</button>
+            <button onClick={() => showToast("Settings saved")} className="rounded-lg px-4 py-2 text-[12px] font-bold text-white" style={{ background: PRI }}>Save Changes</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Signal Sources ── */}
       {subTab === "signals" && (
         <div className="rounded-xl border border-[#E8E2F0] bg-white">
           {[
-            {name:"LinkedIn",      meta:"Job posts · profile changes · hiring signals",        status:"Connected",statusColor:"#4CAA84"},
-            {name:"Argaam",        meta:"Saudi financial news · real-time RSS",                status:"Connected",statusColor:"#4CAA84"},
-            {name:"Wamda",         meta:"MENA startup funding rounds",                         status:"Connected",statusColor:"#4CAA84"},
-            {name:"MoCI / Saudi CR",meta:"Ownership changes · new registrations",              status:"Partial",  statusColor:GOLD},
-            {name:"X / Twitter",   meta:"Executive announcements · company posts",             status:"Connected",statusColor:"#4CAA84"},
-            {name:"Reuters ME",    meta:"GCC region news · M&A · leadership changes",          status:"Connected",statusColor:"#4CAA84"},
-            {name:"Custom RSS",    meta:"+ Add your own RSS feed",                             status:"Custom",   statusColor:"#9B8EAC"},
+            {name:"LinkedIn",       meta:"Job posts · profile changes · hiring signals",        status:"Connected", statusColor:"#4CAA84"},
+            {name:"Argaam",         meta:"Saudi financial news · real-time RSS",                status:"Connected", statusColor:"#4CAA84"},
+            {name:"Wamda",          meta:"MENA startup funding rounds",                         status:"Connected", statusColor:"#4CAA84"},
+            {name:"MoCI / Saudi CR",meta:"Ownership changes · new registrations",               status:"Partial",   statusColor:GOLD},
+            {name:"X / Twitter",    meta:"Executive announcements · company posts",             status:"Connected", statusColor:"#4CAA84"},
+            {name:"Reuters ME",     meta:"GCC region news · M&A · leadership changes",          status:"Connected", statusColor:"#4CAA84"},
+            {name:"Custom RSS",     meta:"+ Add your own RSS feed",                             status:"Custom",    statusColor:"#9B8EAC"},
           ].map((s, i) => (
             <div key={s.name} className="flex items-center gap-3 border-b border-[#F0EBF8] px-4 py-3 last:border-0">
               <div className="flex-1">
@@ -288,13 +391,79 @@ function SettingsPanel() {
               </div>
               <span className="rounded-full px-2.5 py-0.5 text-[10px] font-bold" style={{ background: s.statusColor + "20", color: s.statusColor }}>{s.status}</span>
               {s.name === "Custom RSS"
-                ? <button className="rounded-lg border border-[#E2D8EA] px-3 py-1 text-[11px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">+ Add</button>
+                ? <button onClick={() => showToast("Add RSS feed")} className="rounded-lg border border-[#E2D8EA] px-3 py-1 text-[11px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">+ Add</button>
                 : <Toggle on={srcStates[i] ?? true} onClick={() => toggleSrc(i)} />}
             </div>
           ))}
         </div>
       )}
 
+      {/* ── Enrichment Tiers ── */}
+      {subTab === "tiers" && (
+        <div className="flex flex-col gap-3">
+          <div className="rounded-xl border border-[#E8E2F0] bg-white overflow-hidden">
+            <div className="border-b border-[#E8E2F0] bg-[#FAFAF9] px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">Confidence Thresholds</div>
+            {[
+              { tier:"Tier 1 — Premium",  desc:"All fields enriched · cited · cross-verified",    threshold:"95%", auto:true,  color:PRI  },
+              { tier:"Tier 2 — Standard", desc:"Core fields + email + ICP score",                  threshold:"80%", auto:true,  color:TEAL },
+              { tier:"Tier 3 — Quick",    desc:"Name + company + phone (unverified)",              threshold:"60%", auto:false, color:GOLD },
+              { tier:"Tier 4 — Minimal",  desc:"Company name + LinkedIn URL only",                 threshold:"40%", auto:false, color:"#9B8EAC"},
+            ].map(t => (
+              <div key={t.tier} className="flex items-center gap-3 border-b border-[#F0EBF8] px-4 py-3.5 last:border-0">
+                <div className="w-2 h-8 rounded-full flex-shrink-0" style={{ background: t.color }} />
+                <div className="flex-1">
+                  <div className="text-[12px] font-bold text-[#4A3B5C]">{t.tier}</div>
+                  <div className="text-[11px] text-[#9B8EAC]">{t.desc}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-center">
+                    <div className="text-[13px] font-bold" style={{ color: t.color }}>{t.threshold}</div>
+                    <div className="text-[9px] text-[#9B8EAC]">min confidence</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-[10px] font-bold" style={{ color: t.auto ? "#4CAA84" : "#9B8EAC" }}>{t.auto ? "Auto" : "Manual"}</div>
+                    <div className="text-[9px] text-[#9B8EAC]">trigger</div>
+                  </div>
+                  <Toggle on={t.auto} onClick={() => showToast("Trigger updated for " + t.tier)} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-xl border border-[#E8E2F0] bg-white p-4">
+            <div className="mb-3 text-[12px] font-bold text-[#4A3B5C]">Field Priority Order</div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {[
+                {l:"Email validation",  opts:["DNS+MX required","AI-guess OK","Skip emails"],    sel:0},
+                {l:"Phone format",      opts:["+966 only","GCC numbers","Any"],                   sel:0},
+                {l:"Title verify",      opts:["Cross-source","Trust primary","Skip"],             sel:0},
+                {l:"Currency",          opts:["SAR","USD","Both"],                                sel:0},
+                {l:"Language output",   opts:["English","Arabic","Bilingual"],                    sel:2},
+                {l:"ICP scoring",       opts:["Always","On request","Off"],                       sel:0},
+              ].map(f => (
+                <div key={f.l}>
+                  <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">{f.l}</div>
+                  <div className="flex flex-wrap gap-1">
+                    {f.opts.map((o, i) => (
+                      <span key={o}
+                        className="inline-flex cursor-pointer select-none items-center rounded-full px-2.5 py-[3px] text-[11px] font-semibold transition-all"
+                        style={i === f.sel ? { background: PRI, color: "#fff" } : { border: "1px solid #E2D8EA", color: "#7B6E8D" }}>
+                        {o}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => showToast("Reset to defaults")} className="rounded-lg border border-[#E2D8EA] px-4 py-2 text-[12px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">Reset defaults</button>
+              <button onClick={() => showToast("Tier settings saved")} className="rounded-lg px-4 py-2 text-[12px] font-bold text-white" style={{ background: PRI }}>Save Tiers</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Relationship Engines ── */}
       {subTab === "relationship" && (
         <div className="rounded-xl border border-[#E8E2F0] bg-white">
           {[
@@ -316,32 +485,119 @@ function SettingsPanel() {
         </div>
       )}
 
+      {/* ── Deduplication ── */}
       {subTab === "dedup" && (
-        <div className="rounded-xl border border-[#E8E2F0] bg-white p-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            {[
-              {l:"Primary match key",      opts:["Email","LinkedIn URL","Phone"],                  sel:0},
-              {l:"Secondary match",        opts:["Name + Company","Name + Title"],                 sel:0},
-              {l:"Conflict survivor",      opts:["Most complete","Newest","Manual"],               sel:0},
-              {l:"Auto-merge threshold",   opts:["80%","90%","95%","100% only"],                   sel:1},
-            ].map(f => (
-              <div key={f.l}>
-                <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">{f.l}</div>
-                <div className="flex flex-wrap gap-1">
-                  {f.opts.map((o, i) => (
-                    <span key={o}
-                      className="inline-flex cursor-pointer select-none items-center rounded-full px-2.5 py-[3px] text-[11px] font-semibold transition-all"
-                      style={i === f.sel ? { background: PRI, color: "#fff" } : { border: "1px solid #E2D8EA", color: "#7B6E8D" }}
-                    >{o}</span>
-                  ))}
+        <div className="flex flex-col gap-3">
+          <div className="rounded-xl border border-[#E8E2F0] bg-white p-4">
+            <div className="mb-3 text-[12px] font-bold text-[#4A3B5C]">Match Rules</div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[
+                {l:"Primary match key",      opts:["Email","LinkedIn URL","Phone"],                   sel:0},
+                {l:"Secondary match",        opts:["Name + Company","Name + Title"],                  sel:0},
+                {l:"Conflict survivor",      opts:["Most complete","Newest","Manual review"],          sel:0},
+                {l:"Auto-merge threshold",   opts:["80%","90%","95%","100% only"],                    sel:1},
+                {l:"Arabic name matching",   opts:["Transliteration","Exact","Both"],                  sel:2},
+                {l:"Phone normalisation",    opts:["E.164 global","+966 GCC","+971 UAE","None"],      sel:0},
+              ].map(f => (
+                <div key={f.l}>
+                  <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">{f.l}</div>
+                  <div className="flex flex-wrap gap-1">
+                    {f.opts.map((o, i) => (
+                      <span key={o}
+                        className="inline-flex cursor-pointer select-none items-center rounded-full px-2.5 py-[3px] text-[11px] font-semibold transition-all"
+                        style={i === f.sel ? { background: PRI, color: "#fff" } : { border: "1px solid #E2D8EA", color: "#7B6E8D" }}>
+                        {o}
+                      </span>
+                    ))}
+                  </div>
                 </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[#E8E2F0] bg-white p-4">
+            <div className="mb-3 text-[12px] font-bold text-[#4A3B5C]">Automation</div>
+            <div className="flex flex-col gap-3">
+              {[
+                {l:"Auto-merge high-confidence dupes (>95%)",    on:true },
+                {l:"Flag near-matches for manual review (80–95%)", on:true },
+                {l:"Block import if dupe detected",               on:false},
+                {l:"Send Slack alert on dupe batch >50",          on:true },
+              ].map(t => (
+                <div key={t.l} className="flex items-center gap-3">
+                  <Toggle on={t.on} onClick={() => showToast("Setting updated")} />
+                  <span className="text-[12px] text-[#4A3B5C]">{t.l}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button onClick={() => showToast("Running dedup scan…")} className="rounded-lg border border-[#E2D8EA] px-4 py-2 text-[12px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">Run scan now</button>
+            <button onClick={() => showToast("Dedup rules saved")} className="rounded-lg px-4 py-2 text-[12px] font-bold text-white" style={{ background: PRI }}>Save Rules</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Automation ── */}
+      {subTab === "automation" && (
+        <div className="flex flex-col gap-3">
+          <div className="rounded-xl border border-[#E8E2F0] bg-white overflow-hidden">
+            <div className="border-b border-[#E8E2F0] bg-[#FAFAF9] px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">Trigger Rules</div>
+            {[
+              { trigger:"New contact created",           action:"Run Tier 2 enrichment automatically",          on:true  },
+              { trigger:"Lead stage → Qualified",        action:"Run Tier 1 enrichment + ICP score",            on:true  },
+              { trigger:"Signal: funding round detected",action:"Enrich company + key contacts → alert rep",    on:true  },
+              { trigger:"Contact · no activity > 90 days",action:"Run signal check · flag for re-engagement",  on:true  },
+              { trigger:"LinkedIn profile change",       action:"Re-enrich person · update CRM record",         on:false },
+              { trigger:"New CR registration (MoCI)",    action:"Auto-enrich company · notify BD team",         on:true  },
+              { trigger:"Bulk import uploaded",          action:"Dedup → Tier 2 enrichment → notify",           on:true  },
+            ].map(t => (
+              <div key={t.trigger} className="flex items-center gap-3 border-b border-[#F0EBF8] px-4 py-3 last:border-0">
+                <div className="flex-1">
+                  <div className="text-[12px] font-bold text-[#4A3B5C]">{t.trigger}</div>
+                  <div className="text-[11px] text-[#9B8EAC]">→ {t.action}</div>
+                </div>
+                <Toggle on={t.on} onClick={() => showToast("Trigger updated")} />
               </div>
             ))}
           </div>
-          <div className="mt-4 flex justify-end">
-            <button className="rounded-lg px-4 py-2 text-[12px] font-bold text-white" style={{ background: PRI }}>Save Rules</button>
+
+          <div className="rounded-xl border border-[#E8E2F0] bg-white overflow-hidden">
+            <div className="border-b border-[#E8E2F0] bg-[#FAFAF9] px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">Webhooks & Notifications</div>
+            {[
+              { label:"Slack — enrichment complete",   url:"https://hooks.slack.com/••••",   status:"Active" },
+              { label:"Slack — dupe alert batch",      url:"https://hooks.slack.com/••••",   status:"Active" },
+              { label:"Zapier — new lead webhook",     url:"https://hooks.zapier.com/••••",  status:"Inactive" },
+              { label:"Custom webhook endpoint",       url:"+ Add webhook",                   status:"Add" },
+            ].map(w => (
+              <div key={w.label} className="flex items-center gap-3 border-b border-[#F0EBF8] px-4 py-3 last:border-0">
+                <div className="flex-1">
+                  <div className="text-[12px] font-bold text-[#4A3B5C]">{w.label}</div>
+                  <code className="text-[10px] font-mono text-[#9B8EAC]">{w.url}</code>
+                </div>
+                {w.status !== "Add"
+                  ? <span className="rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+                      style={{ background: w.status === "Active" ? "#4CAA8420" : "#F0EBF8", color: w.status === "Active" ? "#4CAA84" : "#9B8EAC" }}>
+                      {w.status}
+                    </span>
+                  : <button onClick={() => showToast("Add webhook")} className="rounded-lg px-3 py-1 text-[11px] font-bold text-white" style={{ background: PRI }}>+ Add</button>
+                }
+                {w.status !== "Add" && (
+                  <button onClick={() => showToast("Webhook tested")} className="rounded-lg border border-[#E2D8EA] px-2.5 py-1 text-[11px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">Test</button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button onClick={() => showToast("Automation settings saved")} className="rounded-lg px-4 py-2 text-[12px] font-bold text-white" style={{ background: PRI }}>Save Automation</button>
           </div>
         </div>
+      )}
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl px-5 py-3 text-[13px] font-bold text-white shadow-lg" style={{ background: PRI }}>{toast}</div>
       )}
     </div>
   );
