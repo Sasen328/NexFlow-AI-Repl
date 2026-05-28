@@ -29,7 +29,7 @@ export interface DesignButtonProps {
   seed?: number;
 }
 
-interface VariantStyle {
+interface VariantDef {
   height: string;
   padding: string;
   fontSize: string;
@@ -39,7 +39,7 @@ interface VariantStyle {
   canvasOpacity?: number;
 }
 
-const VARIANT_DEF: Record<DesignButtonVariant, VariantStyle> = {
+const VARIANT_DEF: Record<DesignButtonVariant, VariantDef> = {
   "solid": {
     height: "30px",
     padding: "0 14px",
@@ -62,7 +62,7 @@ const VARIANT_DEF: Record<DesignButtonVariant, VariantStyle> = {
     padding: "0 14px",
     fontSize: "12px",
     border: "1px solid var(--bd)",
-    background: "var(--tint)",
+    background: "rgba(255,255,255,.75)",
     color: "var(--btx)",
   },
   "small-solid": {
@@ -87,7 +87,7 @@ const VARIANT_DEF: Record<DesignButtonVariant, VariantStyle> = {
     padding: "0 11px",
     fontSize: "10px",
     border: "1px solid var(--bd)",
-    background: "var(--tint)",
+    background: "rgba(255,255,255,.75)",
     color: "var(--btx)",
   },
 };
@@ -105,7 +105,13 @@ const SHARED: React.CSSProperties = {
   cursor: "pointer",
   lineHeight: 1,
   whiteSpace: "nowrap",
-  transition: "transform .18s cubic-bezier(.4,0,.2,1), box-shadow .18s cubic-bezier(.4,0,.2,1)",
+  transition: [
+    "transform .18s cubic-bezier(.4,0,.2,1)",
+    "box-shadow .18s cubic-bezier(.4,0,.2,1)",
+    "background .6s ease",
+    "border-color .6s ease",
+    "color .6s ease",
+  ].join(", "),
 };
 
 export function DesignButton({
@@ -134,6 +140,9 @@ export function DesignButton({
       engRef.current = null;
       const canvas = canvasRef.current;
       if (!canvas) return;
+      // Sync canvas pixel dimensions to layout dimensions before starting
+      canvas.width = canvas.offsetWidth || 1;
+      canvas.height = canvas.offsetHeight || 1;
       const eng = ME(canvas, QPULSE_COLS, 0.012, seedRef.current, 4);
       eng.s();
       engRef.current = eng;
@@ -141,12 +150,17 @@ export function DesignButton({
 
     startEngine();
 
+    // Restart engine when button resizes so the canvas pixel buffer stays in sync
+    const ro = new ResizeObserver(() => startEngine());
+    if (canvasRef.current) ro.observe(canvasRef.current);
+
     const onThemeChange = () => startEngine();
     window.addEventListener("nf:theme-change", onThemeChange);
 
     return () => {
       engRef.current?.x();
       engRef.current = null;
+      ro.disconnect();
       window.removeEventListener("nf:theme-change", onThemeChange);
     };
   }, [hasCanvas]);
@@ -197,7 +211,15 @@ export function DesignButton({
           }}
         />
       )}
-      <span style={{ position: "relative", zIndex: 1, display: "inline-flex", alignItems: "center", gap: "5px" }}>
+      <span
+        style={{
+          position: "relative",
+          zIndex: 1,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "5px",
+        }}
+      >
         {children}
       </span>
     </button>

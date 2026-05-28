@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, ChevronLeft } from "lucide-react";
 import { findSectionByRoute, ROLE_NAV, type SectionDef } from "@/lib/sections";
 import { getRole } from "@/lib/marketing-auth";
 import { useNotifications } from "@/hooks/useApi";
@@ -139,15 +139,14 @@ function NavItem({
         borderRadius: "var(--r-item)",
         cursor: "pointer",
         background: active
-          ? "rgba(107,78,140,.12)"
+          ? "rgba(255,255,255,.68)"
           : hovered
           ? "var(--tint)"
           : "transparent",
-        border: active
-          ? "1px solid rgba(107,78,140,.20)"
-          : "1px solid transparent",
+        border: active ? "1px solid var(--bd)" : "1px solid transparent",
         transition: "background .15s, border-color .15s",
         userSelect: "none",
+        overflow: "hidden",
       }}
     >
       {/* Icon container */}
@@ -174,25 +173,26 @@ function NavItem({
         />
       </div>
 
-      {/* Label (hidden in icons mode) */}
-      {!isIcons && (
-        <span
-          style={{
-            fontSize: "12px",
-            color: active ? "var(--ac)" : "var(--txM)",
-            fontWeight: active ? 600 : 400,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            flex: 1,
-          }}
-        >
-          {item.label}
-        </span>
-      )}
+      {/* Label — always rendered, animated in/out via opacity + max-width */}
+      <span
+        style={{
+          fontSize: "12px",
+          color: active ? "var(--ac)" : "var(--txM)",
+          fontWeight: active ? 600 : 400,
+          flex: 1,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          opacity: isIcons ? 0 : 1,
+          maxWidth: isIcons ? "0px" : "180px",
+          transition: "opacity .2s cubic-bezier(.4,0,.2,1), max-width .26s cubic-bezier(.4,0,.2,1)",
+        }}
+      >
+        {item.label}
+      </span>
 
-      {/* Badge (only in expanded mode) */}
-      {!isIcons && badge > 0 && (
+      {/* Badge — animated in/out with label */}
+      {badge > 0 && (
         <span
           style={{
             minWidth: "15px",
@@ -207,6 +207,10 @@ function NavItem({
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
+            opacity: isIcons ? 0 : 1,
+            maxWidth: isIcons ? "0px" : "32px",
+            overflow: "hidden",
+            transition: "opacity .2s cubic-bezier(.4,0,.2,1), max-width .26s cubic-bezier(.4,0,.2,1)",
           }}
         >
           {badge > 99 ? "99+" : badge}
@@ -237,8 +241,8 @@ function CtrlBtn({
       onClick={onClick}
       aria-label={label}
       style={{
-        width: "20px",
-        height: "20px",
+        width: "19px",
+        height: "19px",
         borderRadius: "var(--r-ctrl)",
         border: "1px solid var(--bd)",
         background: "var(--tint)",
@@ -314,7 +318,7 @@ function DesktopRail({
             flexShrink: 0,
             display: "flex",
             alignItems: "center",
-            gap: "6px",
+            gap: "5px",
             padding: "0 4px",
             borderBottom: "1px solid var(--bd)",
           }}
@@ -338,41 +342,57 @@ function DesktopRail({
             />
           </div>
 
-          {/* Section label */}
-          {!isIcons && (
-            <span
-              style={{
-                fontSize: "12px",
-                fontWeight: 700,
-                color: "var(--txM)",
-                flex: 1,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {section.label}
-            </span>
-          )}
+          {/* Section label — 9px uppercase, animated in/out */}
+          <span
+            style={{
+              fontSize: "9px",
+              fontWeight: 800,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              color: "var(--txM)",
+              flex: 1,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              opacity: isIcons ? 0 : 1,
+              maxWidth: isIcons ? "0px" : "160px",
+              transition:
+                "opacity .2s cubic-bezier(.4,0,.2,1), max-width .26s cubic-bezier(.4,0,.2,1)",
+            }}
+          >
+            {section.label}
+          </span>
 
-          {/* Collapse toggle ◄ / ► */}
+          {/* Collapse toggle — single ChevronLeft rotates 180° in icons mode */}
           <CtrlBtn
             onClick={() => setState(isIcons ? "open" : "icons")}
             label={isIcons ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {isIcons ? (
-              <ChevronRight style={{ width: "11px", height: "11px" }} />
-            ) : (
-              <ChevronLeft style={{ width: "11px", height: "11px" }} />
-            )}
+            <ChevronLeft
+              style={{
+                width: "11px",
+                height: "11px",
+                transform: isIcons ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform .26s cubic-bezier(.4,0,.2,1)",
+              }}
+            />
           </CtrlBtn>
 
-          {/* Close — only visible in expanded mode */}
-          {!isIcons && (
+          {/* Close — animated out in icons mode */}
+          <div
+            style={{
+              opacity: isIcons ? 0 : 1,
+              maxWidth: isIcons ? "0px" : "19px",
+              overflow: "hidden",
+              flexShrink: 0,
+              transition:
+                "opacity .2s cubic-bezier(.4,0,.2,1), max-width .26s cubic-bezier(.4,0,.2,1)",
+            }}
+          >
             <CtrlBtn onClick={() => setState("closed")} label="Close sidebar">
               <X style={{ width: "11px", height: "11px" }} />
             </CtrlBtn>
-          )}
+          </div>
         </div>
 
         {/* Scrollable nav */}
@@ -393,20 +413,26 @@ function DesktopRail({
               return (
                 <div
                   key={`div-${i}`}
-                  style={{ height: "1px", background: "var(--bd)", margin: "6px 4px" }}
+                  style={{
+                    height: "1px",
+                    background: "var(--bd)",
+                    margin: "6px 4px",
+                  }}
                 />
               );
             }
             if (node.kind === "group") {
-              if (isIcons) {
-                return (
-                  <div
-                    key={`grp-${i}`}
-                    style={{ height: "1px", background: "var(--bd)", margin: "6px 4px" }}
-                  />
-                );
-              }
-              return (
+              /* In icons mode, group labels collapse to a thin divider */
+              return isIcons ? (
+                <div
+                  key={`grp-${i}`}
+                  style={{
+                    height: "1px",
+                    background: "var(--bd)",
+                    margin: "6px 4px",
+                  }}
+                />
+              ) : (
                 <div
                   key={`grp-${i}`}
                   style={{
@@ -509,12 +535,19 @@ function MobileSheet({
           }}
         >
           <span
-            style={{ fontSize: "13px", fontWeight: 700, color: "var(--txM)", flex: 1 }}
+            style={{
+              fontSize: "9px",
+              fontWeight: 800,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              color: "var(--txM)",
+              flex: 1,
+            }}
           >
             {section.label}
           </span>
           <CtrlBtn onClick={onClose} label="Close">
-            <X style={{ width: "12px", height: "12px" }} />
+            <X style={{ width: "11px", height: "11px" }} />
           </CtrlBtn>
         </div>
 
@@ -528,7 +561,11 @@ function MobileSheet({
               return (
                 <div
                   key={`div-${i}`}
-                  style={{ height: "1px", background: "var(--bd)", margin: "6px 4px" }}
+                  style={{
+                    height: "1px",
+                    background: "var(--bd)",
+                    margin: "6px 4px",
+                  }}
                 />
               );
             }
