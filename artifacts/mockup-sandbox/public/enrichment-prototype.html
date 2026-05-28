@@ -147,15 +147,71 @@ textarea.input{resize:vertical;min-height:80px}
 .ctx-pill{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:3px 8px;border-radius:99px;background:rgba(200,168,128,.14);color:#8a5d20;border:1px solid rgba(200,168,128,.30);font-weight:600}
 .ctx-pill .lbl{opacity:.7}
 
-/* ── AGENT LOG ── */
-.agent-log{display:flex;flex-direction:column;gap:8px}
+/* ── AGENT LOG v2 — animated cards ── */
+.agent-log{display:flex;flex-direction:column;gap:7px}
 .agent-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:white;border:1px solid var(--line-2);border-radius:var(--r-sm)}
-.agent-row.running{border-color:var(--primary);background:rgba(184,160,200,.06)}
 .agent-row.done{opacity:.85}
 .agent-mark{width:22px;height:22px;border-radius:99px;display:grid;place-items:center;font-size:11px;background:var(--line)}
-.agent-row.running .agent-mark{background:var(--primary);color:white}
 .agent-row.done .agent-mark{background:var(--ok);color:white}
-.spinner{width:12px;height:12px;border:2px solid rgba(255,255,255,.4);border-top-color:white;border-radius:99px;animation:spin 800ms linear infinite}
+
+.agent-card{
+  display:flex;align-items:center;gap:12px;
+  padding:11px 14px;
+  background:white;
+  border:1px solid var(--line-2);
+  border-left:3px solid transparent;
+  border-radius:var(--r-sm);
+  animation:acIn 200ms cubic-bezier(.22,.68,0,1.2) both;
+  position:relative;overflow:hidden;
+  transition:border-color 220ms,background 220ms,box-shadow 220ms;
+}
+@keyframes acIn{from{opacity:0;transform:translateY(7px) scale(.98)}to{opacity:1;transform:none}}
+.agent-card.running{
+  border-color:rgba(184,160,200,.45);
+  border-left-color:var(--primary);
+  background:linear-gradient(100deg,rgba(184,160,200,.06) 0%,white 60%);
+  box-shadow:0 2px 14px rgba(184,160,200,.14);
+}
+.agent-card.running::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--primary) 0%,var(--teal) 40%,var(--gold) 70%,var(--primary) 100%);
+  background-size:300% 100%;
+  animation:shimBar 1.8s linear infinite;
+}
+@keyframes shimBar{0%{background-position:0 0}100%{background-position:300% 0}}
+.agent-card.done{border-left-color:var(--ok);background:linear-gradient(100deg,rgba(76,170,132,.04),white)}
+.agent-card.err{border-left-color:var(--bad);background:linear-gradient(100deg,rgba(213,107,122,.05),white)}
+
+.agent-icon{
+  width:34px;height:34px;border-radius:10px;
+  display:grid;place-items:center;flex-shrink:0;
+  background:var(--line);color:var(--ink-soft);
+  transition:all 220ms;position:relative;
+}
+.agent-icon svg{width:15px;height:15px;stroke-width:1.8}
+.agent-card.running .agent-icon{
+  background:linear-gradient(135deg,var(--primary),#9f80b8);
+  color:white;
+  box-shadow:0 3px 10px rgba(184,160,200,.45);
+}
+.agent-card.running .agent-icon::after{
+  content:'';position:absolute;inset:-4px;border-radius:13px;
+  border:2px solid var(--primary);opacity:.4;
+  animation:iconRing 1.2s ease-in-out infinite;
+}
+@keyframes iconRing{0%,100%{transform:scale(1);opacity:.4}50%{transform:scale(1.12);opacity:.12}}
+.agent-card.done .agent-icon{background:linear-gradient(135deg,var(--ok),#3d9a70);color:white;box-shadow:0 2px 8px rgba(76,170,132,.30)}
+.agent-card.err .agent-icon{background:linear-gradient(135deg,var(--bad),#c44a5a);color:white}
+
+.agent-body{flex:1;min-width:0}
+.agent-name{font-size:13px;font-weight:700;color:var(--ink);line-height:1.3}
+.agent-desc{font-size:11.5px;color:var(--ink-soft);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agent-badge{font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:99px;flex-shrink:0;letter-spacing:.03em;text-transform:uppercase}
+.agent-card.running .agent-badge{background:rgba(184,160,200,.15);color:var(--primary)}
+.agent-card.done .agent-badge{background:rgba(76,170,132,.12);color:var(--ok)}
+.agent-card.err .agent-badge{background:rgba(213,107,122,.12);color:var(--bad)}
+
+.spinner{width:12px;height:12px;border:2px solid rgba(255,255,255,.4);border-top-color:white;border-radius:99px;animation:spin 700ms linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* ── REPORT ── */
@@ -1523,27 +1579,71 @@ async function startAgents(){
   const log=document.getElementById('agent-log');log.innerHTML='';
   const rowMap={};let finalText='';
 
+  const AGENT_ICONS={
+    'Planner':   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46L7 19V5a2.5 2.5 0 0 1 2.5-2.5zm5.5.5A2.5 2.5 0 0 1 17.5 5v10a2.5 2.5 0 0 1-5 0V5A2.5 2.5 0 0 1 15 2.5z"/></svg>`,
+    'Researcher':`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4.5 4.5"/></svg>`,
+    'Crawler':   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>`,
+    'Playwright':`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M3 9h18M8 21h8M12 17v4"/></svg>`,
+    'Harvester': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg>`,
+    'Sanctions': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2l8 4v6c0 5-4 9-8 10C8 21 4 17 4 12V6l8-4z"/><path d="m9 12 2 2 4-4"/></svg>`,
+    'OSINT':     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4l4 4m12-4-4 4M4 20l4-4m12 4-4-4M12 2v4m0 12v4M2 12h4m12 0h4"/><circle cx="12" cy="12" r="3"/></svg>`,
+    'Lead Factory':`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+    'Signal':    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M2 20h20M6 20V10M10 20V4M14 20V12M18 20V8"/></svg>`,
+    'Writer':    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
+    'Validator': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>`,
+    'Specialist':`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+  };
+  function agentIcon(name){
+    const k=Object.keys(AGENT_ICONS).find(k=>name.toLowerCase().includes(k.toLowerCase()))||'Researcher';
+    return AGENT_ICONS[k];
+  }
+  function agentLabel(name){
+    if(name.includes('Planner'))return 'Planning';
+    if(name.includes('Researcher'))return 'Searching';
+    if(name.includes('Crawler'))return 'Crawling';
+    if(name.includes('Playwright'))return 'Rendering';
+    if(name.includes('Harvester'))return 'Harvesting';
+    if(name.includes('Sanctions'))return 'Screening';
+    if(name.includes('OSINT'))return 'OSINT';
+    if(name.includes('Factory'))return 'Generating';
+    if(name.includes('Signal'))return 'Detecting';
+    if(name.includes('Writer'))return 'Writing';
+    if(name.includes('Validator'))return 'Validating';
+    if(name.includes('Specialist'))return 'Specialising';
+    return 'Working';
+  }
+  function cleanName(n){return n.replace(/[🧠🔍🌐🎭🛰️⚖️🕵️⚡📡✍️]/gu,'').trim();}
+
   function addRow(agent,desc){
     if(rowMap[agent])return;
-    const row=document.createElement('div');row.className='agent-row running';
-    row.innerHTML=`<div class="agent-mark"><div class="spinner"></div></div>`+
-      `<div style="font-size:13px;font-weight:600">${agent}</div>`+
-      `<div style="font-size:12px;color:var(--ink-soft);flex:1">${desc||''}</div>`;
-    log.appendChild(row);rowMap[agent]=row;
-    row.scrollIntoView({block:'nearest',behavior:'smooth'});
+    const name=cleanName(agent);
+    const card=document.createElement('div');card.className='agent-card running';
+    card.innerHTML=
+      `<div class="agent-icon">${agentIcon(name)}</div>`+
+      `<div class="agent-body">`+
+        `<div class="agent-name">${name}</div>`+
+        `<div class="agent-desc">${desc||'Initialising…'}</div>`+
+      `</div>`+
+      `<span class="agent-badge">${agentLabel(name)}</span>`;
+    log.appendChild(card);rowMap[agent]=card;
+    requestAnimationFrame(()=>card.scrollIntoView({block:'nearest',behavior:'smooth'}));
   }
   function doneRow(agent,summary){
     if(!rowMap[agent])addRow(agent,'');
-    const r=rowMap[agent];
-    r.classList.remove('running');r.classList.add('done');
-    const mark=r.querySelector('.agent-mark');if(mark)mark.innerHTML='✓';
-    if(summary){const d=r.querySelector('div:last-child');if(d)d.textContent=summary;}
+    const c=rowMap[agent];
+    c.classList.remove('running');c.classList.add('done');
+    const badge=c.querySelector('.agent-badge');if(badge)badge.textContent='Done';
+    if(summary){const d=c.querySelector('.agent-desc');if(d)d.textContent=summary;}
+    const icon=c.querySelector('.agent-icon');
+    if(icon)icon.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px;stroke-width:2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
   }
   function addErr(msg){
-    const row=document.createElement('div');row.className='agent-row';
-    row.style.color='var(--bad)';
-    row.innerHTML=`<div class="agent-mark">⚠</div><div style="font-size:13px">${msg}</div>`;
-    log.appendChild(row);
+    const card=document.createElement('div');card.className='agent-card err';
+    card.innerHTML=
+      `<div class="agent-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px;stroke-width:2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>`+
+      `<div class="agent-body"><div class="agent-name">Error</div><div class="agent-desc">${msg}</div></div>`+
+      `<span class="agent-badge">Failed</span>`;
+    log.appendChild(card);
   }
 
   try{
@@ -1587,6 +1687,40 @@ async function startAgents(){
   setTimeout(()=>{renderReport();gotoStageById('report');},300);
 }
 function resetAll(){reached=['compose'];gotoStageById('compose');gotoLayer(1);}
+
+// ── ?demo=agents — pre-populate run stage with sample cards for screenshots ──
+(function(){
+  if(!/[?&]demo=agents/.test(location.search))return;
+  const DEMO=[
+    {name:'Planner',desc:'Decomposing query into 4 sub-tasks…',state:'done',sum:'4 tasks scheduled · 2 parallel tracks'},
+    {name:'Researcher',desc:'Scanning LinkedIn, Crunchbase, news…',state:'running',sum:''},
+    {name:'Harvester',desc:'Pulling GCC regulatory filings…',state:'running',sum:''},
+    {name:'Sanctions',desc:'Screening against OFAC + OpenSanctions…',state:'done',sum:'No matches — entity clear'},
+    {name:'OSINT',desc:'Mapping digital footprint across platforms…',state:'running',sum:''},
+  ];
+  function go(){
+    if(typeof gotoStageById==='undefined'||typeof setGroup==='undefined')return setTimeout(go,80);
+    // Navigate to Agentic Hub → AI Chat → Run stage
+    const agBtn=document.querySelector('.group-tab');
+    if(agBtn)setGroup('agentic',agBtn);
+    if(typeof switchTab==='function')switchTab('aichat');
+    gotoStageById('run');
+    const log=document.getElementById('agent-log');if(!log)return;
+    log.innerHTML='';
+    DEMO.forEach((d,i)=>{
+      setTimeout(()=>{
+        const card=document.createElement('div');card.className='agent-card '+d.state;
+        const ICONS={Planner:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46L7 19V5a2.5 2.5 0 0 1 2.5-2.5zm5.5.5A2.5 2.5 0 0 1 17.5 5v10a2.5 2.5 0 0 1-5 0V5A2.5 2.5 0 0 1 15 2.5z"/></svg>`,Researcher:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4.5 4.5"/></svg>`,Harvester:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg>`,Sanctions:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2l8 4v6c0 5-4 9-8 10C8 21 4 17 4 12V6l8-4z"/><path d="m9 12 2 2 4-4"/></svg>`,OSINT:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4l4 4m12-4-4 4M4 20l4-4m12 4-4-4M12 2v4m0 12v4M2 12h4m12 0h4"/><circle cx="12" cy="12" r="3"/></svg>`};
+        const doneCheck=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px;stroke-width:2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+        const icon=d.state==='done'?doneCheck:(ICONS[d.name]||ICONS.Researcher);
+        const badge=d.state==='done'?'Done':d.state==='running'?'Working':'Error';
+        card.innerHTML=`<div class="agent-icon">${icon}</div><div class="agent-body"><div class="agent-name">${d.name}</div><div class="agent-desc">${d.state==='done'?d.sum:d.desc}</div></div><span class="agent-badge">${badge}</span>`;
+        log.appendChild(card);
+      },i*60);
+    });
+  }
+  go();
+}());
 function setReport(r){
   state.reportShape=r;
   document.querySelectorAll('.target-opt[data-r]').forEach(el=>el.classList.toggle('on',el.dataset.r===r));

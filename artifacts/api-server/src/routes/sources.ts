@@ -41,7 +41,7 @@ const createSchema = z.object({
 
 router.post("/sources", async (req: Request, res: Response) => {
   const parsed = createSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "validation_failed", issues: parsed.error.issues });
+  if (!parsed.success) { res.status(400).json({ error: "validation_failed", issues: parsed.error.issues }); return; }
   try {
     const [row] = await db.insert(harvest_sources).values({
       ...parsed.data,
@@ -57,7 +57,7 @@ router.post("/sources", async (req: Request, res: Response) => {
 
 router.patch("/sources/:id", async (req: Request, res: Response) => {
   const id = parseInt(p(req.params.id), 10);
-  if (!id) return res.status(400).json({ error: "bad_id" });
+  if (!id) { res.status(400).json({ error: "bad_id" }); return; }
   try {
     const [row] = await db.update(harvest_sources)
       .set(req.body as any)
@@ -71,7 +71,7 @@ router.patch("/sources/:id", async (req: Request, res: Response) => {
 
 router.delete("/sources/:id", async (req: Request, res: Response) => {
   const id = parseInt(p(req.params.id), 10);
-  if (!id) return res.status(400).json({ error: "bad_id" });
+  if (!id) { res.status(400).json({ error: "bad_id" }); return; }
   try {
     await db.delete(harvest_sources)
       .where(and(eq(harvest_sources.id, id), eq(harvest_sources.visibility, "user")));
@@ -83,11 +83,11 @@ router.delete("/sources/:id", async (req: Request, res: Response) => {
 
 router.post("/sources/:id/test", async (req: Request, res: Response) => {
   const id = parseInt(p(req.params.id), 10);
-  if (!id) return res.status(400).json({ error: "bad_id" });
+  if (!id) { res.status(400).json({ error: "bad_id" }); return; }
   try {
     const [src] = await db.select().from(harvest_sources).where(eq(harvest_sources.id, id));
-    if (!src) return res.status(404).json({ error: "not_found" });
-    if (!src.url) return res.json({ ok: true, reachable: false, message: "no URL configured" });
+    if (!src) { res.status(404).json({ error: "not_found" }); return; }
+    if (!src.url) { res.json({ ok: true, reachable: false, message: "no URL configured" }); return; }
     const axios = (await import("axios")).default;
     const start = Date.now();
     try {
