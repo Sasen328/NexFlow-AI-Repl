@@ -136,4 +136,25 @@ router.delete("/nexus/session/usage", (_req: Request, res: Response): void => {
   res.json({ ok: true, message: "Session usage and sticky sessions cleared" });
 });
 
+// ── POST /api/nexus/run — run a named NEXUS role directly ─────────────────────
+// Lets any client invoke a NEXUS role (researcher, writer, extractor, arabic, planner, etc.)
+// with a custom prompt and receive the LLM response.
+//
+// Body: { role: string; prompt: string; maxTokens?: number; systemPrompt?: string }
+router.post("/nexus/run", async (req: Request, res: Response): Promise<void> => {
+  const { role = "researcher", prompt, maxTokens = 1200, systemPrompt } = req.body as {
+    role?: string; prompt?: string; maxTokens?: number; systemPrompt?: string;
+  };
+
+  if (!prompt) { res.status(400).json({ ok: false, error: "prompt required" }); return; }
+
+  try {
+    const { nexusRunRole } = await import("../lib/nexus/index.js");
+    const r = await nexusRunRole(role as import("../lib/nexus/roles.js").AgentRole, prompt, { maxTokens, systemPrompt });
+    res.json({ ok: true, role, result: r.text });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: String(err) });
+  }
+});
+
 export default router;

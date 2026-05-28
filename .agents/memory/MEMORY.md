@@ -1,2 +1,4 @@
 - [Dark mode bootstrap](dark-mode-bootstrap.md) — eager apply runs at module-import time in useTheme.ts (not main.tsx); key is "nf:theme"; system-pref fallback uses matchMedia
 - [Tenant branding fallbacks](tenant-branding-fallbacks.md) — applyTenantBranding must apply NexFlow defaults when config=null; early return breaks card color-intelligence in dev/demo
+- [Nexus LLM router types](nexus-llm-types.md) — nexusRunRole returns NexusGenerateResult {text,model,provider}; synthesizeClaude/synthesizeGpt return plain string; always extract .text; ScrapeOptions uses forceEngine not engine, timeoutMs not timeout; ScrapeResult has no .ok
+- [API route mounting pattern](api-route-mounting.md) — new engine routers that embed full paths (/masaar/jobs etc.) must be mounted with router.use(r) not router.use("/prefix", r) or paths double-prefix

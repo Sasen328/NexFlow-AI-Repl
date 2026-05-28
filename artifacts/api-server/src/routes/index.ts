@@ -61,6 +61,15 @@ import leadGenomeRouter from "./lead-genome.js";
 import leadListsNewRouter from "./lead-lists-new.js";
 import sourcesRouter from "./sources.js";
 import harvestAiRouter from "./harvest-ai.js";
+// ── New Engine Routes (framework map §1-10) ───────────────────────────────────
+import masaarRouter from "./masaar.js";
+import builderNewRouter from "./builder.js";
+import scoutRouter from "./scout.js";
+import seederRouter from "./seeder.js";
+import relationshipIntelRouter from "./relationship-intel.js";
+import prosEngineChatRouter from "./prosengine-chat.js";
+import orcengineRouter from "./orcengine.js";
+import meshbaseRouter from "./meshbase.js";
 
 const router: IRouter = Router();
 
@@ -126,5 +135,14 @@ router.use(leadGenomeRouter);
 router.use(leadListsNewRouter);
 router.use(sourcesRouter);
 router.use(harvestAiRouter);
+// ── New Engine Routes ─────────────────────────────────────────────────────────
+router.use(masaarRouter);
+router.use(builderNewRouter);
+router.use(scoutRouter);
+router.use(seederRouter);
+router.use(relationshipIntelRouter);
+router.use(prosEngineChatRouter);
+router.use(orcengineRouter);
+router.use(meshbaseRouter);
 
 export default router;
