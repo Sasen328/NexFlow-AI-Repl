@@ -7,7 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 export default function ListDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data, isLoading } = useList(id!);
-  const { data: contactsData } = useContacts({ limit: "500" });
+  const { data: contactsData } = useContacts({ limit: 500 });
   const qc = useQueryClient();
   const [, navigate] = useLocation();
   const [showAdd, setShowAdd] = useState(false);

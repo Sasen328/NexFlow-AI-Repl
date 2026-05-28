@@ -7,7 +7,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LivingMesh } from "@/components/layout/LivingMesh";
 import { TopBar } from "@/components/layout/TopBar";
 import { SectionSidebar } from "@/components/layout/SectionSidebar";
-import { ThemeDrawer } from "@/components/layout/ThemeDrawer";
 import { AIAssistantBubble } from "@/components/AIAssistantBubble";
 import { CaptchaAlert } from "@/components/CaptchaAlert";
 import { MarketingLayout } from "@/components/marketing/MarketingLayout";
@@ -16,13 +15,9 @@ import AboutPage from "@/pages/marketing/About";
 import PricingPage from "@/pages/marketing/Pricing";
 import BrandPage from "@/pages/marketing/Brand";
 import AuthPage from "@/pages/marketing/Auth";
-import EnterprisePage from "@/pages/marketing/Enterprise";
 import { useState } from "react";
 import { WizardProvider } from "@/pages/onboarding/context";
 import { useTenantConfig, applyTenantBranding } from "@/hooks/useTenantConfig";
-import { useTheme } from "@/hooks/useTheme";
-import { useTypographyAdapt } from "@/hooks/useTypographyAdapt";
-import { applyVars } from "@/lib/palette";
 
 import Briefing from "@/pages/briefing";
 import SectionHubPage from "@/pages/section-hub";
@@ -130,11 +125,10 @@ const queryClient = new QueryClient({
 });
 
 function AppLayout() {
-  const { dark, setDark } = useTheme();
+  const [dark, setDark] = useState(false);
   const { config } = useTenantConfig();
 
-  applyVars(dark);
-  useTypographyAdapt(dark);
+  useEffect(() => { document.documentElement.classList.toggle("dark", dark); }, [dark]);
 
   useEffect(() => {
     applyTenantBranding(config);
@@ -144,8 +138,7 @@ function AppLayout() {
     <div className="min-h-screen bg-background flex flex-col">
       <LivingMesh />
       <TopBar dark={dark} onDark={setDark} />
-      <ThemeDrawer dark={dark} onDark={setDark} />
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="flex flex-1 min-h-0">
         <SectionSidebar />
         <main className="flex-1 min-w-0 px-4 sm:px-6 py-6 overflow-y-auto relative z-10">
         <Switch>
@@ -350,12 +343,6 @@ function RootRoutes() {
       <Route path="/about">      <MarketingRoute><AboutPage /></MarketingRoute></Route>
       <Route path="/pricing">    <MarketingRoute><PricingPage /></MarketingRoute></Route>
       <Route path="/brand">      <MarketingRoute><BrandPage /></MarketingRoute></Route>
-      <Route path="/brand-preview">
-        <Suspense fallback={null}>
-          {(() => { const C = lazy(() => import("@/pages/BrandPreview")); return <C />; })()}
-        </Suspense>
-      </Route>
-      <Route path="/enterprise">  <MarketingRoute><EnterprisePage /></MarketingRoute></Route>
       <Route path="/signin">     <MarketingRoute><AuthPage mode="signin" /></MarketingRoute></Route>
       <Route path="/signup">     <MarketingRoute><AuthPage mode="signup" /></MarketingRoute></Route>
       <Route component={ProtectedAppLayout} />

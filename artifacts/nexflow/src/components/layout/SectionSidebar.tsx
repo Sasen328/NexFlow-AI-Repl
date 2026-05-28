@@ -43,7 +43,7 @@ export function SectionSidebar() {
 
   const section = findSectionByRoute(location);
   if (!section) return null;
-  if (!section.items.length) return null;
+  if (!section.items.length) return null; // section opted out of sub-nav (e.g. Home)
   if (roleKey === "marketing") return null;
 
   const allowedKeys = ROLE_NAV[roleKey];
@@ -59,6 +59,9 @@ export function SectionSidebar() {
 
 function DesktopSidebar({ section, location }: { section: SectionDef; location: string }) {
   const Icon = section.icon;
+  // Collapsible — persisted in localStorage. When collapsed the rail
+  // shrinks to 56px and shows icons-only with tooltips. Group headers
+  // become a thin divider so the rail stays clean.
   const [collapsed, setCollapsed] = useState<boolean>(readCollapsed);
   useEffect(() => {
     const refresh = () => setCollapsed(readCollapsed());
@@ -124,7 +127,8 @@ function DesktopSidebar({ section, location }: { section: SectionDef; location: 
 
 /**
  * Render section.items, inserting a small group header divider whenever
- * an item declares a `group` that differs from the previous one.
+ * an item declares a `group` that differs from the previous one. Items
+ * without a `group` flow at the top with no header.
  */
 function renderItems(section: SectionDef, location: string, collapsed = false) {
   const out: React.ReactNode[] = [];
@@ -157,6 +161,7 @@ function renderItems(section: SectionDef, location: string, collapsed = false) {
 function MobileSubnav({ section, location }: { section: SectionDef; location: string }) {
   const [open, setOpen] = useState(false);
   const Icon = section.icon;
+  // Auto-collapse when route changes
   useEffect(() => { setOpen(false); }, [location]);
 
   const active = section.items.find((it) => {
@@ -217,6 +222,7 @@ function SidebarItem({
   collapsed?: boolean;
 }) {
   const ItemIcon = item.icon;
+  // href may carry ?query — strip it for active matching
   const itemPath = item.href.split("?")[0].split("#")[0];
   const active =
     location === itemPath || (itemPath !== "/" && location.startsWith(itemPath + "/"));

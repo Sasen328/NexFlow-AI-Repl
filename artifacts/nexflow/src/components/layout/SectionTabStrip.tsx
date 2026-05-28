@@ -71,7 +71,11 @@ function SectionTabStripInner({ section, location }: { section: SectionDef; loca
 
   return (
     <div
-      className="bar-tab sticky top-[5.5rem] z-30"
+      className="border-b border-border/30 backdrop-blur-md sticky top-[5.5rem] z-30"
+      style={{
+        background:
+          "linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.65))",
+      }}
     >
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6">
         <div className="flex items-center gap-3 h-12 overflow-x-auto no-scrollbar">

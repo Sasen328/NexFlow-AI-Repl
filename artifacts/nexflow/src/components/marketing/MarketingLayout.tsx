@@ -11,7 +11,7 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
       <footer className="border-t border-border/30 mt-12 py-6 text-center text-xs text-muted-foreground">
-        © 2026 QPulse · Built in Riyadh, KSA · The universal AI-native B2B CRM for GCC markets
+        © 2026 NexFlow · Built in Riyadh, KSA · The universal AI-native B2B CRM for GCC markets
       </footer>
     </div>
   );

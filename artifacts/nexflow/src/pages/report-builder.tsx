@@ -22,7 +22,7 @@ export default function ReportBuilderPage() {
     setRunning(true);
     setResults([]);
     try {
-      const r = await apiFetch(`/${entity.key}?limit=500`);
+      const r = await apiFetch<any>(`/${entity.key}?limit=500`);
       const items: any[] = r[entity.key] ?? r.items ?? r.contacts ?? r.deals ?? r.companies ?? r.activities ?? [];
       const grouped: Record<string, { count: number; sum: number; values: number[] }> = {};
       for (const it of items) {
@@ -59,9 +59,9 @@ export default function ReportBuilderPage() {
 
       <div className="glass-panel p-4">
         <div className="grid grid-cols-5 gap-2">
-          <Sel label="Entity" value={entity.key} onChange={(v: any) => { const e = ENTITIES.find(x => x.key === v)!; setEntity(e); setGroupBy(e.fields[0]); setAggField(e.fields.find(f => /value|score|revenue/.test(f)) ?? e.fields[0]); }} options={ENTITIES.map(e => ({ value: e.key, label: e.label }))}/>
+          <Sel label="Entity" value={entity.key} onChange={(v) => { const e = ENTITIES.find(x => x.key === v)!; setEntity(e); setGroupBy(e.fields[0]); setAggField(e.fields.find(f => /value|score|revenue/.test(f)) ?? e.fields[0]); }} options={ENTITIES.map(e => ({ value: e.key, label: e.label }))}/>
           <Sel label="Group by" value={groupBy} onChange={setGroupBy} options={entity.fields.map(f => ({ value: f, label: f }))}/>
-          <Sel label="Aggregate" value={agg} onChange={(v: any) => setAgg(v as any)} options={AGG.map(a => ({ value: a, label: a }))}/>
+          <Sel label="Aggregate" value={agg} onChange={(v) => setAgg(v as any)} options={AGG.map(a => ({ value: a, label: a }))}/>
           <Sel label="Field" value={aggField} onChange={setAggField} options={entity.fields.map(f => ({ value: f, label: f }))}/>
           <button onClick={run} disabled={running} className="self-end flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white nf-chameleon-bg disabled:opacity-50">
             <Play className="w-3.5 h-3.5"/> {running ? "Running…" : "Run report"}

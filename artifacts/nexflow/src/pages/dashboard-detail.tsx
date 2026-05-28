@@ -149,7 +149,7 @@ export default function DashboardDetailPage() {
             onDelete={() => delWidget.mutate(w.id)}
             onMoveUp={i > 0 ? () => move(w, -1) : undefined}
             onMoveDown={i < widgets.length - 1 ? () => move(w, 1) : undefined}
-            onSnapshot={(snap: any) => setCollected(prev => ({ ...prev, [w.id]: snap }))}
+            onSnapshot={(snap) => setCollected(prev => ({ ...prev, [w.id]: snap }))}
           />
         ))}
         {widgets.length === 0 && (

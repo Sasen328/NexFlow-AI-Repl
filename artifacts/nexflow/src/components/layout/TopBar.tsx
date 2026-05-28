@@ -103,7 +103,7 @@ export function TopBar({ dark, onDark }: TopBarProps) {
             Logo sits beside the Home tab. No wordmark. No utilities. */}
       <div className="flex items-center h-12 px-3 sm:px-4 max-w-[1600px] mx-auto w-full gap-2">
         <Link href="/home">
-          <div className="flex-shrink-0 cursor-pointer p-1 rounded-lg hover:bg-muted/40 transition-colors flex items-center gap-2" aria-label="QPulse home">
+          <div className="flex-shrink-0 cursor-pointer p-1 rounded-lg hover:bg-muted/40 transition-colors flex items-center gap-2" aria-label="NexFlow home">
             {tenantConfig?.logoBase64 ? (
               <img
                 src={tenantConfig.logoBase64}
@@ -337,15 +337,19 @@ function TopNavButton({
   const Icon = entry.icon;
   const isMore = entry.key === "more";
 
+  // Determine the click-through target. "More" doesn't navigate; it just opens
+  // the dropdown. Single-section entries jump to that section's defaultHref.
   const primarySection: SectionDef | null = isMore
     ? null
     : SECTIONS.find((s) => s.key === entry.sections[0]) ?? null;
   const clickHref = primarySection?.defaultHref ?? "/";
 
+  // Accent for the active state — first section's accent (or chameleon for More)
   const accent = primarySection?.accent ?? "#B8A0C8";
 
   function handleClick(e: React.MouseEvent) {
     if (isMore) {
+      // Click toggles the More dropdown; no hover timing involved.
       e.preventDefault();
       e.stopPropagation();
       if (isOpen) onClose();
@@ -355,6 +359,9 @@ function TopNavButton({
     }
   }
 
+  // Hover-open is kept for the single-section tabs (Home, CRM, etc.) where it
+  // worked fine, but is DISABLED for "More" so the dropdown is purely a
+  // click-driven menu — no 150ms close timer can sneak in and shut it.
   const hoverHandlers = isMore
     ? {}
     : {
@@ -415,7 +422,7 @@ function TopNavButton({
   );
 }
 
-/* ─── Single-section dropdown ───────────────────────────────────── */
+/* ─── Single-section dropdown (Home, CRM, etc) ──────────────────── */
 
 function SingleSectionDropdown({
   entry, onItemClick, currentPath,
@@ -426,6 +433,9 @@ function SingleSectionDropdown({
 }) {
   const section = SECTIONS.find((s) => s.key === entry.sections[0]);
   if (!section) return null;
+  // Hide the dropdown when the section is just a single-page tab shell
+  // (one item that simply re-points at defaultHref). The tab itself
+  // already navigates there on click — a dropdown of one is just noise.
   if (
     section.items.length <= 1 &&
     section.items[0]?.href.split("#")[0] === section.defaultHref.split("#")[0]
@@ -474,7 +484,12 @@ function SingleSectionDropdown({
   );
 }
 
-/* ─── Click-driven cascading "More" dropdown ───────────────────── */
+/* ─── Click-driven cascading "More" dropdown ─────────────────────
+   Step 1 — click "More" → primary panel shows section names.
+   Step 2 — click a section → tooltip-style sub-panel pops out to its
+            LEFT (More is the rightmost tab so there's no room on the
+            right) listing that section's sub-tabs.
+   Step 3 — click a sub-tab → navigate.                            */
 
 function MoreDropdown({
   entry, onItemClick, currentPath,
@@ -487,6 +502,7 @@ function MoreDropdown({
     .map((k) => SECTIONS.find((s) => s.key === k))
     .filter((s): s is SectionDef => Boolean(s));
 
+  // Pre-select whichever grouped section the user is currently inside, if any.
   const initialKey =
     sections.find((s) =>
       currentPath.startsWith(`/section/${s.key}`) ||
@@ -501,6 +517,8 @@ function MoreDropdown({
 
   return (
     <div className="absolute top-full right-0 mt-1 z-50 flex items-start gap-2">
+      {/* Sub-list flyout (rendered to the LEFT so it never clips) — only
+          shown when a section is selected. */}
       {openSectionKey && (() => {
         const section = sections.find((s) => s.key === openSectionKey);
         if (!section) return null;
@@ -559,6 +577,7 @@ function MoreDropdown({
         );
       })()}
 
+      {/* Primary section list (always rendered while More is open) */}
       <div className="glass-card rounded-xl border border-border/40 shadow-xl py-2 w-[220px]">
         {sections.map((section) => {
           const SectionIcon = section.icon;

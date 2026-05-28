@@ -3,383 +3,433 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>NexFlow — Enrichment Engine Prototype</title>
+<title>NexFlow — Enrichment Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* ── design tokens (exact ProspectSA palette) ── */
+/* ═══ NexFlow design tokens ═══════════════════════════════════ */
 :root{
-  --lav:   hsl(276,32%,71%);
-  --sea:   hsl(170,25%,63%);
-  --sand:  hsl( 33,41%,64%);
-  --rose:  hsl(322,23%,69%);
-  --ink:   hsl(273,22%,24%);
-  --bg:    hsl(285,25%,96%);
-  --surf:  hsl(285,30%,99%);
-  --soft:  hsl(285,14%,91%);
-  --bdr:   hsl(285,12%,85%);
-  --tx:    hsl(273,22%,24%);
-  --txm:   hsl(273,12%,40%);
-  --em:    hsl(155,50%,45%);
-  --am:    hsl( 40,80%,50%);
-  --rd:    hsl(  0,70%,55%);
+  --bg:       hsl(280,30%,99%);
+  --fg:       hsl(270,25%,20%);
+  --fg-m:     rgba(28,26,46,.55);
+  --fg-q:     rgba(28,26,46,.32);
+  --muted:    hsl(280,15%,94%);
+  --muted-fg: hsl(273,12%,45%);
+  --border:   rgba(0,0,0,.08);
+  --surf:     rgba(255,253,255,.78);
+  --bar-bg:   rgba(255,255,255,.85);
+  --sub-bg:   rgba(255,255,255,.65);
+  --card-bd:  rgba(184,160,200,.22);
+  --primary:  #B8A0C8;
+  --teal:     #88B8B0;
+  --gold:     #C8A880;
+  --rose:     #C0A0B8;
+  --ac:       #6B4E8C;
+  --em:       #3D9E8A;
+  --am:       #B8860B;
+  --rd:       #D05050;
+  --r:        8px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;font-family:"DM Sans","Segoe UI",system-ui,sans-serif;
-  color:var(--tx);background:var(--bg);
-  background-image:
-    radial-gradient(60% 50% at 18% 12%,hsla(276,32%,71%,.18) 0%,transparent 60%),
-    radial-gradient(55% 45% at 82% 22%,hsla(170,25%,63%,.14) 0%,transparent 60%),
-    radial-gradient(50% 45% at 12% 78%,hsla( 33,41%,64%,.13) 0%,transparent 60%),
-    radial-gradient(55% 50% at 88% 82%,hsla(322,23%,69%,.14) 0%,transparent 60%);
-  background-attachment:fixed;-webkit-font-smoothing:antialiased}
-.dp{font-family:"DM Serif Display",Georgia,serif;letter-spacing:-.01em}
-.mo{font-family:"JetBrains Mono",monospace}
+html,body{height:100%;font-family:'Inter','Segoe UI',system-ui,sans-serif;
+  color:var(--fg);background:var(--bg);font-size:14px;
+  -webkit-font-smoothing:antialiased}
+h1,h2,h3,.serif{font-family:'Playfair Display',Georgia,serif}
+code,.mono{font-family:'JetBrains Mono',monospace;font-size:11.5px}
 
-/* ── top shell ── */
-.topbar{display:flex;align-items:center;gap:8px;padding:0 16px;height:48px;
-  background:hsla(285,30%,99%,.9);border-bottom:1px solid var(--bdr);
-  backdrop-filter:blur(16px);position:sticky;top:0;z-index:50;flex-shrink:0}
-.logo{width:28px;height:28px;border-radius:7px;flex-shrink:0;
-  background:linear-gradient(135deg,var(--lav),var(--sea),var(--sand))}
-.brand{font-weight:700;font-size:15px;flex-shrink:0}
-.navstrip{display:flex;gap:2px;overflow-x:auto;flex:1;padding:0 8px;
-  scrollbar-width:none}
-.navstrip::-webkit-scrollbar{display:none}
-.navbtn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;
-  border-radius:7px;font-size:12.5px;font-weight:500;color:var(--txm);
-  cursor:pointer;white-space:nowrap;border:none;background:none;
-  transition:all .15s;flex-shrink:0}
-.navbtn:hover{background:var(--soft);color:var(--tx)}
-.navbtn.on{background:hsla(276,32%,71%,.18);color:hsl(276,32%,40%);font-weight:700}
-.togs{display:flex;gap:6px;flex-shrink:0}
-.tog{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
-  font-size:11px;font-weight:600;cursor:pointer;
-  border:1px solid hsla(170,25%,63%,.4);
-  background:hsla(170,25%,63%,.12);color:hsl(170,25%,32%);transition:.2s}
-.tog.rel{border-color:hsla(33,41%,64%,.4);background:hsla(33,41%,64%,.12);color:hsl(33,41%,32%)}
-.tog.off{background:var(--soft);border-color:var(--bdr);color:var(--txm)}
-.ttrack{width:24px;height:13px;border-radius:999px;background:var(--bdr);
-  position:relative;flex-shrink:0;transition:.2s}
-.ttrack.on{background:var(--sea)}
-.ttrack.onr{background:var(--sand)}
-.ttrack::after{content:"";position:absolute;top:2px;left:2px;width:9px;height:9px;
-  border-radius:50%;background:#fff;transition:.2s}
-.ttrack.on::after,.ttrack.onr::after{left:13px}
+/* mesh bg */
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(60% 50% at 15% 10%,rgba(196,168,216,.18) 0%,transparent 60%),
+    radial-gradient(55% 45% at 85% 20%,rgba(150,200,192,.14) 0%,transparent 60%),
+    radial-gradient(50% 45% at 12% 80%,rgba(216,184,144,.12) 0%,transparent 60%),
+    radial-gradient(55% 50% at 88% 85%,rgba(204,176,200,.13) 0%,transparent 60%);}
 
-/* ── sub-nav strip ── */
-.substrip{display:flex;gap:2px;padding:6px 16px;
-  background:hsla(285,30%,99%,.7);border-bottom:1px solid var(--bdr);
-  overflow-x:auto;flex-shrink:0;scrollbar-width:none}
+/* ═══ Shell ════════════════════════════════════════════════════ */
+.shell{display:flex;flex-direction:column;height:100vh;position:relative;z-index:1}
+.scroll{flex:1;overflow-y:auto;padding:22px clamp(14px,3vw,32px) 56px}
+
+/* ═══ Top Bar Row 1 ════════════════════════════════════════════ */
+.topbar{
+  display:flex;align-items:center;height:48px;padding:0 16px;gap:4px;
+  background:var(--bar-bg);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+.logo-mark{width:26px;height:26px;border-radius:7px;flex-shrink:0;
+  background:linear-gradient(135deg,#B8A0C8,#88B8B0,#C8A880)}
+.brand{font-family:'Playfair Display',serif;font-weight:700;font-size:14px;
+  margin-right:10px;flex-shrink:0;color:var(--fg)}
+.navrow{display:flex;align-items:center;gap:2px;flex:1;overflow-x:auto;scrollbar-width:none}
+.navrow::-webkit-scrollbar{display:none}
+.ntab{padding:6px 12px;border-radius:var(--r);font-size:13px;font-weight:600;
+  color:var(--fg-m);cursor:pointer;border:none;background:none;white-space:nowrap;
+  flex-shrink:0;transition:all .15s;font-family:inherit}
+.ntab:hover{background:var(--muted);color:var(--fg)}
+.ntab.on{background:linear-gradient(135deg,#88B8B0,#B8A0C8);color:#fff;
+  box-shadow:0 4px 12px rgba(136,184,176,.35)}
+.topbar-right{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.tog{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;
+  font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;
+  border:1px solid rgba(136,184,176,.35);background:rgba(136,184,176,.1);color:hsl(170,30%,32%)}
+.tog.rel-tog{border-color:rgba(200,168,128,.35);background:rgba(200,168,128,.1);color:hsl(33,40%,32%)}
+.tog.off{background:var(--muted);border-color:var(--border);color:var(--muted-fg)}
+.tswitch{width:24px;height:13px;border-radius:999px;background:var(--border);position:relative;flex-shrink:0;transition:.2s}
+.tswitch.on{background:var(--teal)}.tswitch.onr{background:var(--gold)}
+.tswitch::after{content:'';position:absolute;top:2px;left:2px;width:9px;height:9px;border-radius:50%;background:#fff;transition:.2s}
+.tswitch.on::after,.tswitch.onr::after{left:13px}
+
+/* ═══ Section Tab Strip ════════════════════════════════════════ */
+.substrip{
+  display:none;align-items:center;gap:10px;height:48px;padding:0 16px;
+  background:linear-gradient(180deg,rgba(255,255,255,.85),rgba(255,255,255,.65));
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;
+  position:sticky;top:48px;z-index:40}
 .substrip::-webkit-scrollbar{display:none}
-.subbtn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;
-  border-radius:7px 7px 0 0;font-size:12.5px;font-weight:500;color:var(--txm);
-  cursor:pointer;white-space:nowrap;background:none;border:none;
-  border-bottom:2px solid transparent;margin-bottom:-1px;transition:.15s}
-.subbtn:hover{background:var(--soft);color:var(--tx)}
-.subbtn.on{color:var(--lav);border-bottom-color:var(--lav);
-  background:hsla(276,32%,71%,.06);font-weight:700}
+.sec-chip{display:flex;align-items:center;gap:6px;padding-right:12px;
+  border-right:1px solid rgba(0,0,0,.12);flex-shrink:0}
+.sec-dot{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sec-label{font-size:13px;font-weight:700;white-space:nowrap;flex-shrink:0}
+.stab{padding:6px 12px;border-radius:var(--r);font-size:13px;font-weight:500;
+  color:var(--fg-m);cursor:pointer;border:none;background:none;white-space:nowrap;
+  flex-shrink:0;transition:all .15s;font-family:inherit}
+.stab:hover{background:rgba(0,0,0,.05);color:var(--fg)}
+.stab.on{background:linear-gradient(135deg,#88B8B0,#B8A0C8);color:#fff;
+  box-shadow:0 4px 12px rgba(136,184,176,.30)}
 
-/* ── shell ── */
-.shell{display:flex;flex-direction:column;height:100vh;overflow:hidden}
-.scroll{flex:1;overflow-y:auto;padding:20px clamp(14px,3vw,28px) 48px}
+/* ═══ Views ════════════════════════════════════════════════════ */
+.view{display:none}.view.on{display:block}
 
-/* ── layout ── */
-.cols{display:grid;grid-template-columns:380px 1fr;gap:16px}
-.cols.w{grid-template-columns:320px 1fr}
-@media(max-width:860px){.cols,.cols.w{grid-template-columns:1fr}}
+/* ═══ Layout helpers ═══════════════════════════════════════════ */
+.cols{display:grid;grid-template-columns:360px 1fr;gap:16px}
+.cols.n{grid-template-columns:300px 1fr}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:900px){.cols,.cols.n{grid-template-columns:1fr}}
 
-/* ── panel ── */
-.panel{background:hsla(285,30%,99%,.75);border:1px solid var(--bdr);
-  border-radius:14px;backdrop-filter:blur(20px) saturate(180%);
-  overflow:hidden;box-shadow:0 4px 20px hsla(273,22%,24%,.07)}
-.ph{display:flex;align-items:center;gap:8px;padding:10px 14px;
-  background:hsla(285,30%,99%,.6);border-bottom:1px solid var(--bdr);
-  font-size:13px;font-weight:600}
-.sec{border-bottom:1px solid hsla(285,12%,85%,.6)}
-.sec:last-child{border-bottom:0}
-.sech{padding:9px 14px;font-size:11px;font-weight:700;color:var(--txm);
-  text-transform:uppercase;letter-spacing:.06em;cursor:pointer}
-.secb{padding:2px 14px 12px}
-.lbl{font-size:11px;color:var(--txm);margin:8px 0 4px}
+/* ═══ Cards / Panels ═══════════════════════════════════════════ */
+.card{background:var(--surf);border:1px solid var(--card-bd);border-radius:11px;
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  box-shadow:0 1px 5px rgba(0,0,0,.06);overflow:hidden}
+.card-p{padding:14px}
+.card-hd{display:flex;align-items:center;gap:8px;padding:10px 14px;
+  background:rgba(255,253,255,.5);border-bottom:1px solid var(--card-bd);
+  font-size:12.5px;font-weight:700}
+.card-hd-right{margin-left:auto;display:flex;gap:5px}
 
-/* ── chips ── */
-.chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}
-.chip{font-size:11px;padding:3px 8px;border-radius:7px;
-  border:1px solid var(--bdr);background:hsla(285,30%,99%,.7);
-  color:var(--txm);cursor:pointer;user-select:none;transition:.1s}
-.chip.on{background:hsla(276,32%,71%,.22);border-color:hsla(276,32%,71%,.55);
-  color:var(--ink);font-weight:600}
-.chip.sea.on{background:hsla(170,25%,63%,.22);border-color:hsla(170,25%,63%,.5)}
-.chip.sand.on{background:hsla(33,41%,64%,.22);border-color:hsla(33,41%,64%,.5)}
+/* ═══ Stat tile ════════════════════════════════════════════════ */
+.stat{background:var(--surf);border:1px solid var(--card-bd);border-radius:11px;
+  padding:12px;text-align:center;backdrop-filter:blur(12px)}
+.sv{font-size:22px;font-weight:700;font-family:'Playfair Display',serif}
+.sl{font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+.lav{color:hsl(276,35%,52%)} .teal{color:hsl(170,30%,38%)}
+.gold2{color:hsl(33,50%,38%)} .rose2{color:hsl(315,25%,50%)}
 
-/* ── form ── */
-.inp{width:100%;padding:7px 10px;font-size:12px;border:1px solid var(--bdr);
-  border-radius:8px;background:hsla(285,30%,99%,.8);color:var(--tx);
-  margin-bottom:6px;outline:none;font-family:inherit}
-.inp:focus{border-color:var(--lav)}
+/* ═══ Form controls ════════════════════════════════════════════ */
+.inp{width:100%;padding:7px 10px;font-size:12.5px;border:1px solid var(--card-bd);
+  border-radius:7px;background:rgba(255,255,255,.8);color:var(--fg);
+  margin-bottom:6px;outline:none;font-family:inherit;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.04)}
+.inp:focus{border-color:var(--primary);box-shadow:0 0 0 2px rgba(184,160,200,.18)}
 textarea.inp{resize:vertical;min-height:52px}
-.sbar{padding:11px 14px;border-top:1px solid var(--bdr);
-  background:hsla(285,30%,99%,.6)}
-.btn1{width:100%;padding:10px 14px;border-radius:10px;border:0;cursor:pointer;
-  font-weight:700;font-size:13px;color:var(--ink);font-family:inherit;
-  background:linear-gradient(135deg,var(--lav),var(--sea),var(--sand));
-  box-shadow:0 0 20px hsla(276,32%,71%,.28)}
+.lbl{font-size:11px;color:var(--muted-fg);margin:8px 0 4px;text-transform:uppercase;
+  letter-spacing:.04em;font-weight:600}
+
+/* ═══ Chips ════════════════════════════════════════════════════ */
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:4px}
+.chip{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--card-bd);
+  background:rgba(255,255,255,.6);color:var(--muted-fg);cursor:pointer;
+  user-select:none;transition:.1s;font-weight:500}
+.chip:hover{border-color:rgba(184,160,200,.5);color:var(--fg)}
+.chip.on{background:rgba(184,160,200,.2);border-color:rgba(184,160,200,.5);
+  color:var(--ac);font-weight:700}
+.chip.t.on{background:rgba(136,184,176,.18);border-color:rgba(136,184,176,.5);color:hsl(170,30%,35%)}
+.chip.g.on{background:rgba(200,168,128,.18);border-color:rgba(200,168,128,.5);color:hsl(33,40%,35%)}
+
+/* ═══ Buttons ══════════════════════════════════════════════════ */
+.btn-pr{display:inline-flex;align-items:center;gap:5px;padding:9px 16px;
+  border-radius:var(--r);border:0;cursor:pointer;font-weight:700;font-size:13px;
+  font-family:inherit;color:#fff;width:100%;justify-content:center;
+  background:linear-gradient(135deg,var(--teal),var(--primary));
+  box-shadow:0 4px 14px rgba(136,184,176,.28);transition:.15s}
+.btn-pr:hover{opacity:.92}
 .btn{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;
-  border-radius:7px;border:1px solid var(--bdr);background:var(--surf);
-  color:var(--tx);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
-.btn:hover{border-color:var(--lav);background:hsla(276,32%,71%,.08)}
+  border-radius:var(--r);border:1px solid var(--card-bd);background:rgba(255,255,255,.7);
+  color:var(--fg);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;
+  transition:.12s}
+.btn:hover{border-color:rgba(184,160,200,.5);background:rgba(184,160,200,.08)}
+.btn.pr{background:linear-gradient(135deg,var(--teal),var(--primary));
+  color:#fff;border:0;box-shadow:0 3px 10px rgba(136,184,176,.22)}
 .btn.sm{padding:3px 8px;font-size:11px}
-.btn.prim{background:linear-gradient(135deg,var(--lav),var(--sea));
-  color:#fff;border:0}
 
-/* ── status pills ── */
-.sp{font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700}
-.sp.run{background:hsla(40,80%,50%,.15);color:hsl(40,80%,35%)}
-.sp.done{background:hsla(155,50%,45%,.15);color:hsl(155,50%,30%)}
-.sp.fail{background:hsla(0,70%,55%,.15);color:hsl(0,70%,40%)}
+/* ═══ Status pill ══════════════════════════════════════════════ */
+.sp{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:700}
+.sp.run{background:rgba(200,168,40,.15);color:hsl(40,60%,35%)}
+.sp.ok{background:rgba(61,158,138,.15);color:hsl(170,40%,32%)}
+.sp.err{background:rgba(208,80,80,.15);color:hsl(0,50%,40%)}
+.sp.q{background:var(--muted);color:var(--muted-fg)}
 
-/* ── stats ── */
-.stats{display:grid;gap:8px;margin:10px 0}
-.stat{padding:11px;border:1px solid var(--bdr);border-radius:10px;
-  background:hsla(285,30%,99%,.6);text-align:center}
-.sv{font-size:21px;font-weight:700}
-.sl{font-size:10px;color:var(--txm);text-transform:uppercase;letter-spacing:.06em}
-.lav{color:hsl(276,32%,50%)} .sea2{color:hsl(170,25%,38%)}
-.sand2{color:hsl(33,41%,42%)} .rose2{color:hsl(322,23%,50%)}
+/* ═══ Verdict badge ════════════════════════════════════════════ */
+.vd{display:inline-flex;align-items:center;font-size:10px;padding:1px 6px;border-radius:999px;
+  font-weight:700;background:rgba(184,160,200,.15);color:var(--ac);
+  border:1px solid rgba(184,160,200,.3)}
+.vd.t{background:rgba(136,184,176,.15);color:hsl(170,30%,34%);border-color:rgba(136,184,176,.3)}
+.vd.g{background:rgba(200,168,128,.15);color:hsl(33,40%,34%);border-color:rgba(200,168,128,.3)}
 
-/* ── agent rows ── */
+/* ═══ Progress bar ═════════════════════════════════════════════ */
+.prog{height:5px;border-radius:3px;background:var(--muted);overflow:hidden;margin:5px 0}
+.pf{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--teal),var(--primary));transition:width .3s}
+
+/* ═══ Agent rows ═══════════════════════════════════════════════ */
 .agents{display:flex;flex-direction:column;gap:5px}
-.ag{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;
-  padding:8px 10px;border:1px solid var(--bdr);border-radius:9px;
-  background:hsla(285,30%,99%,.6);transition:.2s}
-.ag .n{width:22px;height:22px;border-radius:6px;background:var(--soft);
-  color:var(--txm);display:flex;align-items:center;justify-content:center;
-  font-weight:700;font-size:11px}
-.ag .t{font-size:12.5px;font-weight:500}
-.ag .sub{font-size:10px;color:var(--txm);margin-top:1px}
-.ag .st{font-size:10.5px;color:var(--txm);font-family:"JetBrains Mono",monospace;white-space:nowrap}
-.ag.done{border-color:hsla(155,50%,45%,.3)}
-.ag.done .n{background:hsla(155,50%,45%,.18);color:var(--em)}
-.ag.run{border-color:hsla(276,32%,71%,.5);background:hsla(276,32%,71%,.06)}
-.ag.run .n{background:hsla(276,32%,71%,.2);color:hsl(276,32%,38%)}
-.spin{display:inline-block;animation:spin 1s linear infinite}
+.ag{display:grid;grid-template-columns:26px 1fr auto;gap:9px;align-items:center;
+  padding:8px 10px;border:1px solid var(--card-bd);border-radius:9px;
+  background:rgba(255,253,255,.5);transition:.2s}
+.ag .n{width:22px;height:22px;border-radius:6px;background:var(--muted);
+  color:var(--muted-fg);display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:11px;flex-shrink:0}
+.ag .at{font-size:12.5px;font-weight:500;line-height:1.3}
+.ag .as{font-size:10.5px;color:var(--muted-fg);margin-top:1px}
+.ag .alog{font-size:10px;color:var(--muted-fg);font-family:'JetBrains Mono',monospace}
+.ag.run{border-color:rgba(184,160,200,.5);background:rgba(184,160,200,.06)}
+.ag.run .n{background:rgba(184,160,200,.2);color:var(--ac)}
+.ag.done{border-color:rgba(61,158,138,.3);background:rgba(61,158,138,.04)}
+.ag.done .n{background:rgba(61,158,138,.18);color:var(--em)}
+.spin{display:inline-block;animation:spin .9s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ── verdict ── */
-.vd{display:inline-block;font-size:10px;padding:1px 6px;border-radius:999px;
-  font-weight:700;background:hsla(276,32%,71%,.15);color:hsl(276,32%,42%);
-  border:1px solid hsla(276,32%,71%,.3)}
-.vd.s{background:hsla(170,25%,63%,.15);color:hsl(170,25%,30%);border-color:hsla(170,25%,63%,.3)}
-.vd.d{background:hsla(33,41%,64%,.15);color:hsl(33,41%,30%);border-color:hsla(33,41%,64%,.3)}
+/* ═══ Divider row ══════════════════════════════════════════════ */
+.drow{display:flex;align-items:center;gap:8px;padding:7px 0;
+  border-bottom:1px solid var(--card-bd);font-size:12px}
+.drow:last-child{border-bottom:0}
+.ddot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 
-/* ── table ── */
-table{width:100%;border-collapse:collapse;font-size:12px}
-th{padding:7px 10px;text-align:left;background:var(--soft);
-  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--txm)}
-td{padding:7px 10px;border-top:1px solid var(--bdr)}
-tr:hover td{background:hsla(276,32%,71%,.04)}
+/* ═══ Table ════════════════════════════════════════════════════ */
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{padding:8px 10px;text-align:left;background:var(--muted);font-size:10.5px;
+  font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted-fg)}
+td{padding:8px 10px;border-top:1px solid var(--card-bd)}
+tr:hover td{background:rgba(184,160,200,.04)}
 
-/* ── progress bar ── */
-.prog{height:5px;border-radius:3px;background:var(--soft);overflow:hidden;margin:5px 0}
-.pf{height:100%;border-radius:3px;
-  background:linear-gradient(90deg,var(--lav),var(--sea));transition:width .3s}
+/* ═══ Chat ═════════════════════════════════════════════════════ */
+.chat-shell{display:flex;flex-direction:column;height:calc(100vh - 97px);min-height:0}
+.chat-head{padding:14px 18px;display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid var(--card-bd);background:rgba(255,253,255,.6)}
+.chat-body{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:12px}
+.chat-greet{text-align:center;padding:32px 0}
+.chat-icon{display:inline-flex;width:48px;height:48px;border-radius:13px;
+  background:linear-gradient(135deg,var(--teal),var(--primary),var(--gold));
+  align-items:center;justify-content:center}
+.chat-sugg{display:grid;grid-template-columns:1fr 1fr;gap:7px;max-width:600px;margin:14px auto 0}
+.csugg-btn{text-align:left;font-size:12px;padding:10px 12px;border-radius:10px;
+  border:1px solid var(--card-bd);background:rgba(255,253,255,.7);cursor:pointer;
+  color:var(--fg);font-family:inherit;transition:.12s}
+.csugg-btn:hover{border-color:rgba(184,160,200,.5);background:rgba(184,160,200,.07)}
+.cmsg{display:flex;gap:8px;max-width:700px}
+.cmsg.u{margin-left:auto;flex-direction:row-reverse}
+.cav{width:28px;height:28px;border-radius:8px;flex-shrink:0;display:flex;
+  align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.cav.ai{background:linear-gradient(135deg,var(--teal),var(--primary))}
+.cav.u{background:var(--muted);color:var(--fg)}
+.cbub{font-size:13px;padding:10px 13px;border-radius:13px;max-width:86%;line-height:1.6;white-space:pre-wrap}
+.cbub.ai{background:rgba(255,253,255,.8);border:1px solid var(--card-bd)}
+.cbub.u{background:linear-gradient(135deg,rgba(136,184,176,.25),rgba(184,160,200,.25));
+  border:1px solid rgba(184,160,200,.3)}
+.ctrace{font-size:10px;color:var(--muted-fg);background:var(--muted);
+  border-radius:5px;padding:2px 8px;margin-bottom:4px;display:inline-flex;align-items:center;gap:4px}
+.chat-pills{display:flex;gap:6px;margin-bottom:10px;padding:0 18px}
+.cpill{padding:4px 12px;border-radius:999px;font-size:11.5px;font-weight:600;
+  cursor:pointer;border:1px solid var(--card-bd);background:rgba(255,255,255,.6);
+  color:var(--muted-fg);transition:.12s}
+.cpill.on{background:linear-gradient(135deg,var(--teal),var(--primary));color:#fff;border:0}
+.chat-ftr{border-top:1px solid var(--card-bd);padding:12px 18px;
+  background:rgba(255,253,255,.6);flex-shrink:0}
+.cin-row{display:flex;gap:7px;max-width:700px;margin:0 auto}
+.cin{flex:1;padding:9px 14px;border:1px solid var(--card-bd);border-radius:999px;
+  background:rgba(255,255,255,.85);font-size:13px;font-family:inherit;outline:none;color:var(--fg)}
+.cin:focus{border-color:var(--primary);box-shadow:0 0 0 2px rgba(184,160,200,.15)}
+.csend{padding:0 18px;border-radius:999px;border:0;cursor:pointer;font-weight:700;
+  font-size:13px;background:linear-gradient(135deg,var(--teal),var(--primary));color:#fff;
+  box-shadow:0 3px 10px rgba(136,184,176,.25)}
 
-/* ── card (result) ── */
-.card{border:1px solid var(--bdr);border-radius:11px;
-  background:hsla(285,30%,99%,.6);padding:12px;margin-bottom:8px}
-.card:last-child{margin-bottom:0}
-
-/* ── chat ── */
-.chat-body{flex:1;overflow-y:auto;padding:18px 14px;min-height:0}
-.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 96px)}
-.cgreet{text-align:center;padding:36px 0}
-.cmark{display:inline-flex;width:48px;height:48px;border-radius:13px;
-  background:linear-gradient(135deg,var(--lav),var(--sea),var(--sand));
-  align-items:center;justify-content:center;color:#fff;font-size:20px}
-.csugg{display:grid;grid-template-columns:1fr 1fr;gap:7px;max-width:640px;margin:14px auto 0}
-.csugg button{text-align:left;font-size:12px;padding:10px;border-radius:8px;
-  border:1px solid var(--bdr);background:hsla(285,30%,99%,.6);cursor:pointer;
-  color:var(--tx);font-family:inherit}
-.csugg button:hover{border-color:hsla(276,32%,71%,.5)}
-.crow{display:flex;gap:9px;margin-bottom:13px;max-width:660px;margin-left:auto;margin-right:auto}
-.crow.u{justify-content:flex-end}
-.cav{width:28px;height:28px;border-radius:7px;flex-shrink:0;display:flex;
-  align-items:center;justify-content:center;color:#fff;font-size:12px}
-.cav.ai{background:linear-gradient(135deg,var(--lav),var(--sea),var(--sand))}
-.cav.u{background:var(--soft);color:var(--tx)}
-.cbub{font-size:12.5px;padding:10px 13px;border-radius:13px;max-width:82%;line-height:1.55}
-.cbub.u{background:var(--lav);color:var(--ink)}
-.cbub.ai{background:hsla(285,30%,99%,.8);border:1px solid var(--bdr)}
-.ctrace{font-size:9.5px;color:var(--txm);background:var(--soft);border-radius:5px;
-  padding:3px 7px;margin-bottom:4px;display:flex;align-items:center;gap:4px}
-.cftr{border-top:1px solid var(--bdr);padding:9px 14px;background:hsla(285,30%,99%,.6);flex-shrink:0}
-.cinrow{display:flex;gap:7px;max-width:660px;margin:0 auto}
-.cin{flex:1;padding:9px 13px;border:1px solid var(--bdr);border-radius:999px;
-  background:#fff;font-size:12.5px;font-family:inherit;outline:none}
-.cin:focus{border-color:var(--lav)}
-.csend{padding:0 15px;border-radius:999px;border:0;cursor:pointer;font-weight:700;
-  font-size:13px;background:linear-gradient(135deg,var(--lav),var(--sea));color:#fff}
-
-/* ── src row ── */
-.srcrow{display:flex;align-items:center;gap:9px;padding:7px 0;
-  border-bottom:1px solid var(--bdr);font-size:12px}
-.srcrow:last-child{border-bottom:0}
-.srcd{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-
-/* ── orbit ── */
-.orb{position:relative;width:260px;height:260px;margin:4px auto}
-.ocore{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+/* ═══ Orbit ════════════════════════════════════════════════════ */
+.orb-wrap{position:relative;width:260px;height:260px;margin:8px auto}
+.orb-core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   width:54px;height:54px;border-radius:50%;
-  background:linear-gradient(135deg,var(--lav),var(--sea));
-  color:#fff;font-size:8.5px;font-weight:700;
-  display:flex;align-items:center;justify-content:center;text-align:center}
-.onode{position:absolute;transform:translate(-50%,-50%);width:36px;height:36px;
-  border-radius:50%;color:#fff;font-size:7.5px;font-weight:700;
+  background:linear-gradient(135deg,var(--primary),var(--teal));
+  color:#fff;font-size:8px;font-weight:700;
   display:flex;align-items:center;justify-content:center;text-align:center;
-  border:2px solid rgba(255,255,255,.25);transition:.2s}
+  box-shadow:0 0 24px rgba(136,184,176,.4)}
+.orb-node{position:absolute;transform:translate(-50%,-50%);width:36px;height:36px;
+  border-radius:50%;color:#fff;font-size:7px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  border:2px solid rgba(255,255,255,.3);transition:.3s}
 
-/* ── section heading ── */
-.h1{font-size:24px;font-weight:700;margin-bottom:3px}
-.sub{color:var(--txm);font-size:13px;margin-bottom:16px;line-height:1.5}
-.lpill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;
-  background:hsla(170,25%,63%,.15);color:hsl(170,25%,30%);font-size:10.5px;font-weight:600;
-  border:1px solid hsla(170,25%,63%,.35)}
-.ldot{width:5px;height:5px;border-radius:50%;background:hsl(170,50%,45%);
-  box-shadow:0 0 5px hsla(170,50%,45%,.6)}
+/* ═══ Page headings ════════════════════════════════════════════ */
+.ph1{font-size:24px;font-weight:700;color:var(--fg);margin-bottom:3px}
+.psub{font-size:13px;color:var(--muted-fg);margin-bottom:18px;line-height:1.6}
+.live-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;
+  border-radius:999px;background:rgba(61,158,138,.12);color:hsl(170,30%,34%);
+  font-size:11px;font-weight:700;border:1px solid rgba(61,158,138,.3)}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--em);
+  box-shadow:0 0 6px rgba(61,158,138,.7);animation:blink 1.4s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
 
-/* ── view routing ── */
-.view{display:none}.view.on{display:block}
+/* ═══ Source entry ═════════════════════════════════════════════ */
+.srcrow{display:flex;align-items:center;gap:9px;padding:8px 0;
+  border-bottom:1px solid var(--card-bd);font-size:12.5px}
+.srcrow:last-child{border-bottom:0}
+
+/* ═══ Scrollbar ════════════════════════════════════════════════ */
+.scroll::-webkit-scrollbar{width:5px}
+.scroll::-webkit-scrollbar-track{background:transparent}
+.scroll::-webkit-scrollbar-thumb{background:rgba(184,160,200,.3);border-radius:3px}
 </style>
 </head>
 <body>
 <div class="shell">
 
-<!-- ══ TOP BAR ══ -->
+<!-- ══ TOP BAR ════════════════════════════════════════════════════════ -->
 <div class="topbar">
-  <div class="logo"></div>
-  <span class="brand dp">NexFlow</span>
-  <nav class="navstrip" id="navstrip">
-    <button class="navbtn on" data-sec="aichat">✨ AI Chat</button>
-    <button class="navbtn" data-sec="swarm">🌀 SwarmBoard</button>
-    <button class="navbtn" data-sec="genome">🧬 Genome</button>
-    <button class="navbtn" data-sec="factory">⚡ Lead Factory</button>
-    <button class="navbtn" data-sec="harvest">🏛 Harvest AI</button>
-    <button class="navbtn" data-sec="cards">📇 Card Scanner</button>
-    <button class="navbtn" data-sec="pros">🧠 ProsEngine</button>
-    <button class="navbtn" data-sec="crm">💊 CRM Enrich</button>
-    <button class="navbtn" data-sec="settings">⚙️ Settings</button>
-  </nav>
-  <div class="togs">
+  <div class="logo-mark"></div>
+  <span class="brand">NexFlow</span>
+  <div class="navrow" id="navrow">
+    <button class="ntab on" data-sec="chat">AI Chat</button>
+    <button class="ntab" data-sec="swarm">SwarmBoard</button>
+    <button class="ntab" data-sec="genome">Lead Genome</button>
+    <button class="ntab" data-sec="factory">Lead Factory</button>
+    <button class="ntab" data-sec="harvest">Harvest AI</button>
+    <button class="ntab" data-sec="cards">Card Scanner</button>
+    <button class="ntab" data-sec="pros">ProsEngine</button>
+    <button class="ntab" data-sec="crm">CRM Enrichment</button>
+    <button class="ntab" data-sec="settings">Settings</button>
+  </div>
+  <div class="topbar-right">
     <div class="tog" id="togSig" onclick="toggleG('sig')">
-      <div class="ttrack on" id="tSig"></div>
-      <span id="lSig">📡 Signals</span>
+      <div class="tswitch on" id="tSig"></div>
+      <span id="lSig">Signal Intel</span>
     </div>
-    <div class="tog rel" id="togRel" onclick="toggleG('rel')">
-      <div class="ttrack onr" id="tRel"></div>
-      <span id="lRel">🕸 Relation</span>
+    <div class="tog rel-tog" id="togRel" onclick="toggleG('rel')">
+      <div class="tswitch onr" id="tRel"></div>
+      <span id="lRel">Relationship</span>
     </div>
   </div>
 </div>
 
-<!-- ══ SUB NAV ══ -->
-<div class="substrip" id="substrip" style="display:none"></div>
+<!-- ══ SECTION TAB STRIP ══════════════════════════════════════════════ -->
+<div class="substrip" id="substrip"></div>
 
-<!-- ══ VIEWS ══ -->
+<!-- ══ VIEWS ══════════════════════════════════════════════════════════ -->
 <div class="scroll" id="scroll">
 
-<!-- ── AI CHAT ── -->
-<div class="view on" id="view-aichat">
-  <div class="chat-wrap" style="display:flex;flex-direction:column;height:calc(100vh - 50px)">
+<!-- AI CHAT -->
+<div class="view on" id="view-chat">
+  <div class="chat-shell">
+    <div class="chat-head">
+      <div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--teal),var(--primary));display:flex;align-items:center;justify-content:center">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z" fill="white"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:14px">NexFlow AI</div>
+        <div style="font-size:11px;color:var(--muted-fg)">Kimi planner · Perplexity ×9 · Claude synthesis · streaming</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:5px">
+        <span class="sp ok">Online</span>
+      </div>
+    </div>
+    <div style="padding:8px 18px;border-bottom:1px solid var(--card-bd);display:flex;gap:6px">
+      <button class="cpill on" onclick="setMode(this,'chat')">Chat</button>
+      <button class="cpill" onclick="setMode(this,'research')">Research</button>
+      <button class="cpill" onclick="setMode(this,'analyze')">Analyze</button>
+    </div>
     <div class="chat-body" id="chatBody">
-      <div class="cgreet">
-        <div class="cmark">✨</div>
-        <h2 class="dp" style="margin:12px 0 5px;font-size:22px">What do you want to research?</h2>
-        <div style="color:var(--txm);font-size:13px;max-width:480px;margin:0 auto">
-          Routes to Person Intel, Company Intel, Masaar, signals, or web search. Nexus-tier · streaming.
+      <div class="chat-greet" id="chatGreet">
+        <div class="chat-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2l2 6h6l-5 3.5 2 6L12 14l-5 3.5 2-6L4 8h6z" fill="white"/></svg>
         </div>
-        <div class="csugg">
-          <button onclick="doChat('Find me 5 SaaS CTOs in Riyadh actively hiring engineers')">Find 5 SaaS CTOs in Riyadh actively hiring engineers</button>
-          <button onclick="doChat('Research tamara.co — board + signal intel')">Research tamara.co — board + signal intel</button>
-          <button onclick="doChat('Who at Aramco handles digital-transformation procurement?')">Who at Aramco handles digital-transformation procurement?</button>
-          <button onclick="doChat('Saudi fintechs that raised in 2024 and are hiring')">Saudi fintechs raised in 2024 + hiring</button>
+        <h2 style="font-size:21px;margin:12px 0 5px">What do you want to find?</h2>
+        <p style="color:var(--muted-fg);font-size:13px;max-width:460px;margin:0 auto">
+          Nexus routes your request to Person Intel, Company Intel, Masaar, signals, or live web search automatically.
+        </p>
+        <div class="chat-sugg">
+          <button class="csugg-btn" onclick="doChat('Find 5 SaaS CTOs in Riyadh actively hiring engineers')">Find 5 SaaS CTOs in Riyadh actively hiring engineers</button>
+          <button class="csugg-btn" onclick="doChat('Research tamara.co — board intel + buying signals')">Research tamara.co — board intel + buying signals</button>
+          <button class="csugg-btn" onclick="doChat('Who at Aramco handles digital-transformation procurement?')">Who at Aramco handles digital procurement?</button>
+          <button class="csugg-btn" onclick="doChat('Saudi fintechs that raised in 2024 and are hiring')">Saudi fintechs raised 2024 + actively hiring</button>
         </div>
       </div>
     </div>
-    <div class="cftr">
-      <div class="cinrow">
-        <input class="cin" id="chatIn" placeholder="Ask anything — routes to ProsEngine, Masaar, signals, web search…"/>
-        <button class="csend" onclick="sendChat()">➤</button>
+    <div class="chat-ftr">
+      <div class="cin-row">
+        <input class="cin" id="chatIn" placeholder="Ask anything — research, people, companies, signals…"/>
+        <button class="csend" onclick="sendChat()">Send</button>
       </div>
-      <div style="font-size:10px;color:var(--txm);text-align:center;margin-top:4px">
+      <div style="font-size:10.5px;color:var(--muted-fg);text-align:center;margin-top:5px">
         Kimi plans · Perplexity ×9 researches · Claude synthesises · humanized output
       </div>
     </div>
   </div>
 </div>
 
-<!-- ── SWARMBOARD ── -->
+<!-- SWARM BOARD -->
 <div class="view" id="view-swarm">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+  <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:4px">
     <div>
-      <h1 class="h1 dp">SwarmBoard</h1>
-      <p class="sub">Kimi-coordinated multi-agent mission · live orbit · fused report · push to Genome</p>
+      <h1 class="ph1">SwarmBoard</h1>
+      <p class="psub">Kimi-coordinated multi-agent swarm · live orbit · fused report · push to Genome</p>
     </div>
-    <span class="lpill"><span class="ldot"></span>Agents Ready</span>
+    <span class="live-pill"><span class="live-dot"></span>Agents Ready</span>
   </div>
-  <div class="cols w">
+  <div class="cols">
     <div>
-      <div class="panel" style="margin-bottom:14px">
-        <div class="ph">📋 Mission Brief</div>
-        <div class="secb" style="padding:12px 14px">
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-hd">Mission Brief</div>
+        <div class="card-p">
           <div class="lbl">Paste your mission brief</div>
           <textarea class="inp">"Enrich 50 Saudi fintech companies (50–500 emp) · full profile, buying signals, executive map, credibility verdicts"</textarea>
           <div class="lbl">Engines to deploy</div>
           <div class="chips">
-            <span class="chip on">Masaar</span><span class="chip on">Person Intel</span>
-            <span class="chip on">Signal Intel</span><span class="chip on">Relationship</span>
+            <span class="chip t on">Masaar</span><span class="chip on">Person Intel</span>
+            <span class="chip t on">Signal Intel</span><span class="chip on">Relationship</span>
             <span class="chip">AI DB Builder</span><span class="chip on">ProsEngine</span>
           </div>
-          <button class="btn1" id="runSwarm" style="margin-top:8px">🌀 Launch Swarm →</button>
+          <button class="btn-pr" id="runSwarm" style="margin-top:10px">Launch Swarm</button>
         </div>
       </div>
-      <div class="panel">
-        <div class="ph">Mission Phases</div>
-        <div style="padding:10px 14px" id="swarmPhases">
-          <div class="srcrow"><div class="srcd" style="background:var(--bdr)"></div><b>1</b>&nbsp;Brief parsed — Kimi extracts parameters</div>
-          <div class="srcrow"><div class="srcd" style="background:var(--bdr)"></div><b>2</b>&nbsp;Agents dispatched — parallel swarm starts</div>
-          <div class="srcrow"><div class="srcd" style="background:var(--bdr)"></div><b>3</b>&nbsp;Harvesting — Masaar + Masar DB + web crawl</div>
-          <div class="srcrow"><div class="srcd" style="background:var(--bdr)"></div><b>4</b>&nbsp;Enriching — Person Intel + Signals per company</div>
-          <div class="srcrow"><div class="srcd" style="background:var(--bdr)"></div><b>5</b>&nbsp;Fusing — Claude arbitrates agent outputs</div>
-          <div class="srcrow"><div class="srcd" style="background:var(--bdr)"></div><b>6</b>&nbsp;Report — Humanizer + verdicts</div>
+      <div class="card">
+        <div class="card-hd">Mission Phases</div>
+        <div class="card-p" id="swarmPhases">
+          <div class="drow"><div class="ddot" style="background:var(--card-bd)"></div><b>1.</b>&nbsp;Brief parsed — Kimi extracts ICP parameters</div>
+          <div class="drow"><div class="ddot" style="background:var(--card-bd)"></div><b>2.</b>&nbsp;Agents dispatched — parallel swarm initialised</div>
+          <div class="drow"><div class="ddot" style="background:var(--card-bd)"></div><b>3.</b>&nbsp;Harvesting — Masaar + Masaar DB + web crawl</div>
+          <div class="drow"><div class="ddot" style="background:var(--card-bd)"></div><b>4.</b>&nbsp;Enriching — Person Intel + Signals per company</div>
+          <div class="drow"><div class="ddot" style="background:var(--card-bd)"></div><b>5.</b>&nbsp;Fusing — Claude arbitrates agent outputs</div>
+          <div class="drow"><div class="ddot" style="background:var(--card-bd)"></div><b>6.</b>&nbsp;Report — Humanizer + source-credibility verdicts</div>
         </div>
       </div>
     </div>
     <div>
-      <div class="panel" style="padding:14px;margin-bottom:14px">
+      <div class="card card-p" style="margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
           <b>Live Orbit</b>
-          <span class="sp" id="swarmSt" style="background:var(--soft);color:var(--txm)">idle</span>
+          <span class="sp q" id="swarmSt">Idle</span>
         </div>
-        <div class="orb" id="swarmOrb"></div>
-        <div id="swarmProg" style="display:none;margin-top:8px">
-          <div class="prog"><div class="pf" id="swarmBar" style="width:0%"></div></div>
-          <div style="font-size:11px;color:var(--txm);text-align:center" id="swarmPct">0 / 50 enriched</div>
+        <div class="orb-wrap" id="swarmOrb"></div>
+        <div id="swarmProgWrap" style="display:none;margin-top:8px">
+          <div class="prog"><div class="pf" id="swarmPf" style="width:0%"></div></div>
+          <div style="font-size:11px;color:var(--muted-fg);text-align:center;margin-top:2px" id="swarmPct">0 / 50 enriched</div>
         </div>
       </div>
-      <div class="panel" style="padding:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <b>Fused Report Preview</b> <span class="vd">◆ 94</span>
+      <div class="card card-p">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <b>Fused Report Preview</b><span class="vd">◆ 94</span>
         </div>
-        <p style="font-size:12.5px;color:var(--txm);line-height:1.6;margin-bottom:10px">
+        <p style="font-size:13px;color:var(--muted-fg);line-height:1.65;margin-bottom:10px">
           Saudi fintech (50–500 emp). 1,284 companies matched; 312 high-fit (ICP ≥ 0.7). 41 funding and hiring signals in 90 days; 7 SAMA-licensed fintechs prioritised. 268 verified executive contacts.
         </p>
-        <div class="chips"><span class="chip on">NEXUS</span><span class="chip on">MASAAR</span><span class="chip on">PROS</span><span class="chip on">SIGNALS</span></div>
-        <div style="margin-top:10px;display:flex;gap:7px">
-          <button class="btn prim sm">Push top 50 to Genome →</button>
+        <div class="chips"><span class="chip on">NEXUS</span><span class="chip on">MASAAR</span><span class="chip on">PROSENGINE</span><span class="chip t on">SIGNALS</span></div>
+        <div style="margin-top:12px;display:flex;gap:7px">
+          <button class="btn pr sm" onclick="goSec('genome')">Push top 50 to Genome</button>
           <button class="btn sm">Full report</button>
         </div>
       </div>
@@ -387,100 +437,92 @@ tr:hover td{background:hsla(276,32%,71%,.04)}
   </div>
 </div>
 
-<!-- ── LEAD GENOME ── -->
+<!-- LEAD GENOME -->
 <div class="view" id="view-genome">
-  <h1 class="h1 dp">Lead Genome</h1>
-  <p class="sub">All enriched leads from every engine · link to lists, CRM, export</p>
-  <div class="stats g4" style="margin-bottom:16px">
+  <h1 class="ph1">Lead Genome</h1>
+  <p class="psub">All enriched leads from every engine · link to lists, CRM, export</p>
+  <div class="g4" style="margin-bottom:18px">
     <div class="stat"><div class="sv lav">1,842</div><div class="sl">Total leads</div></div>
-    <div class="stat"><div class="sv sea2">47</div><div class="sl">Added today</div></div>
-    <div class="stat"><div class="sv sand2">12</div><div class="sl">Active lists</div></div>
+    <div class="stat"><div class="sv teal">47</div><div class="sl">Added today</div></div>
+    <div class="stat"><div class="sv gold2">12</div><div class="sl">Active lists</div></div>
     <div class="stat"><div class="sv rose2">268</div><div class="sl">Verified emails</div></div>
   </div>
   <div class="cols">
-    <div class="panel" style="overflow:hidden">
-      <div class="ph" style="justify-content:space-between">
-        Saved Leads
-        <div style="display:flex;gap:5px">
-          <button class="btn sm">Filter</button>
-          <button class="btn prim sm">⬇ CSV</button>
-        </div>
+    <div class="card" style="overflow:hidden">
+      <div class="card-hd">Saved Leads
+        <div class="card-hd-right"><button class="btn sm">Filter</button><button class="btn pr sm">Export CSV</button></div>
       </div>
       <table>
         <thead><tr><th>Name</th><th>Title</th><th>Company</th><th>Source</th><th>ICP</th><th></th></tr></thead>
         <tbody>
-          <tr><td><b>Sara Al-Otaibi</b></td><td style="color:var(--txm)">CTO</td><td>Lean Technologies</td><td><span class="vd">factory</span></td><td><b class="lav">0.94</b></td><td><button class="btn sm">CRM →</button></td></tr>
-          <tr><td><b>Omar Al-Farhan</b></td><td style="color:var(--txm)">VP Engineering</td><td>Tamara</td><td><span class="vd s">prosengine</span></td><td><b class="lav">0.91</b></td><td><button class="btn sm">CRM →</button></td></tr>
-          <tr><td><b>Layla Al-Harbi</b></td><td style="color:var(--txm)">Founder</td><td>Mod5r</td><td><span class="vd d">masaar</span></td><td><b class="lav">0.85</b></td><td><button class="btn sm">CRM →</button></td></tr>
-          <tr><td><b>Faisal Al-Noor</b></td><td style="color:var(--txm)">Head of Data</td><td>Foodics</td><td><span class="vd">signals</span></td><td><b class="sea2">0.79</b></td><td><button class="btn sm">CRM →</button></td></tr>
-          <tr><td><b>Ahmad Al-Dosari</b></td><td style="color:var(--txm)">VP Procurement</td><td>STC Group</td><td><span class="vd s">ai chat</span></td><td><b class="sea2">0.75</b></td><td><button class="btn sm">CRM →</button></td></tr>
+          <tr><td><b>Sara Al-Otaibi</b></td><td style="color:var(--muted-fg)">CTO</td><td>Lean Technologies</td><td><span class="vd">factory</span></td><td><b class="lav">0.94</b></td><td><button class="btn sm">CRM</button></td></tr>
+          <tr><td><b>Omar Al-Farhan</b></td><td style="color:var(--muted-fg)">VP Engineering</td><td>Tamara</td><td><span class="vd t">prosengine</span></td><td><b class="lav">0.91</b></td><td><button class="btn sm">CRM</button></td></tr>
+          <tr><td><b>Layla Al-Harbi</b></td><td style="color:var(--muted-fg)">Founder</td><td>Mod5r</td><td><span class="vd g">masaar</span></td><td><b class="lav">0.85</b></td><td><button class="btn sm">CRM</button></td></tr>
+          <tr><td><b>Faisal Al-Noor</b></td><td style="color:var(--muted-fg)">Head of Data</td><td>Foodics</td><td><span class="vd">signals</span></td><td><b class="teal">0.79</b></td><td><button class="btn sm">CRM</button></td></tr>
+          <tr><td><b>Ahmad Al-Dosari</b></td><td style="color:var(--muted-fg)">VP Procurement</td><td>STC Group</td><td><span class="vd t">ai chat</span></td><td><b class="teal">0.75</b></td><td><button class="btn sm">CRM</button></td></tr>
         </tbody>
       </table>
     </div>
-    <div class="panel" style="padding:14px">
-      <b style="font-size:13px">Lead Lists</b>
+    <div class="card card-p">
+      <b style="font-size:13.5px">Lead Lists</b>
       <div style="margin-top:10px;display:flex;flex-direction:column;gap:7px">
-        <div class="card" style="cursor:pointer" onmouseover="this.style.borderColor='hsla(276,32%,71%,.5)'" onmouseout="this.style.borderColor='var(--bdr)'">
+        <div class="card card-p" style="cursor:pointer;border:1px solid rgba(184,160,200,.3)">
           <b>Riyadh Fintech CTOs</b> <span class="vd">48 leads</span><br>
-          <span style="font-size:11px;color:var(--txm)">factory + signals · ICP 96 avg</span>
+          <span style="font-size:11px;color:var(--muted-fg)">Lead Factory + Signals · ICP avg 96</span>
         </div>
-        <div class="card" style="cursor:pointer" onmouseover="this.style.borderColor='hsla(276,32%,71%,.5)'" onmouseout="this.style.borderColor='var(--bdr)'">
-          <b>SAMA Graduates</b> <span class="vd d">7 leads</span><br>
-          <span style="font-size:11px;color:var(--txm)">masaar · ICP 91 avg</span>
+        <div class="card card-p" style="cursor:pointer">
+          <b>SAMA-Licensed Fintechs</b> <span class="vd g">7 leads</span><br>
+          <span style="font-size:11px;color:var(--muted-fg)">Masaar Engine · ICP avg 91</span>
         </div>
-        <div class="card" style="cursor:pointer" onmouseover="this.style.borderColor='hsla(276,32%,71%,.5)'" onmouseout="this.style.borderColor='var(--bdr)'">
-          <b>Manufacturing UAE-exporters</b> <span class="vd s">126 leads</span><br>
-          <span style="font-size:11px;color:var(--txm)">ai builder · ICP 88 avg</span>
+        <div class="card card-p" style="cursor:pointer">
+          <b>Manufacturing UAE-exporters</b> <span class="vd t">126 leads</span><br>
+          <span style="font-size:11px;color:var(--muted-fg)">AI DB Builder · ICP avg 88</span>
         </div>
       </div>
-      <button class="btn1" style="margin-top:12px">+ New list</button>
+      <button class="btn-pr" style="margin-top:12px">New list</button>
     </div>
   </div>
 </div>
 
-<!-- ── LEAD FACTORY (sub-tabs injected) ── -->
+<!-- LEAD FACTORY -->
 <div class="view" id="view-factory">
-
   <!-- Person Hunt -->
   <div class="view on" id="view-factory-person">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-      <div><h1 class="h1 dp">Lead Factory <span style="color:var(--txm);font-size:18px">/ Person Hunt</span></h1>
-        <p class="sub">Search by the person you want to reach. Their company is harvested as a side-effect.</p></div>
-      <span class="lpill"><span class="ldot"></span>7 Agents Ready</span>
-    </div>
+    <h1 class="ph1">Lead Factory — Person Hunt</h1>
+    <p class="psub">Search by the person you want to reach. Their company profile is harvested as a side-effect.</p>
     <div class="cols">
-      <div class="panel">
-        <div class="ph">🔧 Filters — Person mode</div>
-        <div class="sec"><div class="sech">Person identity ▾</div><div class="secb">
+      <div class="card">
+        <div class="card-hd">Filters — Person mode</div>
+        <div class="card-p" style="padding-bottom:0">
           <div class="lbl">Target titles</div>
           <input class="inp" placeholder="CTO, VP Engineering, Head of Procurement…"/>
           <div class="lbl">Seniority</div>
-          <div class="chips"><span class="chip on">c_level</span><span class="chip on">vp</span><span class="chip">director</span><span class="chip">manager</span></div>
+          <div class="chips"><span class="chip on">C-Level</span><span class="chip on">VP</span><span class="chip">Director</span><span class="chip">Manager</span></div>
           <div class="lbl">Department</div>
-          <div class="chips"><span class="chip on">engineering</span><span class="chip">product</span><span class="chip">it</span><span class="chip">procurement</span></div>
-          <div class="lbl">Languages</div>
-          <div class="chips"><span class="chip on">Arabic</span><span class="chip on">English</span><span class="chip">Hindi</span></div>
-        </div></div>
-        <div class="sec"><div class="sech">Firmographics ▾</div><div class="secb">
+          <div class="chips"><span class="chip on">Engineering</span><span class="chip">Product</span><span class="chip">IT</span><span class="chip">Procurement</span></div>
           <div class="lbl">Industry</div>
           <div class="chips"><span class="chip on">Fintech</span><span class="chip on">SaaS</span><span class="chip">E-Commerce</span><span class="chip">Healthcare</span></div>
-          <div class="lbl">Employees</div>
+          <div class="lbl">Company size</div>
           <div class="chips"><span class="chip on">50–200</span><span class="chip on">201–500</span><span class="chip">500+</span></div>
-        </div></div>
-        <div class="sec"><div class="sech">Location ▾</div><div class="secb">
+          <div class="lbl">Location</div>
           <div class="chips"><span class="chip on">Riyadh</span><span class="chip on">Jeddah</span><span class="chip">UAE</span><span class="chip">Dammam</span></div>
-        </div></div>
-        <div class="sec"><div class="sech">Buying signals ▾</div><div class="secb">
+          <div class="lbl">Buying signals</div>
           <div class="chips"><span class="chip on">hiring_surge</span><span class="chip on">funding_round</span><span class="chip">expansion</span><span class="chip">new_exec</span></div>
-        </div></div>
-        <div class="sbar"><button class="btn1" id="runPerson">Run Person Hunt →</button></div>
-      </div>
-      <div class="panel" style="padding:14px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <b style="font-size:14px">⚡ Run · <span class="mo" id="pJobLbl" style="color:var(--txm)">lf-—</span></b>
-          <span class="sp" id="pSt" style="background:var(--soft);color:var(--txm)">preview</span>
         </div>
-        <div class="stats g3"><div class="stat"><div class="sv lav">~84</div><div class="sl">Est. matches</div></div><div class="stat"><div class="sv sea2">50</div><div class="sl">Target count</div></div><div class="stat"><div class="sv sand2">$0</div><div class="sl">Marginal cost</div></div></div>
+        <div style="padding:12px 14px;border-top:1px solid var(--card-bd);margin-top:10px">
+          <button class="btn-pr" id="runPerson">Run Person Hunt</button>
+        </div>
+      </div>
+      <div class="card card-p">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <b style="font-size:14px">Run · <span class="mono" id="pJobLbl" style="color:var(--muted-fg)">lf-—</span></b>
+          <span class="sp q" id="pSt">Preview</span>
+        </div>
+        <div class="g3" style="margin-bottom:12px">
+          <div class="stat"><div class="sv lav">~84</div><div class="sl">Est. matches</div></div>
+          <div class="stat"><div class="sv teal">50</div><div class="sl">Target</div></div>
+          <div class="stat"><div class="sv gold2">$0</div><div class="sl">Cost</div></div>
+        </div>
         <div class="agents" id="agPerson"></div>
       </div>
     </div>
@@ -488,12 +530,12 @@ tr:hover td{background:hsla(276,32%,71%,.04)}
 
   <!-- Company Hunt -->
   <div class="view" id="view-factory-company">
-    <div><h1 class="h1 dp">Lead Factory <span style="color:var(--txm);font-size:18px">/ Company Hunt</span></h1>
-      <p class="sub">Search by company-level ICP. Contacts are harvested per company.</p></div>
+    <h1 class="ph1">Lead Factory — Company Hunt</h1>
+    <p class="psub">Search by company-level ICP. Contacts are harvested per matching company.</p>
     <div class="cols">
-      <div class="panel">
-        <div class="ph">🔧 Filters — Company mode</div>
-        <div class="sec"><div class="sech">Company profile ▾</div><div class="secb">
+      <div class="card">
+        <div class="card-hd">Filters — Company mode</div>
+        <div class="card-p" style="padding-bottom:0">
           <div class="lbl">Industry</div>
           <div class="chips"><span class="chip on">Fintech</span><span class="chip on">SaaS</span><span class="chip">Manufacturing</span><span class="chip">Retail</span></div>
           <div class="lbl">Funding stage</div>
@@ -501,19 +543,24 @@ tr:hover td{background:hsla(276,32%,71%,.04)}
           <div class="lbl">Quality flags</div>
           <div class="chips"><span class="chip on">SAMA licensed</span><span class="chip">Tadawul-listed</span><span class="chip">VISION 2030</span></div>
           <div class="lbl">Contacts per company</div>
-          <div class="chips"><span class="chip">1 DM</span><span class="chip on">2–3 DMs</span><span class="chip">Full exec map</span></div>
-        </div></div>
-        <div class="sec"><div class="sech">Location ▾</div><div class="secb">
+          <div class="chips"><span class="chip">1 DM only</span><span class="chip on">2–3 DMs</span><span class="chip">Full exec map</span></div>
+          <div class="lbl">Location</div>
           <div class="chips"><span class="chip on">Riyadh</span><span class="chip on">Jeddah</span><span class="chip">UAE</span><span class="chip">Bahrain</span></div>
-        </div></div>
-        <div class="sbar"><button class="btn1" id="runCompany">Run Company Hunt →</button></div>
-      </div>
-      <div class="panel" style="padding:14px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <b style="font-size:14px">⚡ Run · <span class="mo" id="cJobLbl" style="color:var(--txm)">ch-—</span></b>
-          <span class="sp" id="cSt" style="background:var(--soft);color:var(--txm)">preview</span>
         </div>
-        <div class="stats g3"><div class="stat"><div class="sv lav">~127</div><div class="sl">Companies</div></div><div class="stat"><div class="sv sea2">3.2</div><div class="sl">Avg DMs</div></div><div class="stat"><div class="sv sand2">$0</div><div class="sl">Marginal cost</div></div></div>
+        <div style="padding:12px 14px;border-top:1px solid var(--card-bd);margin-top:10px">
+          <button class="btn-pr" id="runCompany">Run Company Hunt</button>
+        </div>
+      </div>
+      <div class="card card-p">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <b style="font-size:14px">Run · <span class="mono" id="cJobLbl" style="color:var(--muted-fg)">ch-—</span></b>
+          <span class="sp q" id="cSt">Preview</span>
+        </div>
+        <div class="g3" style="margin-bottom:12px">
+          <div class="stat"><div class="sv lav">~127</div><div class="sl">Companies</div></div>
+          <div class="stat"><div class="sv teal">3.2</div><div class="sl">Avg DMs</div></div>
+          <div class="stat"><div class="sv gold2">$0</div><div class="sl">Cost</div></div>
+        </div>
         <div class="agents" id="agCompany"></div>
       </div>
     </div>
@@ -521,238 +568,258 @@ tr:hover td{background:hsla(276,32%,71%,.04)}
 
   <!-- Results -->
   <div class="view" id="view-factory-results">
-    <h1 class="h1 dp">Lead Factory <span style="color:var(--txm);font-size:18px">/ Results</span></h1>
-    <p class="sub">47 leads · 12 Tier A · 18 Tier B · 9 Tier C</p>
-    <div class="panel" style="overflow:hidden;padding:14px">
+    <h1 class="ph1">Lead Factory — Results</h1>
+    <p class="psub">47 leads · 12 Tier A · 18 Tier B · 9 Tier C · ICP avg 83</p>
+    <div class="card" style="overflow:hidden;padding:14px">
       <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
-        <span class="chip on">All · 47</span><span class="chip">Tier A · 12</span><span class="chip">Tier B · 18</span><span class="chip">Tier C · 9</span>
+        <div class="chips" style="margin:0"><span class="chip on">All · 47</span><span class="chip">Tier A · 12</span><span class="chip">Tier B · 18</span><span class="chip">Tier C · 9</span></div>
         <div style="margin-left:auto;display:flex;gap:5px">
-          <button class="btn sm">⬇ CSV</button><button class="btn sm">⬇ XLSX</button>
-          <button class="btn prim sm">Push to Genome →</button>
+          <button class="btn sm">Export CSV</button><button class="btn sm">Export XLSX</button>
+          <button class="btn pr sm">Push to Genome</button>
         </div>
       </div>
       <table>
         <thead><tr><th>Name</th><th>Title</th><th>Company</th><th>City</th><th>Contacts</th><th>ICP</th><th>Tier</th><th></th></tr></thead>
         <tbody>
-          <tr><td><b>Sara Al-Otaibi</b></td><td style="color:var(--txm)">CTO</td><td>Lean Technologies</td><td>Riyadh</td><td>📧 📞 🔗</td><td><b class="lav">94</b></td><td><span class="sp done">A</span></td><td><button class="btn sm">Profile →</button></td></tr>
-          <tr><td><b>Omar Al-Farhan</b></td><td style="color:var(--txm)">VP Engineering</td><td>Tamara</td><td>Riyadh</td><td>📧 🔗</td><td><b class="lav">91</b></td><td><span class="sp done">A</span></td><td><button class="btn sm">Profile →</button></td></tr>
-          <tr><td><b>Layla Al-Harbi</b></td><td style="color:var(--txm)">Founder</td><td>Mod5r</td><td>Riyadh</td><td>📧 📞 🔗</td><td><b class="lav">85</b></td><td><span class="sp done">A</span></td><td><button class="btn sm">Profile →</button></td></tr>
-          <tr><td><b>Faisal Al-Noor</b></td><td style="color:var(--txm)">Head of Data</td><td>Foodics</td><td>Riyadh</td><td>📧 🔗</td><td><b class="sea2">79</b></td><td><span class="sp run">B</span></td><td><button class="btn sm">Profile →</button></td></tr>
-          <tr><td><b>Ahmad Al-Dosari</b></td><td style="color:var(--txm)">VP Procurement</td><td>STC Group</td><td>Riyadh</td><td>📧</td><td><b class="sea2">75</b></td><td><span class="sp run">B</span></td><td><button class="btn sm">Profile →</button></td></tr>
+          <tr><td><b>Sara Al-Otaibi</b></td><td style="color:var(--muted-fg)">CTO</td><td>Lean Technologies</td><td>Riyadh</td><td>Email · Phone · LI</td><td><b class="lav">94</b></td><td><span class="sp ok">A</span></td><td><button class="btn sm">Profile</button></td></tr>
+          <tr><td><b>Omar Al-Farhan</b></td><td style="color:var(--muted-fg)">VP Engineering</td><td>Tamara</td><td>Riyadh</td><td>Email · LI</td><td><b class="lav">91</b></td><td><span class="sp ok">A</span></td><td><button class="btn sm">Profile</button></td></tr>
+          <tr><td><b>Layla Al-Harbi</b></td><td style="color:var(--muted-fg)">Founder</td><td>Mod5r</td><td>Riyadh</td><td>Email · Phone · LI</td><td><b class="lav">85</b></td><td><span class="sp ok">A</span></td><td><button class="btn sm">Profile</button></td></tr>
+          <tr><td><b>Faisal Al-Noor</b></td><td style="color:var(--muted-fg)">Head of Data</td><td>Foodics</td><td>Riyadh</td><td>Email · LI</td><td><b class="teal">79</b></td><td><span class="sp run">B</span></td><td><button class="btn sm">Profile</button></td></tr>
+          <tr><td><b>Ahmad Al-Dosari</b></td><td style="color:var(--muted-fg)">VP Procurement</td><td>STC Group</td><td>Riyadh</td><td>Email</td><td><b class="teal">75</b></td><td><span class="sp run">B</span></td><td><button class="btn sm">Profile</button></td></tr>
         </tbody>
       </table>
     </div>
   </div>
 
-  <!-- Signals tab -->
+  <!-- Signal Intel -->
   <div class="view" id="view-factory-signals">
-    <h1 class="h1 dp">Lead Factory <span style="color:var(--txm);font-size:18px">/ Signal Intel</span></h1>
-    <p class="sub">Live buying signals from 8 sources · grouped by company</p>
+    <h1 class="ph1">Lead Factory — Signal Intel</h1>
+    <p class="psub">Live buying signals from 8 sources · grouped by company · refresh every 15 min</p>
     <div class="cols">
-      <div class="panel" style="padding:14px">
+      <div class="card card-p">
         <b>Signal Feed</b>
         <div class="chips" style="margin:10px 0 12px">
-          <span class="chip on">All</span><span class="chip">hiring_surge</span><span class="chip">funding</span><span class="chip">news</span>
+          <span class="chip on">All</span><span class="chip">hiring_surge</span><span class="chip">funding</span><span class="chip">news</span><span class="chip">contracts</span>
         </div>
         <div id="sigFeed"></div>
       </div>
-      <div class="panel" style="padding:14px">
-        <b style="font-size:13px">📡 Lean Technologies</b>
-        <div class="stats g2" style="margin:10px 0 12px">
-          <div class="stat"><div class="sv lav">12</div><div class="sl">Signals (90d)</div></div>
-          <div class="stat"><div class="sv sea2">3</div><div class="sl">Types</div></div>
+      <div class="card card-p">
+        <b>Lean Technologies</b>
+        <div class="g2" style="margin:10px 0">
+          <div class="stat"><div class="sv lav">12</div><div class="sl">Signals 90d</div></div>
+          <div class="stat"><div class="sv teal">3</div><div class="sl">Signal types</div></div>
         </div>
-        <div class="card"><b>hiring_surge</b> — <span style="color:var(--txm)">12 backend roles · LinkedIn</span></div>
-        <div class="card"><b>funding_round</b> — <span style="color:var(--txm)">Series B $40M · Wamda</span></div>
-        <div class="card"><b>expansion</b> — <span style="color:var(--txm)">UAE office Q2 · PR Newswire</span></div>
+        <div class="card card-p" style="margin-bottom:7px"><b>hiring_surge</b> — <span style="color:var(--muted-fg)">12 backend roles · LinkedIn</span></div>
+        <div class="card card-p" style="margin-bottom:7px"><b>funding_round</b> — <span style="color:var(--muted-fg)">Series B $40M · Wamda</span></div>
+        <div class="card card-p"><b>expansion</b> — <span style="color:var(--muted-fg)">UAE office Q2 · PR Newswire</span></div>
         <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn sm" onclick="goSec('pros','company')">Company Intel →</button>
-          <button class="btn sm" onclick="goSec('pros','person')">Person Intel →</button>
-          <button class="btn prim sm">Push to Factory →</button>
+          <button class="btn sm" onclick="goSec('pros','company')">Company Intel</button>
+          <button class="btn sm" onclick="goSec('pros','person')">Person Intel</button>
+          <button class="btn pr sm">Push to Factory</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Relationship tab -->
+  <!-- Relationship -->
   <div class="view" id="view-factory-rel">
-    <h1 class="h1 dp">Lead Factory <span style="color:var(--txm);font-size:18px">/ Relationship</span></h1>
-    <p class="sub">Sherlock + TheHarvester · org chart · adjacency list · outreach plan</p>
+    <h1 class="ph1">Lead Factory — Relationship Intel</h1>
+    <p class="psub">Sherlock + TheHarvester · org chart · adjacency list · outreach sequence plan</p>
     <div class="cols">
-      <div class="panel" style="padding:14px">
+      <div class="card card-p">
         <b>Org Chart — Lean Technologies</b>
-        <div style="margin:12px 0;font-size:13px;color:var(--lav);font-weight:700">Sara Al-Otaibi · CTO</div>
-        <div style="padding-left:18px;border-left:2px solid hsla(276,32%,71%,.4)">
-          <div style="font-size:12px;padding:6px 0;border-bottom:1px solid var(--bdr)">VP Engineering · Omar Al-Farhan</div>
-          <div style="padding-left:14px;border-left:2px solid hsla(170,25%,63%,.4)">
-            <div style="font-size:12px;padding:5px 0;color:var(--txm)">Engineering Lead ×4 (hiring)</div>
+        <div style="margin:12px 0;font-size:13.5px;color:var(--ac);font-weight:700">Sara Al-Otaibi · CTO</div>
+        <div style="padding-left:16px;border-left:2px solid rgba(184,160,200,.4)">
+          <div style="font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--card-bd)">VP Engineering · Omar Al-Farhan</div>
+          <div style="padding-left:12px;border-left:2px solid rgba(136,184,176,.4)">
+            <div style="font-size:12px;padding:5px 0;color:var(--muted-fg)">Engineering Lead ×4 (all hiring)</div>
           </div>
-          <div style="font-size:12px;padding:6px 0;border-bottom:1px solid var(--bdr)">Head of Product · (vacant — hiring)</div>
-          <div style="font-size:12px;padding:6px 0">Head of Infra · Ahmad Khalid</div>
+          <div style="font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--card-bd)">Head of Product · (vacant — hiring)</div>
+          <div style="font-size:12.5px;padding:6px 0">Head of Infra · Ahmad Khalid</div>
         </div>
         <div class="chips" style="margin-top:12px">
-          <span class="chip sea on">Sherlock</span><span class="chip sea on">TheHarvester</span><span class="chip on">Apollo</span><span class="chip on">LinkedIn</span>
+          <span class="chip t on">Sherlock</span><span class="chip t on">TheHarvester</span>
+          <span class="chip on">Apollo</span><span class="chip on">LinkedIn</span>
         </div>
       </div>
-      <div class="panel" style="padding:14px">
+      <div class="card card-p">
         <b>Outreach Plan</b>
         <div style="margin-top:10px;display:flex;flex-direction:column;gap:7px">
-          <div class="card"><b>Primary DM:</b> Sara Al-Otaibi (CTO) · LinkedIn InMail<br><span style="font-size:11px;color:var(--txm)">Relevance: engineering team scale-up</span></div>
-          <div class="card"><b>Secondary DM:</b> Omar Al-Farhan (VP Eng) · Email<br><span style="font-size:11px;color:var(--txm)">Relevance: direct tool buyer</span></div>
-          <div class="card"><b>Board contact:</b> PIF rep · mutual connection<br><span style="font-size:11px;color:var(--txm)">Relevance: strategic partnership</span></div>
+          <div class="card card-p"><b>Primary DM:</b> Sara Al-Otaibi (CTO) · LinkedIn InMail<br><span style="font-size:11.5px;color:var(--muted-fg)">Relevance: engineering team scale-up · hiring 12 roles</span></div>
+          <div class="card card-p"><b>Secondary DM:</b> Omar Al-Farhan (VP Eng) · Email<br><span style="font-size:11.5px;color:var(--muted-fg)">Relevance: direct tool buyer</span></div>
+          <div class="card card-p"><b>Board contact:</b> PIF representative · mutual connection<br><span style="font-size:11.5px;color:var(--muted-fg)">Relevance: strategic partnership</span></div>
         </div>
-        <button class="btn1" style="margin-top:12px">Generate personalised sequences →</button>
+        <button class="btn-pr" style="margin-top:12px">Generate sequences</button>
       </div>
     </div>
   </div>
 </div><!-- /factory -->
 
-<!-- ── HARVEST AI ── -->
+<!-- HARVEST AI -->
 <div class="view" id="view-harvest">
 
+  <!-- ICP Territory Scanner -->
   <div class="view on" id="view-harvest-icp">
-    <h1 class="h1 dp">Harvest AI <span style="color:var(--txm);font-size:18px">/ ICP Territory Scanner</span></h1>
-    <p class="sub">Define your ICP · Harvest AI picks the best engine · maps every matching company + DMs</p>
+    <h1 class="ph1">Harvest AI — ICP Territory Scanner</h1>
+    <p class="psub">Define your ICP territory · Harvest AI routes to the best engine · maps every matching company + DMs</p>
     <div class="cols">
-      <div class="panel">
-        <div class="ph">🔧 ICP Territory Definition</div>
-        <div class="sec"><div class="sech">Engine selection ▾</div><div class="secb">
-          <div class="chips"><span class="chip sand on">Masaar Engine</span><span class="chip sea">Masar Database</span><span class="chip">AI DB Builder</span></div>
-        </div></div>
-        <div class="sec"><div class="sech">Industry + Region ▾</div><div class="secb">
-          <div class="lbl">Industry</div><input class="inp" value="SaaS · Fintech · E-Commerce"/>
+      <div class="card">
+        <div class="card-hd">ICP Territory Definition</div>
+        <div class="card-p" style="padding-bottom:0">
+          <div class="lbl">Engine selection</div>
+          <div class="chips"><span class="chip g on">Masaar Engine</span><span class="chip t">Masaar Database</span><span class="chip">AI DB Builder</span></div>
+          <div class="lbl">Industry</div>
+          <input class="inp" value="SaaS · Fintech · E-Commerce"/>
           <div class="lbl">Region</div>
-          <div class="chips"><span class="chip on">KSA</span><span class="chip on">UAE</span><span class="chip">Bahrain</span></div>
+          <div class="chips"><span class="chip on">KSA</span><span class="chip on">UAE</span><span class="chip">Bahrain</span><span class="chip">Kuwait</span></div>
           <div class="lbl">Company size</div>
           <div class="chips"><span class="chip on">50–500</span><span class="chip">500–2000</span></div>
-        </div></div>
-        <div class="sec"><div class="sech">Quality filters ▾</div><div class="secb">
+          <div class="lbl">Quality filters</div>
           <div class="chips"><span class="chip on">SAMA licensed</span><span class="chip">Tadawul-listed</span><span class="chip">VISION 2030</span></div>
-        </div></div>
-        <div class="sbar"><button class="btn1">Harvest AI → Scan Territory</button></div>
-      </div>
-      <div class="panel" style="overflow:hidden">
-        <div class="ph" style="justify-content:space-between">📊 127 companies matched · Masaar Engine
-          <div style="display:flex;gap:5px"><button class="btn prim sm">Push all to Genome →</button><button class="btn sm">⬇ CSV</button></div>
+          <div class="lbl">Signal pack</div>
+          <div class="chips"><span class="chip on">Hiring surge</span><span class="chip on">Funding</span><span class="chip">Expansion</span><span class="chip">New exec</span></div>
         </div>
-        <table>
-          <thead><tr><th>Company</th><th>Sector</th><th>DMs</th><th>ICP</th><th>Status</th><th></th></tr></thead>
-          <tbody>
-            <tr><td><b>Tamara</b></td><td style="color:var(--txm)">BNPL · Fintech</td><td>4 👤</td><td><b class="lav">0.96</b></td><td><span class="sp done">enriched</span></td><td><button class="btn sm">Genome →</button></td></tr>
-            <tr><td><b>Foodics</b></td><td style="color:var(--txm)">SaaS · POS</td><td>3 👤</td><td><b class="lav">0.91</b></td><td><span class="sp done">enriched</span></td><td><button class="btn sm">Genome →</button></td></tr>
-            <tr><td><b>Lean Technologies</b></td><td style="color:var(--txm)">Open Banking</td><td>2 👤</td><td><b class="lav">0.88</b></td><td><span class="sp done">enriched</span></td><td><button class="btn sm">Genome →</button></td></tr>
-            <tr><td><b>Bupa Arabia</b></td><td style="color:var(--txm)">Insurance</td><td>6 👤</td><td><b class="sea2">0.83</b></td><td><span class="sp run">pending</span></td><td><button class="btn sm">Genome →</button></td></tr>
-            <tr><td><b>stc pay</b></td><td style="color:var(--txm)">Fintech · Wallet</td><td>5 👤</td><td><b class="sea2">0.81</b></td><td><span class="sp run">pending</span></td><td><button class="btn sm">Genome →</button></td></tr>
-          </tbody>
-        </table>
+        <div style="padding:12px 14px;border-top:1px solid var(--card-bd);margin-top:10px">
+          <button class="btn-pr">Harvest AI → Scan Territory</button>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="overflow:hidden;margin-bottom:14px">
+          <div class="card-hd">127 companies matched · Masaar Engine
+            <div class="card-hd-right"><button class="btn pr sm">Push all to Genome</button><button class="btn sm">Export CSV</button></div>
+          </div>
+          <table>
+            <thead><tr><th>Company</th><th>Sector</th><th>DMs</th><th>ICP</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr><td><b>Tamara</b></td><td style="color:var(--muted-fg)">BNPL · Fintech</td><td>4</td><td><b class="lav">0.96</b></td><td><span class="sp ok">Enriched</span></td><td><button class="btn sm">Genome</button></td></tr>
+              <tr><td><b>Foodics</b></td><td style="color:var(--muted-fg)">SaaS · POS</td><td>3</td><td><b class="lav">0.91</b></td><td><span class="sp ok">Enriched</span></td><td><button class="btn sm">Genome</button></td></tr>
+              <tr><td><b>Lean Technologies</b></td><td style="color:var(--muted-fg)">Open Banking</td><td>2</td><td><b class="lav">0.88</b></td><td><span class="sp ok">Enriched</span></td><td><button class="btn sm">Genome</button></td></tr>
+              <tr><td><b>Bupa Arabia</b></td><td style="color:var(--muted-fg)">Insurance</td><td>6</td><td><b class="teal">0.83</b></td><td><span class="sp run">Pending</span></td><td><button class="btn sm">Genome</button></td></tr>
+              <tr><td><b>stc pay</b></td><td style="color:var(--muted-fg)">Fintech · Wallet</td><td>5</td><td><b class="teal">0.81</b></td><td><span class="sp run">Pending</span></td><td><button class="btn sm">Genome</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card card-p">
+          <b>Active Sources</b>
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:0" id="icpSrcs"></div>
+        </div>
       </div>
     </div>
   </div>
 
+  <!-- Masaar Engine -->
   <div class="view" id="view-harvest-masaar">
-    <h1 class="h1 dp">Harvest AI <span style="color:var(--txm);font-size:18px">/ Masaar Engine</span></h1>
-    <p class="sub">Saudi CR intelligence · 7-agent SSE pipeline · CAPTCHA-aware · bilingual EN+AR report · source-credibility verdicts</p>
+    <h1 class="ph1">Harvest AI — Masaar Engine</h1>
+    <p class="psub">Saudi CR intelligence · 7-agent SSE pipeline · CAPTCHA-aware · bilingual EN+AR report · source-credibility verdicts</p>
     <div class="cols">
-      <div class="panel">
-        <div class="ph">🏛 Run Pipeline</div>
-        <div class="secb" style="padding:12px 14px">
+      <div class="card">
+        <div class="card-hd">Run Pipeline</div>
+        <div class="card-p" style="padding-bottom:0">
           <div class="lbl">CR number or company name</div>
           <input class="inp" value="CR 7001234567 — شركة تمارا للدفع الإلكتروني"/>
           <div class="chips"><span class="chip on">CR number</span><span class="chip on">Company name</span><span class="chip">SAMA license</span></div>
-          <button class="btn1" id="runMasaar">▶ Run Masaar Pipeline</button>
         </div>
-        <div style="padding:0 14px 14px">
-          <div class="lbl" style="margin-top:4px">7-Agent Pipeline</div>
+        <div style="padding:12px 14px;border-top:1px solid var(--card-bd);margin-top:10px">
+          <button class="btn-pr" id="runMasaar">Run Masaar Pipeline</button>
+        </div>
+        <div class="card-p" style="padding-top:0">
+          <div class="lbl">7-Agent Pipeline</div>
           <div class="agents" id="agMasaar"></div>
         </div>
       </div>
-      <div class="panel" style="padding:14px">
+      <div class="card card-p">
         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
-          <div><div class="dp" style="font-size:19px;font-weight:700">شركة تمارا</div>
-            <div style="color:var(--txm);font-size:12px">Tamara · BNPL / Fintech · Riyadh · ~600 employees</div></div>
+          <div>
+            <div style="font-size:20px;font-weight:700;font-family:'Playfair Display',serif">شركة تمارا</div>
+            <div style="color:var(--muted-fg);font-size:12px">Tamara · BNPL / Fintech · Riyadh · ~600 employees</div>
+          </div>
           <span class="vd">◆ 94</span>
         </div>
         <div class="g3" style="gap:8px;margin-bottom:12px">
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">CR</div><div style="font-weight:600;font-size:12px">7001234567 <span class="vd s">✓</span></div></div>
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">SAMA</div><div style="font-weight:600;font-size:12px">Licensed <span class="vd d">primary</span></div></div>
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">Revenue</div><div style="font-weight:600;font-size:12px">SAR 600M–1.2B <span class="vd">est</span></div></div>
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">Funding</div><div style="font-weight:600;font-size:12px">Series C · $340M <span class="vd s">✓</span></div></div>
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">Founded</div><div style="font-weight:600;font-size:12px">2020 <span class="vd s">✓</span></div></div>
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">HQ</div><div style="font-weight:600;font-size:12px">Riyadh, KSA</div></div>
+          <div><div style="font-size:10px;text-transform:uppercase;color:var(--muted-fg)">CR</div><div style="font-weight:600;font-size:12.5px">7001234567 <span class="vd t">verified</span></div></div>
+          <div><div style="font-size:10px;text-transform:uppercase;color:var(--muted-fg)">SAMA</div><div style="font-weight:600;font-size:12.5px">Licensed <span class="vd g">primary</span></div></div>
+          <div><div style="font-size:10px;text-transform:uppercase;color:var(--muted-fg)">Revenue</div><div style="font-weight:600;font-size:12.5px">SAR 600M–1.2B</div></div>
+          <div><div style="font-size:10px;text-transform:uppercase;color:var(--muted-fg)">Funding</div><div style="font-weight:600;font-size:12.5px">Series C · $340M</div></div>
+          <div><div style="font-size:10px;text-transform:uppercase;color:var(--muted-fg)">Founded</div><div style="font-weight:600;font-size:12.5px">2020</div></div>
+          <div><div style="font-size:10px;text-transform:uppercase;color:var(--muted-fg)">HQ</div><div style="font-weight:600;font-size:12.5px">Riyadh, KSA</div></div>
         </div>
         <div class="lbl">Executives</div>
-        <div class="card" style="display:flex;justify-content:space-between;padding:9px"><span><b>Abdulmajeed Alsukhan</b> · CEO / Co-founder</span><span class="vd s">◆ 96</span></div>
-        <div class="card" style="display:flex;justify-content:space-between;padding:9px"><span><b>Turki Bin Zarah</b> · CTO / Co-founder</span><span class="vd s">◆ 90</span></div>
-        <div class="card" style="display:flex;justify-content:space-between;padding:9px"><span><b>VP Engineering</b> · Hiring 12 eng roles</span><span class="vd d">◆ 72</span></div>
-        <div style="margin-top:12px;display:flex;gap:6px">
-          <button class="btn prim sm">Push to Genome →</button>
+        <div class="card card-p" style="display:flex;justify-content:space-between;margin-bottom:6px"><span><b>Abdulmajeed Alsukhan</b> · CEO / Co-founder</span><span class="vd t">◆ 96</span></div>
+        <div class="card card-p" style="display:flex;justify-content:space-between;margin-bottom:6px"><span><b>Turki Bin Zarah</b> · CTO / Co-founder</span><span class="vd t">◆ 90</span></div>
+        <div class="card card-p" style="display:flex;justify-content:space-between"><span><b>VP Engineering</b> · Hiring 12 eng roles</span><span class="vd g">◆ 72 est</span></div>
+        <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn pr sm">Push to Genome</button>
           <button class="btn sm">Export PDF</button>
-          <button class="btn sm">AR report</button>
+          <button class="btn sm">AR Report</button>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Masaar Database -->
   <div class="view" id="view-harvest-masaardb">
-    <h1 class="h1 dp">Harvest AI <span style="color:var(--txm);font-size:18px">/ Masaar Database</span></h1>
-    <p class="sub">Enriched Saudi company pool · dedup · re-enrich · export · <b style="color:var(--rd)">DB seed data is backend-only, never exposed</b></p>
-    <div class="stats g4" style="margin-bottom:14px">
+    <h1 class="ph1">Harvest AI — Masaar Database</h1>
+    <p class="psub">Enriched Saudi company pool · dedup · re-enrich · export · seed data is backend-only</p>
+    <div class="g4" style="margin-bottom:16px">
       <div class="stat"><div class="sv lav">14,280</div><div class="sl">Total companies</div></div>
-      <div class="stat"><div class="sv sea2">9,847</div><div class="sl">Enriched</div></div>
-      <div class="stat"><div class="sv sand2">312</div><div class="sl">High-fit ICP ≥ 0.7</div></div>
+      <div class="stat"><div class="sv teal">9,847</div><div class="sl">Enriched</div></div>
+      <div class="stat"><div class="sv gold2">312</div><div class="sl">High-fit ICP ≥0.7</div></div>
       <div class="stat"><div class="sv rose2">1,102</div><div class="sl">Deduped</div></div>
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-      <button class="btn sm">Re-enrich selected</button><button class="btn sm">Enrich All</button>
-      <button class="btn sm">Deduplicate</button><button class="btn sm">Force-push CR</button>
-      <button class="btn prim sm">Export ▾</button>
+      <button class="btn sm">Re-enrich selected</button>
+      <button class="btn sm">Enrich all</button>
+      <button class="btn sm">Deduplicate</button>
+      <button class="btn sm">Force-push CR</button>
+      <button class="btn pr sm">Export</button>
     </div>
-    <div class="panel" style="overflow:hidden">
+    <div class="card" style="overflow:hidden">
       <table>
-        <thead><tr><th>Company (AR)</th><th>CR</th><th>CR Status</th><th>ICP</th><th>Enrichment</th><th></th></tr></thead>
+        <thead><tr><th>Company (AR)</th><th>CR Number</th><th>CR Status</th><th>ICP</th><th>Enrichment</th><th></th></tr></thead>
         <tbody>
-          <tr><td><b class="mo">شركة تمارا للدفع</b></td><td class="mo" style="color:var(--txm)">7001234567</td><td><span class="sp done">verified</span></td><td><b class="lav">0.96</b></td><td><span class="sp done">enriched</span></td><td><button class="btn sm">Enrich</button></td></tr>
-          <tr><td><b class="mo">مدفوعات لين</b></td><td class="mo" style="color:var(--txm)">7009988776</td><td><span class="sp run">registered</span></td><td><b class="lav">0.82</b></td><td><span class="sp run">pending</span></td><td><button class="btn sm">Enrich</button></td></tr>
-          <tr><td><b class="mo">شركة مدير 5</b></td><td class="mo" style="color:var(--txm)">7004455667</td><td><span class="sp done">verified</span></td><td><b class="lav">0.79</b></td><td><span class="sp done">enriched</span></td><td><button class="btn sm">Enrich</button></td></tr>
-          <tr><td><b class="mo">سلة للتجارة</b></td><td class="mo" style="color:var(--txm)">7006677889</td><td><span class="sp run">registered</span></td><td><b class="sea2">0.74</b></td><td><span class="sp fail">partial</span></td><td><button class="btn sm">Enrich</button></td></tr>
+          <tr><td><b class="mono">شركة تمارا للدفع</b></td><td class="mono" style="color:var(--muted-fg)">7001234567</td><td><span class="sp ok">Verified</span></td><td><b class="lav">0.96</b></td><td><span class="sp ok">Enriched</span></td><td><button class="btn sm">Enrich</button></td></tr>
+          <tr><td><b class="mono">مدفوعات لين</b></td><td class="mono" style="color:var(--muted-fg)">7009988776</td><td><span class="sp run">Registered</span></td><td><b class="lav">0.82</b></td><td><span class="sp run">Pending</span></td><td><button class="btn sm">Enrich</button></td></tr>
+          <tr><td><b class="mono">شركة مدير 5</b></td><td class="mono" style="color:var(--muted-fg)">7004455667</td><td><span class="sp ok">Verified</span></td><td><b class="lav">0.79</b></td><td><span class="sp ok">Enriched</span></td><td><button class="btn sm">Enrich</button></td></tr>
+          <tr><td><b class="mono">سلة للتجارة</b></td><td class="mono" style="color:var(--muted-fg)">7006677889</td><td><span class="sp run">Registered</span></td><td><b class="teal">0.74</b></td><td><span class="sp err">Partial</span></td><td><button class="btn sm">Enrich</button></td></tr>
         </tbody>
       </table>
     </div>
   </div>
 
+  <!-- AI DB Builder -->
   <div class="view" id="view-harvest-builder">
-    <h1 class="h1 dp">Harvest AI <span style="color:var(--txm);font-size:18px">/ AI DB Builder</span></h1>
-    <p class="sub">Agentic harvest from 15 sources → unified company + executive pool · custom schema · export</p>
-    <div class="stats g4" style="margin-bottom:14px">
+    <h1 class="ph1">Harvest AI — AI DB Builder</h1>
+    <p class="psub">Agentic harvest from 15 sources → unified company + executive pool · custom schema · export</p>
+    <div class="g4" style="margin-bottom:16px">
       <div class="stat"><div class="sv lav">8,420</div><div class="sl">Harvested</div></div>
-      <div class="stat"><div class="sv sea2">1,102</div><div class="sl">Deduped</div></div>
-      <div class="stat"><div class="sv sand2">6,318</div><div class="sl">In pool</div></div>
-      <div class="stat"><div class="sv rose2">15</div><div class="sl">Active sources</div></div>
+      <div class="stat"><div class="sv teal">1,102</div><div class="sl">Deduped</div></div>
+      <div class="stat"><div class="sv gold2">6,318</div><div class="sl">In pool</div></div>
+      <div class="stat"><div class="sv rose2">15</div><div class="sl">Sources</div></div>
     </div>
     <div class="cols">
-      <div class="panel" style="overflow:hidden">
-        <div class="ph">Harvest Sources (15)</div>
-        <div id="builderSrcs" style="padding:0 14px"></div>
+      <div class="card" style="overflow:hidden">
+        <div class="card-hd">Harvest Sources (15)</div>
+        <div class="card-p" id="builderSrcs"></div>
       </div>
       <div>
-        <div class="panel" style="padding:14px;margin-bottom:14px">
+        <div class="card card-p" style="margin-bottom:14px">
           <b>Harvest Configuration</b>
-          <div class="lbl" style="margin-top:10px">Target schema</div>
+          <div class="lbl" style="margin-top:10px">Target schema fields</div>
           <div class="chips"><span class="chip on">name_ar</span><span class="chip on">name_en</span><span class="chip on">cr_number</span><span class="chip on">sector</span><span class="chip">revenue_est</span><span class="chip on">employee_count</span></div>
           <div class="lbl">Industries</div>
           <div class="chips"><span class="chip on">Fintech</span><span class="chip on">SaaS</span><span class="chip on">E-Commerce</span><span class="chip">Manufacturing</span></div>
           <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
-            <button class="btn1" style="flex:1;padding:9px" id="runBuilder">▶ Harvest</button>
-            <button class="btn sm">Deduplicate</button><button class="btn sm">Export ▾</button>
+            <button class="btn-pr" style="flex:1;padding:9px" id="runBuilder">Harvest</button>
+            <button class="btn sm">Deduplicate</button><button class="btn sm">Export</button>
           </div>
         </div>
-        <div class="panel" style="padding:14px">
+        <div class="card card-p">
           <b>Last Harvest Log</b>
-          <div style="font-size:12px;font-family:'JetBrains Mono',monospace;line-height:2;margin-top:8px;color:var(--txm)">
+          <div class="mono" style="line-height:2;margin-top:8px;color:var(--muted-fg)">
             <div style="color:var(--em)">✓ Wamda: 842 companies</div>
             <div style="color:var(--em)">✓ MoCI: 3,291 CRs parsed</div>
-            <div style="color:hsl(276,32%,50%)">✓ Crunchbase: 514 enriched</div>
-            <div style="color:hsl(33,41%,42%)">✓ Dedup: 1,102 removed</div>
+            <div style="color:var(--ac)">✓ Crunchbase: 514 enriched</div>
+            <div style="color:var(--am)">✓ Dedup: 1,102 removed</div>
             <div style="color:var(--em)">✓ 6,318 records → pool</div>
           </div>
         </div>
@@ -762,252 +829,267 @@ tr:hover td{background:hsla(276,32%,71%,.04)}
 
 </div><!-- /harvest -->
 
-<!-- ── CARD SCANNER ── -->
+<!-- CARD SCANNER -->
 <div class="view" id="view-cards">
-  <h1 class="h1 dp">Card Scanner</h1>
-  <p class="sub">5-agent pipeline · Gemini Vision OCR → Claude validate → Perplexity live search → BS4 scraper → GPT-4o scoring · GCC luxury card support</p>
+  <h1 class="ph1">Card Scanner</h1>
+  <p class="psub">5-agent pipeline · Gemini Vision OCR → Claude validate → Perplexity live search → BS4 scraper → GPT-4o scoring · GCC luxury card support</p>
   <div class="cols">
-    <div class="panel">
-      <div class="ph">📇 Upload Card</div>
-      <div style="padding:14px">
-        <div style="border:2px dashed var(--bdr);border-radius:11px;padding:26px;text-align:center;cursor:pointer"
-             onmouseenter="this.style.borderColor='var(--lav)'" onmouseleave="this.style.borderColor='var(--bdr)'">
-          <div style="font-size:26px;margin-bottom:8px">📇</div>
+    <div class="card">
+      <div class="card-hd">Upload Card</div>
+      <div class="card-p">
+        <div style="border:2px dashed rgba(184,160,200,.4);border-radius:11px;padding:28px;text-align:center;cursor:pointer;transition:.15s"
+             onmouseenter="this.style.borderColor='rgba(184,160,200,.8)'" onmouseleave="this.style.borderColor='rgba(184,160,200,.4)'">
+          <div style="font-size:32px;margin-bottom:8px">📇</div>
           <div style="font-weight:700;margin-bottom:4px">Drop business card here</div>
-          <div style="font-size:11px;color:var(--txm)">PNG · JPG · HEIC · dark/colored/Arabic cards supported</div>
-          <button class="btn1" style="width:auto;padding:8px 18px;margin-top:10px" id="runCards">Select file &amp; Run Pipeline</button>
+          <div style="font-size:11.5px;color:var(--muted-fg)">PNG · JPG · HEIC · dark / colored / Arabic cards supported</div>
+          <button class="btn-pr" style="width:auto;padding:8px 20px;margin-top:12px" id="runCards">Select file &amp; Run Pipeline</button>
         </div>
-        <div style="font-size:11px;color:var(--txm);line-height:1.8;margin-top:10px">
-          ✓ GCC luxury cards (dark/red/gold) accepted<br>
-          ✓ Arabic RTL supported<br>
-          ✓ Partial data → data-found override (never dropped)<br>
-          ✓ ICP mismatch → approval queue (not rejected)
+        <div style="font-size:11.5px;color:var(--muted-fg);line-height:2;margin-top:12px">
+          GCC luxury cards (dark/red/gold) accepted<br>
+          Arabic RTL layout supported<br>
+          Partial data → data-found override (never dropped)<br>
+          ICP mismatch → approval queue (not rejected)
         </div>
-      </div>
-      <div style="padding:0 14px 14px">
-        <div class="lbl">5-Agent Pipeline</div>
+        <div class="lbl" style="margin-top:8px">5-Agent Pipeline</div>
         <div class="agents" id="agCards"></div>
       </div>
     </div>
-    <div class="panel" style="padding:14px">
+    <div class="card card-p">
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
-        <b>Extracted Result</b><span class="vd">◆ 88</span>
+        <b style="font-size:14px">Extracted Result</b><span class="vd">◆ 88</span>
       </div>
       <div class="g2" style="gap:8px;margin-bottom:12px">
-        <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">Name</div><div style="font-weight:600;font-size:12px">Ahmad Al-Dosari <span class="vd s">✓</span></div></div>
-        <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">Title</div><div style="font-weight:600;font-size:12px">VP Procurement <span class="vd d">likely</span></div></div>
-        <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">Company</div><div style="font-weight:600;font-size:12px">STC Group <span class="vd s">✓</span></div></div>
-        <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">Email</div><div style="font-weight:600;font-size:11px" class="mo">a.aldosari@stc.com.sa <span class="vd s">✓</span></div></div>
+        <div><div class="lbl" style="margin-top:0">Name</div><div style="font-weight:600">Ahmad Al-Dosari <span class="vd t">verified</span></div></div>
+        <div><div class="lbl" style="margin-top:0">Title</div><div style="font-weight:600">VP Procurement <span class="vd g">likely</span></div></div>
+        <div><div class="lbl" style="margin-top:0">Company</div><div style="font-weight:600">STC Group <span class="vd t">verified</span></div></div>
+        <div><div class="lbl" style="margin-top:0">Email</div><div style="font-weight:600;font-size:11.5px" class="mono">a.aldosari@stc.com.sa <span class="vd t">verified</span></div></div>
       </div>
       <div class="lbl">ICP Score</div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
         <div class="prog" style="flex:1;height:7px"><div class="pf" style="width:82%"></div></div>
         <b class="lav">0.82</b>
       </div>
-      <div style="font-size:11px;color:var(--txm);margin-bottom:14px">Industry match · Role match · Region KSA ✓</div>
-      <div id="cardSigBlock" style="font-size:12px;color:var(--txm);padding:9px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:12px;line-height:1.6">
-        <b style="color:var(--tx)">STC Group</b> · Telecom + SaaS · Riyadh · ~70,000 employees. CR verified via MoCI.
-        <span id="cardSig"> <b style="color:hsl(170,25%,38%)">Signal:</b> 3 recent procurement announcements.</span>
-        <span id="cardRel"> <b style="color:hsl(33,41%,42%)">Org chart:</b> Ahmad reports to CPTO.</span>
+      <div style="font-size:11.5px;color:var(--muted-fg);margin-bottom:14px">Industry match · Role match · Region KSA verified</div>
+      <div id="cardSigBlock" style="font-size:12.5px;color:var(--muted-fg);padding:10px;border:1px solid var(--card-bd);border-radius:9px;margin-bottom:12px;line-height:1.65">
+        <b style="color:var(--fg)">STC Group</b> · Telecom + SaaS · Riyadh · ~70,000 employees. CR verified via MoCI.
+        <span id="cardSig"> <b style="color:var(--em)">Signal:</b> 3 recent procurement announcements.</span>
+        <span id="cardRel"> <b style="color:var(--gold2)">Org chart:</b> Ahmad reports to CPTO.</span>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn prim sm">Push to Genome →</button>
+        <button class="btn pr sm">Push to Genome</button>
         <button class="btn sm">Add to CRM</button>
         <button class="btn sm">Export vCard</button>
-        <button class="btn sm" style="color:hsl(33,41%,35%)">Route to approval</button>
+        <button class="btn sm">Route to approval</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ── PROSENGINE ── -->
+<!-- PROSENGINE -->
 <div class="view" id="view-pros">
 
+  <!-- Company Intel -->
   <div class="view on" id="view-pros-company">
-    <h1 class="h1 dp">ProsEngine <span style="color:var(--txm);font-size:18px">/ Company Intel</span></h1>
-    <p class="sub">50-field deep profile · Web Seeder + Gemini ×5 + Perplexity ×4 + Claude + GPT-4o · Nexus synthesis · humanized + verdicts</p>
+    <h1 class="ph1">ProsEngine — Company Intel</h1>
+    <p class="psub">50-field deep profile · Web Seeder + Gemini ×5 + Perplexity ×4 + Claude + GPT-4o · Nexus synthesis · humanized + credibility verdicts</p>
     <div class="cols">
-      <div class="panel">
-        <div class="ph">🧠 Run Company Profile</div>
-        <div class="secb" style="padding:12px 14px">
-          <div class="lbl">Company name / domain / CR</div>
+      <div class="card">
+        <div class="card-hd">Run Company Profile</div>
+        <div class="card-p" style="padding-bottom:0">
+          <div class="lbl">Company name / domain / CR number</div>
           <input class="inp" value="Tamara"/>
           <div class="chips"><span class="chip on">Company name</span><span class="chip">Domain URL</span><span class="chip">CR number</span></div>
-          <button class="btn1" style="margin-top:8px" id="runProsComp">▶ Generate Intel</button>
         </div>
-        <div style="padding:0 14px 14px">
+        <div style="padding:12px 14px;border-top:1px solid var(--card-bd);margin-top:10px">
+          <button class="btn-pr" id="runProsComp">Generate Intel</button>
+        </div>
+        <div class="card-p" style="padding-top:0">
           <div class="lbl">Engine Stack</div>
-          <div style="font-size:12px;font-family:'JetBrains Mono',monospace;line-height:2;color:var(--txm)">
-            <div style="color:hsl(276,32%,50%)">▸ Web Seeder · multi-page BFS ✓</div>
-            <div style="color:hsl(276,32%,50%)">▸ Gemini ×5 · parallel ✓</div>
-            <div style="color:hsl(276,32%,50%)">▸ Perplexity ×4 · web search ✓</div>
-            <div style="color:hsl(276,32%,50%)">▸ Claude · synthesis ✓</div>
-            <div style="color:hsl(276,32%,50%)">▸ GPT-4o · validation ✓</div>
-            <div id="pcSigLog" style="color:hsl(170,25%,38%)">▸ Signal scan · 3 news ✓</div>
-            <div id="pcRelLog" style="color:hsl(33,41%,42%)">▸ Relationship map ✓</div>
+          <div class="mono" style="line-height:2;color:var(--muted-fg)">
+            <div style="color:var(--ac)">▸ Web Seeder · multi-page BFS</div>
+            <div style="color:var(--ac)">▸ Gemini ×5 · parallel research</div>
+            <div style="color:var(--ac)">▸ Perplexity ×4 · live web search</div>
+            <div style="color:var(--ac)">▸ Claude · synthesis + humanize</div>
+            <div style="color:var(--ac)">▸ GPT-4o · validation + scoring</div>
+            <div id="pcSigLog" style="color:var(--em)">▸ Signal scan · 3 news events</div>
+            <div id="pcRelLog" style="color:var(--am)">▸ Relationship map · org chart</div>
           </div>
         </div>
       </div>
-      <div class="panel" style="padding:14px">
+      <div class="card card-p">
         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
-          <div><div class="dp" style="font-size:20px;font-weight:700">Tamara</div>
-            <div style="color:var(--txm);font-size:12px">BNPL / Fintech · Riyadh · ~600 employees · Series C</div></div>
+          <div>
+            <div style="font-size:21px;font-weight:700;font-family:'Playfair Display',serif">Tamara</div>
+            <div style="color:var(--muted-fg);font-size:12px">BNPL / Fintech · Riyadh · ~600 employees · Series C</div>
+          </div>
           <span class="vd">◆ 94</span>
         </div>
         <div class="g3" style="gap:8px;margin-bottom:12px">
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">Revenue</div><div style="font-weight:600;font-size:12px">SAR 600M–1.2B <span class="vd">est</span></div></div>
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">Funding</div><div style="font-weight:600;font-size:12px">Series C · $340M <span class="vd s">✓</span></div></div>
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">CR</div><div style="font-weight:600;font-size:11px" class="mo">7001234567 <span class="vd s">✓</span></div></div>
+          <div><div class="lbl" style="margin-top:0">Revenue</div><div style="font-weight:600;font-size:12.5px">SAR 600M–1.2B <span class="vd">est</span></div></div>
+          <div><div class="lbl" style="margin-top:0">Funding</div><div style="font-weight:600;font-size:12.5px">Series C · $340M <span class="vd t">verified</span></div></div>
+          <div><div class="lbl" style="margin-top:0">CR</div><div style="font-weight:600;font-size:11.5px" class="mono">7001234567 <span class="vd t">verified</span></div></div>
         </div>
-        <p style="font-size:12.5px;color:var(--txm);line-height:1.6;margin-bottom:10px">
+        <p style="font-size:13px;color:var(--muted-fg);line-height:1.65;margin-bottom:10px">
           Tamara is a leading Saudi BNPL operator licensed by SAMA, processing over SAR 600M annually. Raised $340M Series C in 2023 led by SNB Capital.
-          <span id="pcSigText"> <b style="color:hsl(170,25%,38%)">Signal:</b> 4 engineering roles posted Feb 2025 · UAE expansion announced.</span>
+          <span id="pcSigText"> <b style="color:var(--em)">Signal:</b> 4 engineering roles posted Feb 2025 · UAE expansion announced.</span>
         </p>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn prim sm">Push to Genome →</button>
+          <button class="btn pr sm">Push to Genome</button>
           <button class="btn sm">Export PDF</button>
-          <button class="btn sm">AR report</button>
+          <button class="btn sm">AR Report</button>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Person Intel -->
   <div class="view" id="view-pros-person">
-    <h1 class="h1 dp">ProsEngine <span style="color:var(--txm);font-size:18px">/ Person Intel</span></h1>
-    <p class="sub">16-agent executive dossier · Perplexity ×9 + Gemini ×5 + Claude + GPT-4o-mini · Apollo + Sherlock + TheHarvester · 76–90s · humanized</p>
+    <h1 class="ph1">ProsEngine — Person Intel</h1>
+    <p class="psub">16-agent executive dossier · Perplexity ×9 + Gemini ×5 + Claude + GPT-4o-mini · Apollo + Sherlock + TheHarvester · 76–90s · humanized</p>
     <div class="cols">
-      <div class="panel">
-        <div class="ph">👤 Run Person Profile</div>
-        <div class="secb" style="padding:12px 14px">
+      <div class="card">
+        <div class="card-hd">Run Person Profile</div>
+        <div class="card-p" style="padding-bottom:0">
           <div class="lbl">Name + company, LinkedIn URL, or email</div>
           <input class="inp" value="Abdulmajeed Alsukhan, CEO Tamara"/>
           <div class="chips"><span class="chip on">Name + Company</span><span class="chip">LinkedIn URL</span><span class="chip">Email</span></div>
-          <button class="btn1" id="runProsPerson" style="margin-top:8px">▶ Generate Intel (~80s)</button>
         </div>
-        <div style="padding:0 14px 14px">
+        <div style="padding:12px 14px;border-top:1px solid var(--card-bd);margin-top:10px">
+          <button class="btn-pr" id="runProsPerson">Generate Intel (~80s)</button>
+        </div>
+        <div class="card-p" style="padding-top:0">
           <div class="lbl">16-Agent Stack</div>
           <div class="agents" id="agPros"></div>
         </div>
       </div>
-      <div class="panel" style="padding:14px">
+      <div class="card card-p">
         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
-          <div><div class="dp" style="font-size:20px;font-weight:700">Abdulmajeed Alsukhan</div>
-            <div style="color:var(--txm);font-size:12px">CEO & Co-founder · Tamara · Riyadh · 2019–present</div></div>
+          <div>
+            <div style="font-size:21px;font-weight:700;font-family:'Playfair Display',serif">Abdulmajeed Alsukhan</div>
+            <div style="color:var(--muted-fg);font-size:12px">CEO & Co-founder · Tamara · Riyadh · 2019–present</div>
+          </div>
           <span class="vd">◆ 96</span>
         </div>
         <div class="g2" style="gap:8px;margin-bottom:12px">
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">Seniority</div><div style="font-weight:600;font-size:12px">CEO / C-Suite <span class="vd s">✓</span></div></div>
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">LinkedIn</div><div style="font-weight:600;font-size:12px">✓ verified <span class="vd s">primary</span></div></div>
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">Tenure</div><div style="font-weight:600;font-size:12px">2019–present <span class="vd s">✓</span></div></div>
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">Languages</div><div style="font-weight:600;font-size:12px">Arabic · English <span class="vd s">✓</span></div></div>
+          <div><div class="lbl" style="margin-top:0">Seniority</div><div style="font-weight:600">CEO / C-Suite <span class="vd t">verified</span></div></div>
+          <div><div class="lbl" style="margin-top:0">LinkedIn</div><div style="font-weight:600">Verified <span class="vd t">primary</span></div></div>
+          <div><div class="lbl" style="margin-top:0">Tenure</div><div style="font-weight:600">2019–present <span class="vd t">verified</span></div></div>
+          <div><div class="lbl" style="margin-top:0">Languages</div><div style="font-weight:600">Arabic · English</div></div>
         </div>
         <div id="ppSigBlock">
-          <div class="lbl" style="color:hsl(170,25%,38%)">📡 Recent Signals</div>
-          <div style="font-size:12px;color:var(--txm);line-height:1.6;margin:4px 0 10px">
+          <div class="lbl" style="color:var(--em)">Recent Signals</div>
+          <div style="font-size:13px;color:var(--muted-fg);line-height:1.65;margin-bottom:10px">
             LinkedIn post (Feb 2025): announced UAE launch. 847 likes. X thread on SAMA open-banking sandbox (Jan 2025).
           </div>
         </div>
         <div id="ppRelBlock">
-          <div class="lbl" style="color:hsl(33,41%,42%)">🕸 Relationship Map</div>
-          <div class="card" style="padding:8px;display:flex;justify-content:space-between;margin-top:4px"><span><b>Turki Bin Zarah</b> · Co-founder / CTO</span><span class="vd d">direct</span></div>
-          <div class="card" style="padding:8px;display:flex;justify-content:space-between"><span><b>PIF representative</b> · Board / Investor</span><span class="vd d">board</span></div>
+          <div class="lbl" style="color:var(--am)">Relationship Map</div>
+          <div class="card card-p" style="display:flex;justify-content:space-between;margin-bottom:6px"><span><b>Turki Bin Zarah</b> · Co-founder / CTO</span><span class="vd g">direct</span></div>
+          <div class="card card-p" style="display:flex;justify-content:space-between"><span><b>PIF representative</b> · Board / Investor</span><span class="vd g">board</span></div>
         </div>
         <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn prim sm">Push to Genome →</button>
+          <button class="btn pr sm">Push to Genome</button>
           <button class="btn sm">Export PDF</button>
-          <button class="btn sm">CRM →</button>
+          <button class="btn sm">CRM</button>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Website Intel -->
   <div class="view" id="view-pros-website">
-    <h1 class="h1 dp">ProsEngine <span style="color:var(--txm);font-size:18px">/ Website Intel</span></h1>
-    <p class="sub">Multi-page BFS crawl · 5-layer scraper: Cheerio → Playwright → Camoufox → ScrapeGraphAI → BS4</p>
+    <h1 class="ph1">ProsEngine — Website Intel</h1>
+    <p class="psub">Multi-page BFS crawl · 5-layer scraper: Cheerio → Playwright → Camoufox → ScrapeGraphAI → BS4</p>
     <div class="cols">
-      <div class="panel">
-        <div class="ph">🌐 Run Crawl</div>
-        <div class="secb" style="padding:12px 14px">
-          <div class="lbl">URL to crawl</div><input class="inp" value="https://tamara.co"/>
-          <div class="lbl">Max pages</div><input class="inp" value="25" style="max-width:80px"/>
-          <button class="btn1" style="margin-top:8px">▶ Crawl Site</button>
+      <div class="card">
+        <div class="card-hd">Run Crawl</div>
+        <div class="card-p" style="padding-bottom:0">
+          <div class="lbl">URL to crawl</div>
+          <input class="inp" value="https://tamara.co"/>
+          <div class="lbl">Max pages</div>
+          <input class="inp" value="25" style="max-width:80px"/>
         </div>
-        <div style="padding:0 14px 14px">
+        <div style="padding:12px 14px;border-top:1px solid var(--card-bd);margin-top:10px">
+          <button class="btn-pr">Crawl Site</button>
+        </div>
+        <div class="card-p" style="padding-top:0">
           <div class="lbl">5-Layer Scraper</div>
-          <div style="font-size:12px;font-family:'JetBrains Mono',monospace;line-height:2;color:var(--txm)">
-            <div style="color:var(--em)">L1 Cheerio + axios · fast static · 8 pages ✓</div>
-            <div style="color:var(--em)">L2 Playwright + stealth · JS-rendered · 6 pages ✓</div>
-            <div style="color:var(--em)">L3 Camoufox · engine-level stealth · 3 pages ✓ <span class="vd s">NEW</span></div>
-            <div style="color:var(--em)">L4 ScrapeGraphAI · LLM schema extract · 3 pages ✓ <span class="vd s">NEW</span></div>
-            <div style="color:var(--em)">L5 BeautifulSoup · RTL/malformed · 1 page ✓</div>
+          <div class="mono" style="line-height:2.2;color:var(--muted-fg)">
+            <div style="color:var(--em)">L1 Cheerio + axios · fast static · 8 pages</div>
+            <div style="color:var(--em)">L2 Playwright + stealth · JS-rendered · 6 pages</div>
+            <div style="color:var(--em)">L3 Camoufox · engine-level stealth · 3 pages <span class="vd t">NEW</span></div>
+            <div style="color:var(--em)">L4 ScrapeGraphAI · LLM schema · 3 pages <span class="vd t">NEW</span></div>
+            <div style="color:var(--em)">L5 BeautifulSoup · RTL/malformed · 1 page</div>
           </div>
         </div>
       </div>
-      <div class="panel" style="padding:14px">
+      <div class="card card-p">
         <b>Extracted</b>
-        <div class="stats g3" style="margin:10px 0 10px">
+        <div class="g3" style="margin:12px 0">
           <div class="stat"><div class="sv lav">18</div><div class="sl">Pages crawled</div></div>
-          <div class="stat"><div class="sv sea2">42</div><div class="sl">Emails found</div></div>
-          <div class="stat"><div class="sv sand2">11</div><div class="sl">Executives</div></div>
-        </div>
-        <div class="stats g3">
+          <div class="stat"><div class="sv teal">42</div><div class="sl">Emails found</div></div>
+          <div class="stat"><div class="sv gold2">11</div><div class="sl">Executives</div></div>
           <div class="stat"><div class="sv lav">5</div><div class="sl">Products</div></div>
-          <div class="stat"><div class="sv sea2">2</div><div class="sl">Job pages</div></div>
-          <div class="stat"><div class="sv sand2">1</div><div class="sl">Careers RSS</div></div>
+          <div class="stat"><div class="sv teal">2</div><div class="sl">Job pages</div></div>
+          <div class="stat"><div class="sv gold2">1</div><div class="sl">Careers RSS</div></div>
         </div>
-        <div style="margin-top:12px;display:flex;gap:6px">
-          <button class="btn prim sm">Push to Genome →</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn pr sm">Push to Genome</button>
           <button class="btn sm">Export JSON</button>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Data Seeder -->
   <div class="view" id="view-pros-seeder">
-    <h1 class="h1 dp">ProsEngine <span style="color:var(--txm);font-size:18px">/ Data Seeder</span></h1>
-    <p class="sub">EVAL → Approve → Harvest → Enrich · GPT-4o Vision maps the URL · Crawl4AI + ScrapeGraphAI harvest · 7-agent enrichment + verdicts</p>
-    <div class="stats g4" style="margin-bottom:16px">
+    <h1 class="ph1">ProsEngine — Data Seeder</h1>
+    <p class="psub">EVAL → Approve → Harvest → Enrich · GPT-4o Vision maps the URL · Crawl4AI + ScrapeGraphAI · 7-agent enrichment + verdicts</p>
+    <div class="g4" style="margin-bottom:18px">
       <div class="stat"><div class="sv lav">1 EVAL</div><div class="sl">GPT-4o Vision maps URL</div></div>
-      <div class="stat"><div class="sv sea2">2 Approve</div><div class="sl">Review seedPlan fields</div></div>
-      <div class="stat"><div class="sv sand2">3 Harvest</div><div class="sl">Crawl4AI + Camoufox</div></div>
+      <div class="stat"><div class="sv teal">2 Approve</div><div class="sl">Review seed plan fields</div></div>
+      <div class="stat"><div class="sv gold2">3 Harvest</div><div class="sl">Crawl4AI + Camoufox</div></div>
       <div class="stat"><div class="sv rose2">4 Enrich</div><div class="sl">7-agent + verdicts</div></div>
     </div>
     <div class="cols">
-      <div class="panel">
-        <div class="ph">Phase 1 — EVAL</div>
-        <div class="secb" style="padding:12px 14px">
-          <div class="lbl">Seed URL</div><input class="inp" value="https://wamda.com/companies"/>
-          <button class="btn1" style="margin-top:6px">Run EVAL →</button>
+      <div class="card">
+        <div class="card-hd">Phase 1 — EVAL</div>
+        <div class="card-p" style="padding-bottom:0">
+          <div class="lbl">Seed URL</div>
+          <input class="inp" value="https://wamda.com/companies"/>
         </div>
-        <div style="padding:0 14px 14px">
+        <div style="padding:12px 14px;border-top:1px solid var(--card-bd);margin-top:10px">
+          <button class="btn-pr">Run EVAL</button>
+        </div>
+        <div class="card-p" style="padding-top:0">
           <div class="lbl">Seed Plan (GPT-4o Vision)</div>
-          <div style="background:var(--soft);border-radius:8px;padding:10px;font-size:11px;border:1px solid var(--bdr)">
-            <div style="color:hsl(170,25%,38%);font-weight:700;margin-bottom:6px">Detected: 847 companies · 2,100+ executives</div>
-            <table style="font-size:11px"><thead><tr><th>Field</th><th>Coverage</th><th>Tier</th></tr></thead><tbody>
-              <tr><td class="mo">name_en</td><td><b>99%</b></td><td><span class="vd s">primary</span></td></tr>
-              <tr><td class="mo">name_ar</td><td><b>87%</b></td><td><span class="vd s">primary</span></td></tr>
-              <tr><td class="mo">sector</td><td><b>91%</b></td><td><span class="vd d">inferred</span></td></tr>
-              <tr><td class="mo">website</td><td><b>95%</b></td><td><span class="vd s">primary</span></td></tr>
+          <div style="background:var(--muted);border-radius:9px;padding:11px;font-size:12.5px;border:1px solid var(--card-bd)">
+            <div style="color:var(--em);font-weight:700;margin-bottom:8px">Detected: 847 companies · 2,100+ executives</div>
+            <table style="font-size:11.5px"><thead><tr><th>Field</th><th>Coverage</th><th>Tier</th></tr></thead><tbody>
+              <tr><td class="mono">name_en</td><td><b>99%</b></td><td><span class="vd t">primary</span></td></tr>
+              <tr><td class="mono">name_ar</td><td><b>87%</b></td><td><span class="vd t">primary</span></td></tr>
+              <tr><td class="mono">sector</td><td><b>91%</b></td><td><span class="vd g">inferred</span></td></tr>
+              <tr><td class="mono">website</td><td><b>95%</b></td><td><span class="vd t">primary</span></td></tr>
             </tbody></table>
           </div>
-          <button class="btn1" style="margin-top:10px">Approve selected → Start Harvest</button>
+          <button class="btn-pr" style="margin-top:10px">Approve → Start Harvest</button>
         </div>
       </div>
-      <div class="panel" style="padding:14px">
+      <div class="card card-p">
         <b>Phase 3–4 Progress</b>
-        <div style="font-size:12px;font-family:'JetBrains Mono',monospace;line-height:2;margin:10px 0;color:var(--txm)">
-          <div style="color:hsl(276,32%,50%)">✓ Crawl4AI BFS · 847 company pages visited</div>
-          <div style="color:hsl(276,32%,50%)">✓ ScrapeGraphAI schema extraction · 712 rows</div>
-          <div style="color:hsl(33,41%,42%)">→ Enrichment queue: 712 → 7-agent pipeline</div>
+        <div class="mono" style="line-height:2.2;margin:10px 0;color:var(--muted-fg)">
+          <div style="color:var(--ac)">✓ Crawl4AI BFS · 847 company pages visited</div>
+          <div style="color:var(--ac)">✓ ScrapeGraphAI schema extraction · 712 rows</div>
+          <div style="color:var(--am)">→ Enrichment queue: 712 → 7-agent pipeline</div>
           <div style="color:var(--em)">✓ 423 rows enriched + verdicts</div>
           <div>⋯ 289 rows pending</div>
         </div>
         <div class="prog" style="height:7px"><div class="pf" style="width:59%"></div></div>
-        <div style="font-size:11px;color:var(--txm);margin:4px 0 12px">423 / 712 enriched</div>
-        <div class="card" style="padding:11px">
+        <div style="font-size:11.5px;color:var(--muted-fg);margin:4px 0 12px">423 / 712 enriched</div>
+        <div class="card card-p">
           <div style="font-weight:700">Lean Technologies <span class="vd">◆ 94</span></div>
-          <div style="font-size:11px;color:var(--txm);margin-top:3px">Open banking · Riyadh · Series B · 180 employees</div>
-          <div style="margin-top:6px"><span class="vd s">name_en: verified</span>&nbsp;<span class="vd d">sector: likely</span>&nbsp;<span class="vd">revenue: estimated</span></div>
+          <div style="font-size:11.5px;color:var(--muted-fg);margin-top:3px">Open banking · Riyadh · Series B · 180 employees</div>
+          <div style="margin-top:6px"><span class="vd t">name_en: verified</span>&nbsp;<span class="vd g">sector: likely</span>&nbsp;<span class="vd">revenue: estimated</span></div>
         </div>
       </div>
     </div>
@@ -1015,65 +1097,68 @@ tr:hover td{background:hsla(276,32%,71%,.04)}
 
 </div><!-- /pros -->
 
-<!-- ── CRM ENRICHMENT ── -->
+<!-- CRM ENRICHMENT -->
 <div class="view" id="view-crm">
 
+  <!-- Quick Enrich -->
   <div class="view on" id="view-crm-quick">
-    <h1 class="h1 dp">CRM Enrichment <span style="color:var(--txm);font-size:18px">/ Quick Enrich</span></h1>
-    <p class="sub">Paste any lead · instant enrichment via waterfall · result pushed to CRM</p>
+    <h1 class="ph1">CRM Enrichment — Quick Enrich</h1>
+    <p class="psub">Paste any lead · instant enrichment via waterfall · result pushed to CRM</p>
     <div class="cols">
-      <div class="panel">
-        <div class="ph">💊 Lead Input</div>
-        <div class="secb" style="padding:12px 14px">
+      <div class="card">
+        <div class="card-hd">Lead Input</div>
+        <div class="card-p" style="padding-bottom:0">
           <div class="lbl">First name</div><input class="inp" value="Ahmad"/>
           <div class="lbl">Last name</div><input class="inp" value="Al-Dosari"/>
           <div class="lbl">Company</div><input class="inp" value="STC Group"/>
           <div class="lbl">Email (optional)</div><input class="inp" value="a.aldosari@stc.com.sa"/>
           <div class="lbl">LinkedIn (optional)</div><input class="inp" value="linkedin.com/in/ah-dosari"/>
         </div>
-        <div class="sbar"><button class="btn1">▶ Enrich now</button></div>
+        <div style="padding:12px 14px;border-top:1px solid var(--card-bd);margin-top:10px">
+          <button class="btn-pr">Enrich now</button>
+        </div>
       </div>
-      <div class="panel" style="padding:14px">
+      <div class="card card-p">
         <b>Waterfall Result</b>
         <div id="wfRows" style="margin:10px 0"></div>
         <div class="g2" style="gap:8px;margin-top:12px">
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">Title</div><div style="font-weight:600;font-size:12px">VP Procurement Strategy</div></div>
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">Phone</div><div style="font-weight:600;font-size:12px" class="mo">+966 5X XXX</div></div>
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">Dept</div><div style="font-weight:600;font-size:12px">Procurement</div></div>
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--txm)">LinkedIn</div><div style="font-weight:600;font-size:12px">✓ verified</div></div>
+          <div><div class="lbl" style="margin-top:0">Title</div><div style="font-weight:600">VP Procurement Strategy</div></div>
+          <div><div class="lbl" style="margin-top:0">Phone</div><div style="font-weight:600" class="mono">+966 5X XXX</div></div>
+          <div><div class="lbl" style="margin-top:0">Department</div><div style="font-weight:600">Procurement</div></div>
+          <div><div class="lbl" style="margin-top:0">LinkedIn</div><div style="font-weight:600">Verified</div></div>
         </div>
-        <div style="margin-top:14px;display:flex;gap:6px">
-          <button class="btn prim sm">Push to CRM →</button>
-          <button class="btn sm">Genome →</button>
+        <div style="margin-top:14px;display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn pr sm">Push to CRM</button>
+          <button class="btn sm">Push to Genome</button>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Bulk Upload -->
   <div class="view" id="view-crm-bulk">
-    <h1 class="h1 dp">CRM Enrichment <span style="color:var(--txm);font-size:18px">/ Bulk Upload</span></h1>
-    <p class="sub">Upload CSV → deduplicate → enrichment questionnaire → queue → results</p>
+    <h1 class="ph1">CRM Enrichment — Bulk Upload</h1>
+    <p class="psub">Upload CSV → deduplicate → enrichment questionnaire → queue → results</p>
     <div class="cols">
-      <div class="panel">
-        <div class="ph">📋 Upload Phase</div>
-        <div style="padding:14px">
-          <div style="border:2px dashed var(--bdr);border-radius:11px;padding:22px;text-align:center;cursor:pointer"
-               onmouseenter="this.style.borderColor='var(--lav)'" onmouseleave="this.style.borderColor='var(--bdr)'">
-            <div style="font-size:22px;margin-bottom:8px">📋</div>
-            <div style="font-weight:700">Drop CSV / Excel here</div>
-            <div style="font-size:11px;color:var(--txm);margin-top:4px">Name · Company · Email · LinkedIn</div>
-            <button class="btn1" style="width:auto;padding:7px 16px;margin-top:10px">Select file</button>
+      <div class="card">
+        <div class="card-hd">Upload Phase</div>
+        <div class="card-p">
+          <div style="border:2px dashed rgba(184,160,200,.4);border-radius:11px;padding:24px;text-align:center;cursor:pointer;transition:.15s"
+               onmouseenter="this.style.borderColor='rgba(184,160,200,.8)'" onmouseleave="this.style.borderColor='rgba(184,160,200,.4)'">
+            <div style="font-weight:700;margin-bottom:4px">Drop CSV / Excel here</div>
+            <div style="font-size:11.5px;color:var(--muted-fg);margin-top:4px">Name · Company · Email · LinkedIn</div>
+            <button class="btn-pr" style="width:auto;padding:7px 18px;margin-top:10px">Select file</button>
           </div>
-          <div style="font-size:12px;font-family:'JetBrains Mono',monospace;line-height:2;color:var(--txm);margin-top:10px">
+          <div class="mono" style="line-height:2;color:var(--muted-fg);margin-top:12px">
             <div style="color:var(--em)">✓ 2,400 rows imported</div>
-            <div style="color:hsl(276,32%,50%)">→ Dedup: 318 duplicates detected</div>
+            <div style="color:var(--ac)">→ Dedup: 318 duplicates detected</div>
             <div style="color:var(--em)">✓ 2,082 unique leads ready</div>
           </div>
         </div>
       </div>
-      <div class="panel">
-        <div class="ph">❓ Enrichment Questionnaire</div>
-        <div class="secb" style="padding:12px 14px">
+      <div class="card">
+        <div class="card-hd">Enrichment Questionnaire</div>
+        <div class="card-p" style="padding-bottom:0">
           <div class="lbl">Data fields needed</div>
           <div class="chips"><span class="chip on">Email + phone</span><span class="chip">Full profile</span><span class="chip">Signals only</span></div>
           <div class="lbl">Profiling depth</div>
@@ -1082,25 +1167,28 @@ tr:hover td{background:hsla(276,32%,71%,.04)}
           <div class="chips"><span class="chip">None</span><span class="chip on">News + LinkedIn</span><span class="chip">Full (all 8 sources)</span></div>
           <div class="lbl">Dedup survivor preference</div>
           <div class="chips"><span class="chip">Keep newest</span><span class="chip on">Keep most enriched</span></div>
-          <div class="lbl">Batch tag (optional)</div>
+          <div class="lbl">Batch tag</div>
           <input class="inp" placeholder="e.g. Q2-2025-KSA-fintech"/>
         </div>
-        <div class="sbar"><button class="btn1">Queue 2,082 leads for enrichment →</button></div>
+        <div style="padding:12px 14px;border-top:1px solid var(--card-bd);margin-top:10px">
+          <button class="btn-pr">Queue 2,082 leads for enrichment</button>
+        </div>
       </div>
     </div>
   </div>
 
+  <!-- Waterfall Sources -->
   <div class="view" id="view-crm-waterfall">
-    <h1 class="h1 dp">CRM Enrichment <span style="color:var(--txm);font-size:18px">/ Waterfall Sources</span></h1>
-    <p class="sub">Priority-ordered enrichment waterfall · per-field source assignment · drag to reorder</p>
-    <div class="panel" style="overflow:hidden;padding:14px">
+    <h1 class="ph1">CRM Enrichment — Waterfall Sources</h1>
+    <p class="psub">Priority-ordered enrichment waterfall · per-field source assignment · drag to reorder</p>
+    <div class="card" style="overflow:hidden;padding:14px">
       <div style="display:flex;gap:6px;margin-bottom:12px">
-        <button class="btn prim sm">Save order</button>
+        <button class="btn pr sm">Save order</button>
         <button class="btn sm">Test all</button>
-        <button class="btn sm">Reset to defaults</button>
+        <button class="btn sm">Reset defaults</button>
       </div>
       <table>
-        <thead><tr><th>Priority</th><th>Source</th><th>Fields</th><th>Cost / record</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Priority</th><th>Source</th><th>Fields covered</th><th>Cost / record</th><th>Status</th><th></th></tr></thead>
         <tbody id="wfTable"></tbody>
       </table>
     </div>
@@ -1108,15 +1196,17 @@ tr:hover td{background:hsla(276,32%,71%,.04)}
 
 </div><!-- /crm -->
 
-<!-- ── SETTINGS ── -->
+<!-- SETTINGS -->
 <div class="view" id="view-settings">
 
+  <!-- Signal Sources -->
   <div class="view on" id="view-settings-signals">
-    <h1 class="h1 dp">Settings <span style="color:var(--txm);font-size:18px">/ Signal Sources</span></h1>
-    <p class="sub">8 signal sources · toggle · add custom · test reachability · trust weight</p>
-    <div class="panel" style="overflow:hidden;padding:14px">
+    <h1 class="ph1">Settings — Signal Sources</h1>
+    <p class="psub">8 signal sources · toggle on/off · add custom · test reachability · trust weight</p>
+    <div class="card" style="overflow:hidden;padding:14px">
       <div style="display:flex;gap:6px;margin-bottom:12px">
-        <button class="btn sm">+ Add source</button><button class="btn sm">Test all</button>
+        <button class="btn sm">Add source</button>
+        <button class="btn sm">Test all</button>
       </div>
       <table>
         <thead><tr><th>Source</th><th>Region</th><th>Tier</th><th>Status</th><th>Trust weight</th><th></th></tr></thead>
@@ -1125,33 +1215,26 @@ tr:hover td{background:hsla(276,32%,71%,.04)}
     </div>
   </div>
 
+  <!-- Relationship Engines -->
   <div class="view" id="view-settings-rel">
-    <h1 class="h1 dp">Settings <span style="color:var(--txm);font-size:18px">/ Relationship Engines</span></h1>
-    <p class="sub">Sherlock · TheHarvester · Network Graph · Apollo</p>
+    <h1 class="ph1">Settings — Relationship Engines</h1>
+    <p class="psub">Sherlock · TheHarvester · Network Graph · Apollo</p>
     <div class="g2" style="gap:14px">
-      <div class="panel" style="padding:14px"><b>🔍 Sherlock</b><br><span style="font-size:11px;color:var(--txm)">Username + profile · 300+ social sites</span><div class="chips" style="margin-top:8px"><span class="chip sea on">active</span></div><div style="margin-top:10px;display:flex;gap:6px"><button class="btn sm">Configure</button><button class="btn sm">Test</button></div></div>
-      <div class="panel" style="padding:14px"><b>🌐 TheHarvester</b><br><span style="font-size:11px;color:var(--txm)">Email + subdomain + employee name discovery</span><div class="chips" style="margin-top:8px"><span class="chip sea on">active</span></div><div style="margin-top:10px;display:flex;gap:6px"><button class="btn sm">Configure</button><button class="btn sm">Test</button></div></div>
-      <div class="panel" style="padding:14px"><b>🕸 Network Graph</b><br><span style="font-size:11px;color:var(--txm)">Visual org chart overlay on reports</span><div class="chips" style="margin-top:8px"><span class="chip sand on">active</span></div><div style="margin-top:10px;display:flex;gap:6px"><button class="btn sm">Configure</button><button class="btn sm">Test</button></div></div>
-      <div class="panel" style="padding:14px"><b>📇 Apollo Contacts</b><br><span style="font-size:11px;color:var(--txm)">Verified email + phone enrichment</span><div class="chips" style="margin-top:8px"><span class="chip sea on">active</span></div><div style="margin-top:10px;display:flex;gap:6px"><button class="btn sm">Configure</button><button class="btn sm">Rotate key</button></div></div>
+      <div class="card card-p"><b style="font-size:13.5px">Sherlock</b><br><span style="font-size:11.5px;color:var(--muted-fg)">Username + profile · 300+ social sites</span><div class="chips" style="margin-top:8px"><span class="chip t on">Active</span></div><div style="margin-top:10px;display:flex;gap:6px"><button class="btn sm">Configure</button><button class="btn sm">Test</button></div></div>
+      <div class="card card-p"><b style="font-size:13.5px">TheHarvester</b><br><span style="font-size:11.5px;color:var(--muted-fg)">Email + subdomain + employee name discovery</span><div class="chips" style="margin-top:8px"><span class="chip t on">Active</span></div><div style="margin-top:10px;display:flex;gap:6px"><button class="btn sm">Configure</button><button class="btn sm">Test</button></div></div>
+      <div class="card card-p"><b style="font-size:13.5px">Network Graph</b><br><span style="font-size:11.5px;color:var(--muted-fg)">Visual org chart overlay on all reports</span><div class="chips" style="margin-top:8px"><span class="chip g on">Active</span></div><div style="margin-top:10px;display:flex;gap:6px"><button class="btn sm">Configure</button><button class="btn sm">Test</button></div></div>
+      <div class="card card-p"><b style="font-size:13.5px">Apollo Contacts</b><br><span style="font-size:11.5px;color:var(--muted-fg)">Verified email + phone enrichment</span><div class="chips" style="margin-top:8px"><span class="chip t on">Active</span></div><div style="margin-top:10px;display:flex;gap:6px"><button class="btn sm">Configure</button><button class="btn sm">Rotate key</button></div></div>
     </div>
   </div>
 
-  <div class="view" id="view-settings-keys">
-    <h1 class="h1 dp">Settings <span style="color:var(--txm);font-size:18px">/ API Keys</span></h1>
-    <p class="sub">LLM providers · scrapers · enrichment sources · all keys stored encrypted · none visible after save</p>
-    <div class="panel" style="overflow:hidden;padding:14px"><table>
-      <thead><tr><th>Provider</th><th>Role</th><th>Status</th><th>Last used</th><th></th></tr></thead>
-      <tbody id="keysTable"></tbody>
-    </table></div>
-  </div>
-
+  <!-- Deduplication -->
   <div class="view" id="view-settings-dedup">
-    <h1 class="h1 dp">Settings <span style="color:var(--txm);font-size:18px">/ Deduplication</span></h1>
-    <p class="sub">Block-key matching · fuzzy threshold · survivor preference · auto-clean schedule</p>
+    <h1 class="ph1">Settings — Deduplication</h1>
+    <p class="psub">Block-key matching · fuzzy threshold · survivor preference · auto-clean schedule</p>
     <div class="cols">
-      <div class="panel">
-        <div class="ph">Dedup Config</div>
-        <div class="secb" style="padding:12px 14px">
+      <div class="card">
+        <div class="card-hd">Dedup Configuration</div>
+        <div class="card-p" style="padding-bottom:0">
           <div class="lbl">Block keys</div>
           <div class="chips"><span class="chip on">Name + Domain</span><span class="chip on">Email hash</span><span class="chip">Phone</span><span class="chip">LinkedIn URL</span></div>
           <div class="lbl">Fuzzy threshold</div>
@@ -1159,20 +1242,23 @@ tr:hover td{background:hsla(276,32%,71%,.04)}
           <div class="lbl">Survivor preference</div>
           <div class="chips"><span class="chip">Keep newest</span><span class="chip on">Keep most enriched</span><span class="chip">Keep highest ICP</span></div>
         </div>
-        <div class="sbar"><div style="display:flex;gap:6px"><button class="btn1" style="flex:1">Run dedup now</button><button class="btn sm">Schedule daily</button></div></div>
+        <div style="padding:12px 14px;border-top:1px solid var(--card-bd);margin-top:10px;display:flex;gap:6px">
+          <button class="btn-pr" style="flex:1">Run dedup now</button>
+          <button class="btn sm">Schedule daily</button>
+        </div>
       </div>
-      <div class="panel" style="padding:14px">
+      <div class="card card-p">
         <b>Last Dedup Run</b>
-        <div style="font-size:12px;font-family:'JetBrains Mono',monospace;line-height:2;margin:10px 0;color:var(--txm)">
-          <div style="color:hsl(276,32%,50%)">✓ 14,280 records scanned</div>
-          <div style="color:hsl(276,32%,50%)">✓ 1,102 clusters found</div>
+        <div class="mono" style="line-height:2.2;margin:10px 0;color:var(--muted-fg)">
+          <div style="color:var(--ac)">✓ 14,280 records scanned</div>
+          <div style="color:var(--ac)">✓ 1,102 clusters found</div>
           <div style="color:var(--em)">✓ Survivors kept: 13,178</div>
           <div>→ Next auto-run: tomorrow 03:00 UTC</div>
         </div>
-        <div class="stats g3">
+        <div class="g3" style="margin-top:10px">
           <div class="stat"><div class="sv lav">14,280</div><div class="sl">Scanned</div></div>
           <div class="stat"><div class="sv rose2">1,102</div><div class="sl">Duplicates</div></div>
-          <div class="stat"><div class="sv sea2">13,178</div><div class="sl">Kept</div></div>
+          <div class="stat"><div class="sv teal">13,178</div><div class="sl">Kept</div></div>
         </div>
       </div>
     </div>
@@ -1184,60 +1270,60 @@ tr:hover td{background:hsla(276,32%,71%,.04)}
 </div><!-- .shell -->
 
 <script>
-// ── State ──────────────────────────────────────────────────────────────────
-let sigOn=true, relOn=true;
-let curSec='aichat', curSub=null;
+// ── State ──────────────────────────────────────────────────────────────
+let sigOn=true, relOn=true, curSec='chat', curSub=null;
 
-// Sub-nav definitions
-const SUBS = {
-  factory:  [['person','👥 Person Hunt'],['company','🏢 Company Hunt'],['results','📊 Results'],['signals','📡 Signals'],['rel','🕸 Relationship']],
-  harvest:  [['icp','🏛 ICP Scanner'],['masaar','Masaar Engine'],['masaardb','Masaar Database'],['builder','AI DB Builder']],
-  pros:     [['company','Company Intel'],['person','👤 Person Intel'],['website','🌐 Website Intel'],['seeder','Data Seeder']],
-  crm:      [['quick','Quick Enrich'],['bulk','📋 Bulk Upload'],['waterfall','Waterfall Sources']],
-  settings: [['signals','Signal Sources'],['rel','Relationship Engines'],['keys','API Keys'],['dedup','Dedup']],
+const SUBS={
+  factory: [['person','Person Hunt'],['company','Company Hunt'],['results','Results'],['signals','Signal Intel'],['rel','Relationship Intel']],
+  harvest: [['icp','ICP Territory Scanner'],['masaar','Masaar Engine'],['masaardb','Masaar Database'],['builder','AI DB Builder']],
+  pros:    [['company','Company Intel'],['person','Person Intel'],['website','Website Intel'],['seeder','Data Seeder']],
+  crm:     [['quick','Quick Enrich'],['bulk','Bulk Upload'],['waterfall','Waterfall Sources']],
+  settings:[['signals','Signal Sources'],['rel','Relationship Engines'],['dedup','Deduplication']],
 };
 
-// ── Toggle overlays ──────────────────────────────────────────────────────
+const SECTION_ACCENTS={
+  factory:'#88B8B0', harvest:'#C8A880', pros:'#B8A0C8', crm:'#88B8B0', settings:'#C0A0B8',
+  chat:'#88B8B0', swarm:'#B8A0C8', genome:'#88B8B0', cards:'#C8A880',
+};
+
+// ── Global toggles ─────────────────────────────────────────────────────
 function toggleG(w){
   if(w==='sig'){
     sigOn=!sigOn;
-    document.getElementById('tSig').className='ttrack'+(sigOn?' on':'');
+    document.getElementById('tSig').className='tswitch'+(sigOn?' on':'');
     document.getElementById('togSig').className='tog'+(sigOn?'':' off');
     ['pcSigLog','pcSigText','cardSig','ppSigBlock'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.style.display=sigOn?'':'none';
     });
   } else {
     relOn=!relOn;
-    document.getElementById('tRel').className='ttrack'+(relOn?' onr':'');
-    document.getElementById('togRel').className='tog rel'+(relOn?'':' off');
+    document.getElementById('tRel').className='tswitch'+(relOn?' onr':'');
+    document.getElementById('togRel').className='tog rel-tog'+(relOn?'':' off');
     ['pcRelLog','cardRel','ppRelBlock'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.style.display=relOn?'':'none';
     });
   }
 }
 
-// ── Navigation ─────────────────────────────────────────────────────────────
+// ── Navigation ─────────────────────────────────────────────────────────
 function goSec(sec, sub){
-  // hide all top-level views
-  document.querySelectorAll('.scroll > .view').forEach(v=>v.classList.remove('on'));
-  // activate top view
-  const tv = document.getElementById('view-'+sec);
-  if(tv) tv.classList.add('on');
-  curSec = sec; curSub = sub || null;
-  // nav buttons
-  document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('on', b.dataset.sec===sec));
-  // sub nav
-  const strip = document.getElementById('substrip');
-  const subs = SUBS[sec];
+  document.querySelectorAll('#scroll>.view').forEach(v=>v.classList.remove('on'));
+  const tv=document.getElementById('view-'+sec); if(tv) tv.classList.add('on');
+  curSec=sec;
+  document.querySelectorAll('.ntab').forEach(b=>b.classList.toggle('on',b.dataset.sec===sec));
+  const strip=document.getElementById('substrip');
+  const subs=SUBS[sec];
   if(subs){
+    const firstSub=sub||subs[0][0]; curSub=firstSub;
+    const accent=SECTION_ACCENTS[sec]||'#88B8B0';
     strip.style.display='flex';
-    const firstSub = sub || subs[0][0];
-    curSub = firstSub;
-    strip.innerHTML = subs.map(([k,l])=>
-      `<button class="subbtn${k===firstSub?' on':''}" onclick="goSub('${k}')">${l}</button>`
+    strip.innerHTML=`<div class="sec-chip">
+      <div class="sec-dot" style="background:${accent}20"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" fill="${accent}"/></svg></div>
+      <span class="sec-label">${sec.charAt(0).toUpperCase()+sec.slice(1)}</span>
+    </div>`+subs.map(([k,l])=>
+      `<button class="stab${k===firstSub?' on':''}" onclick="goSub('${k}')">${l}</button>`
     ).join('');
-    // show correct sub-view
-    activateSub(sec, firstSub);
+    activateSub(sec,firstSub);
   } else {
     strip.style.display='none';
   }
@@ -1246,303 +1332,293 @@ function goSec(sec, sub){
 
 function goSub(sub){
   curSub=sub;
-  // update strip highlights
-  document.querySelectorAll('.substrip .subbtn').forEach(b=>{
-    b.classList.toggle('on', b.textContent.includes(SUBS[curSec].find(s=>s[0]===sub)?.[1]||'__'));
+  const subs=SUBS[curSec]; if(!subs) return;
+  document.querySelectorAll('.stab').forEach(b=>{
+    const key=b.getAttribute('onclick').match(/'([^']+)'/)?.[1];
+    b.classList.toggle('on',key===sub);
   });
-  // re-render strip buttons to update 'on' class properly
-  const subs = SUBS[curSec];
-  const strip = document.getElementById('substrip');
-  strip.innerHTML = subs.map(([k,l])=>
-    `<button class="subbtn${k===sub?' on':''}" onclick="goSub('${k}')">${l}</button>`
-  ).join('');
-  activateSub(curSec, sub);
+  activateSub(curSec,sub);
   document.getElementById('scroll').scrollTop=0;
 }
 
-function activateSub(sec, sub){
-  // hide all child views inside the parent view
-  const parent = document.getElementById('view-'+sec);
-  if(!parent) return;
-  parent.querySelectorAll(':scope > .view').forEach(v=>v.classList.remove('on'));
-  const target = document.getElementById('view-'+sec+'-'+sub);
+function activateSub(sec,sub){
+  const parent=document.getElementById('view-'+sec); if(!parent) return;
+  parent.querySelectorAll(':scope>.view').forEach(v=>v.classList.remove('on'));
+  const target=document.getElementById('view-'+sec+'-'+sub);
   if(target) target.classList.add('on');
 }
 
-// wire top nav
-document.querySelectorAll('.navbtn').forEach(b=>{
-  b.addEventListener('click',()=>goSec(b.dataset.sec));
-});
+document.querySelectorAll('.ntab').forEach(b=>b.addEventListener('click',()=>goSec(b.dataset.sec)));
 
-// chip toggle (only chips inside panels, not sub buttons)
+// chip toggle
 document.addEventListener('click',e=>{
-  if(e.target.classList.contains('chip')) e.target.classList.toggle('on');
+  if(e.target.classList.contains('chip')&&!e.target.closest('.subbtn,#navrow,.substrip')) e.target.classList.toggle('on');
 });
 
-// ── Agent helpers ─────────────────────────────────────────────────────────
-function makeAgents(elId, agents, state){
+// ── Agent builder ──────────────────────────────────────────────────────
+function buildAgents(elId, agents, state){
   const el=document.getElementById(elId); if(!el) return;
   el.innerHTML=agents.map(a=>{
     const done=state.done.includes(a.n), run=state.cur===a.n;
-    const cls=run?'run':done?'done':'';
     const icon=done?'✓':run?'<span class="spin">⟳</span>':a.n;
-    const log=(run||done)&&a.log?a.log:a.sub;
-    const prog=run&&state.p?`⚡ ${state.p}/${state.tot||'…'}`:done?'✓ done':'';
-    return `<div class="ag ${cls}"><span class="n">${icon}</span><div><div class="t">${a.t}</div><div class="sub">${log}</div></div><div class="st">${prog}</div></div>`;
+    const logText=run||done?(a.log||a.sub):a.sub;
+    const stText=run&&state.p?`${state.p}/${state.tot||'…'}`:done?'done':'';
+    return`<div class="ag ${run?'run':done?'done':''}">
+      <span class="n">${icon}</span>
+      <div><div class="at">${a.t}</div><div class="as">${logText}</div></div>
+      <div class="alog">${stText}</div>
+    </div>`;
   }).join('');
 }
 function setSp(id,s){
-  const el=document.getElementById(id); if(!el) return;
-  el.removeAttribute('style');
-  el.className='sp '+(s==='run'?'run':s==='done'?'done':'fail');
-  el.textContent=s==='run'?'⚡ running':s==='done'?'✓ complete':'preview';
+  const el=document.getElementById(id);if(!el)return;
+  el.className='sp '+(s==='run'?'run':s==='ok'?'ok':'q');
+  el.textContent=s==='run'?'Running':s==='ok'?'Complete':'Preview';
 }
 
-// ── Person Hunt ──────────────────────────────────────────────────────────
+// ── Person Hunt ───────────────────────────────────────────────────────
 const PA=[
-  {n:1,t:"ICP Mapper & Source Orchestrator",sub:"Brief → prioritised sourcing plan",log:"Brief parsed: SaaS CTOs in Riyadh · 14 priority sources"},
-  {n:2,t:"Lead Harvester",sub:"Tavily · SearXNG · Google News · 40+ free sources",log:"Tavily 38 hits · Saudi RSS 12 · Google News 7"},
-  {n:3,t:"Deep Enrichment",sub:"Scout · GLEIF · OpenCorporates · Wikidata · Gemini",log:"GLEIF 12 LEIs · OpenCorporates 18 CRs · Wikidata 9"},
-  {n:4,t:"Signal Intelligence",sub:"News · sanctions · regulatory · hiring · contracts",log:"Scout: 14 hiring · 3 contracts · 0 sanctions"},
-  {n:5,t:"Validate, Verify & Deduplicate",sub:"MX · domain liveness · dummy detection · dedup",log:"MX OK 41/50 · domain live 47/50 · 3 dups dropped"},
-  {n:6,t:"ICP Scoring & AI Copywriter",sub:"Composite score · email · LinkedIn · WhatsApp",log:"47 prospects scored · 12 Tier A · 18 Tier B · 9 Tier C"},
-  {n:7,t:"Publish & Seed",sub:"Bridges into Genome · companies · leads · exec maps",log:"47 into Genome · 41 new leads · 12 exec maps"},
+  {n:1,t:'ICP Mapper & Source Orchestrator',sub:'Brief → prioritised sourcing plan',log:'Brief parsed: SaaS CTOs in Riyadh · 14 priority sources'},
+  {n:2,t:'Lead Harvester',sub:'Tavily · SearXNG · Google News · 40+ free sources',log:'Tavily 38 hits · Saudi RSS 12 · Google News 7'},
+  {n:3,t:'Deep Enrichment',sub:'Scout · GLEIF · OpenCorporates · Wikidata · Gemini',log:'GLEIF 12 LEIs · OpenCorporates 18 CRs · Wikidata 9'},
+  {n:4,t:'Signal Intelligence',sub:'News · sanctions · regulatory · hiring · contracts',log:'Scout: 14 hiring · 3 contracts · 0 sanctions'},
+  {n:5,t:'Validate, Verify & Deduplicate',sub:'MX · domain liveness · dummy detection · dedup',log:'MX OK 41/50 · domain live 47/50 · 3 dups dropped'},
+  {n:6,t:'ICP Scoring & AI Copywriter',sub:'Composite score · email · LinkedIn · WhatsApp',log:'47 prospects · 12 Tier A · 18 Tier B · 9 Tier C'},
+  {n:7,t:'Publish & Seed',sub:'Bridges into Genome · companies · leads · exec maps',log:'47 into Genome · 41 new leads · 12 exec maps'},
 ];
-let pState={cur:null,done:[],p:0,tot:50};
-makeAgents('agPerson',PA,pState);
+let pSt={cur:null,done:[],p:0,tot:50};
+buildAgents('agPerson',PA,pSt);
 document.getElementById('runPerson').addEventListener('click',()=>{
-  pState={cur:1,done:[],p:0,tot:50};
+  pSt={cur:1,done:[],p:0,tot:50};
   document.getElementById('pJobLbl').textContent='lf-'+(Math.floor(Math.random()*900)+100);
-  setSp('pSt','run');
-  makeAgents('agPerson',PA,pState);
+  setSp('pSt','run'); buildAgents('agPerson',PA,pSt);
   let p=0;
   const t=setInterval(()=>{
-    if(!pState.cur){clearInterval(t);return;}
+    if(!pSt.cur){clearInterval(t);return;}
     p+=Math.floor(Math.random()*8)+3;
-    if(p>=50){
-      pState.done=[...pState.done,pState.cur];
-      if(pState.cur>=7){pState.cur=null;setSp('pSt','done');clearInterval(t);}
-      else{pState.cur++;p=0;}
-    }
-    pState.p=p; makeAgents('agPerson',PA,pState);
+    if(p>=50){pSt.done=[...pSt.done,pSt.cur];if(pSt.cur>=7){pSt.cur=null;setSp('pSt','ok');clearInterval(t);}else{pSt.cur++;p=0;}}
+    pSt.p=p; buildAgents('agPerson',PA,pSt);
   },360);
 });
 
-// ── Company Hunt ─────────────────────────────────────────────────────────
+// ── Company Hunt ──────────────────────────────────────────────────────
 const CA=[
-  {n:1,t:"ICP Mapper (Company mode)",sub:"Industry + region + size → sourcing plan",log:"ICP parsed: Fintech · KSA/UAE · 50–500 emp · 6 sources"},
-  {n:2,t:"Company Harvester",sub:"MoCI · Wamda · Crunchbase · OpenCorporates · SAMA",log:"MoCI 3,291 · Wamda 842 · Crunchbase 514"},
-  {n:3,t:"Contact Extraction",sub:"LinkedIn · Apollo · TheHarvester per company",log:"Apollo: 3.2 contacts avg · TheHarvester: 82 emails"},
-  {n:4,t:"Signal Intelligence",sub:"Hiring · funding · news · contracts per company",log:"41 funding signals · 12 hiring surges"},
-  {n:5,t:"Validate & Deduplicate",sub:"Domain liveness · CR match · fingerprint dedup",log:"1,102 duplicates removed · 127 unique companies"},
-  {n:6,t:"ICP Scoring",sub:"Composite score · Tier A/B/C classification",log:"127 scored · 42 A · 63 B · 22 C"},
-  {n:7,t:"Publish & Seed",sub:"Pushes companies + contacts into Genome",log:"127 companies + 406 contacts → Genome"},
+  {n:1,t:'ICP Mapper (Company mode)',sub:'Industry + region + size → sourcing plan',log:'ICP parsed: Fintech · KSA/UAE · 50–500 emp'},
+  {n:2,t:'Company Harvester',sub:'MoCI · Wamda · Crunchbase · OpenCorporates · SAMA',log:'MoCI 3,291 · Wamda 842 · Crunchbase 514'},
+  {n:3,t:'Contact Extraction',sub:'LinkedIn · Apollo · TheHarvester per company',log:'Apollo: 3.2 contacts avg · TheHarvester: 82 emails'},
+  {n:4,t:'Signal Intelligence',sub:'Hiring · funding · news · contracts per company',log:'41 funding signals · 12 hiring surges'},
+  {n:5,t:'Validate & Deduplicate',sub:'Domain liveness · CR match · fingerprint dedup',log:'1,102 duplicates removed · 127 unique companies'},
+  {n:6,t:'ICP Scoring',sub:'Composite score · Tier A/B/C classification',log:'127 scored · 42 A · 63 B · 22 C'},
+  {n:7,t:'Publish & Seed',sub:'Pushes companies + contacts into Genome',log:'127 companies + 406 contacts → Genome'},
 ];
-let cState={cur:null,done:[],p:0,tot:127};
-makeAgents('agCompany',CA,cState);
+let cSt={cur:null,done:[],p:0,tot:127};
+buildAgents('agCompany',CA,cSt);
 document.getElementById('runCompany').addEventListener('click',()=>{
-  cState={cur:1,done:[],p:0,tot:127};
+  cSt={cur:1,done:[],p:0,tot:127};
   document.getElementById('cJobLbl').textContent='ch-'+(Math.floor(Math.random()*900)+100);
-  setSp('cSt','run');
-  makeAgents('agCompany',CA,cState);
+  setSp('cSt','run'); buildAgents('agCompany',CA,cSt);
   let p=0;
   const t=setInterval(()=>{
-    if(!cState.cur){clearInterval(t);return;}
+    if(!cSt.cur){clearInterval(t);return;}
     p+=Math.floor(Math.random()*15)+5;
-    if(p>=127){
-      cState.done=[...cState.done,cState.cur];
-      if(cState.cur>=7){cState.cur=null;setSp('cSt','done');clearInterval(t);}
-      else{cState.cur++;p=0;}
-    }
-    cState.p=p; makeAgents('agCompany',CA,cState);
+    if(p>=127){cSt.done=[...cSt.done,cSt.cur];if(cSt.cur>=7){cSt.cur=null;setSp('cSt','ok');clearInterval(t);}else{cSt.cur++;p=0;}}
+    cSt.p=p; buildAgents('agCompany',CA,cSt);
   },400);
 });
 
-// ── Masaar Engine ─────────────────────────────────────────────────────────
+// ── Masaar Engine ─────────────────────────────────────────────────────
 const MA=[
-  {n:1,t:"MC.gov.sa Registry",sub:"CR parse · bilingual name extraction",log:"CR 7001234567 resolved: Tamara · تمارا"},
-  {n:2,t:"Amaaly AOA + OCR",sub:"Articles of Association · translate AR→EN",log:"AOA PDF parsed · 14 articles extracted"},
-  {n:3,t:"Perplexity ×5 + Gemini ×4",sub:"Web search · news · social · live data",log:"Perplexity 38 results · Gemini funding confirmed"},
-  {n:4,t:"Sanctions & Compliance",sub:"OFAC · UN · EU · CMA · SAMA screen",log:"OFAC: clear · SAMA: licensed (primary)"},
-  {n:5,t:"Signal Scan",sub:"LinkedIn · Wamda · news signals",log:"LinkedIn 12 posts · Wamda Series C confirmed"},
-  {n:6,t:"Relationship Map",sub:"Sherlock + TheHarvester · org chart",log:"Org chart: CEO + CTO + VP Eng identified"},
-  {n:7,t:"Bilingual Report",sub:"EN + AR report · verdicts · humanized",log:"Report: EN + AR · credibility score 94"},
+  {n:1,t:'MC.gov.sa Registry',sub:'CR parse · bilingual name extraction',log:'CR 7001234567 → Tamara · تمارا'},
+  {n:2,t:'Amaaly AOA + OCR',sub:'Articles of Association · translate AR→EN',log:'AOA PDF parsed · 14 articles extracted'},
+  {n:3,t:'Perplexity ×5 + Gemini ×4',sub:'Web search · news · social · live data',log:'Perplexity 38 results · Gemini: funding confirmed'},
+  {n:4,t:'Sanctions & Compliance',sub:'OFAC · UN · EU · CMA · SAMA screen',log:'OFAC: clear · SAMA: licensed (primary)'},
+  {n:5,t:'Signal Scan',sub:'LinkedIn · Wamda · news signals',log:'LinkedIn 12 posts · Wamda: Series C confirmed'},
+  {n:6,t:'Relationship Map',sub:'Sherlock + TheHarvester · org chart',log:'CEO + CTO + VP Eng identified'},
+  {n:7,t:'Bilingual Report',sub:'EN + AR report · verdicts · humanized',log:'Report: EN + AR · credibility ◆ 94'},
 ];
-let mState={cur:null,done:[]};
-makeAgents('agMasaar',MA,mState);
+let mSt={cur:null,done:[]};
+buildAgents('agMasaar',MA,mSt);
 document.getElementById('runMasaar').addEventListener('click',()=>{
-  mState={cur:1,done:[]};
-  makeAgents('agMasaar',MA,mState);
+  mSt={cur:1,done:[]}; buildAgents('agMasaar',MA,mSt);
   const t=setInterval(()=>{
-    if(!mState.cur){clearInterval(t);return;}
-    mState.done=[...mState.done,mState.cur];
-    if(mState.cur>=7){mState.cur=null;clearInterval(t);}
-    else mState.cur++;
-    makeAgents('agMasaar',MA,mState);
+    if(!mSt.cur){clearInterval(t);return;}
+    mSt.done=[...mSt.done,mSt.cur];
+    if(mSt.cur>=7) mSt.cur=null; else mSt.cur++;
+    buildAgents('agMasaar',MA,mSt);
   },900);
 });
 
-// ── Card Scanner ─────────────────────────────────────────────────────────
+// ── Card Scanner ──────────────────────────────────────────────────────
 const KA=[
-  {n:1,t:"Gemini Vision OCR",sub:"Extract all text + layout · dark card support",log:"Dark/luxury card accepted · 6 fields extracted"},
-  {n:2,t:"Claude Validation",sub:"Verify fields · data-found override · never drop",log:"is_business_card: true · data-found override active"},
-  {n:3,t:"Perplexity Live Search",sub:"Live web search for person + company",log:"STC Group: 38 results · Ahmad Al-Dosari confirmed"},
-  {n:4,t:"BS4 Company Scraper",sub:"Company website · email harvest · team page",log:"stc.com.sa: 18 pages · procurement team found"},
-  {n:5,t:"GPT-4o ICP Scoring",sub:"ICP fit · lead score · approval routing",log:"ICP: 0.82 · Tier A · routed to direct push ✓"},
+  {n:1,t:'Gemini Vision OCR',sub:'Extract all text + layout · dark card support',log:'Dark/luxury card accepted · 6 fields extracted'},
+  {n:2,t:'Claude Validation',sub:'Verify fields · data-found override · never drop',log:'is_business_card: true · data-found override active'},
+  {n:3,t:'Perplexity Live Search',sub:'Live web search for person + company',log:'STC Group: 38 results · Ahmad Al-Dosari confirmed'},
+  {n:4,t:'BS4 Company Scraper',sub:'Company website · email harvest · team page',log:'stc.com.sa: 18 pages · procurement team found'},
+  {n:5,t:'GPT-4o ICP Scoring',sub:'ICP fit · lead score · approval routing',log:'ICP: 0.82 · Tier A · routed to direct push'},
 ];
-let kState={cur:null,done:[]};
-makeAgents('agCards',KA,kState);
+let kSt={cur:null,done:[]};
+buildAgents('agCards',KA,kSt);
 document.getElementById('runCards').addEventListener('click',()=>{
-  kState={cur:1,done:[]};
-  makeAgents('agCards',KA,kState);
+  kSt={cur:1,done:[]}; buildAgents('agCards',KA,kSt);
   const t=setInterval(()=>{
-    if(!kState.cur){clearInterval(t);return;}
-    kState.done=[...kState.done,kState.cur];
-    if(kState.cur>=5){kState.cur=null;clearInterval(t);}
-    else kState.cur++;
-    makeAgents('agCards',KA,kState);
+    if(!kSt.cur){clearInterval(t);return;}
+    kSt.done=[...kSt.done,kSt.cur];
+    if(kSt.cur>=5) kSt.cur=null; else kSt.cur++;
+    buildAgents('agCards',KA,kSt);
   },1000);
 });
 
-// ── ProsEngine Person ─────────────────────────────────────────────────────
+// ── ProsEngine Person ─────────────────────────────────────────────────
 const PP=[
-  {n:1,t:"Perplexity ×1",sub:"Web + news search"},{n:2,t:"Perplexity ×2",sub:"LinkedIn articles"},
-  {n:3,t:"Perplexity ×3",sub:"Company press"},{n:4,t:"Perplexity ×4",sub:"Saudi news"},
-  {n:5,t:"Perplexity ×5",sub:"Social media"},{n:6,t:"Gemini ×1",sub:"Profile analysis"},
-  {n:7,t:"Gemini ×2",sub:"Role validation"},{n:8,t:"Gemini ×3",sub:"Company context"},
-  {n:9,t:"Perplexity ×6–9",sub:"Deep parallel search"},{n:10,t:"Gemini ×4+5",sub:"Cross-validate"},
-  {n:11,t:"Claude Synthesis",sub:"Arbitrate + humanize",log:"Dossier synthesised · humanized · no markdown artifacts"},
-  {n:12,t:"GPT-4o-mini Validate",sub:"Final field validation",log:"All fields validated · 4 verdicts applied"},
-  {n:13,t:"Apollo",sub:"Email + phone lookup",log:"Email verified · phone +966 5X confirmed"},
-  {n:14,t:"Sherlock",sub:"300+ social sites",log:"Profiles found: LinkedIn · X · Crunchbase"},
-  {n:15,t:"TheHarvester",sub:"Domain email discovery",log:"tamara.co → 3 emails harvested"},
-  {n:16,t:"Publish & Verify",sub:"Merge · verdicts · push to Genome",log:"◆ 96 credibility · pushed to Genome"},
+  {n:1,t:'Perplexity ×1–4',sub:'Web + news · LinkedIn · company press · Saudi news'},
+  {n:2,t:'Perplexity ×5–9',sub:'Social media · deep parallel · forums · academic'},
+  {n:3,t:'Gemini ×1–3',sub:'Profile analysis · role validation · company context'},
+  {n:4,t:'Gemini ×4–5',sub:'Cross-validate · Arabic language intelligence'},
+  {n:5,t:'Apollo',sub:'Email + phone lookup',log:'Email verified · phone +966 5X confirmed'},
+  {n:6,t:'Sherlock',sub:'300+ social sites',log:'LinkedIn · X · Crunchbase profiles found'},
+  {n:7,t:'TheHarvester',sub:'Domain email discovery',log:'tamara.co → 3 emails harvested'},
+  {n:8,t:'LinkedIn Crawl',sub:'Profile + connections · post history'},
+  {n:9,t:'Website Crawl',sub:'Tamara.co team page · BFS'},
+  {n:10,t:'Claude Synthesis',sub:'Arbitrate + humanize',log:'Dossier synthesised · humanized · no markdown'},
+  {n:11,t:'GPT-4o-mini Validate',sub:'Final field validation + verdicts',log:'All fields validated · 4 verdicts applied'},
+  {n:12,t:'ICP Scorer',sub:'Composite score · Tier assignment',log:'ICP: 0.96 · Tier A · ◆ 96 credibility'},
+  {n:13,t:'OpenRouter Fallback',sub:'Synthesis fallback if primary LLM timeout'},
+  {n:14,t:'Arabic Translator',sub:'Bilingual name normalisation'},
+  {n:15,t:'Relationship Linker',sub:'Attach org chart + adjacency'},
+  {n:16,t:'Publish & Verify',sub:'Merge · verdicts · push to Genome',log:'◆ 96 · pushed to Genome'},
 ];
-let ppState={cur:null,done:[]};
-makeAgents('agPros',PP,ppState);
+let ppSt={cur:null,done:[]};
+buildAgents('agPros',PP,ppSt);
 document.getElementById('runProsPerson').addEventListener('click',()=>{
-  ppState={cur:1,done:[]};
-  makeAgents('agPros',PP,ppState);
-  // agents 1-10 run fast/parallel, 11-16 sequential slower
-  const SPEEDS=[100,100,100,100,100,120,120,120,150,150,700,500,350,600,500,600];
+  ppSt={cur:1,done:[]}; buildAgents('agPros',PP,ppSt);
+  const SPDS=[110,110,120,120,350,600,500,180,200,700,500,200,150,150,300,600];
   let i=0;
   function next(){
     if(i>=16) return;
-    ppState.cur=i+1; makeAgents('agPros',PP,ppState);
+    ppSt.cur=i+1; buildAgents('agPros',PP,ppSt);
     setTimeout(()=>{
-      if(i===9){ ppState.done=[1,2,3,4,5,6,7,8,9,10]; }
-      else ppState.done=[...ppState.done,i+1];
-      ppState.cur=null; makeAgents('agPros',PP,ppState);
+      if(i<=3) ppSt.done=[...ppSt.done,1,2,3,4].slice(0,i+2);
+      else ppSt.done=[...ppSt.done,i+1];
+      ppSt.cur=null; buildAgents('agPros',PP,ppSt);
       i++; if(i<16) setTimeout(next,80);
-    }, SPEEDS[i]||300);
+    },SPDS[i]||300);
   }
   next();
 });
 
-// ── Swarm ─────────────────────────────────────────────────────────────────
-const SNODES=["NEXUS","MASAAR","MASAR","PROS","SIGNALS","BUILDER","PERSON","DEDUP"];
-const SCOLS=["hsl(276,32%,60%)","hsl(33,41%,55%)","hsl(170,25%,55%)","hsl(276,32%,60%)","hsl(170,25%,55%)","hsl(33,41%,55%)","hsl(276,32%,60%)","hsl(273,12%,60%)"];
+// ── Swarm ─────────────────────────────────────────────────────────────
+const SNODES=['NEXUS','MASAAR','MASAR','PROS','SIGS','BUILD','PERSON','DEDUP'];
+const SCOLS=['#B8A0C8','#C8A880','#88B8B0','#B8A0C8','#88B8B0','#C8A880','#B8A0C8','#C0A0B8'];
 function drawOrbit(done){
   const w=document.getElementById('swarmOrb'); if(!w) return;
-  const r=98,cx=130,cy=130;
-  let h=`<div class="ocore">SWARM<br>CORE</div>`;
+  let h=`<div class="orb-core">SWARM<br>CORE</div>`;
   SNODES.forEach((n,i)=>{
-    const a=(i/8)*Math.PI*2-Math.PI/2,x=cx+r*Math.cos(a),y=cy+r*Math.sin(a);
-    h+=`<div class="onode" style="left:${x}px;top:${y}px;background:${SCOLS[i]};opacity:${i<done?1:.22}">${n.slice(0,5)}</div>`;
+    const a=(i/8)*Math.PI*2-Math.PI/2, r=98, cx=130, cy=130;
+    const x=cx+r*Math.cos(a), y=cy+r*Math.sin(a);
+    h+=`<div class="orb-node" style="left:${x}px;top:${y}px;background:${SCOLS[i]};opacity:${i<done?1:.2}">${n}</div>`;
   });
   w.innerHTML=h;
 }
 drawOrbit(0);
 document.getElementById('runSwarm').addEventListener('click',()=>{
-  let d=0;
-  const stat=document.getElementById('swarmSt');
-  const prog=document.getElementById('swarmProg');
-  const bar=document.getElementById('swarmBar');
-  const pct=document.getElementById('swarmPct');
-  stat.className='sp run'; stat.textContent='⚡ running';
-  prog.style.display='block';
-  // animate phases
-  const phs=document.querySelectorAll('#swarmPhases .srcrow .srcd');
-  let ph=0;
-  function animPh(){ if(ph<phs.length){phs[ph].style.background='var(--em)';ph++;setTimeout(animPh,600);} }
-  animPh();
+  let d=0; const stat=document.getElementById('swarmSt');
+  const prog=document.getElementById('swarmProgWrap');
+  const bar=document.getElementById('swarmPf'); const pct=document.getElementById('swarmPct');
+  stat.className='sp run'; stat.textContent='Running'; prog.style.display='block';
+  const phs=document.querySelectorAll('#swarmPhases .drow .ddot');
+  let ph=0; function ap(){if(ph<phs.length){phs[ph].style.background='var(--em)';ph++;setTimeout(ap,700);}}
+  ap();
   const t=setInterval(()=>{
     d=Math.min(d+1,8); drawOrbit(d);
     const n=Math.floor(d/8*50);
-    bar.style.width=(d/8*100)+'%';
-    pct.textContent=n+' / 50 enriched';
-    if(d>=8){clearInterval(t);stat.className='sp done';stat.textContent='✓ complete';}
-  },1200);
+    bar.style.width=(d/8*100)+'%'; pct.textContent=n+' / 50 enriched';
+    if(d>=8){clearInterval(t);stat.className='sp ok';stat.textContent='Complete';}
+  },1400);
 });
 
-// ── AI Chat ───────────────────────────────────────────────────────────────
+// ── ProsEngine Company Intel ──────────────────────────────────────────
+document.getElementById('runProsComp').addEventListener('click',function(){
+  const log=document.querySelector('#view-pros-company .mono');
+  if(!log) return;
+  const lines=log.querySelectorAll('div');
+  lines.forEach((l,i)=>{
+    setTimeout(()=>{ l.style.color='var(--em)'; },i*400);
+  });
+});
+
+// ── AI Chat ───────────────────────────────────────────────────────────
 const CRESP={
-  "Find me 5 SaaS CTOs in Riyadh actively hiring engineers":{
-    trace:"🧠 Kimi planned → 🔍 Perplexity ×3 → 🛰 Harvester → 📊 Extractor → ✏️ Writer",
-    text:"Found <b>5 high-fit SaaS CTOs</b> in Riyadh with active backend hiring.\n\nTop match: <b>Lean Technologies</b> — CTO Sara Al-Otaibi is hiring 12 backend engineers (LinkedIn + careers corroborated). Series B · 180 employees.\n\nOthers: Foodics (CTO · 8 roles), Tamara (VP Eng · hiring surge), Salla (Head of Eng), Jahez (CTO · 6 roles).\n\nICP avg: 0.89  <span class='vd'>◆ 94 credibility</span>"},
-  "Research tamara.co — board + signal intel":{
-    trace:"🌐 Website crawl → 🧠 Company Intel → 📡 Signal scan → 🕸 Org chart",
-    text:"<b>Tamara</b> — Saudi BNPL leader · SAMA-licensed · Series C $340M · SNB Capital led.\n\nBoard: PIF representative · Wamda Ventures partner · 2 independent directors.\n\n<span id='chatSigResp'>Signals: 4 engineering roles Feb 2025 · UAE expansion Jan 2025 · No litigation.</span>  <span class='vd'>◆ 94</span>"},
-  "Who at Aramco handles digital-transformation procurement?":{
-    trace:"👤 Person Intel → 🔍 Perplexity ×5 → 🌐 LinkedIn crawl",
-    text:"Publicly confirmed DM: <b>Abdulaziz Al-Shammari</b>, Director of Digital Procurement Initiatives — appeared at GITEX 2024 as Aramco speaker.\n\nRecommend: approach via technology vendor relations or LEAP 2025 contact.  <span class='vd'>◆ 72</span>"},
-  "Saudi fintechs raised in 2024 + hiring":{
-    trace:"📡 Signal scan · Wamda + Crunchbase + LinkedIn → 🧠 ICP filter",
-    text:"<b>7 Saudi fintechs</b> raised in 2024 with active hiring:\n1. Tamara — Series C $340M · 12 eng roles\n2. Lean Technologies — Series B $40M · 8 roles\n3. Paytabs KSA — 5 roles\n4. HyperPay — Series B · 3 roles\n5. STC Pay — 6 roles\n6. Bayan — Seed $4M · 2 roles\n7. Lendo — Series A $28M · 4 roles  <span class='vd'>◆ 88</span>"},
+  'Find 5 SaaS CTOs in Riyadh actively hiring engineers':{
+    trace:'Kimi planned → Perplexity ×3 → Harvester → Extractor → Writer',
+    text:'Found 5 high-fit SaaS CTOs in Riyadh with active backend hiring.\n\nTop match: Lean Technologies — CTO Sara Al-Otaibi is hiring 12 backend engineers (LinkedIn + careers corroborated). Series B · 180 employees.\n\nAlso: Foodics (CTO · 8 roles), Tamara (VP Eng · hiring surge), Salla (Head of Eng), Jahez (CTO · 6 roles).\n\nICP average: 0.89  ◆ 94 credibility'},
+  'Research tamara.co — board intel + buying signals':{
+    trace:'Website crawl → Company Intel → Signal scan → Org chart',
+    text:'Tamara — Saudi BNPL leader · SAMA-licensed · Series C $340M · SNB Capital led.\n\nBoard: PIF representative · Wamda Ventures partner · 2 independent directors.\n\nSignals: 4 engineering roles Feb 2025 · UAE expansion Jan 2025 · No litigation.  ◆ 94'},
+  'Who at Aramco handles digital procurement?':{
+    trace:'Person Intel → Perplexity ×5 → LinkedIn crawl',
+    text:'Publicly confirmed DM: Abdulaziz Al-Shammari, Director of Digital Procurement Initiatives — appeared at GITEX 2024 as Aramco speaker.\n\nRecommend: approach via technology vendor relations or LEAP 2025 contact.  ◆ 72'},
+  'Saudi fintechs raised 2024 + actively hiring':{
+    trace:'Signal scan · Wamda + Crunchbase + LinkedIn → ICP filter',
+    text:'7 Saudi fintechs raised in 2024 with active hiring:\n1. Tamara — Series C $340M · 12 eng roles\n2. Lean Technologies — Series B $40M · 8 roles\n3. Paytabs KSA — 5 roles\n4. HyperPay — Series B · 3 roles\n5. stc pay — 6 roles\n6. Bayan — Seed $4M · 2 roles\n7. Lendo — Series A $28M · 4 roles  ◆ 88'},
 };
+let chatMode='chat';
+function setMode(el,m){
+  chatMode=m;
+  document.querySelectorAll('.cpill').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+}
 function doChat(msg){
   const body=document.getElementById('chatBody');
-  const greet=body.querySelector('.cgreet'); if(greet) greet.style.display='none';
-  body.innerHTML+=`<div class="crow u"><div class="cbub u">${msg}</div><div class="cav u">U</div></div>`;
-  const resp=CRESP[msg]||{trace:"🔍 Perplexity → 🧠 Nexus synthesis",text:`Searching for: <b>${msg}</b>\n\nResults enriched and ready — push to Genome.  <span class='vd'>◆ 82</span>`};
+  const greet=document.getElementById('chatGreet'); if(greet) greet.remove();
+  body.innerHTML+=`<div class="cmsg u"><div class="cbub u">${msg}</div><div class="cav u">U</div></div>`;
+  const resp=CRESP[msg]||{trace:'Perplexity → Nexus synthesis',text:`Searching: ${msg}\n\nResults enriched and ready — push to Genome.  ◆ 82`};
   const tid='t'+Date.now();
-  body.innerHTML+=`<div class="crow" id="${tid}"><div class="cav ai">N</div><div><div class="ctrace">⟳ ${resp.trace}</div><div class="cbub ai"><span class="spin">⟳</span> thinking…</div></div></div>`;
+  body.innerHTML+=`<div class="cmsg" id="${tid}"><div class="cav ai" style="color:#fff">N</div><div><div class="ctrace">⟳ ${resp.trace}</div><div class="cbub ai"><span class="spin">⟳</span> thinking…</div></div></div>`;
   body.scrollTop=9999;
   setTimeout(()=>{
     const el=document.getElementById(tid); if(!el) return;
-    el.outerHTML=`<div class="crow"><div class="cav ai">N</div><div><div class="ctrace">✓ ${resp.trace}</div><div class="cbub ai" style="white-space:pre-line">${resp.text}<div style="margin-top:9px;display:flex;gap:5px"><button class="btn sm" onclick="goSec('genome')">Push to Genome →</button><button class="btn sm">Export JSON</button></div></div></div></div>`;
+    el.outerHTML=`<div class="cmsg"><div class="cav ai" style="color:#fff">N</div><div><div class="ctrace">✓ ${resp.trace}</div><div class="cbub ai">${resp.text}<div style="margin-top:9px;display:flex;gap:5px"><button class="btn sm" onclick="goSec('genome')">Push to Genome</button><button class="btn sm">Export JSON</button></div></div></div></div>`;
     body.scrollTop=9999;
   },1800);
 }
 function sendChat(){
-  const inp=document.getElementById('chatIn');
-  const v=inp.value.trim(); if(!v) return;
+  const inp=document.getElementById('chatIn'); const v=inp.value.trim(); if(!v) return;
   doChat(v); inp.value='';
 }
 document.getElementById('chatIn').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat();});
 
-// ── Static data tables ────────────────────────────────────────────────────
+// ── Static data tables ─────────────────────────────────────────────────
 // Signal feed
-const SF=[["Lean Technologies","hiring_surge","12 backend roles · LinkedIn","5m"],["Tamara","funding","Series C · Wamda","1h"],["Foodics","expansion","UAE office Q2 · PR Newswire","2h"],["stc pay","contracts","SAMA sandbox · Reuters","4h"]];
-const sf=document.getElementById('sigFeed');
-if(sf) sf.innerHTML=SF.map(([co,sig,d,t])=>`<div class="card" style="cursor:pointer" onmouseover="this.style.borderColor='hsla(276,32%,71%,.5)'" onmouseout="this.style.borderColor='var(--bdr)'"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><b>${co}</b><span class="vd">${sig}</span></div><div style="font-size:11px;color:var(--txm)">${d} · ${t} ago</div></div>`).join('');
+const SF=[['Lean Technologies','hiring_surge','12 backend roles · LinkedIn','5m'],['Tamara','funding','Series C · Wamda','1h'],['Foodics','expansion','UAE office Q2 · PR Newswire','2h'],['stc pay','contracts','SAMA sandbox · Reuters','4h']];
+const sfEl=document.getElementById('sigFeed');
+if(sfEl) sfEl.innerHTML=SF.map(([co,sig,d,t])=>`<div class="card card-p" style="margin-bottom:7px;cursor:pointer"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><b>${co}</b><span class="vd">${sig}</span></div><div style="font-size:11.5px;color:var(--muted-fg)">${d} · ${t} ago</div></div>`).join('');
+
+// ICP Scanner sources
+const ICPS=[['MoCI','KSA','primary'],['SAMA','KSA','primary'],['Wamda','MENA','secondary'],['Crunchbase','Global','secondary'],['OpenCorporates','Global','primary'],['CMA','KSA','primary']];
+const icpEl=document.getElementById('icpSrcs');
+if(icpEl) icpEl.innerHTML=ICPS.map(([n,r,t])=>`<div class="drow"><div class="ddot" style="background:${t==='primary'?'var(--em)':'var(--primary)'}"></div><span style="font-weight:600">${n}</span><span style="color:var(--muted-fg);font-size:11.5px;margin-left:6px">${r}</span><span class="vd ${t==='primary'?'t':''}" style="margin-left:auto">${t}</span></div>`).join('');
 
 // Builder sources
-const BS=[["Wamda","MENA startup registry","primary"],["MoCI","Saudi commercial registry","primary"],["Crunchbase","Global startup DB","secondary"],["LinkedIn Companies","Social + firmographic","secondary"],["OpenCorporates","Global registry","primary"],["CMA (Saudi)","Capital markets","primary"],["SAMA","Banking sector","primary"],["Custom RSS","User-defined","secondary"]];
+const BS=[['Wamda','MENA startup registry','primary'],['MoCI','Saudi commercial registry','primary'],['Crunchbase','Global startup DB','secondary'],['LinkedIn Companies','Social + firmographic','secondary'],['OpenCorporates','Global registry','primary'],['CMA (Saudi)','Capital markets','primary'],['SAMA','Banking sector','primary'],['Custom RSS','User-defined','custom'],['Argaam','Saudi financial news','secondary'],['Reuters Arabia','MENA news','secondary'],['zawya','MENA business','secondary'],['Bloomberg Arabia','Financial data','secondary'],['PitchBook MENA','VC/PE data','secondary'],['GITEX Data','Tech sector','custom'],['YC Companies','VC-backed startups','secondary']];
 const bsEl=document.getElementById('builderSrcs');
-if(bsEl) bsEl.innerHTML=BS.map(([n,d,t])=>`<div class="srcrow"><div class="srcd" style="background:${t==='primary'?'hsl(170,25%,50%)':'var(--lav)'}"></div><span style="font-weight:600">${n}</span><span style="color:var(--txm);font-size:11px;margin-left:7px">${d}</span><span class="vd${t==='primary'?' s':''}" style="margin-left:auto">${t}</span></div>`).join('');
+if(bsEl) bsEl.innerHTML=BS.map(([n,d,t])=>`<div class="drow"><div class="ddot" style="background:${t==='primary'?'var(--em)':t==='custom'?'var(--gold)':'var(--primary)'}"></div><span style="font-weight:600">${n}</span><span style="color:var(--muted-fg);font-size:11px;margin-left:7px">${d}</span><span class="vd ${t==='primary'?'t':t==='custom'?'g':''}" style="margin-left:auto">${t}</span></div>`).join('');
 
 // Signal sources table
-const SS=[["LinkedIn Jobs","MENA","primary","active",80],["X / Twitter","GCC","primary","active",80],["Wamda","MENA","secondary","active",65],["MoCI (Saudi)","KSA","primary","active",90],["PR Newswire","Global","secondary","active",60],["Reuters Arabia","MENA","secondary","degraded",40],["Argaam","KSA","primary","active",85],["Custom RSS","Custom","secondary","active",50]];
-const sst=document.getElementById('sigSrcTable');
-if(sst) sst.innerHTML=SS.map(([n,r,t,s,w])=>`<tr><td><b>${n}</b></td><td style="color:var(--txm)">${r}</td><td><span class="vd${t==='primary'?' s':''}">${t}</span></td><td><span class="sp ${s==='active'?'done':'fail'}">${s}</span></td><td style="width:120px"><div style="display:flex;align-items:center;gap:7px"><div class="prog" style="flex:1"><div class="pf" style="width:${w}%"></div></div><span style="font-size:11px;color:var(--txm)">${w}</span></div></td><td><button class="btn sm">Test</button></td></tr>`).join('');
-
-// API Keys table
-const KT=[["OpenAI","Validator + Arabic","configured","2m ago"],["Anthropic / Claude","Synthesis","configured","4m ago"],["Google Gemini","Parallel research","configured","4m ago"],["Perplexity","Web search ×9","configured","2m ago"],["Moonshot Kimi","Planner","configured","5m ago"],["DeepSeek","Bulk classifier","not set","—"],["OpenRouter","Fusion + fallback","configured","1m ago"],["Apollo","Contact enrichment","configured","12m ago"]];
-const kt=document.getElementById('keysTable');
-if(kt) kt.innerHTML=KT.map(([n,r,s,l])=>`<tr><td><b>${n}</b></td><td style="color:var(--txm)">${r}</td><td><span class="sp ${s==='configured'?'done':'fail'}">${s}</span></td><td style="color:var(--txm)">${l}</td><td><button class="btn sm">${s==='configured'?'Rotate key':'Set key'}</button></td></tr>`).join('');
+const SS=[['LinkedIn Jobs','MENA','primary','active',80],['X / Twitter','GCC','primary','active',80],['Wamda','MENA','secondary','active',65],['MoCI (Saudi)','KSA','primary','active',90],['PR Newswire','Global','secondary','active',60],['Reuters Arabia','MENA','secondary','degraded',40],['Argaam','KSA','primary','active',85],['Custom RSS','Custom','secondary','active',50]];
+const sstEl=document.getElementById('sigSrcTable');
+if(sstEl) sstEl.innerHTML=SS.map(([n,r,t,s,w])=>`<tr><td><b>${n}</b></td><td style="color:var(--muted-fg)">${r}</td><td><span class="vd${t==='primary'?' t':''}">${t}</span></td><td><span class="sp ${s==='active'?'ok':'err'}">${s}</span></td><td style="width:120px"><div style="display:flex;align-items:center;gap:7px"><div class="prog" style="flex:1"><div class="pf" style="width:${w}%"></div></div><span style="font-size:11px;color:var(--muted-fg)">${w}</span></div></td><td><button class="btn sm">Test</button></td></tr>`).join('');
 
 // Waterfall table
-const WF=[[1,"Clearbit","email · company · social","$0.05","active"],[2,"Apollo","phone · email · title","$0.03","active"],[3,"Perplexity","web search · news","$0.02","active"],[4,"Hunter.io","email verify","$0.01","active"],[5,"BS4 Scraper","company page","$0.00","active"],[6,"Gemini Vision","card / PDF OCR","$0.01","active"]];
-const wft=document.getElementById('wfTable');
-if(wft) wft.innerHTML=WF.map(([p,s,f,c,st])=>`<tr><td style="color:var(--txm)">${p}</td><td><b>${s}</b></td><td style="color:var(--txm)">${f}</td><td class="mo">${c}</td><td><span class="sp done">${st}</span></td><td><button class="btn sm">↑</button>&nbsp;<button class="btn sm">↓</button>&nbsp;<button class="btn sm">Test</button></td></tr>`).join('');
+const WF=[[1,'Clearbit','email · company · social','$0.05','active'],[2,'Apollo','phone · email · title','$0.03','active'],[3,'Perplexity','web search · news','$0.02','active'],[4,'Hunter.io','email verify','$0.01','active'],[5,'BS4 Scraper','company page crawl','$0.00','active'],[6,'Gemini Vision','card / PDF OCR','$0.01','active']];
+const wftEl=document.getElementById('wfTable');
+if(wftEl) wftEl.innerHTML=WF.map(([p,s,f,c,st])=>`<tr><td style="color:var(--muted-fg)">${p}</td><td><b>${s}</b></td><td style="color:var(--muted-fg)">${f}</td><td class="mono">${c}</td><td><span class="sp ok">${st}</span></td><td style="display:flex;gap:4px"><button class="btn sm">↑</button><button class="btn sm">↓</button><button class="btn sm">Test</button></td></tr>`).join('');
 
 // Waterfall result rows
-const wfr=document.getElementById('wfRows');
-if(wfr) wfr.innerHTML=[["Clearbit","email + firmographic","hit"],["Apollo","verified phone + LinkedIn","hit"],["Perplexity","live web search","hit"],["Hunter.io","email verify","hit"],["BS4 Scraper","company page","skipped"]].map(([s,d,r])=>`<div class="srcrow"><div class="srcd" style="background:${r==='hit'?'var(--em)':'var(--soft)'}"></div><span style="font-weight:600">${s}</span><span style="color:var(--txm);margin-left:6px;font-size:11px">${d}</span><span class="sp ${r==='hit'?'done':'fail'}" style="margin-left:auto">${r}</span></div>`).join('');
+const wfRowEl=document.getElementById('wfRows');
+if(wfRowEl) wfRowEl.innerHTML=[['Clearbit','email + firmographic','hit'],['Apollo','verified phone + LinkedIn','hit'],['Perplexity','live web search','hit'],['Hunter.io','email verify','hit'],['BS4 Scraper','company page','skipped']].map(([s,d,r])=>`<div class="drow"><div class="ddot" style="background:${r==='hit'?'var(--em)':'var(--muted-fg)'}"></div><span style="font-weight:600">${s}</span><span style="color:var(--muted-fg);margin-left:6px;font-size:11.5px">${d}</span><span class="sp ${r==='hit'?'ok':'q'}" style="margin-left:auto">${r}</span></div>`).join('');
 
-// ── init ───────────────────────────────────────────────────────────────────
-goSec('aichat');
+// ── Init ────────────────────────────────────────────────────────────────
+goSec('chat');
 </script>
 </body>
 </html>

@@ -281,7 +281,7 @@ function AiGenerateListModal({ onClose, onPushToDialer }: { onClose: () => void;
   const [error, setError] = useState("");
   const [genStep, setGenStep] = useState(0);
   const gen = useAiGenerateList();
-  const { data: contactsData } = useContacts({ limit: "200" });
+  const { data: contactsData } = useContacts({ limit: 200 });
   const contacts = contactsData?.contacts ?? [];
 
   const currentQ = QUESTIONNAIRE[qStep];
