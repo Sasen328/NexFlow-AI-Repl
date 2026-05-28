@@ -169,7 +169,7 @@ const deep_scrape: ToolDef = {
   },
 };
 
-// ── sanctions_screen: OFAC + UN + EU ──────────────────────────────────────────
+// ── sanctions_screen: OpenSanctions API → web-search fallback ────────────────
 const sanctions_screen: ToolDef = {
   name: "sanctions_screen",
   description: "Screen a company or person against OFAC SDN, UN Consolidated, EU sanctions, and OpenSanctions. Returns match confidence.",
@@ -180,25 +180,41 @@ const sanctions_screen: ToolDef = {
   },
   async handler(input) {
     const name = String(input.name || "");
+    // 1. Try OpenSanctions free API
     try {
-      const sanctionsPath = "../sanctions-screen.js" as string;
-      const mod = await import(sanctionsPath).catch(() => null);
-      const fn = mod && (mod as { screenName?: (n: string) => Promise<unknown> }).screenName;
-      if (typeof fn === "function") {
-        const result = await fn(name);
-        return { result, summary: `sanctions_screen: ${name}` };
-      }
-      return { result: { name, error: "sanctions module unavailable" }, summary: "sanctions_screen: degraded" };
+      const axios = (await import("axios")).default;
+      const r = await axios.post(
+        "https://api.opensanctions.org/match/default",
+        { queries: { q0: { schema: "LegalEntity", properties: { name: [name] } } } },
+        { timeout: 8000, headers: { Authorization: `ApiKey ${process.env.OPENSANCTIONS_API_KEY || ""}` } },
+      );
+      const results = r.data?.responses?.q0?.results ?? [];
+      const hits = results.filter((x: { score?: number }) => (x.score ?? 0) > 0.5);
+      return {
+        result: { name, matched: hits.length > 0, hits: hits.slice(0, 3), source: "opensanctions" },
+        summary: `sanctions_screen: ${hits.length} potential match(es) for "${name}"`,
+      };
+    } catch { /* fall through to web search */ }
+    // 2. Fallback — web search for name + sanctions keywords
+    try {
+      const hits = await freeWebSearch(`"${name}" OFAC sanctions OR "UN list" OR "EU sanctions"`, { limit: 5 });
+      const flagged = hits.some((h) =>
+        /sanction|ofac|blocked|restricted|prohibited/i.test(h.title + " " + (h.snippet ?? ""))
+      );
+      return {
+        result: { name, flagged, webHits: hits.slice(0, 3), source: "web_search_fallback" },
+        summary: `sanctions_screen: ${flagged ? "⚠ potential flag" : "no match"} for "${name}"`,
+      };
     } catch (e) {
-      return { result: { error: e instanceof Error ? e.message : String(e) }, summary: "sanctions_screen: failed" };
+      return { result: { name, error: e instanceof Error ? e.message : String(e) }, summary: "sanctions_screen: failed" };
     }
   },
 };
 
-// ── scout_osint: Python Scout OSINT ───────────────────────────────────────────
+// ── scout_osint: Scout OSINT → web-search fallback ───────────────────────────
 const scout_osint: ToolDef = {
   name: "scout_osint",
-  description: "Run the Python Scout OSINT engine on a person or username. Returns presence across platforms via Sherlock + custom rules.",
+  description: "Run OSINT on a person, username, or domain. Returns presence across LinkedIn, X, GitHub, and news. Falls back to multi-source web search.",
   input_schema: {
     type: "object",
     properties: { query: { type: "string", description: "Name, email, username, or domain." } },
@@ -206,44 +222,69 @@ const scout_osint: ToolDef = {
   },
   async handler(input) {
     const query = String(input.query || "");
+    // 1. Try Scout sidecar if running
     try {
       const axios = (await import("axios")).default;
       const base = process.env.SCOUT_URL || "http://localhost:8099";
-      const r = await axios.post(`${base}/osint`, { query }, { timeout: 30000 });
+      const r = await axios.post(`${base}/osint`, { query }, { timeout: 8000 });
       return { result: r.data, summary: `scout_osint: ${query}` };
+    } catch { /* fall through */ }
+    // 2. Multi-platform web search fallback
+    try {
+      const platforms = ["linkedin.com", "x.com OR twitter.com", "crunchbase.com", "github.com"];
+      const searches = await Promise.allSettled(
+        platforms.map((site) => freeWebSearch(`"${query}" site:${site}`, { limit: 3 }))
+      );
+      const combined: unknown[] = [];
+      searches.forEach((s, i) => {
+        if (s.status === "fulfilled") combined.push(...s.value.map((h) => ({ ...h, platform: platforms[i] })));
+      });
+      return {
+        result: { query, profiles: combined, source: "web_search_fallback" },
+        summary: `scout_osint: ${combined.length} profile hits for "${query}"`,
+      };
     } catch (e) {
-      return { result: { error: e instanceof Error ? e.message : String(e) }, summary: "scout_osint: degraded" };
+      return { result: { error: e instanceof Error ? e.message : String(e) }, summary: "scout_osint: failed" };
     }
   },
 };
 
-// ── lead_factory_run: invoke the 7-agent pipeline ─────────────────────────────
+// ── lead_factory_run: 7-agent pipeline → NEXUS builder fallback ──────────────
 const lead_factory_run: ToolDef = {
   name: "lead_factory_run",
-  description: "Start the full 7-agent Lead Factory pipeline. Heavy — only use when the user explicitly wants a full lead-gen sweep.",
+  description: "Start the full 7-agent Lead Factory pipeline to generate qualified B2B leads for a target industry and region.",
   input_schema: {
     type: "object",
     properties: {
-      industry:    { type: "string", description: "Target industry." },
-      country:     { type: "string", description: "Country code or region." },
-      targetCount: { type: "number", description: "Leads to produce." },
+      industry:    { type: "string", description: "Target industry (e.g. fintech, healthcare)." },
+      country:     { type: "string", description: "Country code or region (e.g. SA, UAE, GCC)." },
+      targetCount: { type: "number", description: "Number of leads to produce (default 10)." },
     },
     required: ["industry"],
   },
   async handler(input) {
+    const industry = String(input.industry || "");
+    const country  = String(input.country  || "GCC");
+    const count    = Math.min(Number(input.targetCount) || 10, 25);
+    // 1. Try the lead-factory microservice if deployed
     try {
       const axios = (await import("axios")).default;
-      const base = process.env.SELF_URL || "http://localhost:3000";
+      const base = process.env.SELF_URL || "http://localhost:8080";
       const r = await axios.post(`${base}/api/lead-factory/start`, {
-        mode: "person",
-        targetCount: Number(input.targetCount) || 25,
-        industries: input.industry ? [input.industry] : [],
-        regions: input.country ? [input.country] : [],
-      }, { timeout: 15000 });
-      return { result: r.data, summary: `lead_factory_run: job ${r.data?.jobId}` };
-    } catch (e) {
-      return { result: { error: e instanceof Error ? e.message : String(e) }, summary: "lead_factory_run: failed" };
-    }
+        mode: "person", targetCount: count,
+        industries: [industry], regions: [country],
+      }, { timeout: 12000 });
+      return { result: r.data, summary: `lead_factory_run: job ${r.data?.jobId ?? "queued"}` };
+    } catch { /* fall through */ }
+    // 2. NEXUS builder fallback — synthesise leads directly
+    const task = `Generate ${count} qualified B2B leads in the ${industry} industry in ${country}. ` +
+      `For each lead output: name, title, company, LinkedIn URL (if known), estimated email format, ICP score 0-1. ` +
+      `Focus on decision-makers (C-suite / VP / Director). Output as a JSON array.`;
+    const res = await nexusRunRole("builder" as AgentRole, task);
+    return {
+      result: { leads: res.text, source: "nexus_builder_fallback" },
+      summary: `lead_factory_run: ${count} leads synthesised via builder for ${industry}/${country}`,
+    };
   },
 };
 
