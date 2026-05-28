@@ -214,6 +214,68 @@ textarea.input{resize:vertical;min-height:80px}
 .spinner{width:12px;height:12px;border:2px solid rgba(255,255,255,.4);border-top-color:white;border-radius:99px;animation:spin 700ms linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* ── HUNT LAYOUT (Person Hunt / Company Hunt 2-col) ── */
+.hunt-layout{display:flex;gap:16px;align-items:flex-start}
+.hunt-left{width:285px;flex-shrink:0;border:1px solid var(--line-2);border-radius:var(--r);background:white;overflow:hidden}
+.hunt-filter-hdr{display:flex;align-items:center;gap:7px;padding:11px 14px;font-size:12px;font-weight:700;border-bottom:1px solid var(--line-2);background:var(--bg);color:var(--ink)}
+.filter-section{border-bottom:1px solid var(--line-2)}
+.filter-section:last-of-type{border-bottom:none}
+.filter-section-h{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-soft);cursor:pointer;user-select:none;transition:background 140ms}
+.filter-section-h:hover{background:rgba(184,160,200,.05)}
+.filter-section-h .fs-chev{font-size:10px;color:var(--muted);transition:transform 200ms}
+.filter-section.open .fs-chev{transform:rotate(90deg)}
+.filter-section-body{padding:10px 14px 14px;display:none}
+.filter-section.open .filter-section-body{display:block}
+.hunt-run-btn{display:block;width:calc(100% - 28px);margin:14px auto}
+
+.hunt-right{flex:1;min-width:0}
+.hunt-run-hdr{display:flex;align-items:center;gap:8px;padding:10px 16px;font-size:13px;font-weight:700;background:white;border:1px solid var(--line-2);border-radius:var(--r-sm) var(--r-sm) 0 0;border-bottom:none}
+.hunt-run-hdr svg{color:var(--gold);width:16px;height:16px;flex-shrink:0}
+.hunt-run-badge{font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(184,160,200,.15);color:var(--primary)}
+.hunt-kpis{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line-2);border-bottom:none;background:white}
+.hunt-kpi{padding:18px 10px;text-align:center;border-right:1px solid var(--line-2)}
+.hunt-kpi:last-child{border-right:none}
+.hk-val{font-size:22px;font-weight:800;font-family:'Playfair Display',serif;color:var(--ink)}
+.hk-lbl{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-soft);margin-top:3px}
+.pipeline-steps{background:white;border:1px solid var(--line-2);border-radius:0 0 var(--r-sm) var(--r-sm)}
+.pipeline-step{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--line-2);cursor:pointer;transition:background 140ms;position:relative}
+.pipeline-step:hover{background:rgba(184,160,200,.04)}
+.pipeline-step:last-child{border-bottom:none}
+.ps-num{width:26px;height:26px;border-radius:99px;background:rgba(184,160,200,.12);color:var(--primary);font-size:11.5px;font-weight:800;display:grid;place-items:center;flex-shrink:0}
+.ps-name{font-size:13px;font-weight:700;color:var(--ink)}
+.ps-desc{font-size:11px;color:var(--ink-soft);margin-top:2px}
+.ps-arr{margin-left:auto;font-size:14px;color:var(--muted);flex-shrink:0}
+
+/* ── AI CHAT TOOLBAR (Customize / AI Observer) ── */
+.ai-toolbar{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line-2);margin-bottom:12px;flex-wrap:wrap}
+.ai-tool-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:99px;font-size:11.5px;font-weight:700;border:1.5px solid var(--line-2);background:white;color:var(--ink-soft);cursor:pointer;transition:all 140ms;user-select:none}
+.ai-tool-btn:hover{border-color:var(--primary);color:var(--primary)}
+.ai-tool-btn.active{border-color:var(--primary);background:rgba(184,160,200,.10);color:var(--primary)}
+.ai-tool-btn svg{width:12px;height:12px;stroke-width:2}
+.ai-observer-panel{background:rgba(136,184,176,.06);border:1px solid rgba(136,184,176,.25);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:12px;display:none}
+.ai-observer-panel.show{display:block}
+.ai-customize-panel{background:rgba(200,168,128,.06);border:1px solid rgba(200,168,128,.25);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:12px;display:none}
+.ai-customize-panel.show{display:block}
+.obs-row{display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:6px}
+.obs-dot{width:7px;height:7px;border-radius:99px;flex-shrink:0}
+
+/* ── SOURCES PANEL (Masaar DB/Engine/AI DB) ── */
+.src-panel{background:white;border:1px solid var(--line-2);border-radius:var(--r-sm);margin-top:16px;overflow:hidden}
+.src-panel-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line-2);background:var(--bg)}
+.src-panel-h{font-size:12px;font-weight:700;color:var(--ink)}
+.src-panel-sub{font-size:11px;color:var(--ink-soft)}
+.src-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0}
+.src-entry{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line-2);border-right:1px solid var(--line-2)}
+.src-entry:nth-child(even){border-right:none}
+.src-entry:nth-last-child(-n+2){border-bottom:none}
+.src-dot{width:8px;height:8px;border-radius:99px;flex-shrink:0}
+.src-dot.ok{background:var(--ok)}
+.src-dot.warn{background:var(--gold)}
+.src-dot.off{background:var(--muted)}
+.src-name{font-size:12px;font-weight:700;color:var(--ink)}
+.src-cat{font-size:10.5px;color:var(--ink-soft)}
+.src-toggle-cell{margin-left:auto;flex-shrink:0}
+
 /* ── REPORT ── */
 .report-h{display:flex;align-items:center;gap:14px;padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:18px;flex-wrap:wrap}
 .report-title{font-family:'Playfair Display',serif;font-size:20px;font-weight:700}
@@ -465,6 +527,70 @@ tr:hover td{background:rgba(184,160,200,.06)}
       <svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18M3 12h18"/></svg>
       <div><strong>Mega-mind orchestrator</strong> <span class="small" id="mega-live">building route live…</span></div>
       <span class="live-dot" style="margin-left:auto"></span>
+    </div>
+
+    <!-- AI CHAT TOOLBAR -->
+    <div class="ai-toolbar">
+      <span class="small" style="color:var(--ink-soft);font-weight:600">Orchestrator controls:</span>
+      <div class="ai-tool-btn" id="btn-customize" onclick="toggleAITool('customize')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        Customize
+      </div>
+      <div class="ai-tool-btn" id="btn-observer" onclick="toggleAITool('observer')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        AI Observer
+      </div>
+      <div class="ai-tool-btn" id="btn-constraints" onclick="toggleAITool('constraints')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2l8 4v6c0 5-4 9-8 10C8 21 4 17 4 12V6l8-4z"/></svg>
+        Constraints
+      </div>
+      <div class="ai-tool-btn" id="btn-memory" onclick="toast('Agent memory panel opened')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg>
+        Memory
+      </div>
+    </div>
+
+    <!-- AI Observer panel (toggleable) -->
+    <div class="ai-observer-panel" id="ai-observer-panel">
+      <div style="font-size:11.5px;font-weight:700;margin-bottom:8px;color:var(--teal)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:12px;height:12px;stroke-width:2;vertical-align:middle"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        AI Observer — real-time agent monitoring
+      </div>
+      <div class="obs-row"><div class="obs-dot" style="background:var(--ok)"></div><span style="font-weight:600">Planner</span><span style="color:var(--ink-soft);flex:1;margin-left:4px">— routing fintech CTOs · KSA · 40+ sources</span><span style="font-size:10px;color:var(--ok)">Active</span></div>
+      <div class="obs-row"><div class="obs-dot" style="background:var(--primary)"></div><span style="font-weight:600">Researcher</span><span style="color:var(--ink-soft);flex:1;margin-left:4px">— 3 parallel web searches in progress</span><span style="font-size:10px;color:var(--primary)">Running</span></div>
+      <div class="obs-row"><div class="obs-dot" style="background:var(--muted)"></div><span style="font-weight:600">Validator</span><span style="color:var(--ink-soft);flex:1;margin-left:4px">— waiting for Researcher output</span><span style="font-size:10px;color:var(--muted)">Queued</span></div>
+      <div class="obs-row"><div class="obs-dot" style="background:var(--muted)"></div><span style="font-weight:600">ICP Scorer</span><span style="color:var(--ink-soft);flex:1;margin-left:4px">— queued · 5 leads estimated</span><span style="font-size:10px;color:var(--muted)">Queued</span></div>
+      <div style="margin-top:8px;display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="toast('Token trace opened')">Token trace</button><button class="btn btn-ghost btn-sm" onclick="toast('Decision log opened')">Decision log</button><button class="btn btn-ghost btn-sm" onclick="toast('Agent paused')">Pause agents</button></div>
+    </div>
+
+    <!-- Customize panel (toggleable) -->
+    <div class="ai-customize-panel" id="ai-customize-panel">
+      <div style="font-size:11.5px;font-weight:700;margin-bottom:10px;color:var(--gold)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:12px;height:12px;stroke-width:2;vertical-align:middle"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        Orchestrator Customisation
+      </div>
+      <div class="grid-2" style="gap:10px">
+        <div>
+          <div class="field-label">Primary model</div>
+          <select class="select"><option selected>Claude Opus 4.5 (default)</option><option>GPT-4o</option><option>Gemini 1.5 Pro</option><option>Mistral Large</option></select>
+        </div>
+        <div>
+          <div class="field-label">Fallback chain</div>
+          <select class="select"><option selected>Gemini → GPT-4o-mini → Groq</option><option>GPT-4o → Claude Haiku</option><option>Disabled</option></select>
+        </div>
+        <div>
+          <div class="field-label">Max agents (parallel)</div>
+          <select class="select"><option>4</option><option selected>8</option><option>12</option><option>16</option></select>
+        </div>
+        <div>
+          <div class="field-label">Token budget</div>
+          <select class="select"><option>64k</option><option selected>128k</option><option>200k</option><option>Unlimited</option></select>
+        </div>
+      </div>
+      <div class="toggle-row" style="margin-top:10px"><div class="toggle on" onclick="this.classList.toggle('on')"></div><div style="font-size:12px;font-weight:600">Strict citation mode — every claim must cite source URL</div></div>
+      <div class="toggle-row" style="margin-top:6px"><div class="toggle on" onclick="this.classList.toggle('on')"></div><div style="font-size:12px;font-weight:600">GCC cultural intelligence — Khaleeji tone + Arabic-first</div></div>
+      <div class="toggle-row" style="margin-top:6px"><div class="toggle" onclick="this.classList.toggle('on')"></div><div style="font-size:12px;font-weight:600">Deep-scrape JS-heavy pages (slower, +15s)</div></div>
+      <div class="next-row" style="margin-top:10px"><div></div><button class="btn btn-gold btn-sm" onclick="toast('Customisation saved')">Save settings</button></div>
     </div>
 
     <div class="stage-bar" id="stage-bar">
@@ -957,57 +1083,147 @@ tr:hover td{background:rgba(184,160,200,.06)}
 
   <!-- ══ LEAD GEN — PERSON HUNT ══ -->
   <div class="panel" id="panel-leadgen-personhunt">
-    <div class="page-h"><h1>Person Hunt</h1><p class="sub">Find individual contacts by title, seniority, company, location, and buying signals</p></div>
-    <div class="card">
-      <div class="card-h"><div class="card-num">S</div><div class="card-t">Search Parameters</div></div>
-      <div class="card-body">
-        <div class="grid-3">
-          <div><div class="field-label">Seniority</div><select class="select"><option>C-Suite</option><option>VP / SVP</option><option>Director</option><option>Manager</option><option>Any</option></select></div>
-          <div><div class="field-label">Role</div><select class="select"><option>CTO / CIO</option><option>CFO</option><option>CEO / Founder</option><option>Head of Engineering</option><option>VP Sales</option></select></div>
-          <div><div class="field-label">Industry</div><select class="select"><option>Fintech</option><option>Banking</option><option>Real Estate</option><option>Construction</option><option>Any</option></select></div>
-          <div><div class="field-label">Country</div><select class="select"><option>Saudi Arabia</option><option>UAE</option><option>Kuwait</option><option>GCC (all)</option></select></div>
-          <div><div class="field-label">City</div><select class="select"><option>Riyadh</option><option>Jeddah</option><option>Dammam</option><option>Any</option></select></div>
-          <div><div class="field-label">Result count</div><select class="select"><option>5</option><option>10</option><option>25</option><option>50</option><option>100</option></select></div>
+    <div class="page-h"><h1>Person Hunt</h1><p class="sub">Find individual contacts by title, seniority, company, location, and buying signals · 40+ enrichment sources</p></div>
+    <div class="hunt-layout">
+      <!-- LEFT: Filters -->
+      <div class="hunt-left">
+        <div class="hunt-filter-hdr">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+          Filters — Person mode
         </div>
-        <div style="margin-top:12px"><div class="field-label">Buying signals (optional)</div><div class="chips"><span class="chip on">Hiring now</span><span class="chip">Series A+</span><span class="chip">Tech stack expansion</span><span class="chip">New board member</span><span class="chip">Press release</span><span class="chip">LinkedIn active</span></div></div>
-        <div class="next-row"><div></div><button class="btn btn-primary" onclick="toast('Searching 80+ sources...')">Hunt</button></div>
+        <div class="filter-section open">
+          <div class="filter-section-h" onclick="toggleSection(this)">Person Identity <span class="fs-chev">▸</span></div>
+          <div class="filter-section-body">
+            <div class="field-label">Target titles</div>
+            <input class="input" style="margin-bottom:10px" placeholder="CTO, VP Engineering, …"/>
+            <div class="field-label">Seniority</div>
+            <div class="chips" style="margin-bottom:10px"><span class="chip on">c_level</span><span class="chip on">vp</span><span class="chip" onclick="toggleC(this)">director</span><span class="chip" onclick="toggleC(this)">manager</span></div>
+            <div class="field-label">Department</div>
+            <div class="chips" style="margin-bottom:10px"><span class="chip on">engineering</span><span class="chip" onclick="toggleC(this)">product</span><span class="chip" onclick="toggleC(this)">it</span></div>
+            <div class="field-label">Languages</div>
+            <div class="chips"><span class="chip on">Arabic</span><span class="chip on">English</span><span class="chip" onclick="toggleC(this)">Hindi</span></div>
+          </div>
+        </div>
+        <div class="filter-section open">
+          <div class="filter-section-h" onclick="toggleSection(this)">Firmographics <span class="fs-chev">▸</span></div>
+          <div class="filter-section-body">
+            <div class="field-label">Industry</div>
+            <div class="chips" style="margin-bottom:10px"><span class="chip on">Technology</span><span class="chip" onclick="toggleC(this)">Financial Services</span><span class="chip" onclick="toggleC(this)">Healthcare</span></div>
+            <div class="field-label">Employees</div>
+            <div class="chips"><span class="chip on">11-50</span><span class="chip on">51-200</span><span class="chip" onclick="toggleC(this)">201-500</span></div>
+          </div>
+        </div>
+        <div class="filter-section open">
+          <div class="filter-section-h" onclick="toggleSection(this)">Location <span class="fs-chev">▸</span></div>
+          <div class="filter-section-body">
+            <div class="field-label">City</div>
+            <div class="chips"><span class="chip on">Riyadh</span><span class="chip" onclick="toggleC(this)">Jeddah</span><span class="chip" onclick="toggleC(this)">Dammam</span></div>
+          </div>
+        </div>
+        <div class="filter-section open">
+          <div class="filter-section-h" onclick="toggleSection(this)">Buying Signals <span class="fs-chev">▸</span></div>
+          <div class="filter-section-body">
+            <div class="chips"><span class="chip on">hiring_surge</span><span class="chip on">funding_round</span><span class="chip" onclick="toggleC(this)">expansion</span></div>
+          </div>
+        </div>
+        <button class="btn btn-primary hunt-run-btn" onclick="toast('Person Hunt running · 40+ sources…')">Run Person Hunt →</button>
       </div>
-    </div>
-    <div class="card">
-      <div class="card-h"><div class="card-num" style="background:var(--ok)">5</div><div class="card-t">Results<span class="card-sub">— Saudi Fintech CTOs · 2024 funded</span></div></div>
-      <div class="card-body">
-        <div class="tbl-wrap"><table><thead><tr><th>Name</th><th>Title</th><th>Company</th><th>Location</th><th>Signal</th><th>Tier</th><th></th></tr></thead><tbody>
-          <tr><td><strong>Mohammed AlQasem</strong></td><td>CTO</td><td>Tabby</td><td>Riyadh</td><td><span class="gate-pill gate-ok">Hiring 9</span></td><td><span class="pill pill-a">A+</span></td><td><button class="btn btn-ghost btn-sm" onclick="toast('Enriching...')">Enrich</button></td></tr>
-          <tr><td><strong>Hisham Al-Falih</strong></td><td>CTO · Co-founder</td><td>Lean Tech</td><td>Riyadh</td><td><span class="gate-pill gate-ok">Series A</span></td><td><span class="pill pill-a">A+</span></td><td><button class="btn btn-ghost btn-sm" onclick="toast('Enriching...')">Enrich</button></td></tr>
-          <tr><td><strong>Esam Alkheshnam</strong></td><td>Head of Engineering</td><td>Hala</td><td>Riyadh</td><td><span class="gate-pill gate-warn">4 new hires</span></td><td><span class="pill pill-b">A</span></td><td><button class="btn btn-ghost btn-sm" onclick="toast('Enriching...')">Enrich</button></td></tr>
-          <tr><td><strong>Karim Ben-Aissa</strong></td><td>CTO</td><td>NymCard</td><td>Abu Dhabi</td><td><span class="gate-pill gate-ok">Board change</span></td><td><span class="pill pill-b">A</span></td><td><button class="btn btn-ghost btn-sm" onclick="toast('Enriching...')">Enrich</button></td></tr>
-          <tr><td><strong>Sara Al-Mutlaq</strong></td><td>VP Engineering</td><td>Tamara</td><td>Riyadh</td><td><span class="gate-pill gate-ok">Hiring 6</span></td><td><span class="pill pill-b">A</span></td><td><button class="btn btn-ghost btn-sm" onclick="toast('Enriching...')">Enrich</button></td></tr>
-        </tbody></table></div>
-        <div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-teal btn-sm" onclick="toast('All 5 enriched')">Enrich All</button><button class="btn btn-gold btn-sm" onclick="toast('Pushed to CRM')">Push to CRM</button><button class="btn btn-ghost btn-sm" onclick="toast('Exported')">Export CSV</button></div>
+      <!-- RIGHT: Pipeline Preview -->
+      <div class="hunt-right">
+        <div class="hunt-run-hdr">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Run · job 1f-42
+          <span class="hunt-run-badge">preview</span>
+          <span class="small" style="margin-left:auto;color:var(--ink-soft)">est. ~45 s</span>
+        </div>
+        <div class="hunt-kpis">
+          <div class="hunt-kpi"><div class="hk-val">~84</div><div class="hk-lbl">Est. Matches</div></div>
+          <div class="hunt-kpi"><div class="hk-val">50</div><div class="hk-lbl">Target Count</div></div>
+          <div class="hunt-kpi"><div class="hk-val">$0</div><div class="hk-lbl">Marginal Cost</div></div>
+        </div>
+        <div class="pipeline-steps">
+          <div class="pipeline-step" onclick="toast('ICP Mapper: building sourcing brief…')"><div class="ps-num">1</div><div><div class="ps-name">ICP Mapper &amp; Source Orchestrator</div><div class="ps-desc">Brief → prioritised sourcing plan</div></div><span class="ps-arr">›</span></div>
+          <div class="pipeline-step" onclick="toast('Lead Harvester: scanning 40+ sources…')"><div class="ps-num">2</div><div><div class="ps-name">Lead Harvester</div><div class="ps-desc">40+ free sources · Tavily · SearXNG · Google News · Saudi RSS</div></div><span class="ps-arr">›</span></div>
+          <div class="pipeline-step" onclick="toast('Deep Enrichment: Scout · GLEIF · OpenCorporates…')"><div class="ps-num">3</div><div><div class="ps-name">Deep Enrichment</div><div class="ps-desc">Scout · GLEIF · OpenCorporates · Wikidata · Gemini</div></div><span class="ps-arr">›</span></div>
+          <div class="pipeline-step" onclick="toast('Signal Intelligence: news · sanctions · regulatory…')"><div class="ps-num">4</div><div><div class="ps-name">Signal Intelligence</div><div class="ps-desc">News · sanctions · regulatory · hiring · contracts</div></div><span class="ps-arr">›</span></div>
+          <div class="pipeline-step" onclick="toast('Validate: MX · domain liveness · dedup…')"><div class="ps-num">5</div><div><div class="ps-name">Validate, Verify &amp; Deduplicate</div><div class="ps-desc">MX · domain liveness · dummy detection · fingerprint dedup</div></div><span class="ps-arr">›</span></div>
+          <div class="pipeline-step" onclick="toast('Scoring: composite ICP · email · LinkedIn · WhatsApp…')"><div class="ps-num">6</div><div><div class="ps-name">ICP Scoring &amp; AI Copywriter</div><div class="ps-desc">Composite score · email · LinkedIn · WhatsApp</div></div><span class="ps-arr">›</span></div>
+          <div class="pipeline-step" onclick="toast('Publishing to CRM · leads · companies…')"><div class="ps-num">7</div><div><div class="ps-name">Publish &amp; Seed</div><div class="ps-desc">Bridges into companies / leads / executives</div></div><span class="ps-arr">›</span></div>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- ══ LEAD GEN — COMPANY HUNT ══ -->
   <div class="panel" id="panel-leadgen-companyhunt">
-    <div class="page-h"><h1>Company Hunt</h1><p class="sub">Find and profile target companies by sector, funding, size, and market signals</p></div>
-    <div class="card">
-      <div class="card-h"><div class="card-num">S</div><div class="card-t">Search Parameters</div></div>
-      <div class="card-body">
-        <div class="grid-3">
-          <div><div class="field-label">Industry</div><select class="select"><option>Fintech</option><option>Banking</option><option>Real Estate</option><option>Construction</option><option>SaaS / Tech</option></select></div>
-          <div><div class="field-label">Employee band</div><select class="select"><option>1-50</option><option>51-200</option><option>201-500</option><option>501-1000</option><option>1000+</option></select></div>
-          <div><div class="field-label">Funding stage</div><select class="select"><option>Any</option><option>Seed</option><option>Series A</option><option>Series B+</option><option>Listed</option></select></div>
-          <div><div class="field-label">Country</div><select class="select"><option>Saudi Arabia</option><option>UAE</option><option>GCC (all)</option></select></div>
-          <div><div class="field-label">Revenue (SAR)</div><select class="select"><option>Any</option><option>&lt;10M</option><option>10-50M</option><option>50-250M</option><option>250M+</option></select></div>
-          <div><div class="field-label">Results</div><select class="select"><option>10</option><option>25</option><option>50</option><option>100</option></select></div>
+    <div class="page-h"><h1>Company Hunt</h1><p class="sub">Find and profile target companies by sector, funding, size, and market signals · CR + GLEIF verified</p></div>
+    <div class="hunt-layout">
+      <!-- LEFT: Filters -->
+      <div class="hunt-left">
+        <div class="hunt-filter-hdr">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+          Filters — Company mode
         </div>
-        <div class="next-row"><div></div><button class="btn btn-primary" onclick="toast('Hunting companies...')">Hunt Companies</button></div>
+        <div class="filter-section open">
+          <div class="filter-section-h" onclick="toggleSection(this)">Company Profile <span class="fs-chev">▸</span></div>
+          <div class="filter-section-body">
+            <div class="field-label">Industry</div>
+            <div class="chips" style="margin-bottom:10px"><span class="chip on">Fintech</span><span class="chip on">Banking</span><span class="chip" onclick="toggleC(this)">SaaS / Tech</span><span class="chip" onclick="toggleC(this)">Real Estate</span></div>
+            <div class="field-label">Funding stage</div>
+            <div class="chips" style="margin-bottom:10px"><span class="chip on">Series A</span><span class="chip on">Series B+</span><span class="chip" onclick="toggleC(this)">Seed</span><span class="chip" onclick="toggleC(this)">Listed</span></div>
+            <div class="field-label">Employees</div>
+            <div class="chips"><span class="chip on">51-200</span><span class="chip on">201-500</span><span class="chip" onclick="toggleC(this)">500+</span></div>
+          </div>
+        </div>
+        <div class="filter-section open">
+          <div class="filter-section-h" onclick="toggleSection(this)">Financials &amp; CR <span class="fs-chev">▸</span></div>
+          <div class="filter-section-body">
+            <div class="field-label">Revenue (SAR)</div>
+            <div class="chips" style="margin-bottom:10px"><span class="chip on">10–50M</span><span class="chip on">50–250M</span><span class="chip" onclick="toggleC(this)">250M+</span></div>
+            <div class="field-label">CR Status</div>
+            <div class="chips"><span class="chip on">Active</span><span class="chip" onclick="toggleC(this)">SAMA licensed</span><span class="chip" onclick="toggleC(this)">CMA listed</span></div>
+          </div>
+        </div>
+        <div class="filter-section open">
+          <div class="filter-section-h" onclick="toggleSection(this)">Location <span class="fs-chev">▸</span></div>
+          <div class="filter-section-body">
+            <div class="field-label">Country / Region</div>
+            <div class="chips" style="margin-bottom:10px"><span class="chip on">Saudi Arabia</span><span class="chip" onclick="toggleC(this)">UAE</span><span class="chip" onclick="toggleC(this)">GCC</span></div>
+            <div class="field-label">City</div>
+            <div class="chips"><span class="chip on">Riyadh</span><span class="chip" onclick="toggleC(this)">Jeddah</span><span class="chip" onclick="toggleC(this)">Dubai</span></div>
+          </div>
+        </div>
+        <div class="filter-section open">
+          <div class="filter-section-h" onclick="toggleSection(this)">Buying Signals <span class="fs-chev">▸</span></div>
+          <div class="filter-section-body">
+            <div class="chips"><span class="chip on">hiring_surge</span><span class="chip on">new_leadership</span><span class="chip" onclick="toggleC(this)">expansion</span><span class="chip" onclick="toggleC(this)">funding_round</span></div>
+          </div>
+        </div>
+        <button class="btn btn-primary hunt-run-btn" onclick="toast('Company Hunt running · CR + GLEIF + Argaam…')">Run Company Hunt →</button>
       </div>
-    </div>
-    <div class="masaar-results">
-      <div class="masaar-card" onclick="toast('Company profile opened')"><div class="mc-head"><div class="mc-logo">T</div><div><div class="mc-name">Tabby</div><div class="mc-meta">Fintech · BNPL · Riyadh</div></div><span class="pill pill-a" style="margin-left:auto">A+</span></div><div class="mc-tags"><span class="mc-tag">Series D · $50M</span><span class="mc-tag">250-500 emp</span><span class="mc-tag">2019</span><span class="mc-tag">Hiring 9</span></div><div class="mc-stats"><div class="mc-stat"><div class="sv">$50M</div><div class="sl">2024 funding</div></div><div class="mc-stat"><div class="sv">350</div><div class="sl">Employees</div></div><div class="mc-stat"><div class="sv">Riyadh</div><div class="sl">HQ</div></div><div class="mc-stat"><div class="sv">4.2×</div><div class="sl">Growth rate</div></div></div></div>
-      <div class="masaar-card" onclick="toast('Company profile opened')"><div class="mc-head"><div class="mc-logo">L</div><div><div class="mc-name">Lean Technologies</div><div class="mc-meta">Fintech · Open Banking · Riyadh</div></div><span class="pill pill-a" style="margin-left:auto">A+</span></div><div class="mc-tags"><span class="mc-tag">Series A · $28M</span><span class="mc-tag">80-150 emp</span><span class="mc-tag">2019</span><span class="mc-tag">Hiring 4</span></div><div class="mc-stats"><div class="mc-stat"><div class="sv">$28M</div><div class="sl">2024 funding</div></div><div class="mc-stat"><div class="sv">120</div><div class="sl">Employees</div></div><div class="mc-stat"><div class="sv">Riyadh</div><div class="sl">HQ</div></div><div class="mc-stat"><div class="sv">3.1×</div><div class="sl">Growth rate</div></div></div></div>
+      <!-- RIGHT: Pipeline Preview -->
+      <div class="hunt-right">
+        <div class="hunt-run-hdr">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Run · job 2c-18
+          <span class="hunt-run-badge">preview</span>
+          <span class="small" style="margin-left:auto;color:var(--ink-soft)">est. ~50 s</span>
+        </div>
+        <div class="hunt-kpis">
+          <div class="hunt-kpi"><div class="hk-val">~240</div><div class="hk-lbl">Est. Matches</div></div>
+          <div class="hunt-kpi"><div class="hk-val">50</div><div class="hk-lbl">Target Count</div></div>
+          <div class="hunt-kpi"><div class="hk-val">$0</div><div class="hk-lbl">Marginal Cost</div></div>
+        </div>
+        <div class="pipeline-steps">
+          <div class="pipeline-step" onclick="toast('ICP Mapper: prioritised company sourcing brief…')"><div class="ps-num">1</div><div><div class="ps-name">ICP Mapper &amp; Source Orchestrator</div><div class="ps-desc">Company profile → prioritised sourcing plan</div></div><span class="ps-arr">›</span></div>
+          <div class="pipeline-step" onclick="toast('Company Harvester: MCI CR · GLEIF · Tadawul…')"><div class="ps-num">2</div><div><div class="ps-name">Company Harvester</div><div class="ps-desc">MCI CR · GLEIF · Tadawul · Argaam · OpenCorporates · Saudi RSS</div></div><span class="ps-arr">›</span></div>
+          <div class="pipeline-step" onclick="toast('Deep Enrichment: Scout · SAMA · MISA · Wikidata…')"><div class="ps-num">3</div><div><div class="ps-name">Deep Enrichment</div><div class="ps-desc">Scout · SAMA · MISA · Wikidata · Gemini · website crawl</div></div><span class="ps-arr">›</span></div>
+          <div class="pipeline-step" onclick="toast('Signal Intelligence scanning…')"><div class="ps-num">4</div><div><div class="ps-name">Signal Intelligence</div><div class="ps-desc">News · sanctions · regulatory · hiring · contracts · funding</div></div><span class="ps-arr">›</span></div>
+          <div class="pipeline-step" onclick="toast('Validate: CR number · domain · liveness…')"><div class="ps-num">5</div><div><div class="ps-name">Validate, Verify &amp; Deduplicate</div><div class="ps-desc">CR number · domain liveness · dummy detection · fingerprint dedup</div></div><span class="ps-arr">›</span></div>
+          <div class="pipeline-step" onclick="toast('Scoring: ICP fit · key contacts · outreach…')"><div class="ps-num">6</div><div><div class="ps-name">ICP Scoring &amp; Contact Finder</div><div class="ps-desc">Composite ICP score · key contacts · email · LinkedIn</div></div><span class="ps-arr">›</span></div>
+          <div class="pipeline-step" onclick="toast('Publishing to CRM · account hub…')"><div class="ps-num">7</div><div><div class="ps-name">Publish &amp; Seed</div><div class="ps-desc">Bridges into accounts / companies / key contacts</div></div><span class="ps-arr">›</span></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1124,11 +1340,28 @@ tr:hover td{background:rgba(184,160,200,.06)}
       <div class="masaar-card"><div class="mc-head"><div class="mc-logo">T</div><div><div class="mc-name">Tabby Digital Finance Co.</div><div class="mc-meta">CR: 1010***543 · Riyadh · 2019</div></div><span class="pill pill-a" style="margin-left:auto">Active</span></div><div class="mc-tags"><span class="mc-tag">Fintech</span><span class="mc-tag">SAR 50M cap</span><span class="mc-tag">SAMA licensed</span><span class="mc-tag">250-500 emp</span></div><div class="mc-stats"><div class="mc-stat"><div class="sv">1010***543</div><div class="sl">CR Number</div></div><div class="mc-stat"><div class="sv">2019</div><div class="sl">Founded</div></div><div class="mc-stat"><div class="sv">Active</div><div class="sl">CR Status</div></div><div class="mc-stat"><div class="sv">SAR 50M</div><div class="sl">Capital</div></div></div></div>
       <div class="masaar-card"><div class="mc-head"><div class="mc-logo">L</div><div><div class="mc-name">Lean Technologies Ltd.</div><div class="mc-meta">CR: 1010***221 · Riyadh · 2019</div></div><span class="pill pill-a" style="margin-left:auto">Active</span></div><div class="mc-tags"><span class="mc-tag">Fintech</span><span class="mc-tag">SAR 20M cap</span><span class="mc-tag">SAMA licensed</span><span class="mc-tag">80-150 emp</span></div><div class="mc-stats"><div class="mc-stat"><div class="sv">1010***221</div><div class="sl">CR Number</div></div><div class="mc-stat"><div class="sv">2019</div><div class="sl">Founded</div></div><div class="mc-stat"><div class="sv">Active</div><div class="sl">CR Status</div></div><div class="mc-stat"><div class="sv">SAR 20M</div><div class="sl">Capital</div></div></div></div>
     </div>
+    <!-- SOURCES SECTION -->
+    <div class="src-panel">
+      <div class="src-panel-hdr">
+        <div><div class="src-panel-h">Engine Sources — Masaar CR Intelligence</div><div class="src-panel-sub">8 government &amp; market sources · daily sync</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="toast('Source weights editor opened')">Edit weights</button>
+      </div>
+      <div class="src-grid">
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">MCI Commercial Registry</div><div class="src-cat">Saudi Gov · Primary · CR number, status, capital</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">SAMA (Central Bank KSA)</div><div class="src-cat">Saudi Gov · Fintech licenses · banking auth</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">CMA (Capital Market Auth)</div><div class="src-cat">Saudi Gov · Tadawul · Nomu-listed</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">Monsha'at SME Authority</div><div class="src-cat">Saudi Gov · SME registration · support</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">MISA (Investment Auth)</div><div class="src-cat">Saudi Gov · Foreign investment licenses</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">GASTAT</div><div class="src-cat">Saudi Gov · Economic statistics · sector data</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot warn"></div><div><div class="src-name">REGA (Real Estate Auth)</div><div class="src-cat">Saudi Gov · RE licenses · developer registry</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot off"></div><div><div class="src-name">SDAIA (Data &amp; AI Auth)</div><div class="src-cat">Saudi Gov · Tech sector · AI licenses</div></div><div class="toggle src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+      </div>
+    </div>
   </div>
 
   <!-- ══ LEAD GEN — MASAAR DB ══ -->
   <div class="panel" id="panel-leadgen-masaardb">
-    <div class="page-h"><h1>Masaar Database</h1><p class="sub">Full Saudi CR database browser — filter, segment, and export at scale</p></div>
+    <div class="page-h"><h1>Masaar Database</h1><p class="sub">Full Saudi CR database browser — 1.2M records · filter, segment, and export at scale</p></div>
     <div class="kpi-strip">
       <div class="kpi-s"><div class="val">1.2M</div><div class="lbl">Total records</div></div>
       <div class="kpi-s"><div class="val">94%</div><div class="lbl">With contacts</div></div>
@@ -1139,18 +1372,44 @@ tr:hover td{background:rgba(184,160,200,.06)}
     <div class="card">
       <div class="card-body">
         <div class="grid-3" style="gap:10px;margin-bottom:14px">
-          <div><div class="field-label">Region</div><select class="select"><option>All</option><option>Riyadh</option><option>Mecca</option><option>Eastern Province</option></select></div>
-          <div><div class="field-label">Sector</div><select class="select"><option>All</option><option>Fintech</option><option>Construction</option><option>Retail</option></select></div>
+          <div><div class="field-label">Region</div><select class="select"><option>All</option><option>Riyadh</option><option>Mecca</option><option>Eastern Province</option><option>Jeddah</option><option>Dammam</option></select></div>
+          <div><div class="field-label">Sector</div><select class="select"><option>All</option><option>Fintech</option><option>Construction</option><option>Retail</option><option>Healthcare</option><option>Energy</option></select></div>
           <div><div class="field-label">Status</div><select class="select"><option>Active</option><option>Suspended</option><option>All</option></select></div>
+          <div><div class="field-label">Capital (SAR)</div><select class="select"><option>Any</option><option>&lt;5M</option><option>5–50M</option><option>50M+</option></select></div>
+          <div><div class="field-label">Founded after</div><select class="select"><option>Any</option><option>2020</option><option>2018</option><option>2015</option></select></div>
+          <div><div class="field-label">SAMA / CMA</div><select class="select"><option>All</option><option>SAMA licensed</option><option>CMA licensed</option><option>Unlicensed</option></select></div>
         </div>
-        <div style="display:flex;gap:8px;margin-bottom:14px"><button class="btn btn-primary" onclick="toast('Filtering 1.2M records...')">Apply Filters</button><button class="btn btn-ghost btn-sm" onclick="toast('Exported to CSV')">Export</button><span class="small" style="align-self:center">Showing 1,200,000 records</span></div>
-        <div class="tbl-wrap"><table><thead><tr><th>CR Number</th><th>Company</th><th>Sector</th><th>Region</th><th>Capital</th><th>Status</th></tr></thead><tbody>
-          <tr><td class="mono">1010***543</td><td><strong>Tabby Digital Finance</strong></td><td>Fintech</td><td>Riyadh</td><td>SAR 50M</td><td><span class="pill pill-a">Active</span></td></tr>
-          <tr><td class="mono">1010***221</td><td><strong>Lean Technologies</strong></td><td>Fintech</td><td>Riyadh</td><td>SAR 20M</td><td><span class="pill pill-a">Active</span></td></tr>
-          <tr><td class="mono">1010***884</td><td><strong>Hala Digital Payments</strong></td><td>Fintech</td><td>Riyadh</td><td>SAR 8M</td><td><span class="pill pill-a">Active</span></td></tr>
-          <tr><td class="mono">1010***667</td><td><strong>Tamara Technology</strong></td><td>Fintech</td><td>Riyadh</td><td>SAR 35M</td><td><span class="pill pill-a">Active</span></td></tr>
-          <tr><td class="mono">1010***113</td><td><strong>Lendo SME Finance</strong></td><td>Fintech</td><td>Riyadh</td><td>SAR 15M</td><td><span class="pill pill-a">Active</span></td></tr>
+        <div style="display:flex;gap:8px;margin-bottom:14px"><button class="btn btn-primary" onclick="toast('Filtering 1.2M records...')">Apply Filters</button><button class="btn btn-ghost btn-sm" onclick="toast('Exported to CSV')">Export CSV</button><button class="btn btn-ghost btn-sm" onclick="toast('Pushed to Lead Factory')">Push to Hunt</button><span class="small" style="align-self:center">Showing 1,200,000 records</span></div>
+        <div class="tbl-wrap"><table><thead><tr><th>CR Number</th><th>Company</th><th>Sector</th><th>Region</th><th>Capital</th><th>Status</th><th></th></tr></thead><tbody>
+          <tr><td class="mono">1010***543</td><td><strong>Tabby Digital Finance</strong></td><td>Fintech</td><td>Riyadh</td><td>SAR 50M</td><td><span class="pill pill-a">Active</span></td><td><button class="btn btn-ghost btn-sm" onclick="toast('Enriching...')">Enrich</button></td></tr>
+          <tr><td class="mono">1010***221</td><td><strong>Lean Technologies</strong></td><td>Fintech</td><td>Riyadh</td><td>SAR 20M</td><td><span class="pill pill-a">Active</span></td><td><button class="btn btn-ghost btn-sm" onclick="toast('Enriching...')">Enrich</button></td></tr>
+          <tr><td class="mono">1010***884</td><td><strong>Hala Digital Payments</strong></td><td>Fintech</td><td>Riyadh</td><td>SAR 8M</td><td><span class="pill pill-a">Active</span></td><td><button class="btn btn-ghost btn-sm" onclick="toast('Enriching...')">Enrich</button></td></tr>
+          <tr><td class="mono">1010***667</td><td><strong>Tamara Technology</strong></td><td>Fintech</td><td>Riyadh</td><td>SAR 35M</td><td><span class="pill pill-a">Active</span></td><td><button class="btn btn-ghost btn-sm" onclick="toast('Enriching...')">Enrich</button></td></tr>
+          <tr><td class="mono">1010***113</td><td><strong>Lendo SME Finance</strong></td><td>Fintech</td><td>Riyadh</td><td>SAR 15M</td><td><span class="pill pill-a">Active</span></td><td><button class="btn btn-ghost btn-sm" onclick="toast('Enriching...')">Enrich</button></td></tr>
         </tbody></table></div>
+      </div>
+    </div>
+    <!-- SOURCES SECTION -->
+    <div class="src-panel">
+      <div class="src-panel-hdr">
+        <div><div class="src-panel-h">Data Sources — Masaar Database</div><div class="src-panel-sub">14 active sources · real-time sync</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="toast('Source manager opened')">Manage sources</button>
+      </div>
+      <div class="src-grid">
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">MCI Commercial Registry</div><div class="src-cat">Saudi Gov · Primary</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">SAMA (Central Bank)</div><div class="src-cat">Saudi Gov · Licenses</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">CMA (Capital Market)</div><div class="src-cat">Saudi Gov · Listed cos</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">MISA (Investment Auth)</div><div class="src-cat">Saudi Gov · Foreign inv</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">Monsha'at (SME Auth)</div><div class="src-cat">Saudi Gov · SME data</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">GASTAT</div><div class="src-cat">Saudi Gov · Statistics</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">Tadawul (Stock Exchange)</div><div class="src-cat">Market · Listed cos</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">Argaam Financial News</div><div class="src-cat">Arabic Press · Financial</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">GLEIF (LEI Registry)</div><div class="src-cat">Global Open · Legal IDs</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">OpenCorporates</div><div class="src-cat">Global Open · Corp data</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot warn"></div><div><div class="src-name">REGA (Real Estate Auth)</div><div class="src-cat">Saudi Gov · Sector</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">Mubasher Markets</div><div class="src-cat">Market Data · Real-time</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot off"></div><div><div class="src-name">PIF Portfolio</div><div class="src-cat">Saudi Gov · Sovereign fund</div></div><div class="toggle src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot off"></div><div><div class="src-name">NEOM Updates</div><div class="src-cat">Sector · Mega-projects</div></div><div class="toggle src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
       </div>
     </div>
   </div>
@@ -1159,18 +1418,73 @@ tr:hover td{background:rgba(184,160,200,.06)}
   <div class="panel" id="panel-leadgen-aidbbuilder">
     <div class="page-h"><h1>AI DB Builder</h1><p class="sub">AI-generated custom databases — define schema, sources, and refresh rules in plain English</p></div>
     <div class="placeholder-grid">
-      <div class="ph-card" onclick="toast('New DB builder started')"><div class="ph-ico">🏗️</div><div class="ph-t">Build New Database</div><div class="ph-d">Define schema, sources, enrichment rules, and schedule</div></div>
-      <div class="ph-card" onclick="toast('Saudi Fintech CTOs DB opened')"><div class="ph-ico">💳</div><div class="ph-t">Saudi Fintech CTOs</div><div class="ph-d">847 records · Last refreshed 2h ago · A+ ICP</div></div>
-      <div class="ph-card" onclick="toast('GCC Real Estate DB opened')"><div class="ph-ico">🏢</div><div class="ph-t">GCC Real Estate Developers</div><div class="ph-d">1,240 companies · Daily refresh · Tadawul-listed</div></div>
-      <div class="ph-card" onclick="toast('NEOM Contractors DB opened')"><div class="ph-ico">🔨</div><div class="ph-t">NEOM Contractors</div><div class="ph-d">312 vendors · Signal watch active</div></div>
-      <div class="ph-card" onclick="toast('AI DB building...')"><div class="ph-ico">🤖</div><div class="ph-t">AI-Defined Database</div><div class="ph-d">Describe what you want in plain language</div></div>
-      <div class="ph-card" onclick="toast('Scheduled DBs opened')"><div class="ph-ico">📅</div><div class="ph-t">Scheduled Refreshes</div><div class="ph-d">8 databases on auto-refresh</div></div>
+      <div class="ph-card" onclick="toast('New DB builder started')">
+        <div class="ph-ico" style="display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8" style="width:32px;height:32px"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v8M8 12h8"/></svg>
+        </div>
+        <div class="ph-t">Build New Database</div><div class="ph-d">Define schema, sources, enrichment rules, and schedule</div>
+      </div>
+      <div class="ph-card" onclick="toast('Saudi Fintech CTOs DB opened')">
+        <div class="ph-ico" style="display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="1.8" style="width:32px;height:32px"><circle cx="12" cy="8" r="4"/><path d="M4 20v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"/><path d="M17 8l2 2 4-4"/></svg>
+        </div>
+        <div class="ph-t">Saudi Fintech CTOs</div><div class="ph-d">847 records · Last refreshed 2h ago · A+ ICP</div>
+      </div>
+      <div class="ph-card" onclick="toast('GCC Real Estate DB opened')">
+        <div class="ph-ico" style="display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8" style="width:32px;height:32px"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21V13h6v8"/><rect x="10" y="8" width="4" height="4" rx="1"/></svg>
+        </div>
+        <div class="ph-t">GCC Real Estate Developers</div><div class="ph-d">1,240 companies · Daily refresh · Tadawul-listed</div>
+      </div>
+      <div class="ph-card" onclick="toast('NEOM Contractors DB opened')">
+        <div class="ph-ico" style="display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8" style="width:32px;height:32px"><path d="M14 5l-5 5 2 2-5 5"/><circle cx="17" cy="4" r="3"/><circle cx="5" cy="19" r="3"/></svg>
+        </div>
+        <div class="ph-t">NEOM Contractors</div><div class="ph-d">312 vendors · Signal watch active</div>
+      </div>
+      <div class="ph-card" onclick="toast('AI DB building...')">
+        <div class="ph-ico" style="display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="1.8" style="width:32px;height:32px"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18M3 12h18"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <div class="ph-t">AI-Defined Database</div><div class="ph-d">Describe what you want in plain language</div>
+      </div>
+      <div class="ph-card" onclick="toast('Scheduled DBs opened')">
+        <div class="ph-ico" style="display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8" style="width:32px;height:32px"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="1" fill="var(--gold)"/></svg>
+        </div>
+        <div class="ph-t">Scheduled Refreshes</div><div class="ph-d">8 databases on auto-refresh</div>
+      </div>
     </div>
     <div class="card">
       <div class="card-h"><div class="card-num">A</div><div class="card-t">AI Database Builder<span class="card-sub">— describe your database in plain English</span></div></div>
       <div class="card-body">
+        <div class="grid-2" style="gap:10px;margin-bottom:12px">
+          <div><div class="field-label">Schema template</div><select class="select"><option>Person (contacts)</option><option>Company (accounts)</option><option>Custom — AI-defined</option></select></div>
+          <div><div class="field-label">Refresh schedule</div><select class="select"><option>Daily at 03:00 AST</option><option>Weekly</option><option>On demand</option><option>Real-time signals</option></select></div>
+        </div>
         <textarea class="input" style="min-height:80px" placeholder="Example: Build me a database of Saudi fintech CTOs at Series A+ companies that are actively hiring engineers, refreshed daily with LinkedIn and Argaam signals..."></textarea>
         <div class="next-row"><div></div><button class="btn btn-primary" onclick="toast('AI building your database...')">Build with AI</button></div>
+      </div>
+    </div>
+    <!-- SOURCES SECTION -->
+    <div class="src-panel">
+      <div class="src-panel-hdr">
+        <div><div class="src-panel-h">Available Sources — AI DB Builder</div><div class="src-panel-sub">40+ sources auto-selected by AI · customise per database</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="toast('Full source library: 80 sources')">Browse all 80</button>
+      </div>
+      <div class="src-grid">
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">Tavily Search API</div><div class="src-cat">Web Search · Real-time</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">SearXNG</div><div class="src-cat">Web Search · Open-source</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">Google News RSS</div><div class="src-cat">News · GCC regional</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">Argaam Financial</div><div class="src-cat">Arabic Press · Saudi market</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">GLEIF LEI Registry</div><div class="src-cat">Global Open · Legal IDs</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">OpenCorporates</div><div class="src-cat">Global Open · Corp data</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">Wikidata</div><div class="src-cat">Global Open · Entity data</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">Wamda (MENA Startups)</div><div class="src-cat">Regional Press · Funding</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">Scout (LinkedIn scrape)</div><div class="src-cat">Social · Profile data</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot ok"></div><div><div class="src-name">MCI Commercial Registry</div><div class="src-cat">Saudi Gov · CR data</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot warn"></div><div><div class="src-name">OpenSanctions</div><div class="src-cat">Compliance · Sanctions screening</div></div><div class="toggle on src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
+        <div class="src-entry"><div class="src-dot off"></div><div><div class="src-name">LinkedIn Sales Navigator</div><div class="src-cat">Social · Premium API</div></div><div class="toggle src-toggle-cell" onclick="this.classList.toggle('on')"></div></div>
       </div>
     </div>
   </div>
@@ -1476,6 +1790,21 @@ document.addEventListener('click',()=>document.querySelectorAll('.ms-pop').forEa
 
 function setTarget(t){state.target=t;document.querySelectorAll('.target-opt[data-tgt]').forEach(el=>el.classList.toggle('on',el.dataset.tgt===t));buildMega();}
 function toggleC(el,single){if(single){el.closest('.chips').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));}el.classList.toggle('on');}
+
+function toggleSection(headerEl){
+  const sec=headerEl.closest('.filter-section');
+  sec.classList.toggle('open');
+}
+
+function toggleAITool(tool){
+  const btnId='btn-'+tool;
+  const panelId='ai-'+tool+'-panel';
+  const btn=document.getElementById(btnId);
+  const panel=document.getElementById(panelId);
+  if(!btn||!panel)return;
+  const isOn=btn.classList.toggle('active');
+  panel.classList.toggle('show',isOn);
+}
 function onIndustry(){state.industry=document.getElementById('ind-sel').value;document.getElementById('ind-name').textContent=document.getElementById('ind-sel').selectedOptions[0].text;renderSubFilters();buildMega();}
 function renderSubFilters(){
   const z=document.getElementById('sub-filters');if(!z)return;z.innerHTML='';
