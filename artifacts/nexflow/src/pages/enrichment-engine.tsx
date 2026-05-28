@@ -252,7 +252,7 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   );
 }
 
-type SettingsTab = "apikeys" | "signals" | "tiers" | "relationship" | "dedup" | "automation";
+type SettingsTab = "apikeys" | "signals" | "tiers" | "relationship" | "dedup" | "validation" | "automation";
 
 function SettingsPanel() {
   const [subTab,    setSubTab]    = useState<SettingsTab>("apikeys");
@@ -269,6 +269,7 @@ function SettingsPanel() {
     { id:"tiers",       label:"Enrichment Tiers" },
     { id:"relationship",label:"Relationship Engines" },
     { id:"dedup",       label:"Deduplication" },
+    { id:"validation",  label:"Validation & Verify" },
     { id:"automation",  label:"Automation" },
   ];
 
@@ -374,27 +375,219 @@ function SettingsPanel() {
 
       {/* ── Signal Sources ── */}
       {subTab === "signals" && (
-        <div className="rounded-xl border border-[#E8E2F0] bg-white">
-          {[
-            {name:"LinkedIn",       meta:"Job posts · profile changes · hiring signals",        status:"Connected", statusColor:"#4CAA84"},
-            {name:"Argaam",         meta:"Saudi financial news · real-time RSS",                status:"Connected", statusColor:"#4CAA84"},
-            {name:"Wamda",          meta:"MENA startup funding rounds",                         status:"Connected", statusColor:"#4CAA84"},
-            {name:"MoCI / Saudi CR",meta:"Ownership changes · new registrations",               status:"Partial",   statusColor:GOLD},
-            {name:"X / Twitter",    meta:"Executive announcements · company posts",             status:"Connected", statusColor:"#4CAA84"},
-            {name:"Reuters ME",     meta:"GCC region news · M&A · leadership changes",          status:"Connected", statusColor:"#4CAA84"},
-            {name:"Custom RSS",     meta:"+ Add your own RSS feed",                             status:"Custom",    statusColor:"#9B8EAC"},
-          ].map((s, i) => (
-            <div key={s.name} className="flex items-center gap-3 border-b border-[#F0EBF8] px-4 py-3 last:border-0">
-              <div className="flex-1">
-                <div className="text-[12px] font-bold text-[#4A3B5C]">{s.name}</div>
-                <div className="text-[11px] text-[#9B8EAC]">{s.meta}</div>
+        <div className="flex flex-col gap-3">
+          {/* Summary KPIs */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              {v:"82", l:"Total sources mapped", c:PRI},
+              {v:"31", l:"Active / connected",   c:"#4CAA84"},
+              {v:"19", l:"Key required (ready)", c:TEAL},
+              {v:"32", l:"Plug-key stubs",       c:GOLD},
+            ].map(k => (
+              <div key={k.l} className="rounded-xl border border-[#E8E2F0] bg-white p-3 text-center">
+                <div className="text-[20px] font-bold" style={{ color: k.c }}>{k.v}</div>
+                <div className="text-[10px] font-medium text-[#9B8EAC]">{k.l}</div>
               </div>
-              <span className="rounded-full px-2.5 py-0.5 text-[10px] font-bold" style={{ background: s.statusColor + "20", color: s.statusColor }}>{s.status}</span>
-              {s.name === "Custom RSS"
-                ? <button onClick={() => showToast("Add RSS feed")} className="rounded-lg border border-[#E2D8EA] px-3 py-1 text-[11px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">+ Add</button>
-                : <Toggle on={srcStates[i] ?? true} onClick={() => toggleSrc(i)} />}
+            ))}
+          </div>
+
+          {/* Source groups */}
+          {[
+            {
+              cat: "KSA Gov & Registries",
+              badge: "🇸🇦 Saudi-only",
+              badgeColor: PRI,
+              sources: [
+                {name:"MC.gov.sa (Commercial Registry)", meta:"Official CR lookup · Playwright stealth + CAPTCHA solver", type:"Scraper", status:"Active"},
+                {name:"MOCI Registry",                   meta:"Ministry of Commerce · ownership changes · new registrations", type:"Scraper", status:"Active"},
+                {name:"Maroof.sa",                       meta:"Verified business profiles · consumer-facing CR data", type:"Scraper", status:"Active"},
+                {name:"Etimad Platform",                 meta:"Gov tender awards · supplier registrations · contract data", type:"Scraper", status:"Active"},
+                {name:"MODON Industrial City",           meta:"Industrial zone tenants · factory footprint", type:"Scraper", status:"Active"},
+                {name:"Wathiq KSA CR",                   meta:"Verified CR number + legal name + status (API key required)", type:"API Key", status:"Key req."},
+                {name:"Najiz eServices",                 meta:"Court cases · judicial notices · gov filings", type:"Scraper", status:"Beta"},
+                {name:"ZATCA Tax Authority",             meta:"VAT registration · tax compliance status", type:"Scraper", status:"Beta"},
+                {name:"SAMA (Central Bank)",             meta:"Licensed FIs · SAMA sanction list", type:"Scraper", status:"Active"},
+                {name:"CMA Capital Markets",             meta:"Listed companies · disclosures · insider trades", type:"Scraper", status:"Active"},
+                {name:"HRDF / Taqat",                    meta:"Saudisation % · workforce development grants", type:"Scraper", status:"Beta"},
+                {name:"MISA (Investment Authority)",     meta:"FDI licenses · sector attractiveness data", type:"Scraper", status:"Beta"},
+                {name:"NCBE (Business Env.)",            meta:"Business climate scores · regulatory improvements", type:"Free", status:"Active"},
+                {name:"GASTAT",                          meta:"Population census · economic indicators · sector stats", type:"Free", status:"Active"},
+              ],
+            },
+            {
+              cat: "Arabic Press & Financial News",
+              badge: "RSS · Near-real-time",
+              badgeColor: TEAL,
+              sources: [
+                {name:"Argaam",          meta:"Tadawul-listed company news · earnings · analyst reports (RSS + API)", type:"Free",    status:"Active"},
+                {name:"Mubasher",        meta:"Arabic financial news · GCC markets · MENA economics", type:"Free",    status:"Active"},
+                {name:"Al-Eqtisadiah",   meta:"Saudi business newspaper · leadership interviews · policy news", type:"Scraper", status:"Active"},
+                {name:"Saudi Gazette",   meta:"English KSA news · government announcements", type:"Scraper", status:"Active"},
+                {name:"Arab News",       meta:"English GCC news · large corporate moves · Vision 2030", type:"Scraper", status:"Active"},
+                {name:"Zawya (Refinitiv)",meta:"MENA company profiles · funding · M&A (API key for full access)", type:"API Key", status:"Key req."},
+                {name:"Maal.sa",         meta:"Saudi financial portal · SME credit · real estate data", type:"Scraper", status:"Beta"},
+              ],
+            },
+            {
+              cat: "GCC Native Intelligence",
+              badge: "🌍 MENA-first",
+              badgeColor: GOLD,
+              sources: [
+                {name:"Wamda",        meta:"MENA startup funding rounds · accelerator portfolio · founder profiles", type:"Free",    status:"Active"},
+                {name:"MAGNiTT",      meta:"GCC/MENA VC & PE database · investors · portfolio mapping (API key)", type:"API Key", status:"Key req."},
+                {name:"Dhow",         meta:"GCC-native contacts · Arabic names · WhatsApp seeds (native API)", type:"API Key", status:"Key req."},
+                {name:"Decypha",      meta:"All 6 GCC exchanges · financials · board composition · ownership", type:"API Key", status:"Key req."},
+                {name:"MENA Bytes",   meta:"MENA tech startup news · funding · exits · pivots", type:"Scraper", status:"Active"},
+                {name:"Gulf News",    meta:"UAE-sourced pan-GCC business news · leadership announcements", type:"Scraper", status:"Active"},
+                {name:"Gulf Business",meta:"C-suite profiles · GCC 100 lists · sector awards", type:"Scraper", status:"Beta"},
+                {name:"Reuters ME",   meta:"MENA bureau · M&A · sovereign fund moves · oil & gas", type:"Scraper", status:"Active"},
+                {name:"Bloomberg ME", meta:"GCC markets terminal data (API subscription required)", type:"API Key", status:"Key req."},
+                {name:"Hiring Signal Scraper", meta:"LinkedIn / Bayt / Glassdoor · active job postings → growth signals", type:"Scraper", status:"Active"},
+              ],
+            },
+            {
+              cat: "Open Data APIs",
+              badge: "Free · No key",
+              badgeColor: "#4CAA84",
+              sources: [
+                {name:"GLEIF LEI Registry",   meta:"Global legal entity identifiers · cross-border ownership verification", type:"Free", status:"Active"},
+                {name:"OpenCorporates",        meta:"CR numbers · founding year · country · public filing cross-check", type:"Free", status:"Active"},
+                {name:"Wikidata SPARQL",       meta:"Founded year · headcount · HQ · notable leadership from linked data", type:"Free", status:"Active"},
+                {name:"Clearbit Logo CDN",     meta:"Company logo resolution from domain (no key, instant)", type:"Free", status:"Active"},
+                {name:"GitHub Org",            meta:"Hiring signals · tech stack · open-source activity (60 req/hr free)", type:"Free", status:"Active"},
+                {name:"Tadawul / DFM / ADX",  meta:"GCC public-market revenue · ISIN · sector from exchange APIs", type:"Free", status:"Active"},
+                {name:"Email Permutator",      meta:"Derives likely email patterns from name + domain (pure JS)", type:"Free", status:"Active"},
+                {name:"Public Web Scraper",    meta:"Cheerio + Playwright stealth · About / Contact / Careers pages", type:"Scraper", status:"Active"},
+              ],
+            },
+            {
+              cat: "AI Research Engines",
+              badge: "AI-powered",
+              badgeColor: "#7B6E8D",
+              sources: [
+                {name:"Perplexity Sonar",          meta:"Deep web research · citations · real-time company profiling", type:"API Key", status:"Active"},
+                {name:"Gemini 2.5 Flash (Search)", meta:"Grounded web search · structured field extraction · bilingual", type:"API Key", status:"Active"},
+                {name:"OpenRouter — AI Search",    meta:"Multi-LLM search router · DeepSeek / Llama / Moonshot stubs", type:"API Key", status:"Active"},
+                {name:"OpenRouter — Extractor",    meta:"Structured field extraction from messy HTML/PDF content", type:"API Key", status:"Active"},
+                {name:"OpenRouter — Composer",     meta:"Bilingual report composer · AR/EN synthesis layer", type:"API Key", status:"Active"},
+                {name:"News Seeder",               meta:"Perplexity web search + DeepSeek synthesis for news signals", type:"AI",     status:"Active"},
+                {name:"Python / Crawl4AI",         meta:"Playwright headless · HTML→Markdown · AI-structured extraction", type:"Scraper", status:"Beta"},
+                {name:"Groq (stub)",               meta:"Ultra-fast inference fallback · activates via GROQ_API_KEY", type:"Stub",   status:"Stub"},
+              ],
+            },
+            {
+              cat: "Western Contact APIs",
+              badge: "API key required",
+              badgeColor: "#9B8EAC",
+              sources: [
+                {name:"Apollo.io",          meta:"~20–30M MENA contacts · email + phone + title + company data", type:"API Key", status:"Key req."},
+                {name:"Hunter.io",          meta:"Email finder + verifier · domain pattern detection", type:"API Key", status:"Active"},
+                {name:"Lusha",              meta:"Direct-dial mobile + work email · GDPR-compliant", type:"API Key", status:"Key req."},
+                {name:"Crunchbase",         meta:"Funding rounds · size · industry · investors · logo", type:"API Key", status:"Key req."},
+                {name:"RocketReach",        meta:"Email + phone + LinkedIn for global executives", type:"API Key", status:"Key req."},
+                {name:"People Data Labs",   meta:"Email · phone · seniority · firmographics at scale", type:"API Key", status:"Key req."},
+                {name:"Wappalyzer",         meta:"Tech stack detection · GCC payment processors · SaaS signals", type:"API Key", status:"Key req."},
+                {name:"FullContact",        meta:"Phone → person resolution · WhatsApp seed validation", type:"Stub",   status:"Stub"},
+                {name:"D&B Direct+",        meta:"Corporate hierarchies · GCC subsidiaries · firmographic depth", type:"Stub",   status:"Stub"},
+                {name:"Breeze Intelligence",meta:"Clearbit successor · company enrichment (key required)", type:"Stub",   status:"Stub"},
+                {name:"Bombora",            meta:"B2B buying intent signals · topic-level intent data", type:"Stub",   status:"Stub"},
+                {name:"Clay",               meta:"Waterfall enrichment across 75+ providers · GCC coverage", type:"Stub",   status:"Stub"},
+              ],
+            },
+            {
+              cat: "Chamber Directories",
+              badge: "Scraped",
+              badgeColor: "#88B8B0",
+              sources: [
+                {name:"Moores Rowland KSA", meta:"500+ member directory · contact + sector + region", type:"Scraper", status:"Active"},
+                {name:"Arab-British Chamber",meta:"UK-GCC bilateral trade member companies", type:"Scraper", status:"Active"},
+                {name:"AmCham Saudi",        meta:"US-KSA business council member listing", type:"Scraper", status:"Active"},
+                {name:"SBBC",               meta:"Saudi-British Business Council directory", type:"Scraper", status:"Active"},
+                {name:"JCC (Jordan)",        meta:"Jordanian Chamber of Commerce member search", type:"Scraper", status:"Beta"},
+                {name:"FCC (French)",        meta:"French-Saudi Chamber member directory", type:"Scraper", status:"Beta"},
+                {name:"German-Arab Chamber", meta:"GACIC member companies · bilateral trade", type:"Scraper", status:"Beta"},
+                {name:"GCC Chambers (collective)", meta:"Umbrella scraper across all 6-country GCC chamber portals", type:"Scraper", status:"Beta"},
+              ],
+            },
+            {
+              cat: "Compliance & Sanctions Screening",
+              badge: "Regulatory",
+              badgeColor: "#D56B7A",
+              sources: [
+                {name:"OFAC SDN List",          meta:"US sanctions · Specially Designated Nationals", type:"Free", status:"Active"},
+                {name:"UN Security Council",    meta:"Global UN sanctions · terrorism + proliferation", type:"Free", status:"Active"},
+                {name:"EU Consolidated List",   meta:"European sanctions list · entity + person screening", type:"Free", status:"Active"},
+                {name:"CMA (KSA Capital Mkt)",  meta:"Insider trading prohibitions · market manipulation flags", type:"Free", status:"Active"},
+                {name:"SAMA Blacklist",         meta:"KSA Central Bank flagged entities", type:"Free", status:"Active"},
+                {name:"ZATCA Compliance",       meta:"VAT non-compliance + tax evasion notices", type:"Scraper", status:"Beta"},
+              ],
+            },
+            {
+              cat: "Plug-Key Stubs (Built · Key to Activate)",
+              badge: "Disabled by default",
+              badgeColor: "#C8A880",
+              sources: [
+                {name:"ZoomInfo",        meta:"Enterprise B2B database · intent data · org charts", type:"Stub", status:"Stub"},
+                {name:"Cognism",         meta:"GDPR-compliant B2B data · phone-verified mobiles", type:"Stub", status:"Stub"},
+                {name:"Seamless.AI",     meta:"Real-time AI contact finding · email + mobile", type:"Stub", status:"Stub"},
+                {name:"Kaspr",           meta:"LinkedIn extension data · European + GCC expats", type:"Stub", status:"Stub"},
+                {name:"Datanyze",        meta:"Technographics + company signals", type:"Stub", status:"Stub"},
+                {name:"SignalHire",      meta:"Email + phone from LinkedIn profile URL", type:"Stub", status:"Stub"},
+                {name:"ProxyCurl",       meta:"LinkedIn profile API · company data · job posts", type:"Stub", status:"Stub"},
+                {name:"Lead411",         meta:"Email + direct dial + intent data", type:"Stub", status:"Stub"},
+                {name:"Prospeo",         meta:"Email finder + domain search + bulk enrichment", type:"Stub", status:"Stub"},
+                {name:"SalesIntel",      meta:"Human-verified B2B data · buyer intent", type:"Stub", status:"Stub"},
+                {name:"Swordfish AI",    meta:"Personal mobile + direct email finder", type:"Stub", status:"Stub"},
+              ],
+            },
+            {
+              cat: "Manual Only (No Public API)",
+              badge: "Manual",
+              badgeColor: "#9B8EAC",
+              sources: [
+                {name:"LinkedIn Sales Navigator", meta:"Manual export only · no public API · GDPR gated", type:"Manual", status:"Manual"},
+                {name:"Adapt.io",                meta:"Contact data · manual export workflow", type:"Manual", status:"Manual"},
+                {name:"LeadGibbon",              meta:"LinkedIn-sourced email finder · manual", type:"Manual", status:"Manual"},
+                {name:"Explorium",               meta:"Augmented intelligence platform · manual integration", type:"Manual", status:"Manual"},
+                {name:"Vibe Prospecting",        meta:"AI-native prospecting · private beta", type:"Manual", status:"Manual"},
+              ],
+            },
+          ].map(group => (
+            <div key={group.cat} className="rounded-xl border border-[#E8E2F0] bg-white overflow-hidden">
+              <div className="flex items-center gap-2 border-b border-[#E8E2F0] bg-[#FAFAF9] px-4 py-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">{group.cat}</span>
+                <span className="ml-auto rounded-full px-2 py-0.5 text-[9px] font-bold"
+                  style={{ background: group.badgeColor + "22", color: group.badgeColor }}>{group.badge}</span>
+                <span className="rounded-full bg-[#F0EBF8] px-2 py-0.5 text-[9px] font-bold text-[#9B8EAC]">{group.sources.length} sources</span>
+              </div>
+              {group.sources.map((s, i) => {
+                const typeColor = s.type === "Free" ? "#4CAA84" : s.type === "Stub" ? "#9B8EAC" : s.type === "Manual" ? "#C8A880" : s.type === "AI" ? PRI : TEAL;
+                const stColor = s.status === "Active" ? "#4CAA84" : s.status === "Beta" ? GOLD : s.status === "Key req." ? "#88B8B0" : s.status === "Manual" ? "#C8A880" : "#9B8EAC";
+                return (
+                  <div key={s.name} className="flex items-center gap-3 border-b border-[#F5F0FB] px-4 py-2.5 last:border-0 hover:bg-[#FAFAF9]">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[12px] font-bold text-[#4A3B5C]">{s.name}</span>
+                        <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ background: typeColor + "18", color: typeColor }}>{s.type}</span>
+                      </div>
+                      <div className="text-[10px] text-[#9B8EAC] leading-snug truncate">{s.meta}</div>
+                    </div>
+                    <span className="flex-shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold" style={{ background: stColor + "18", color: stColor }}>{s.status}</span>
+                    {s.type === "Manual" || s.type === "Stub"
+                      ? <button onClick={() => showToast("Configure " + s.name)} className="flex-shrink-0 rounded-lg border border-[#E2D8EA] px-2 py-1 text-[10px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">Set key</button>
+                      : <Toggle on={srcStates[i % srcStates.length] ?? true} onClick={() => toggleSrc(i % srcStates.length)} />
+                    }
+                  </div>
+                );
+              })}
             </div>
           ))}
+
+          <div className="flex items-center gap-2 justify-end">
+            <button onClick={() => showToast("Opening custom RSS/endpoint form…")} className="rounded-lg border border-[#E2D8EA] px-4 py-2 text-[12px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">+ Custom source</button>
+            <button onClick={() => showToast("Testing all active sources…")} className="rounded-lg border border-[#E2D8EA] px-4 py-2 text-[12px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">Test all active</button>
+            <button onClick={() => showToast("Source config saved")} className="rounded-lg px-4 py-2 text-[12px] font-bold text-white" style={{ background: PRI }}>Save Sources</button>
+          </div>
         </div>
       )}
 
@@ -535,6 +728,171 @@ function SettingsPanel() {
           <div className="flex justify-end gap-2">
             <button onClick={() => showToast("Running dedup scan…")} className="rounded-lg border border-[#E2D8EA] px-4 py-2 text-[12px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">Run scan now</button>
             <button onClick={() => showToast("Dedup rules saved")} className="rounded-lg px-4 py-2 text-[12px] font-bold text-white" style={{ background: PRI }}>Save Rules</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Validation & Verify ── */}
+      {subTab === "validation" && (
+        <div className="flex flex-col gap-3">
+          {/* Summary tiles */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              {v:"99.1%", l:"Email deliverability", c:"#4CAA84"},
+              {v:"97.8%", l:"Phone E.164 compliance", c:TEAL},
+              {v:"94.3%", l:"CR format accuracy", c:GOLD},
+              {v:"0.2%",  l:"Dummy / bot leads caught", c:"#D56B7A"},
+            ].map(k => (
+              <div key={k.l} className="rounded-xl border border-[#E8E2F0] bg-white p-3 text-center">
+                <div className="text-[18px] font-bold" style={{ color: k.c }}>{k.v}</div>
+                <div className="text-[10px] font-medium text-[#9B8EAC]">{k.l}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Email Validation */}
+          <div className="rounded-xl border border-[#E8E2F0] bg-white overflow-hidden">
+            <div className="border-b border-[#E8E2F0] bg-[#FAFAF9] px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">Email Validation</div>
+            <div className="p-4 grid gap-4 sm:grid-cols-2">
+              {[
+                {l:"DNS + MX Check",       opts:["Required","Warn only","Skip"],         sel:0, hint:"Verify domain has valid mail exchange record"},
+                {l:"Domain Liveness",       opts:["HEAD request","Skip"],                 sel:0, hint:"HTTP probe to confirm domain resolves"},
+                {l:"Dummy Detection",       opts:["Block","Warn","Off"],                  sel:0, hint:"Blocks test@, noreply@, admin@, info@ patterns"},
+                {l:"AI Guess Fallback",     opts:["Allow","Warn","Disallow"],             sel:1, hint:"Use email-permutator pattern when no real email found"},
+                {l:"Cross-source verify",   opts:["2+ sources","1+ source","Single OK"],  sel:0, hint:"Email must appear in multiple sources before trusted"},
+                {l:"Bounce history",        opts:["Block on 1 bounce","2 bounces","Off"], sel:0, hint:"Suppress emails with prior delivery failures"},
+              ].map(f => (
+                <div key={f.l}>
+                  <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">{f.l}</div>
+                  <div className="mb-1 text-[10px] text-[#BDB0CC]">{f.hint}</div>
+                  <div className="flex flex-wrap gap-1">
+                    {f.opts.map((o, i) => (
+                      <span key={o} className="inline-flex cursor-pointer select-none items-center rounded-full px-2.5 py-[3px] text-[11px] font-semibold transition-all"
+                        style={i === f.sel ? { background: PRI, color: "#fff" } : { border: "1px solid #E2D8EA", color: "#7B6E8D" }}>{o}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Phone Validation */}
+          <div className="rounded-xl border border-[#E8E2F0] bg-white overflow-hidden">
+            <div className="border-b border-[#E8E2F0] bg-[#FAFAF9] px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">Phone Validation</div>
+            <div className="p-4 grid gap-4 sm:grid-cols-2">
+              {[
+                {l:"Output format",          opts:["E.164 global","+966 KSA","+971 UAE","Any"], sel:0, hint:"Normalize all phone numbers to this format"},
+                {l:"GCC prefix acceptance",  opts:["All GCC (+966 +971 +973 +965 +968 +974)","KSA only","Global"], sel:0, hint:"Which country prefixes are accepted"},
+                {l:"WhatsApp reachability",  opts:["Check","Skip"],                              sel:0, hint:"Probe WhatsApp Business API to confirm active number"},
+                {l:"Mobile vs landline",     opts:["Prefer mobile","Accept both","Flag landlines"], sel:0, hint:"Mobile-first for WhatsApp outreach"},
+              ].map(f => (
+                <div key={f.l}>
+                  <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">{f.l}</div>
+                  <div className="mb-1 text-[10px] text-[#BDB0CC]">{f.hint}</div>
+                  <div className="flex flex-wrap gap-1">
+                    {f.opts.map((o, i) => (
+                      <span key={o} className="inline-flex cursor-pointer select-none items-center rounded-full px-2.5 py-[3px] text-[11px] font-semibold transition-all"
+                        style={i === f.sel ? { background: TEAL, color: "#fff" } : { border: "1px solid #E2D8EA", color: "#7B6E8D" }}>{o}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* CR Number & Legal Validation */}
+          <div className="rounded-xl border border-[#E8E2F0] bg-white overflow-hidden">
+            <div className="border-b border-[#E8E2F0] bg-[#FAFAF9] px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">CR Number & Legal Entity</div>
+            <div className="p-4 grid gap-4 sm:grid-cols-2">
+              {[
+                {l:"CR format check",        opts:["Strict (format + checksum)","Format only","Off"], sel:0, hint:"KSA CRs are 10 digits; MOCI checksum verified"},
+                {l:"Cross-registry verify",  opts:["MOCI live lookup","GLEIF only","Off"],             sel:0, hint:"Confirm CR exists in official MOCI/GLEIF registry"},
+                {l:"Legal status gate",      opts:["Active only","Warn on suspended","Allow all"],     sel:0, hint:"Block or flag companies with non-active CR status"},
+                {l:"Sanctions screen on CR", opts:["Always","On import","Off"],                        sel:0, hint:"Run OFAC/UN/CMA/SAMA screen when CR is found"},
+              ].map(f => (
+                <div key={f.l}>
+                  <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">{f.l}</div>
+                  <div className="mb-1 text-[10px] text-[#BDB0CC]">{f.hint}</div>
+                  <div className="flex flex-wrap gap-1">
+                    {f.opts.map((o, i) => (
+                      <span key={o} className="inline-flex cursor-pointer select-none items-center rounded-full px-2.5 py-[3px] text-[11px] font-semibold transition-all"
+                        style={i === f.sel ? { background: GOLD, color: "#fff" } : { border: "1px solid #E2D8EA", color: "#7B6E8D" }}>{o}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Fingerprint & Fuzzy Match */}
+          <div className="rounded-xl border border-[#E8E2F0] bg-white overflow-hidden">
+            <div className="border-b border-[#E8E2F0] bg-[#FAFAF9] px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">Lead Fingerprint & Fuzzy Name Matching</div>
+            <div className="p-4 flex flex-col gap-4">
+              <div>
+                <div className="mb-1.5 text-[11px] font-bold text-[#4A3B5C]">Fingerprint Match Keys <span className="text-[10px] text-[#9B8EAC] font-normal">(checked in priority order)</span></div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    {k:"Email",        on:true  },
+                    {k:"Phone",        on:true  },
+                    {k:"CR Number",    on:true  },
+                    {k:"Domain",       on:true  },
+                    {k:"LinkedIn URL", on:true  },
+                    {k:"Name + Company", on:false},
+                  ].map(fp => (
+                    <div key={fp.k} className="flex items-center gap-1.5 rounded-full border px-3 py-1"
+                      style={{ borderColor: fp.on ? PRI : "#E2D8EA", background: fp.on ? PRI + "12" : "transparent" }}>
+                      <Toggle on={fp.on} onClick={() => showToast("Fingerprint key updated")} />
+                      <span className="text-[11px] font-semibold" style={{ color: fp.on ? PRI : "#9B8EAC" }}>{fp.k}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {[
+                  {l:"Fuzzy name threshold",     opts:["95% (strict)","88% (standard)","80% (loose)","Off"], sel:1, hint:"Jaro-Winkler similarity threshold for name dedup"},
+                  {l:"Arabic transliteration",   opts:["Always","On-request","Off"],                         sel:0, hint:"Mohammed ↔ محمد — Buckwalter + phonetic bridge"},
+                  {l:"Company name normalisation",opts:["Strip suffix (LLC/Co.)","Exact","Off"],             sel:0, hint:"'Acme Trading Co.' = 'Acme Trading LLC'"},
+                  {l:"Confidence gate for merge", opts:["95%","90%","85%","Manual only"],                    sel:1, hint:"Minimum score before auto-merge is triggered"},
+                ].map(f => (
+                  <div key={f.l}>
+                    <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-[#9B8EAC]">{f.l}</div>
+                    <div className="mb-1 text-[10px] text-[#BDB0CC]">{f.hint}</div>
+                    <div className="flex flex-wrap gap-1">
+                      {f.opts.map((o, i) => (
+                        <span key={o} className="inline-flex cursor-pointer select-none items-center rounded-full px-2.5 py-[3px] text-[11px] font-semibold transition-all"
+                          style={i === f.sel ? { background: PRI, color: "#fff" } : { border: "1px solid #E2D8EA", color: "#7B6E8D" }}>{o}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Validation toggles */}
+          <div className="rounded-xl border border-[#E8E2F0] bg-white p-4">
+            <div className="mb-3 text-[12px] font-bold text-[#4A3B5C]">Global Validation Toggles</div>
+            <div className="flex flex-col gap-3">
+              {[
+                {l:"Block record if email fails DNS check",                        on:true },
+                {l:"Warn (don't block) on single-source-only contact data",        on:true },
+                {l:"Auto-flag suspected bot / data-broker leads",                  on:true },
+                {l:"Apply sanctions screen on every new company enrichment",        on:true },
+                {l:"Require phone + email before record enters Tier 1",            on:false},
+                {l:"Re-validate stale records (>180 days since last enrichment)",  on:true },
+                {l:"Surface validation errors inline in CRM contact card",         on:true },
+              ].map(t => (
+                <div key={t.l} className="flex items-center gap-3">
+                  <Toggle on={t.on} onClick={() => showToast("Toggle updated")} />
+                  <span className="text-[12px] text-[#4A3B5C]">{t.l}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button onClick={() => showToast("Validation rules reset to defaults")} className="rounded-lg border border-[#E2D8EA] px-4 py-2 text-[12px] font-bold text-[#7B6E8D] hover:bg-[#F5F1FA]">Reset defaults</button>
+            <button onClick={() => showToast("Validation settings saved")} className="rounded-lg px-4 py-2 text-[12px] font-bold text-white" style={{ background: PRI }}>Save Validation</button>
           </div>
         </div>
       )}
