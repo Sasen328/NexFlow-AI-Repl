@@ -1,0 +1,1 @@
+- [Bar surface classes](bar-surface-classes.md) — backdrop-filter must live in CSS classes (not inline style) to avoid TS errors; bar classes defined in index.css

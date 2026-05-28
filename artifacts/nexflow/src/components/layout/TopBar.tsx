@@ -1,47 +1,65 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import {
-  Bell, Search, Moon, Sun, Settings, Sparkles, FlaskConical,
-  LogOut, ChevronRight, ChevronDown,
+  Bell, Search, Settings, LogOut, ChevronRight, Sparkles, FlaskConical,
 } from "lucide-react";
-import { NexFlowLogo } from "./NexFlowLogo";
+import { NexFlowWordmark } from "./NexFlowLogo";
 import { useNotifications } from "@/hooks/useApi";
 import {
   SECTIONS, getNavForRole, findSectionByRoute, findTopNavBySection,
-  type SectionDef, type TopNavEntry,
 } from "@/lib/sections";
-import { ROLE_LIST, getRole, setRole, setSignedIn } from "@/lib/marketing-auth";
+import { ROLE_LIST, getRole, setRole, setSignedIn, type RoleProfile } from "@/lib/marketing-auth";
 import { useTenantConfig } from "@/hooks/useTenantConfig";
 
-interface TopBarProps {
+export interface TopBarProps {
   dark: boolean;
   onDark: (v: boolean) => void;
 }
 
+const FILTER_CHIPS = [
+  "All", "Pinned", "High Value", "KSA", "UAE", "New This Week", "Needs Follow-up",
+] as const;
+
 /**
- * Two-row hero navigation:
- *   Row 1 — logo icon (no wordmark) + six top-nav buttons (Home, CRM,
- *           Contact Center, Enrichment, Marketing, More). Single-section
- *           buttons reveal their sub-tabs on hover. "More" opens a
- *           hierarchical two-pane menu where the left column lists
- *           grouped sections and the right column reveals that section's
- *           sub-tabs on hover/click.
- *   Row 2 — search bar + utilities (notifications, dark mode, avatar)
- *           pushed to the right edge. No logos or icons in this row.
+ * 6-bar App Bar stack
+ *
+ * Bar 1  Quick Action Bar  — label + shortcuts + CTAs + theme + avatar
+ * Bar 2  Command Bar       — wordmark + search pill + settings
+ * Bar 3  Filter Chips      — horizontal-scroll chip strip
+ * Bar 4  Smart Tab Bar     — 6 role-scoped tabs with icons + badges
+ * Bar 5  Sub-Tab Bar       — section sub-items, collapsible, deep items fire GSB events
+ * Bar 6  Keyboard Strip    — shortcut hints + breadcrumb
+ *
+ * All bar surfaces consume CSS tokens — no hardcoded QPulse hex values.
+ * Sets --topbar-h on :root via ResizeObserver so downstream components
+ * (GSB rail, SectionSidebar) can read the exact stacked height.
  */
 export function TopBar({ dark, onDark }: TopBarProps) {
-  const [location] = useLocation();
+  const barRef = useRef<HTMLDivElement>(null);
+  const [location, navigate] = useLocation();
   const [avatarOpen, setAvatarOpen] = useState(false);
-  const [openTopKey, setOpenTopKey] = useState<string | null>(null);
-  const [currentRole, setCurrentRole] = useState(() => getRole());
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [currentRole, setCurrentRole] = useState<RoleProfile>(() => getRole());
+  const [activeChip, setActiveChip] = useState<string>("All");
   const { data: notifData } = useNotifications();
-  const unreadCount = (notifData?.notifications ?? []).filter((n: { read?: boolean }) => !n.read).length;
+  const unreadCount = (notifData?.notifications ?? []).filter(
+    (n: { read?: boolean }) => !n.read,
+  ).length;
   const { config: tenantConfig } = useTenantConfig();
 
-  // Listen for role changes triggered anywhere in the app.
+  /* ── Measure total bar height → --topbar-h ─────────────────── */
+  useLayoutEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const setH = () =>
+      document.documentElement.style.setProperty("--topbar-h", el.offsetHeight + "px");
+    setH();
+    const obs = new ResizeObserver(setH);
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  /* ── Sync role from storage or custom event ─────────────────── */
   useEffect(() => {
     const refresh = () => setCurrentRole(getRole());
     window.addEventListener("nf:role-change", refresh);
@@ -52,572 +70,416 @@ export function TopBar({ dark, onDark }: TopBarProps) {
     };
   }, []);
 
-  const activeSection = findSectionByRoute(location);
-  const activeTop = activeSection ? findTopNavBySection(activeSection.key) : null;
-
-  // Close avatar/nav dropdowns on outside click
+  /* ── Close avatar on outside click ────────────────────────── */
   useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+    const onClick = (e: MouseEvent) => {
+      if (barRef.current && !barRef.current.contains(e.target as Node)) {
         setAvatarOpen(false);
-        setOpenTopKey(null);
       }
-    }
+    };
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  // Close everything on route change / Escape
+  /* ── Close avatar on route change or Escape ─────────────────── */
+  useEffect(() => { setAvatarOpen(false); }, [location]);
   useEffect(() => {
-    setAvatarOpen(false);
-    setOpenTopKey(null);
-  }, [location]);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        setAvatarOpen(false);
-        setOpenTopKey(null);
-      }
-    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAvatarOpen(false);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Hover open/close with a short delay so a quick mouse-out doesn't snap shut
-  function openTop(key: string) {
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-    setOpenTopKey(key);
-  }
-  function scheduleCloseTop() {
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = setTimeout(() => setOpenTopKey(null), 150);
-  }
+  /* ── Derived nav state ──────────────────────────────────────── */
+  const activeSection = findSectionByRoute(location);
+  const activeTop     = activeSection ? findTopNavBySection(activeSection.key) : null;
+  const subItems      = activeSection?.items ?? [];
+  const isHome        = activeSection?.key === "home";
+
+  const navEntries = getNavForRole(currentRole.key).filter(entry => {
+    if (!tenantConfig?.tabStructure?.length) return true;
+    return (tenantConfig.tabStructure as string[]).includes(entry.key);
+  });
+
+  /* ── Active sub-item ────────────────────────────────────────── */
+  const activeSubItem = subItems.find(
+    i => location === i.href || (i.href !== "/" && location.startsWith(i.href + "/")),
+  );
 
   return (
-    <header
-      ref={wrapRef}
-      className="sticky top-0 z-40 glass-panel border-b border-border/30 backdrop-blur-xl"
-    >
-      {/* ── Row 1 (top): logo icon + 6-button top nav ──────────────
-            Logo sits beside the Home tab. No wordmark. No utilities. */}
-      <div className="flex items-center h-12 px-3 sm:px-4 max-w-[1600px] mx-auto w-full gap-2">
-        <Link href="/home">
-          <div className="flex-shrink-0 cursor-pointer p-1 rounded-lg hover:bg-muted/40 transition-colors flex items-center gap-2" aria-label="QPulse home">
-            {tenantConfig?.logoBase64 ? (
-              <img
-                src={tenantConfig.logoBase64}
-                alt={tenantConfig.companyName || "Company logo"}
-                className="h-7 max-w-[120px] object-contain rounded"
-              />
-            ) : (
-              <NexFlowLogo size={28} />
-            )}
-            {tenantConfig?.companyName && (
-              <span className="hidden sm:block text-xs font-bold text-foreground/70 max-w-[100px] truncate leading-tight">
-                {tenantConfig.companyName}
-              </span>
-            )}
-          </div>
-        </Link>
-        <nav
-          className="flex items-center gap-1 flex-1 flex-wrap"
-          aria-label="Primary"
-        >
-          {getNavForRole(currentRole.key)
-            .filter((entry) => {
-              if (!tenantConfig?.tabStructure?.length) return true;
-              return tenantConfig.tabStructure.includes(entry.key);
-            })
-            .map((entry) => (
-            <TopNavButton
-              key={entry.key}
-              entry={entry}
-              isActive={activeTop?.key === entry.key}
-              isOpen={openTopKey === entry.key}
-              onOpen={() => openTop(entry.key)}
-              onClose={() => setOpenTopKey(null)}
-              onScheduleClose={scheduleCloseTop}
-              onItemClick={() => setOpenTopKey(null)}
-              currentPath={location}
-            />
-          ))}
-        </nav>
-      </div>
+    <header ref={barRef} className="sticky top-0 z-40">
 
-      {/* ── Row 2 (below tabs): search + utilities, right-aligned.
-            Nothing on the left — completely clean below the tab row. */}
-      <div className="border-t border-border/20">
-        <div className="flex items-center justify-end h-10 px-3 sm:px-4 max-w-[1600px] mx-auto w-full gap-1">
-          <button
-            className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/40 text-muted-foreground text-xs hover:bg-muted/60 transition-colors w-44 lg:w-64"
-            aria-label="Search"
-            onClick={() => alert("Global search coming soon — try the per-page search inside Contacts, Companies, etc.")}
-          >
-            <Search className="w-3.5 h-3.5" />
-            <span className="flex-1 text-left">Search...</span>
-            <span className="opacity-50 font-mono">⌘K</span>
-          </button>
-          <button
-            className="md:hidden p-2 rounded-lg hover:bg-muted/50 text-foreground/70"
-            aria-label="Search"
-            onClick={() => alert("Global search coming soon.")}
-          >
-            <Search className="w-4 h-4" />
-          </button>
-
-          {/* Always-visible AI assistant entry — opens the floating bubble panel */}
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent("nf:open-assistant"))}
-            className="relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white text-[11px] font-bold shadow-sm hover:opacity-90 transition-opacity"
-            style={{ background: "linear-gradient(135deg,#88B8B0,#B8A0C8)" }}
-            aria-label="Open AI Assistant"
-            title="Open AI Assistant"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">AI Assistant</span>
-          </button>
-
-          <Link href="/notifications">
-            <button
-              className={cn(
-                "relative p-2 rounded-lg hover:bg-muted/50 transition-colors",
-                location === "/notifications" ? "text-[#B8A0C8]" : "text-foreground/70",
-              )}
-              aria-label="Notifications"
-            >
-              <Bell className="w-4 h-4" />
-              {unreadCount > 0 && (
-                <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full nf-chameleon-bg text-white text-[9px] font-black flex items-center justify-center">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              )}
-            </button>
+      {/* ═══ Bar 1: Quick Action Bar (~26px) ════════════════════════ */}
+      <div className="bar-qa" style={{ height: "26px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px" }}>
+        {/* Left: QPulse label + 3 ghost-pill shortcuts */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "9px", fontFamily: "'Geist', sans-serif", letterSpacing: "0.2em", color: "var(--txq)", textTransform: "uppercase" }}>
+            QPulse
+          </span>
+          <Link href="/home">
+            <button className="qa-ghost-pill">Home</button>
           </Link>
+          <Link href="/section/crm">
+            <button className="qa-ghost-pill">CRM</button>
+          </Link>
+          <Link href="/section/callcenter">
+            <button className="qa-ghost-pill">Comms</button>
+          </Link>
+        </div>
 
+        {/* Right: New · Share · Bell · ⊙ Theme · Avatar */}
+        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+          <Link href="/contacts?new=1">
+            <button className="qa-solid-pill">New</button>
+          </Link>
+          <button className="qa-ghost-pill">Share</button>
           <button
-            onClick={() => onDark(!dark)}
-            className="p-2 rounded-lg hover:bg-muted/50 text-foreground/70 transition-colors"
-            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+            className="qa-ghost-pill"
+            style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+            onClick={() => navigate("/notifications")}
+            aria-label="Notifications"
           >
-            {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            <Bell style={{ width: "12px", height: "12px" }} />
+            {unreadCount > 0 && (
+              <span className="qa-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>
+            )}
           </button>
-
-          {/* Avatar dropdown */}
-          <div className="relative">
+          <button
+            className="qa-solid-pill"
+            style={{ width: "25px", padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "13px", lineHeight: 1 }}
+            onClick={() => window.dispatchEvent(new CustomEvent("nf:theme-drawer-open"))}
+            aria-label="Open theme settings"
+          >
+            ⊙
+          </button>
+          {/* Avatar */}
+          <div style={{ position: "relative" }}>
             <button
-              onClick={() => setAvatarOpen(!avatarOpen)}
-              className="flex items-center gap-2 ml-1 p-1 rounded-lg hover:bg-muted/50"
+              onClick={() => setAvatarOpen(v => !v)}
+              style={{
+                width: "22px", height: "22px", borderRadius: "50%",
+                background: `linear-gradient(135deg,${currentRole.accent},#B8A0C8)`,
+                color: "#fff", fontSize: "9px", fontWeight: 900,
+                border: "none", cursor: "pointer",
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+              }}
               aria-label="Account menu"
               aria-haspopup="menu"
               aria-expanded={avatarOpen}
             >
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-black"
-                style={{ background: `linear-gradient(135deg,${currentRole.accent},#B8A0C8)` }}
-              >
-                {currentRole.initials}
-              </div>
-              <div className="hidden md:flex flex-col items-start leading-tight">
-                <span className="text-[11px] font-bold">{currentRole.label}</span>
-                <span className="text-[9px] text-muted-foreground">{currentRole.name}</span>
-              </div>
+              {currentRole.initials}
             </button>
             {avatarOpen && (
-              <div className="absolute right-0 top-full mt-1 w-72 glass-card rounded-xl border border-border/40 shadow-xl py-2 z-50">
-                <div className="px-3 py-2 border-b border-border/30 flex items-center gap-2">
-                  <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0"
-                    style={{ background: `linear-gradient(135deg,${currentRole.accent},#B8A0C8)` }}
-                  >
-                    {currentRole.initials}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-bold truncate">{currentRole.name}</div>
-                    <div className="text-[11px] text-muted-foreground truncate">{currentRole.title}</div>
-                    <div className="text-[10px] text-muted-foreground truncate">{currentRole.email}</div>
-                  </div>
-                </div>
-
-                {/* Persona switcher */}
-                <div className="px-3 pt-2 pb-1">
-                  <div className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-1.5">
-                    Switch persona
-                  </div>
-                  <div className="grid grid-cols-1 gap-1">
-                    {ROLE_LIST.map((r) => {
-                      const active = r.key === currentRole.key;
-                      return (
-                        <button
-                          key={r.key}
-                          onClick={() => {
-                            setRole(r.key);
-                            setAvatarOpen(false);
-                          }}
-                          className={cn(
-                            "flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-all",
-                            active ? "bg-muted/60" : "hover:bg-muted/40",
-                          )}
-                        >
-                          <div
-                            className="w-6 h-6 rounded-md flex items-center justify-center text-white text-[10px] font-black flex-shrink-0"
-                            style={{ background: `linear-gradient(135deg,${r.accent},#B8A0C8)` }}
-                          >
-                            {r.initials}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-[12px] font-bold truncate leading-tight">{r.label}</div>
-                            <div className="text-[10px] text-muted-foreground truncate leading-tight">{r.name}</div>
-                          </div>
-                          {active && (
-                            <div className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded"
-                              style={{ background: `${r.accent}25`, color: r.accent }}>
-                              Active
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <Link href="/account-settings">
-                  <div className="flex items-center gap-2 mx-1 mt-1 px-2 py-2 text-sm hover:bg-muted/50 cursor-pointer rounded-lg">
-                    <Settings className="w-3.5 h-3.5 text-muted-foreground" /> Account Settings
-                    <ChevronRight className="w-3 h-3 ml-auto text-muted-foreground" />
-                  </div>
-                </Link>
-                <Link href="/capabilities">
-                  <div className="flex items-center gap-2 mx-1 px-2 py-2 text-sm hover:bg-muted/50 cursor-pointer rounded-lg">
-                    <Sparkles className="w-3.5 h-3.5 text-muted-foreground" /> Capabilities
-                  </div>
-                </Link>
-                <div className="border-t border-border/30 mt-1 pt-1">
-                  <button
-                    onClick={() => {
-                      setSignedIn(false);
-                      window.location.href = "/welcome";
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 text-left"
-                  >
-                    <LogOut className="w-3.5 h-3.5" /> Sign out
-                  </button>
-                </div>
-                <div className="px-3 pt-2 mt-1 border-t border-border/30">
-                  <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#C8A880]/10 border border-[#C8A880]/25">
-                    <FlaskConical className="w-3 h-3 text-[#C8A880]" />
-                    <div className="text-[10px] font-bold text-[#C8A880]">DEMO MODE — click any persona above to switch</div>
-                  </div>
-                </div>
-              </div>
+              <AvatarDropdown
+                role={currentRole}
+                dark={dark}
+                onDark={onDark}
+                onClose={() => setAvatarOpen(false)}
+              />
             )}
           </div>
         </div>
       </div>
+
+      {/* ═══ Bar 2+3: Command Bar + Filter Chips ════════════════════ */}
+      <div className="bar-cmd">
+        {/* Row 1: wordmark + search + settings */}
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "0 16px", height: "40px" }}>
+          {tenantConfig?.logoBase64 ? (
+            <img
+              src={tenantConfig.logoBase64}
+              alt={tenantConfig.companyName || "Logo"}
+              style={{ height: "22px", maxWidth: "100px", objectFit: "contain" }}
+            />
+          ) : (
+            <NexFlowWordmark height={22} />
+          )}
+          <div style={{ flex: 1 }} />
+          <div
+            className="cmd-search-pill"
+            role="button"
+            tabIndex={0}
+            onClick={() => alert("Global search — try per-page search inside each section.")}
+            onKeyDown={e => { if (e.key === "Enter") e.currentTarget.click(); }}
+            aria-label="Search"
+          >
+            <Search style={{ width: "12px", height: "12px", flexShrink: 0 }} />
+            <span style={{ flex: 1, pointerEvents: "none" }}>Search...</span>
+            <span style={{ opacity: 0.45, fontFamily: "'Geist Mono', monospace", fontSize: "10px", pointerEvents: "none" }}>⌘K</span>
+          </div>
+          <button
+            style={{ padding: "4px", borderRadius: "6px", border: "none", background: "transparent", cursor: "pointer", color: "var(--txq)", display: "flex", alignItems: "center" }}
+            onClick={() => navigate("/settings")}
+            aria-label="Settings"
+          >
+            <Settings style={{ width: "14px", height: "14px" }} />
+          </button>
+        </div>
+        {/* Row 2: Filter Chips */}
+        <div className="filter-chips-row" style={{ paddingBottom: "6px", paddingLeft: "16px", paddingRight: "16px" }}>
+          {FILTER_CHIPS.map(chip => (
+            <button
+              key={chip}
+              onClick={() => setActiveChip(chip)}
+              className={cn("filter-chip", activeChip === chip && "filter-chip--active")}
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ═══ Bar 4: Smart Tab Bar (38px) ════════════════════════════ */}
+      <div
+        className="bar-tab"
+        style={{ display: "flex", alignItems: "stretch", height: "38px" }}
+      >
+        {navEntries.map(entry => {
+          const isActive = activeTop?.key === entry.key;
+          const badge = (entry.key === "home" && unreadCount > 0) ? unreadCount : 0;
+          const Icon = entry.icon;
+          return (
+            <button
+              key={entry.key}
+              onClick={() => {
+                const sec = SECTIONS.find(s => s.key === entry.sections[0]);
+                navigate(sec?.defaultHref ?? "/home");
+              }}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: "5px",
+                padding: "0 14px", height: "38px", cursor: "pointer",
+                border: "none",
+                borderBottom: isActive ? "2px solid var(--ac)" : "2px solid transparent",
+                background: "transparent",
+                color: isActive ? "var(--btx)" : "var(--txq)",
+                fontWeight: isActive ? 600 : 400,
+                fontSize: "11px", fontFamily: "'Geist', sans-serif",
+                transition: "color .2s, border-color .2s",
+                whiteSpace: "nowrap",
+              }}
+              aria-current={isActive ? "page" : undefined}
+            >
+              <Icon style={{ width: "12px", height: "12px", strokeWidth: 1.6 }} />
+              <span>{entry.label}</span>
+              {badge > 0 && (
+                <span
+                  style={{
+                    minWidth: "15px", height: "15px", borderRadius: "9999px",
+                    background: "var(--ac)", color: "#fff",
+                    fontSize: "8px", fontWeight: 700,
+                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    padding: "0 3px", flexShrink: 0,
+                  }}
+                >
+                  {badge > 9 ? "9+" : badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ═══ Bar 5: Sub-Tab Bar (31px, collapsible) ═════════════════ */}
+      <div
+        className="bar-sub"
+        style={{
+          overflow: "hidden",
+          maxHeight: subItems.length > 0 ? "40px" : "0",
+          transition: "max-height .22s ease",
+          display: "flex", alignItems: "center",
+          padding: "0 8px", gap: "2px",
+        }}
+      >
+        {subItems.map(item => {
+          const isActiveItem =
+            location === item.href ||
+            (item.href !== "/" && location.startsWith(item.href + "/"));
+          const isDeep = !isHome;
+          const displayLabel = isDeep ? item.label + " ›" : item.label;
+          return (
+            <button
+              key={item.href}
+              onClick={() => {
+                navigate(item.href);
+                if (isDeep) {
+                  window.dispatchEvent(
+                    new CustomEvent("nf:gsb-open", { detail: { label: item.label } }),
+                  );
+                } else {
+                  window.dispatchEvent(new CustomEvent("nf:gsb-close"));
+                }
+              }}
+              style={{
+                height: "28px", padding: "0 10px",
+                borderRadius: "var(--r-pill)",
+                fontSize: "11px", fontFamily: "'Geist', sans-serif",
+                cursor: "pointer", border: "none",
+                background: isActiveItem ? "rgba(255,255,255,.62)" : "transparent",
+                fontWeight: isActiveItem ? 600 : 400,
+                color: isActiveItem ? "var(--btx)" : "var(--txq)",
+                transition: "background .15s, color .15s",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {displayLabel}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ═══ Bar 6: Keyboard Strip (~20px) ══════════════════════════ */}
+      <div
+        className="bar-kbd keyboard-strip"
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "0 16px", height: "20px",
+        }}
+      >
+        <span style={{ fontSize: "9px", fontFamily: "'Geist Mono', monospace", color: "var(--txq)" }}>
+          ← → tabs · Space search · T theme
+        </span>
+        <span style={{ fontSize: "9px", fontFamily: "'Geist Mono', monospace", color: "var(--txq)" }}>
+          {[activeTop?.label, activeSubItem?.label].filter(Boolean).join(" · ")}
+        </span>
+      </div>
+
     </header>
   );
 }
 
-/* ─── Single top-nav button + hover dropdown ─────────────────────── */
+/* ─── Avatar Dropdown ─────────────────────────────────────────────── */
 
-function TopNavButton({
-  entry, isActive, isOpen, onOpen, onClose, onScheduleClose, onItemClick, currentPath,
+function AvatarDropdown({
+  role, dark, onDark, onClose,
 }: {
-  entry: TopNavEntry;
-  isActive: boolean;
-  isOpen: boolean;
-  onOpen: () => void;
+  role: RoleProfile;
+  dark: boolean;
+  onDark: (v: boolean) => void;
   onClose: () => void;
-  onScheduleClose: () => void;
-  onItemClick: () => void;
-  currentPath: string;
 }) {
-  const [, navigate] = useLocation();
-  const Icon = entry.icon;
-  const isMore = entry.key === "more";
-
-  // Determine the click-through target. "More" doesn't navigate; it just opens
-  // the dropdown. Single-section entries jump to that section's defaultHref.
-  const primarySection: SectionDef | null = isMore
-    ? null
-    : SECTIONS.find((s) => s.key === entry.sections[0]) ?? null;
-  const clickHref = primarySection?.defaultHref ?? "/";
-
-  // Accent for the active state — first section's accent (or chameleon for More)
-  const accent = primarySection?.accent ?? "#B8A0C8";
-
-  function handleClick(e: React.MouseEvent) {
-    if (isMore) {
-      // Click toggles the More dropdown; no hover timing involved.
-      e.preventDefault();
-      e.stopPropagation();
-      if (isOpen) onClose();
-      else onOpen();
-    } else {
-      navigate(clickHref);
-    }
-  }
-
-  // Hover-open is kept for the single-section tabs (Home, CRM, etc.) where it
-  // worked fine, but is DISABLED for "More" so the dropdown is purely a
-  // click-driven menu — no 150ms close timer can sneak in and shut it.
-  const hoverHandlers = isMore
-    ? {}
-    : {
-        onMouseEnter: onOpen,
-        onMouseLeave: onScheduleClose,
-        onFocus: onOpen,
-        onBlur: (e: React.FocusEvent) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) onScheduleClose();
-        },
-      };
-
   return (
     <div
-      className="relative"
-      {...hoverHandlers}
+      className="absolute right-0 top-full mt-1 w-72 glass-card rounded-xl shadow-xl py-2 z-50"
+      style={{ border: "1px solid var(--bd)" }}
     >
-      <button
-        type="button"
-        className={cn(
-          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold whitespace-nowrap flex-shrink-0 transition-all",
-          isActive
-            ? "text-white shadow-sm"
-            : "text-foreground/70 hover:text-foreground hover:bg-muted/40",
-        )}
-        style={
-          isActive
-            ? {
-                background: `linear-gradient(135deg, ${accent}, #B8A0C8)`,
-                boxShadow: `0 4px 12px ${accent}40`,
-              }
-            : undefined
-        }
-        aria-current={isActive ? "page" : undefined}
-        aria-haspopup="true"
-        aria-expanded={isOpen}
-        onClick={handleClick}
-      >
-        <Icon
-          className="w-3.5 h-3.5"
-          style={{ color: isActive ? "#fff" : accent }}
-        />
-        <span>{entry.label}</span>
-        {isMore && (
-          <ChevronDown
-            className={cn(
-              "w-3 h-3 transition-transform",
-              isOpen ? "rotate-180" : "",
-            )}
-          />
-        )}
-      </button>
+      {/* Profile header */}
+      <div className="px-3 py-2 flex items-center gap-2" style={{ borderBottom: "1px solid var(--bd)" }}>
+        <div
+          className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0"
+          style={{ background: `linear-gradient(135deg,${role.accent},#B8A0C8)` }}
+        >
+          {role.initials}
+        </div>
+        <div className="min-w-0">
+          <div className="text-sm font-bold truncate">{role.name}</div>
+          <div className="text-[11px] truncate" style={{ color: "var(--txM)" }}>{role.title}</div>
+          <div className="text-[10px] truncate" style={{ color: "var(--txq)" }}>{role.email}</div>
+        </div>
+      </div>
 
-      {isOpen && (isMore
-        ? <MoreDropdown entry={entry} onItemClick={onItemClick} currentPath={currentPath} />
-        : <SingleSectionDropdown entry={entry} onItemClick={onItemClick} currentPath={currentPath} />
-      )}
-    </div>
-  );
-}
-
-/* ─── Single-section dropdown (Home, CRM, etc) ──────────────────── */
-
-function SingleSectionDropdown({
-  entry, onItemClick, currentPath,
-}: {
-  entry: TopNavEntry;
-  onItemClick: () => void;
-  currentPath: string;
-}) {
-  const section = SECTIONS.find((s) => s.key === entry.sections[0]);
-  if (!section) return null;
-  // Hide the dropdown when the section is just a single-page tab shell
-  // (one item that simply re-points at defaultHref). The tab itself
-  // already navigates there on click — a dropdown of one is just noise.
-  if (
-    section.items.length <= 1 &&
-    section.items[0]?.href.split("#")[0] === section.defaultHref.split("#")[0]
-  ) {
-    return null;
-  }
-
-  return (
-    <div className="absolute top-full left-0 mt-1 z-50 glass-card rounded-xl border border-border/40 shadow-xl py-2 w-72">
-      {section.items.map((item) => {
-        const ItemIcon = item.icon;
-        const active =
-          currentPath === item.href ||
-          (item.href !== "/" && currentPath.startsWith(item.href + "/"));
-        return (
-          <Link key={item.href} href={item.href}>
-            <div
-              className={cn(
-                "flex items-start gap-2.5 px-3 py-2 mx-1 rounded-md cursor-pointer transition-colors",
-                active ? "bg-muted/60" : "hover:bg-muted/40",
-              )}
-              onClick={onItemClick}
-            >
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                style={{ background: `${section.accent}20` }}
-              >
-                <ItemIcon className="w-3.5 h-3.5" style={{ color: section.accent }} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className={cn(
-                  "text-sm font-semibold truncate",
-                  active ? "text-foreground" : "text-foreground/90",
-                )}>
-                  {item.label}
-                </div>
-                <div className="text-[11px] text-muted-foreground line-clamp-1">
-                  {item.desc}
-                </div>
-              </div>
-            </div>
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ─── Click-driven cascading "More" dropdown ─────────────────────
-   Step 1 — click "More" → primary panel shows section names.
-   Step 2 — click a section → tooltip-style sub-panel pops out to its
-            LEFT (More is the rightmost tab so there's no room on the
-            right) listing that section's sub-tabs.
-   Step 3 — click a sub-tab → navigate.                            */
-
-function MoreDropdown({
-  entry, onItemClick, currentPath,
-}: {
-  entry: TopNavEntry;
-  onItemClick: () => void;
-  currentPath: string;
-}) {
-  const sections = entry.sections
-    .map((k) => SECTIONS.find((s) => s.key === k))
-    .filter((s): s is SectionDef => Boolean(s));
-
-  // Pre-select whichever grouped section the user is currently inside, if any.
-  const initialKey =
-    sections.find((s) =>
-      currentPath.startsWith(`/section/${s.key}`) ||
-      s.items.some((i) => currentPath === i.href || (i.href !== "/" && currentPath.startsWith(i.href + "/"))),
-    )?.key ?? null;
-
-  const [openSectionKey, setOpenSectionKey] = useState<string | null>(initialKey);
-
-  function toggleSection(key: string) {
-    setOpenSectionKey((curr) => (curr === key ? null : key));
-  }
-
-  return (
-    <div className="absolute top-full right-0 mt-1 z-50 flex items-start gap-2">
-      {/* Sub-list flyout (rendered to the LEFT so it never clips) — only
-          shown when a section is selected. */}
-      {openSectionKey && (() => {
-        const section = sections.find((s) => s.key === openSectionKey);
-        if (!section) return null;
-        return (
-          <div className="glass-card rounded-xl border border-border/40 shadow-xl py-2 w-72 max-h-[60vh] overflow-y-auto">
-            <div className="flex items-center gap-2 px-3 pb-2 border-b border-border/30 mb-1">
-              <div
-                className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
-                style={{ background: `${section.accent}25` }}
-              >
-                <section.icon className="w-3.5 h-3.5" style={{ color: section.accent }} />
-              </div>
-              <div
-                className="text-[11px] font-black uppercase tracking-wider"
-                style={{ color: section.accent }}
-              >
-                {section.label}
-              </div>
-            </div>
-            {section.items.map((item) => {
-              const ItemIcon = item.icon;
-              const active =
-                currentPath === item.href ||
-                (item.href !== "/" && currentPath.startsWith(item.href + "/"));
-              return (
-                <Link key={item.href} href={item.href}>
-                  <div
-                    onClick={onItemClick}
-                    className={cn(
-                      "flex items-start gap-2.5 mx-1 px-2.5 py-2 rounded-md cursor-pointer transition-colors",
-                      active ? "bg-muted/60" : "hover:bg-muted/40",
-                    )}
-                  >
-                    <div
-                      className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                      style={{ background: `${section.accent}20` }}
-                    >
-                      <ItemIcon className="w-3.5 h-3.5" style={{ color: section.accent }} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className={cn(
-                        "text-sm font-semibold truncate",
-                        active ? "text-foreground" : "text-foreground/90",
-                      )}>
-                        {item.label}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground line-clamp-1">
-                        {item.desc}
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        );
-      })()}
-
-      {/* Primary section list (always rendered while More is open) */}
-      <div className="glass-card rounded-xl border border-border/40 shadow-xl py-2 w-[220px]">
-        {sections.map((section) => {
-          const SectionIcon = section.icon;
-          const isOpen = openSectionKey === section.key;
-          return (
-            <button
-              key={section.key}
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                toggleSection(section.key);
-              }}
-              className={cn(
-                "w-full flex items-center gap-2 mx-0 px-2.5 py-2 rounded-md cursor-pointer transition-colors text-left",
-                isOpen ? "bg-muted/70" : "hover:bg-muted/40",
-              )}
-              aria-haspopup="true"
-              aria-expanded={isOpen}
-            >
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: `${section.accent}25` }}
-              >
-                <SectionIcon className="w-3.5 h-3.5" style={{ color: section.accent }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-semibold text-foreground truncate">
-                  {section.label}
-                </div>
-              </div>
-              <ChevronRight
+      {/* Persona switcher */}
+      <div className="px-3 pt-2 pb-1">
+        <div
+          className="text-[9px] font-black uppercase tracking-wider mb-1.5"
+          style={{ color: "var(--txq)" }}
+        >
+          Switch persona
+        </div>
+        <div className="grid grid-cols-1 gap-1">
+          {ROLE_LIST.map(r => {
+            const active = r.key === role.key;
+            return (
+              <button
+                key={r.key}
+                onClick={() => { setRole(r.key); onClose(); }}
                 className={cn(
-                  "w-3.5 h-3.5 text-muted-foreground flex-shrink-0 transition-transform",
-                  isOpen && "rotate-180",
+                  "flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-all w-full",
+                  active ? "bg-muted/60" : "hover:bg-muted/40",
                 )}
-              />
-            </button>
-          );
-        })}
+              >
+                <div
+                  className="w-6 h-6 rounded-md flex items-center justify-center text-white text-[10px] font-black flex-shrink-0"
+                  style={{ background: `linear-gradient(135deg,${r.accent},#B8A0C8)` }}
+                >
+                  {r.initials}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12px] font-bold truncate leading-tight">{r.label}</div>
+                  <div className="text-[10px] truncate leading-tight" style={{ color: "var(--txq)" }}>
+                    {r.name}
+                  </div>
+                </div>
+                {active && (
+                  <div
+                    className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded"
+                    style={{ background: `${r.accent}25`, color: r.accent }}
+                  >
+                    Active
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Dark mode toggle */}
+      <div style={{ borderTop: "1px solid var(--bd)" }} className="mx-1 mt-1 pt-1">
+        <button
+          onClick={() => { onDark(!dark); onClose(); }}
+          className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted/50 rounded-lg text-left"
+          style={{ color: "var(--txM)" }}
+        >
+          <span style={{ fontSize: "13px" }}>{dark ? "☀" : "☾"}</span>
+          {dark ? "Switch to light mode" : "Switch to dark mode"}
+        </button>
+      </div>
+
+      {/* Links */}
+      <Link href="/account-settings">
+        <div
+          className="flex items-center gap-2 mx-1 px-2 py-2 text-sm hover:bg-muted/50 cursor-pointer rounded-lg"
+          onClick={onClose}
+        >
+          <Settings className="w-3.5 h-3.5" style={{ color: "var(--txq)" }} />
+          <span>Account Settings</span>
+          <ChevronRight className="w-3 h-3 ml-auto" style={{ color: "var(--txq)" }} />
+        </div>
+      </Link>
+      <Link href="/capabilities">
+        <div
+          className="flex items-center gap-2 mx-1 px-2 py-2 text-sm hover:bg-muted/50 cursor-pointer rounded-lg"
+          onClick={onClose}
+        >
+          <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--txq)" }} />
+          <span>Capabilities</span>
+        </div>
+      </Link>
+
+      {/* Sign out */}
+      <div style={{ borderTop: "1px solid var(--bd)" }} className="mt-1 pt-1">
+        <button
+          onClick={() => { setSignedIn(false); window.location.href = "/welcome"; }}
+          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 text-left"
+          style={{ color: "var(--txM)" }}
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          Sign out
+        </button>
+      </div>
+
+      {/* Demo badge */}
+      <div className="px-3 pt-2 mt-1" style={{ borderTop: "1px solid var(--bd)" }}>
+        <div
+          className="flex items-center gap-1.5 px-2 py-1 rounded-lg"
+          style={{ background: "rgba(200,168,128,0.10)", border: "1px solid rgba(200,168,128,0.25)" }}
+        >
+          <FlaskConical className="w-3 h-3" style={{ color: "#C8A880" }} />
+          <div className="text-[10px] font-bold" style={{ color: "#C8A880" }}>
+            DEMO MODE — click any persona above to switch
+          </div>
+        </div>
       </div>
     </div>
   );
