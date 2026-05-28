@@ -425,12 +425,12 @@ export default function EnrichmentEngine() {
             <button
               key={g.id}
               onClick={() => switchGroup(g.id)}
-              className="flex-shrink-0 rounded-xl border px-4 py-2 text-[12px] font-bold transition-all"
-              style={
+              className={cn(
+                "flex-shrink-0 rounded-xl border px-4 py-2 text-[12px] font-bold transition-all",
                 activeGroup === g.id
-                  ? { background: g.color, borderColor: g.color, color: "#fff" }
-                  : { borderColor: "#E8E2F0", color: "#7B6E8D", background: "transparent" }
-              }
+                  ? "nf-chameleon-bg border-transparent text-white shadow-sm"
+                  : "border-[#E8E2F0] text-[#7B6E8D] hover:text-[#4A3B5C] bg-transparent"
+              )}
             >
               {g.label}
             </button>
@@ -448,9 +448,10 @@ export default function EnrichmentEngine() {
                 onClick={() => setInnerTab(item.id)}
                 className={cn(
                   "flex-shrink-0 rounded-lg px-3 py-1 text-[11px] font-semibold transition-all whitespace-nowrap",
-                  innerTab === item.id ? "text-white" : "text-[#7B6E8D] hover:text-[#4A3B5C]"
+                  innerTab === item.id
+                    ? "nf-chameleon-bg text-white shadow-sm"
+                    : "text-[#7B6E8D] hover:text-[#4A3B5C]"
                 )}
-                style={innerTab === item.id ? { background: groupDef.color } : undefined}
               >
                 {item.label}
               </button>
