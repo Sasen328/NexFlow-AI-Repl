@@ -178,6 +178,10 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       };
       localStorage.setItem(TENANT_CONFIG_KEY, JSON.stringify(tenantPayload));
       window.dispatchEvent(new CustomEvent(TENANT_CONFIG_EVENT));
+      // Auto-sign in as the workspace admin — no human step needed
+      const { setSignedIn, setRole } = await import("@/lib/marketing-auth");
+      setRole("admin");
+      setSignedIn(true);
       navigate(`/onboarding/complete?s=${sessionId}`);
       return data.slug as string;
     } catch (e: any) {
