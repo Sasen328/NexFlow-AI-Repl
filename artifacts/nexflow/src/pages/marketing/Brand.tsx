@@ -1,4 +1,14 @@
 import { useState } from "react";
+import { NexFlowWordmark } from "@/components/layout/NexFlowLogo";
+
+function QPulseLivePreview() {
+  return (
+    <div className="flex flex-col items-center gap-6">
+      <NexFlowWordmark height={80} />
+      <p className="text-xs tracking-widest uppercase opacity-40 text-white">QPulse · D-11 Animated Mark</p>
+    </div>
+  );
+}
 
 type Asset = {
   file: string;
@@ -150,13 +160,13 @@ export default function Brand() {
         <div className="max-w-6xl mx-auto px-6 pt-16 pb-12 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/70 backdrop-blur border border-[#B8A0C8]/30 text-xs font-semibold tracking-[0.18em] text-[#5A4A6E] uppercase mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-[#88B8B0]" />
-            NexFlow Press Kit
+            QPulse Press Kit
           </div>
           <h1 className="text-5xl md:text-6xl font-bold text-[#1F1B2E] leading-tight mb-4">
             Brand &amp; Logo Kit
           </h1>
           <p className="text-lg text-[#5A4A6E] max-w-2xl mx-auto">
-            Everything you need to talk about NexFlow — animated and static logos, app icons,
+            Everything you need to talk about QPulse — animated and static logos, app icons,
             and the official color system. Download what you need, no sign-in required.
           </p>
 
@@ -186,17 +196,14 @@ export default function Brand() {
           </div>
         </div>
 
-        {/* live animated logo preview */}
+        {/* live QPulse logo preview */}
         <div className="max-w-6xl mx-auto px-6 pb-16">
-          <div className="rounded-3xl overflow-hidden border border-[#B8A0C8]/20 shadow-xl bg-white">
-            <img
-              src="/logos/NexFlow_Hero_Logo_Animated.webp"
-              alt="NexFlow animated logo"
-              className="w-full block"
-            />
+          <div className="rounded-3xl border border-[#B8A0C8]/20 shadow-xl flex items-center justify-center py-16"
+            style={{ background: "linear-gradient(135deg,#0f0e18 0%,#16131f 55%,#0d1413 100%)" }}>
+            <QPulseLivePreview />
           </div>
           <p className="text-center text-xs text-muted-foreground mt-3">
-            Above: live preview of the animated hero logo (WebP). Right-click any download below to save.
+            Above: live animated QPulse mark — outer halo rotates, waveform glow pulses continuously.
           </p>
         </div>
       </section>
@@ -225,7 +232,7 @@ export default function Brand() {
         <div className="max-w-6xl mx-auto px-6 py-16">
           <h2 className="text-3xl font-bold text-[#1F1B2E] mb-2">Color system</h2>
           <p className="text-sm text-muted-foreground mb-8">
-            The NexFlow palette — calm, dawn-toned, and built for long workdays. Tap any swatch to copy its hex.
+            The QPulse palette — calm, dawn-toned, and built for long workdays. Tap any swatch to copy its hex.
           </p>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -290,11 +297,11 @@ export default function Brand() {
               </div>
             </div>
             <a
-              href="mailto:press@nexflow.sa"
+              href="mailto:press@qpulse.ai"
               className="px-4 py-2 rounded-full text-white text-sm font-semibold shadow"
               style={{ background: "linear-gradient(135deg,#B8A0C8,#88B8B0)" }}
             >
-              press@nexflow.sa
+              press@qpulse.ai
             </a>
           </div>
         </div>
