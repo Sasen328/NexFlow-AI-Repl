@@ -392,6 +392,23 @@ kbd, code, .mono, .timestamp {
 }
 .qa-solid-pill:hover { opacity: 0.9; }
 
+/* AI Action Intelligence pill — teal accent, icon + label */
+.qa-ai-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 22px; padding: 0 10px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: linear-gradient(135deg, #00BFA5 0%, var(--brand-purple) 100%);
+  color: #fff;
+  font-size: 10px; font-family: 'Geist', sans-serif; font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: opacity 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+  box-shadow: 0 1px 8px rgba(0,191,165,.25);
+}
+.qa-ai-pill:hover { opacity: 0.88; box-shadow: 0 2px 12px rgba(0,191,165,.40); }
+
 .qa-badge {
   position: absolute; top: 1px; right: 1px;
   min-width: 14px; height: 14px;
@@ -463,6 +480,40 @@ kbd, code, .mono, .timestamp {
   background: color-mix(in srgb, var(--brand-gold) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--brand-gold) 25%, transparent);
 }
+
+/* ── T2: Dark-Mode Surface Adaptation ───────────────────────────────────────
+ * Overrides legacy hardcoded white/light backgrounds in dark mode.
+ * !important is intentional — it beats both Tailwind utilities and inline styles
+ * per CSS cascade rules (author !important > author inline).
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/* 1. Tailwind bg-white utility (plain and opacity variants) */
+.dark .bg-white { background-color: hsl(var(--card)) !important; }
+.dark [class*="bg-white\/"] { background-color: hsl(var(--card) / 0.88) !important; }
+
+/* 2. Inline light pastel gradient backgrounds (linear-gradient(…#f…)) */
+.dark [style*="linear-gradient(135deg, #f"],
+.dark [style*="linear-gradient(135deg,#f"],
+.dark [style*="linear-gradient(135deg, #F"],
+.dark [style*="linear-gradient(135deg,#F"] {
+  background-color: hsl(var(--card)) !important;
+  background-image: none !important;
+}
+
+/* 3. Inline solid white / near-white background-color overrides */
+.dark [style*="background: white"],
+.dark [style*="background: #fff"],
+.dark [style*="background: #FFF"],
+.dark [style*="background-color: white"],
+.dark [style*="background-color: #fff"] {
+  background-color: hsl(var(--card)) !important;
+}
+
+/* ── T2: Dark-Mode Text Adaptation ──────────────────────────────────────────
+ * Ensure text sitting inside formerly-white cards is visible.
+ * ─────────────────────────────────────────────────────────────────────────── */
+.dark .text-gray-500 { color: hsl(var(--muted-foreground)) !important; }
+.dark .text-gray-400 { color: hsl(var(--muted-foreground)) !important; }
 
 /* §2.5 Static CSS fallback for mesh gradient (no-JS environments) */
 .mesh-bg {
