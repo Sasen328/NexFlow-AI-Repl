@@ -1,8 +1,9 @@
 import { Link, useLocation } from "wouter";
 import { useState, useEffect, useRef } from "react";
-import { ChevronDown, LogIn, UserPlus } from "lucide-react";
+import { ChevronDown, LogIn, UserPlus, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NexFlowLogo } from "@/components/layout/NexFlowLogo";
+import { useTheme } from "@/hooks/useTheme";
 
 const TABS = [
   { key: "home",    label: "Home",            href: "/welcome" },
@@ -15,6 +16,7 @@ export function MarketingTopBar() {
   const [location] = useLocation();
   const [getStartedOpen, setGetStartedOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const { dark, toggle } = useTheme();
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -117,6 +119,16 @@ export function MarketingTopBar() {
             )}
           </div>
         </nav>
+
+        {/* Dark / Light toggle */}
+        <button
+          type="button"
+          onClick={toggle}
+          title={dark ? "Switch to light mode" : "Switch to dark mode"}
+          className="ml-2 flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+        >
+          {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
       </div>
     </header>
   );
