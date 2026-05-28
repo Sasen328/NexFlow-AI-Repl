@@ -15,5 +15,6 @@ export const modules: ModuleMap = {
   "./components/mockups/sales-rep-home/FeedRail.tsx": () => import("../components/mockups/sales-rep-home/FeedRail.tsx"),
   "./components/mockups/sales-rep-home/PerformanceTrends.tsx": () => import("../components/mockups/sales-rep-home/PerformanceTrends.tsx"),
   "./components/mockups/sales-rep-home/SplitView.tsx": () => import("../components/mockups/sales-rep-home/SplitView.tsx"),
-  "./components/mockups/sales-rep-home/TodoAlerts.tsx": () => import("../components/mockups/sales-rep-home/TodoAlerts.tsx")
+  "./components/mockups/sales-rep-home/TodoAlerts.tsx": () => import("../components/mockups/sales-rep-home/TodoAlerts.tsx"),
+  "./components/mockups/qpulse/QPulseBrandPreview.tsx": () => import("../components/mockups/qpulse/QPulseBrandPreview.tsx")
 };
