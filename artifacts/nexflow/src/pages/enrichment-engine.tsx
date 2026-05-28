@@ -1,18 +1,14 @@
 /**
- * Enrichment Engine — 3-tab rebuild (May 2026)
+ * Enrichment Engine — 9-tab prototype design (May 2026)
  *
- * Tab 1 — Lead Generation   (/enrichment-engine, ?tab=leadgen)
- *   Sub-sections: Masar Database · AI Database Builder · Website Intelligence
- *                 Company Intelligence · Person Intelligence
+ * Top-nav tabs (match enrichment-prototype.html):
+ *   AI Chat · SwarmBoard · Lead Genome · Lead Factory · Harvest AI
+ *   Card Scanner · ProsEngine · CRM Enrichment · Settings
  *
- * Tab 2 — CRM Enrichment    (?tab=enrich)
- *   Sub-sections: Quick Enrich · Bulk Upload · Card Scanner · Dedup · Waterfall Sources
- *
- * Tab 3 — Settings          (?tab=settings)
- *   Sub-sections: Waterfall Sources · API Keys · Export History
- *
- * Sidebar (Lead Gen | CRM Enrichment | Settings) is handled by sections.ts
- * (key "datahub") — already 3 items + expandable/collapsible via SectionSidebar.tsx.
+ * Sidebar legacy paths still resolve:
+ *   /enrichment-engine          → "chat" tab
+ *   /enrichment-engine/enrich   → "crm" tab
+ *   /enrichment-engine/settings → "settings" tab
  */
 
 import { lazy, Suspense, useEffect, useState, useRef } from "react";
@@ -40,62 +36,117 @@ const MasarDatabasePanel          = lazy(() => import("@/components/enrichment/m
 const AiDatabaseBuilderPanel      = lazy(() => import("@/components/enrichment/ai-database-builder-panel").then((m) => ({ default: m.AiDatabaseBuilderPanel })));
 const SignalTriggeredEnrichment   = lazy(() => import("@/components/enrichment/signal-triggered-enrichment").then((m) => ({ default: m.SignalTriggeredEnrichment })));
 
+// ── Prototype 9-tab panels (new)
+const NexusChatPanel    = lazy(() => import("@/components/enrichment/nexus-chat-panel").then((m) => ({ default: m.NexusChatPanel })));
+const SwarmBoardPanel   = lazy(() => import("@/components/enrichment/swarm-board-panel").then((m) => ({ default: m.SwarmBoardPanel })));
+const LeadGenomePanel   = lazy(() => import("@/components/enrichment/lead-genome-panel").then((m) => ({ default: m.LeadGenomePanel })));
+const LeadFactoryPanel  = lazy(() => import("@/components/enrichment/lead-factory-panel").then((m) => ({ default: m.LeadFactoryPanel })));
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 const ACCENT   = "#B8A0C8";
 const TEAL     = "#88B8B0";
 const GOLD     = "#C8A880";
 
 // ── Tab routing ───────────────────────────────────────────────────────────────
-type MainTab        = "leadgen" | "enrich" | "settings";
+type NineTab        = "chat" | "swarm" | "genome" | "factory" | "harvest" | "cards" | "pros" | "crm" | "settings";
 type LeadSubTab     = "masaar" | "masar" | "prosengine" | "builder" | "cards" | "icp";
 type ProsSubTab     = "company" | "person" | "website" | "seeder";
 type EnrichSubTab   = "quick" | "bulk" | "waterfall";
 type SettingsSubTab = "signals" | "waterfall" | "dedup" | "validation";
 
-function usePathTab(): MainTab {
+function useInitialTab(): NineTab {
   const [location] = useLocation();
   const path = location.split("?")[0];
-  if (path === "/enrichment-engine/enrich" || path === "/datahub/enrichment/enrich") return "enrich";
+  if (path === "/enrichment-engine/enrich" || path === "/datahub/enrichment/enrich") return "crm";
   if (path === "/enrichment-engine/settings" || path === "/datahub/enrichment/settings") return "settings";
-  return "leadgen";
+  return "chat";
 }
+
+const NAV_TABS: { id: NineTab; label: string; icon: React.ElementType }[] = [
+  { id: "chat",     label: "AI Chat",       icon: Sparkles   },
+  { id: "swarm",    label: "SwarmBoard",    icon: Cpu        },
+  { id: "genome",   label: "Lead Genome",   icon: Database   },
+  { id: "factory",  label: "Lead Factory",  icon: Target     },
+  { id: "harvest",  label: "Harvest AI",    icon: BrainCircuit },
+  { id: "cards",    label: "Card Scanner",  icon: ScanLine   },
+  { id: "pros",     label: "ProsEngine",    icon: Users      },
+  { id: "crm",      label: "CRM Enrichment",icon: Zap        },
+  { id: "settings", label: "Settings",      icon: Settings   },
+];
 
 // ── Root component ────────────────────────────────────────────────────────────
 export default function EnrichmentEngine() {
-  const mainTab = usePathTab();
-  const TITLES: Record<MainTab, { label: string; desc: string }> = {
-    leadgen:  { label: "Lead Generation",  desc: "Masaar Engine · Masar Database · ProsEngine · AI Builder · Card Scanner" },
-    enrich:   { label: "CRM Enrichment",   desc: "Quick Enrich · Bulk Upload · Waterfall" },
-    settings: { label: "Settings",         desc: "Waterfall Sources · Lead Deduplication · Validation & Verification" },
-  };
-  const t = TITLES[mainTab];
+  const initial = useInitialTab();
+  const [tab, setTab]               = useState<NineTab>(initial);
+  const [signalIntel, setSignalIntel] = useState(true);
+  const [relationship, setRelationship] = useState(true);
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Section title — static (not sticky), sidebar handles navigation */}
-      <div className="border-b border-border/30 bg-muted/30 mb-0">
-        <div className="max-w-screen-2xl mx-auto px-6 py-3 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${ACCENT}20` }}>
-            <Database className="w-4 h-4" style={{ color: ACCENT }} />
+      {/* ── 9-tab sticky top nav ── */}
+      <div className="sticky top-0 z-30 border-b border-border/30 bg-background/95 backdrop-blur-md">
+        <div className="max-w-screen-2xl mx-auto px-4 h-12 flex items-center gap-1">
+          <div className="flex items-center gap-0.5 flex-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+            {NAV_TABS.map((t) => {
+              const Icon = t.icon;
+              const active = tab === t.id;
+              return (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold whitespace-nowrap transition-all",
+                    active ? "text-white shadow-md" : "text-foreground/55 hover:text-foreground hover:bg-muted/40",
+                  )}
+                  style={active ? { background: `linear-gradient(135deg, ${TEAL}E0, ${ACCENT}CC)`, boxShadow: `0 3px 10px ${ACCENT}35` } : undefined}
+                >
+                  <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="hidden sm:inline">{t.label}</span>
+                  <span className="sm:hidden">{t.label.split(" ")[0]}</span>
+                </button>
+              );
+            })}
           </div>
-          <div>
-            <div className="text-[14px] font-bold text-foreground">{t.label}</div>
-            <div className="text-[11px] text-muted-foreground">{t.desc}</div>
+          {/* Signal Intel + Relationship toggles */}
+          <div className="flex items-center gap-1.5 flex-shrink-0 ml-2 pl-2 border-l border-border/30">
+            <button onClick={() => setSignalIntel((v) => !v)}
+              className={cn("flex items-center gap-1 px-2 py-1 rounded-full text-[10.5px] font-semibold border transition-all",
+                signalIntel ? "text-white border-transparent" : "border-border/40 text-muted-foreground hover:bg-muted/40")}
+              style={signalIntel ? { background: TEAL } : undefined}>
+              <Zap className="w-2.5 h-2.5" />
+              <span className="hidden md:inline">Signal Intel</span>
+            </button>
+            <button onClick={() => setRelationship((v) => !v)}
+              className={cn("flex items-center gap-1 px-2 py-1 rounded-full text-[10.5px] font-semibold border transition-all",
+                relationship ? "text-white border-transparent" : "border-border/40 text-muted-foreground hover:bg-muted/40")}
+              style={relationship ? { background: GOLD } : undefined}>
+              <Users className="w-2.5 h-2.5" />
+              <span className="hidden md:inline">Relationship</span>
+            </button>
           </div>
         </div>
       </div>
+
+      {/* ── Tab content ── */}
       <div className="max-w-screen-2xl mx-auto px-4 pt-5 pb-10">
-        {mainTab === "leadgen"  && <LeadGenerationTab />}
-        {mainTab === "enrich"   && <CrmEnrichmentTab />}
-        {mainTab === "settings" && <SettingsTab />}
+        <Suspense fallback={<Spinner />}>
+          {tab === "chat"     && <NexusChatPanel   signalIntel={signalIntel} relationship={relationship} />}
+          {tab === "swarm"    && <SwarmBoardPanel   />}
+          {tab === "genome"   && <LeadGenomePanel   />}
+          {tab === "factory"  && <LeadFactoryPanel  signalIntel={signalIntel} relationship={relationship} />}
+          {tab === "harvest"  && <HarvestAISection  />}
+          {tab === "cards"    && <BusinessCards />}
+          {tab === "pros"     && <ProsEnginePanel />}
+          {tab === "crm"      && <CrmEnrichmentTab />}
+          {tab === "settings" && <SettingsTab />}
+        </Suspense>
       </div>
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// TAB 1 — LEAD GENERATION  (4 engines matching the 4 reference docs)
+// HARVEST AI TAB  (ICP Scanner · Masaar · Masar DB · ProsEngine · AI Builder)
 // ═══════════════════════════════════════════════════════════════════════════════
-function LeadGenerationTab() {
+function HarvestAISection() {
   const [sub, setSub] = useState<LeadSubTab>("icp");
   const subTabs: { id: LeadSubTab; label: string; icon: React.ElementType; badge?: string; desc: string }[] = [
     { id: "icp",       label: "ICP Territory Scanner", icon: Target,       badge: "NEW",     desc: "Auto-map every matching company + DM in KSA/UAE from your ICP" },
@@ -879,7 +930,6 @@ function IcpTerritoryScannerPanel() {
   async function runScan() {
     setPhase("scanning"); setResults([]); setPushed(false); setSelected(new Set());
 
-    // Simulate progressive scanning with realistic Saudi company data
     const DEMO_COMPANIES: IcpResult[] = [
       { id:"1",  companyName:"Riyadh Tech Solutions",     nameAr:"حلول الرياض للتقنية",      city:"Riyadh",   industry:"Technology",    size:"51–200",  crNumber:"1010234567", website:"rts.com.sa",      phone:"+966112345678", email:"info@rts.com.sa",      dmName:"Mohammed Al-Harbi",  dmTitle:"CEO",               dmLinkedin:"linkedin.com/in/mharbi",     icpScore:94, signalTags:["Hiring AI",  "Series A funding"]},
       { id:"2",  companyName:"Saudi Digital Ventures",   nameAr:"مشاريع رقمية سعودية",      city:"Riyadh",   industry:"Fintech",       size:"11–50",   crNumber:"1010345678", website:"sdv.sa",           phone:"+966115678901", email:"hello@sdv.sa",         dmName:"Layla Al-Qahtani",  dmTitle:"Founder",           dmLinkedin:"linkedin.com/in/lqahtani",   icpScore:91, signalTags:["SAMA licence","Fintech hub member"]},
@@ -895,25 +945,51 @@ function IcpTerritoryScannerPanel() {
       { id:"12", companyName:"Fintech Bridge KSA",       nameAr:"جسر التمويل التقني",        city:"Riyadh",   industry:"Fintech",       size:"1–10",    crNumber:"1010345891", website:"fintechbridge.sa", phone:"+966119988776", email:"ceo@fintechbridge.sa",  dmName:"Reem Al-Sabah",      dmTitle:"CEO",               dmLinkedin:"linkedin.com/in/rsabah",     icpScore:68, signalTags:["Tabby partner","BNPL licence"]},
     ];
 
-    const filtered = DEMO_COMPANIES.filter(r => r.icpScore >= form.minScore).slice(0, form.maxResults);
-    const total = filtered.length;
-    let enriched = 0;
-
+    // ── Try real Lead Finder API first ─────────────────────────────────────────
     try {
-      const data: any = await apiFetch("/builder/generate", {
+      const query = [
+        f.industries.length ? `Industries: ${f.industries.join(", ")}` : "",
+        f.regions.length    ? `Regions: ${f.regions.join(", ")}` : "",
+        f.sizes.length      ? `Company size: ${f.sizes.join(", ")}` : "",
+        f.dmTitles.length   ? `Decision-maker titles: ${f.dmTitles.join(", ")}` : "",
+        f.sectors.length    ? `Qualifiers: ${f.sectors.join(", ")}` : "",
+        f.customPrompt      ? f.customPrompt : "",
+      ].filter(Boolean).join(". ");
+
+      const data: any = await apiFetch("/engines/lead-finder/run", {
         method: "POST",
-        body: JSON.stringify({
-          industries: f.industries, regions: f.regions, dmTitles: f.dmTitles,
-          sectors: f.sectors, sizes: f.sizes, maxResults: f.maxResults,
-          customPrompt: f.customPrompt || undefined,
-        }),
+        body: JSON.stringify({ query, maxResults: f.maxResults }),
       });
-      if (Array.isArray(data?.records) && data.records.length > 0) {
-        setResults(data.records); setPhase("done"); return;
+      const leads = data?.report?.leads ?? [];
+      if (Array.isArray(leads) && leads.length > 0) {
+        const mapped: IcpResult[] = leads.slice(0, f.maxResults).map((l: any, i: number) => ({
+          id: String(i),
+          companyName: l.companyName || l.company || `Company ${i + 1}`,
+          nameAr: l.companyNameAr || "",
+          city: l.city || l.location || "",
+          industry: l.industry || f.industries[0] || "",
+          size: l.size || "",
+          crNumber: l.crNumber || "",
+          website: l.website || "",
+          phone: l.phone || "",
+          email: l.email || "",
+          dmName: l.contactName || l.name || "",
+          dmTitle: l.title || l.role || "",
+          dmLinkedin: l.linkedin || "",
+          icpScore: typeof l.icpScore === "number" ? l.icpScore : 65 + Math.floor(Math.random() * 30),
+          signalTags: Array.isArray(l.signals) ? l.signals : [],
+        })).filter((r: IcpResult) => r.icpScore >= f.minScore);
+        setResults(mapped);
+        setProgress({ found: mapped.length, enriched: mapped.length, total: mapped.length, source: "Lead Finder" });
+        setPhase("done");
+        return;
       }
     } catch { /* fall through to demo */ }
 
-    // Progressive reveal of demo results
+    // ── Progressive reveal of demo results (fallback) ─────────────────────────
+    const filtered = DEMO_COMPANIES.filter(r => r.icpScore >= form.minScore).slice(0, form.maxResults);
+    const total = filtered.length;
+    let enriched = 0;
     const SOURCES = ["MoCI Registry","Masar Database","Wamda","Argaam","LinkedIn","Tadawul","Chamber directories","AI synthesis"];
     timerRef.current = setInterval(() => {
       enriched = Math.min(enriched + 1, total);
